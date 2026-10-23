@@ -10,7 +10,9 @@ struct WorkbookJournal {
     duckdb_connection connection;
     WorkbookId document;
     uint64_t base,head;
-    bool failed;
+    bool failed,bound;
+    unsigned version;
+    JournalOrigin origin;
 };
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message ? message : "Journal operation failed."); } return false;
@@ -48,17 +50,79 @@ static bool meta(WorkbookJournal *j,char **error) {
     duckdb_result r;
     if (!query(j,"SELECT version,document_high,document_low,base_revision,head_revision FROM duxcel_journal_meta",&r,error)) return false;
     static const duckdb_type types[]={DUCKDB_TYPE_UINTEGER,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT};
-    bool ok=duckdb_row_count(&r)==1 && shape(&r,types,5) && duckdb_value_uint32(&r,0,0)==1 &&
+    unsigned version=duckdb_row_count(&r)==1 ? duckdb_value_uint32(&r,0,0) : 0;
+    bool ok=duckdb_row_count(&r)==1 && shape(&r,types,5) && (version==1 || version==2) &&
         duckdb_value_uint64(&r,1,0)==j->document.high && duckdb_value_uint64(&r,2,0)==j->document.low && duckdb_value_uint64(&r,3,0)==j->base;
     uint64_t head=ok ? duckdb_value_uint64(&r,4,0) : 0; duckdb_destroy_result(&r);
     if (!ok || head<j->base) return fail(error,"Journal version, document or checkpoint lineage does not match.");
-    j->head=head; return true;
+    j->head=head; j->version=version; return true;
 }
 void workbook_journal_close(WorkbookJournal *j) {
     if (!j) return;
     if (j->connection) duckdb_disconnect(&j->connection);
     if (j->db) duckdb_close(&j->db);
-    free(j);
+    free((void *)j->origin.original_path); free(j);
+}
+static bool origin_valid(const JournalOrigin *o) {
+    if (!o || (!o->generation.high && !o->generation.low) || !o->baseline_bytes ||
+        (o->generation.high==o->parent.high && o->generation.low==o->parent.low) || !o->original_path) return false;
+    size_t length=0; while (length<=65536 && o->original_path[length]) length++;
+    const char *p=o->original_path;
+    return length<=65536 && (!length || p[0]=='/' || p[0]=='\\' || (length>2 && p[1]==':' && (p[2]=='/' || p[2]=='\\')));
+}
+static bool origin_equal(const JournalOrigin *a,const JournalOrigin *b) {
+    return a->generation.high==b->generation.high && a->generation.low==b->generation.low &&
+        a->parent.high==b->parent.high && a->parent.low==b->parent.low && a->baseline_bytes==b->baseline_bytes &&
+        !memcmp(a->baseline_sha256,b->baseline_sha256,DX_JOURNAL_DIGEST_BYTES) && !strcmp(a->original_path,b->original_path);
+}
+static bool load_origin(WorkbookJournal *j,char **error) {
+    if (j->version==1) return true;
+    duckdb_result r; if (!query(j,"SELECT * FROM duxcel_journal_origin LIMIT 0",&r,error)) return false;
+    const duckdb_type types[]={DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_BLOB,DUCKDB_TYPE_VARCHAR};
+    bool ok=shape(&r,types,7); duckdb_destroy_result(&r);
+    if (!ok) return fail(error,"Journal recovery origin schema is malformed.");
+    if (!query(j,"SELECT generation_high,generation_low,parent_high,parent_low,baseline_bytes,CASE WHEN octet_length(baseline_sha256)=32 THEN baseline_sha256 END,CASE WHEN octet_length(encode(original_path))<=65536 THEN encode(original_path) END FROM duxcel_journal_origin LIMIT 2",&r,error)) return false;
+    const duckdb_type bounded_types[]={DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_BLOB,DUCKDB_TYPE_BLOB};
+    ok=duckdb_row_count(&r)==1 && shape(&r,bounded_types,7); JournalOrigin origin={0};
+    if (ok) {
+        origin.generation=(WorkbookId){duckdb_value_uint64(&r,0,0),duckdb_value_uint64(&r,1,0)};
+        origin.parent=(WorkbookId){duckdb_value_uint64(&r,2,0),duckdb_value_uint64(&r,3,0)}; origin.baseline_bytes=duckdb_value_uint64(&r,4,0);
+        duckdb_blob digest=duckdb_value_blob(&r,5,0); duckdb_blob path=duckdb_value_blob(&r,6,0);
+        ok=digest.size==DX_JOURNAL_DIGEST_BYTES && (!path.size || path.data) && path.size<=65536 && (!path.size || !memchr(path.data,0,path.size));
+        if (ok) {
+            char *owned=dx_alloc(path.size+1); if (path.size) memcpy(owned,path.data,path.size); owned[path.size]=0;
+            memcpy(origin.baseline_sha256,digest.data,DX_JOURNAL_DIGEST_BYTES); origin.original_path=owned; ok=origin_valid(&origin);
+            if (!ok) free(owned);
+        }
+        duckdb_free(path.data); duckdb_free(digest.data);
+    }
+    duckdb_destroy_result(&r);
+    if (!ok) return fail(error,"Journal recovery origin is malformed.");
+    j->origin=origin; j->bound=true; return true;
+}
+const JournalOrigin *workbook_journal_origin(const WorkbookJournal *j) { return j && j->bound ? &j->origin : NULL; }
+bool workbook_journal_bind_origin(WorkbookJournal *j,const JournalOrigin *origin,char **error) {
+    if (!j || j->failed) return fail(error,"Reopen the journal before binding its recovery origin.");
+    if (!origin_valid(origin)) return fail(error,"Choose a valid generation, parent and checkpoint origin.");
+    if (j->bound) return origin_equal(&j->origin,origin) || fail(error,"Journal recovery origin does not match this checkpoint generation.");
+    if (j->head!=j->base) return fail(error,"A legacy nonempty journal needs explicit baseline validation; its origin cannot be inferred.");
+    duckdb_prepared_statement statement=NULL; duckdb_result r; bool transaction=false;
+    if (!execute(j,"BEGIN TRANSACTION",error)) goto failed;
+    transaction=true;
+    if (!execute(j,"CREATE TABLE duxcel_journal_origin(generation_high UBIGINT NOT NULL,generation_low UBIGINT NOT NULL,parent_high UBIGINT NOT NULL,parent_low UBIGINT NOT NULL,baseline_bytes UBIGINT NOT NULL,baseline_sha256 BLOB NOT NULL,original_path VARCHAR NOT NULL)",error) ||
+        !prepare(j,"INSERT INTO duxcel_journal_origin VALUES (?,?,?,?,?,?,?)",&statement,error)) goto failed;
+    bool bound=duckdb_bind_uint64(statement,1,origin->generation.high)==DuckDBSuccess && duckdb_bind_uint64(statement,2,origin->generation.low)==DuckDBSuccess &&
+        duckdb_bind_uint64(statement,3,origin->parent.high)==DuckDBSuccess && duckdb_bind_uint64(statement,4,origin->parent.low)==DuckDBSuccess &&
+        duckdb_bind_uint64(statement,5,origin->baseline_bytes)==DuckDBSuccess && duckdb_bind_blob(statement,6,origin->baseline_sha256,DX_JOURNAL_DIGEST_BYTES)==DuckDBSuccess &&
+        duckdb_bind_varchar(statement,7,origin->original_path)==DuckDBSuccess;
+    if (!bound) { fail(error,"Cannot bind the checkpoint origin."); goto failed; }
+    if (!run(statement,&r,error)) goto failed; duckdb_destroy_result(&r); duckdb_destroy_prepare(&statement);
+    if (!execute(j,"UPDATE duxcel_journal_meta SET version=2",error) || !execute(j,"COMMIT",error)) goto failed;
+    j->origin=*origin; j->origin.original_path=dx_strdup(origin->original_path); j->bound=true; j->version=2; return true;
+failed:
+    if (statement) duckdb_destroy_prepare(&statement);
+    if (transaction) execute(j,"ROLLBACK",NULL);
+    j->failed=true; return false;
 }
 static bool cell_shape(duckdb_result *r);
 static void discard_failed_creation(const char *path,bool created) {
@@ -92,8 +156,10 @@ bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId doc
         if (!ok) { duckdb_destroy_prepare(&s); fail(error,"Cannot bind journal lineage."); goto rollback; }
         ok=run(s,&r,error); duckdb_destroy_prepare(&s); if (!ok) goto rollback; duckdb_destroy_result(&r);
         if (!execute(j,"COMMIT",error)) goto rollback;
-    } else if (tables!=2) { fail(error,"This file is not a private Duxcel journal."); goto failed; }
+    } else if (tables!=2 && tables!=3) { fail(error,"This file is not a private Duxcel journal."); goto failed; }
     if (!meta(j,error)) goto failed;
+    if (tables && tables!=(j->version==2 ? 3u : 2u)) { fail(error,"Journal table inventory does not match its version."); goto failed; }
+    if (!load_origin(j,error)) goto failed;
     if (!query(j,"SELECT * FROM duxcel_journal_cells LIMIT 0",&r,error)) goto failed;
     ok=cell_shape(&r); duckdb_destroy_result(&r);
     if (!ok) { fail(error,"Journal cell schema does not match this version."); goto failed; }

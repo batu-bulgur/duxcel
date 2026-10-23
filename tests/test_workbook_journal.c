@@ -154,10 +154,45 @@ static int process_mode(int argc,char **argv) {
     CHECK(workbook_journal_append(j,edits,2,control,&receipt,&error)); CHECK(receipt.durable_revision==2);
     workbook_journal_close(j); puts("PASS: journal commit"); return 0;
 }
+static void origins(const char *path) {
+    WorkbookJournal *j=NULL; char *error=NULL; CHECK(workbook_journal_open(&j,path,document,0,&error)); CHECK(!workbook_journal_origin(j));
+    char locator[]="/tmp/İstanbul.dxls";
+    JournalOrigin origin={.generation={UINT64_MAX,UINT64_C(9007199254740993)},.parent={UINT64_MAX,9},.baseline_bytes=UINT64_C(9007199254740997),.original_path=locator};
+    memset(origin.baseline_sha256,'x',32); JournalOrigin bad=origin; bad.parent=bad.generation;
+    CHECK(!workbook_journal_bind_origin(j,&bad,&error) && error && !workbook_journal_origin(j)); free(error); error=NULL;
+    CHECK(workbook_journal_bind_origin(j,&origin,&error)); locator[1]='X'; CHECK(!strcmp(workbook_journal_origin(j)->original_path,"/tmp/İstanbul.dxls")); locator[1]='t';
+    CHECK(workbook_journal_bind_origin(j,&origin,&error));
+    for (unsigned i=0;i<5;i++) {
+        bad=origin;
+        if (i==0) bad.generation.low++; else if (i==1) bad.parent.low++; else if (i==2) bad.baseline_bytes++; else if (i==3) bad.baseline_sha256[31]++; else bad.original_path="/tmp/other.dxls";
+        CHECK(!workbook_journal_bind_origin(j,&bad,&error) && error && !workbook_journal_durable_revision(j)); free(error); error=NULL;
+    }
+    JournalCellEdit e=edit(1,"","bound"); JournalReceipt receipt={0}; CHECK(workbook_journal_append(j,&e,1,(JournalControl){0},&receipt,&error));
+    workbook_journal_close(j); j=NULL; CHECK(workbook_journal_open(&j,path,document,0,&error));
+    const JournalOrigin *loaded=workbook_journal_origin(j); CHECK(loaded && loaded->generation.high==UINT64_MAX && loaded->generation.low==origin.generation.low && loaded->parent.low==9);
+    CHECK(loaded->baseline_bytes==origin.baseline_bytes && !memcmp(loaded->baseline_sha256,origin.baseline_sha256,32) && !strcmp(loaded->original_path,locator));
+    CHECK(workbook_journal_bind_origin(j,&origin,&error) && workbook_journal_durable_revision(j)==1);
+    CHECK(workbook_journal_append(j,&e,1,(JournalControl){0},&receipt,&error) && receipt.replayed==1 && !receipt.appended);
+    workbook_journal_close(j); j=NULL;
+    const char *malformed[]={"UPDATE duxcel_journal_origin SET baseline_sha256='short'::BLOB", "INSERT INTO duxcel_journal_origin SELECT * FROM duxcel_journal_origin",
+        "UPDATE duxcel_journal_origin SET generation_high=0,generation_low=0", "UPDATE duxcel_journal_origin SET original_path='relative.dxls'",
+        "UPDATE duxcel_journal_origin SET original_path='/tmp/'||chr(0)||'hidden'", "ALTER TABLE duxcel_journal_origin ADD COLUMN unknown INTEGER"};
+    for (size_t i=0;i<sizeof(malformed)/sizeof(*malformed);i++) {
+        sql(path,malformed[i]); CHECK(!workbook_journal_open(&j,path,document,0,&error) && error && !j); free(error); error=NULL;
+        CHECK(!unlink(path)); CHECK(workbook_journal_open(&j,path,document,0,&error)); CHECK(workbook_journal_bind_origin(j,&origin,&error)); workbook_journal_close(j); j=NULL;
+    }
+    CHECK(!unlink(path)); CHECK(workbook_journal_open(&j,path,document,0,&error));
+    origin.original_path=""; CHECK(workbook_journal_bind_origin(j,&origin,&error)); workbook_journal_close(j); j=NULL;
+    CHECK(workbook_journal_open(&j,path,document,0,&error)); CHECK(workbook_journal_origin(j) && !*workbook_journal_origin(j)->original_path);
+    workbook_journal_close(j); j=NULL; CHECK(!unlink(path)); CHECK(workbook_journal_open(&j,path,document,0,&error));
+    CHECK(workbook_journal_append(j,&e,1,(JournalControl){0},&receipt,&error));
+    CHECK(!workbook_journal_bind_origin(j,&origin,&error) && error && !workbook_journal_origin(j)); free(error); workbook_journal_close(j); CHECK(!unlink(path));
+}
 int main(int argc,char **argv) {
     if (argc>1) return process_mode(argc,argv);
     char directory[]="build/tests/journal-XXXXXX"; CHECK(mkdtemp(directory));
     char *path=dx_printf("%s/edits.duckdb",directory),*limit=dx_printf("%s/limit.duckdb",directory),*batch=dx_printf("%s/batch.duckdb",directory),*other=dx_printf("%s/other.duckdb",directory);
+    char *origin_path=dx_printf("%s/origin.duckdb",directory); origins(origin_path); free(origin_path);
     transactions(path); limits(limit); batching(batch);
     WorkbookJournal *j=NULL; char *error=NULL;
     sql(other,"CREATE TABLE unrelated(a INTEGER)"); CHECK(!workbook_journal_open(&j,other,document,0,&error)); CHECK(error && !j); free(error); error=NULL;

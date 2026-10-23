@@ -5,6 +5,13 @@
 #define DX_JOURNAL_READ_BATCH 31u /* Worst-case text spans stay below 4 MiB/page. */
 #define DX_JOURNAL_BATCH_BYTES (4u*1024u*1024u)
 typedef struct WorkbookJournal WorkbookJournal;
+#define DX_JOURNAL_DIGEST_BYTES 32u
+typedef struct {
+    WorkbookId generation,parent;
+    uint64_t baseline_bytes;
+    unsigned char baseline_sha256[DX_JOURNAL_DIGEST_BYTES];
+    const char *original_path; /* Absolute named-workbook locator, or empty; borrowed input/handle-owned output. */
+} JournalOrigin;
 typedef struct {
     WorkbookId operation;
     uint64_t previous_revision,revision,sheet,row;
@@ -31,6 +38,14 @@ typedef bool (*JournalVisitor)(void *context,const JournalCellEdit *borrowed,cha
    W05 sparse text/clear edits, not typed cells, paste, lifecycle or full history. */
 bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base_revision,char **error);
 void workbook_journal_close(WorkbookJournal *journal);
+/* Bind before the first edit, transactionally. Exact retries are idempotent;
+   an existing origin cannot be replaced, nor inferred from an admitted clock.
+   Engine failure poisons the handle; reopen and retry the same origin. An old
+   unbound nonempty tail cannot be upgraded without validating its baseline. */
+bool workbook_journal_bind_origin(WorkbookJournal *journal,const JournalOrigin *origin,char **error);
+/* NULL means legacy/unbound. Borrowed metadata lives until close. Recovery must
+   additionally verify the actual checkpoint bytes/digest before replay. */
+const JournalOrigin *workbook_journal_origin(const WorkbookJournal *journal);
 /* Ordered bounded batch, all new entries in one transaction. Exact operation-ID
    retries replay receipts; changed payload, revision gaps and reused revisions
    are rejected. A receipt is published only after successful COMMIT. SQL/commit

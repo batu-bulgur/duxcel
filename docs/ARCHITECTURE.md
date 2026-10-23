@@ -461,3 +461,12 @@ state with that snapshot, in addition to chronological action order. Failed or
 cancelled Save does not adopt a path or clear dirty/recovery state; an older
 successful Save cannot close a newer dirty document. Snapshot ownership ends
 in `reply_free`; no App pointers cross the worker boundary.
+
+The native journal accepts v1 unbound archives and v2 immutable origins. Binding
+an empty journal transactionally stores generation/parent IDs, checkpoint byte
+length and SHA-256, and an owned bounded original-workbook locator. It cannot
+replace an existing origin or infer one for a nonempty legacy tail. Metadata
+reads bound row count and text/blob sizes before native allocation; path bytes
+are read as BLOB to reject embedded NUL instead of silently truncating. Recovery
+must still hash the actual checkpoint and compare the complete origin before
+replay. W10a2 owns the real session fingerprint/admission integration.

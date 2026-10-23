@@ -140,7 +140,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W09b1 · P0 · Complete | Preserve ordered worker Save receipts; W09a. | Latest-wins read replacement/cancel cannot erase an admitted Save or its unpublished reply. Progress and cooperative cancellation are mutex-owned; publication closes cancellation atomically. |
 | W09b2 · P0 · Complete | Compact Save progress/cancel UI and complete admission fence; W09b1. | Real keyboard/pointer cancellation and publication races, narrow/scaled panel, newer content remains dirty and pending close stays guarded. |
 | W10 · P0 · In progress | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. Persist generation/parent identity and baseline/journal linkage; two states sharing an admitted clock cannot be ordered by mtime alone. RE02; A14. |
-| W10a · P0 · Next | Durable checkpoint/journal origin binding; W09. | Persist generation/parent identity and baseline digest, reject cross-paired journals even with matching document/revision; legacy unbound tails stay conservative. |
+| W10a · P0 · In progress | Durable checkpoint/journal origin binding; W09. | Persist generation/parent identity and baseline digest, reject cross-paired journals even with matching document/revision; legacy unbound tails stay conservative. |
+| W10a1 · P0 · Complete | Immutable journal origin codec; W09. | v2 generation/parent IDs, baseline byte length/SHA-256 and original locator bind atomically before the first edit. Exact retry is idempotent; conflicts/malformed metadata reject; legacy tails cannot infer a baseline. |
+| W10a2 · P0 · Next | Checkpoint fingerprint and writer origin admission; W10a1. | Real prepared checkpoint bytes bind to the queued generation before acknowledgement; rotation records the parent. Preparation/binding retry retains payloads and exact origin. |
 | W10b · P0 · Queued | Bounded recovery discovery and candidate replay; W10a. | Validate known private artifacts, baseline and contiguous tail into an isolated candidate with progress/cancel. Equal clocks do not order branches; preserve all candidates on failure. |
 | W10c · P0 · Queued | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
@@ -278,6 +280,16 @@ sanitizer variant, ordered-worker barriers and 18 real App stages/27 checks
 failed Save. The related original 18-stage checkpoint workflow passes in 6.784s;
 56 runner/catalog/benchmark/web-inventory contracts pass. `save-ui` is the GUI-only
 iteration plan. Captures/receipts stay ignored; no human acceptance is claimed.
+
+W10a1 complete: private journal v2 atomically binds immutable generation/parent,
+checkpoint size/SHA-256 and an owned original locator before any edits. Exact
+origin retries remain valid after appends; conflicting origins and inferred
+upgrades of nonempty legacy tails reject. v1 remains readable. Bounded schema/
+cardinality/blob/path validation rejects malformed rows, duplicate origins and
+embedded NUL locators without silent text truncation. The focused journal gate
+passes 255 assertions per optimized/sanitizer variant plus its existing kill/IO
+matrix (12.950s). This is a storage primitive; real checkpoint fingerprints and
+session admission remain W10a2, startup recovery remains W10b/W10c.
 
 ### Owned data, refresh and complete analytical results
 

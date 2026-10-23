@@ -139,3 +139,8 @@ publication, failure preservation and Save R/R+1 with a pending Quit. The R+1
 producer is the actual C cell command while physical editing stays IO-guarded.
 `save_fence.c` also catches view/column width, definition, format and exact sparse
 value changes that are not represented by the admitted command clock alone.
+
+The journal primitive's default test now covers v2 origin ownership, full uint64
+IDs/sizes, exact retries after appends, generation/parent/digest/locator conflicts,
+unnamed-workbook origins, malformed rows/schema/digests/embedded NUL and refusal
+to infer an origin for a legacy nonempty tail. No startup recovery UI is implied.
