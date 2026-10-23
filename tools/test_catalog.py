@@ -58,6 +58,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-catalog": Feature((), "",
+        ("python3 tools/test.py feature --feature recovery-owner", "python3 tools/test.py feature --feature recovery-candidate"),
+        ("src/platform/directory.c", "src/workbook/recovery_catalog.c", "src/workbook/recovery_catalog.h"), ("directory_cursor", "recovery_catalog")),
     "recovery-candidate": Feature((), "",
         ("python3 tools/test.py feature --feature recovery-owner", "python3 tools/test.py feature --feature workbook-journal"),
         ("src/workbook/recovery.c", "src/workbook/recovery.h", "src/workbook/journal.c: metadata discovery"), ("workbook_recovery",)),

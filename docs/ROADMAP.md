@@ -143,14 +143,17 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10a · P0 · Complete | Durable checkpoint/journal origin binding; W09. | Persist generation/parent identity and baseline digest, reject cross-paired journals even with matching document/revision; legacy unbound tails stay conservative. |
 | W10a1 · P0 · Complete | Immutable journal origin codec; W09. | v2 generation/parent IDs, baseline byte length/SHA-256 and original locator bind atomically before the first edit. Exact retry is idempotent; conflicts/malformed metadata reject; legacy tails cannot infer a baseline. |
 | W10a2 · P0 · Complete | Checkpoint fingerprint and writer origin admission; W10a1. | Real prepared checkpoint bytes bind to the queued generation before acknowledgement; rotation records the parent. Preparation/binding retry retains payloads and exact origin. |
-| W10b · P0 · In progress | Bounded recovery discovery and candidate replay; W10a. | Validate known private artifacts, baseline and contiguous tail into an isolated candidate with progress/cancel. Equal clocks do not order branches; preserve all candidates on failure. |
+| W10b · P0 · Complete | Bounded recovery discovery and candidate replay; W10a. | Validate known private artifacts, baseline and contiguous tail into an isolated candidate with progress/cancel. Equal clocks do not order branches; preserve all candidates on failure. |
 | W10b1 · P0 · Complete | Exclusive generation ownership and read-only journal access; W10a. | Another live process/instance cannot claim an active generation. Recovery inspection never creates or appends a journal; process death releases ownership. |
 | W10b1a · P0 · Complete | OS-backed private generation lease; W10a. | Hold ownership from allocation through joined cleanup; another handle/process sees busy, and process death releases it. Acquisition/release never replaces the lock file; rejected paths/content stay intact. |
 | W10b1b · P0 · Complete | Read-only journal inspection and interrupted v2 tail proof; W10b1a. | No create/bind/append through inspection; real pre/post-COMMIT kills retain a readable old/new complete state and immutable origin without checkpointing recovery material. |
-| W10b2 · P0 · In progress | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
+| W10b2 · P0 · Complete | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
 | W10b2a · P0 · Complete | Isolated verified recovery candidate; W10b1. | Validate closed baseline and exact-before-image bounded tail projection without touching the live model/global draft or history issuers. Hold ownership; failure/cancel preserves all material, checkpoint inspection marks its deferred suffix. |
-| W10b2b · P0 · Next | Bounded native recovery catalog; W10b2a. | Enumerate known direct generations off the UI thread, skip active owners, expose bound/unbound/incomplete entries and ambiguous branches without pruning or mtime-based lineage inference. |
-| W10c · P0 · Queued | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
+| W10b2b · P0 · Complete | Bounded native recovery catalog; W10b2a. | Enumerate known direct generations off the UI thread, skip active owners, expose bound/unbound/incomplete entries and ambiguous branches without pruning or mtime-based lineage inference. |
+| W10c · P0 · In progress | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
+| W10c1 · P0 · Next | Background recovery requests and owned page/candidate results; W10b. | Keep filesystem/engine work off App frames, cap row/result ownership, support page continuation and cooperative cancel/join without dropping leases or late results. |
+| W10c2 · P0 · Queued | Startup/manual recovery choice and guarded adoption; W10c1. | Restore the complete candidate or explicitly fork from checkpoint; deferred tails survive cancellation, new edits and Save As. Current dirty documents stay guarded; original locators are not automatic write targets. Narrow/scaled hidden App gate. |
+| W10c3 · P0 · Queued | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
@@ -353,6 +356,23 @@ across preparation/cancel. The updated journal gate passes 280 assertions plus
 18-stage checkpoint App passes in 6.658s (15.964s gate). All 56 tool contracts pass.
 Preparation currently needs the macOS digest adapter; discovery/App adoption is
 still W10b2b/W10c, and older folders without an existing lease stay untouched.
+
+W10b2b/W10b complete: the native catalog streams direct generation folders with
+one owner/cursor and a 1–128 physical-entry step budget. Visitor pause supports
+bounded pages; cooperative cancel preserves the cursor and collected rows.
+Missing roots stay absent. Brief metadata leases skip active owners; bound,
+unbound, checkpoint-only, incomplete, invalid and pre-lease legacy entries remain
+separate. Equal document/revision branches are never collapsed or ordered by
+mtime, and scanning never prunes files. WAL/file/directory aliases are refused;
+metadata rows borrow storage only until the visitor returns.
+The `recovery-catalog` gate passes 20 directory and 101 catalog assertions per
+optimized/sanitizer configuration (4.838s), including two same-clock branches,
+active ownership, pause/cancel/resume, legacy/broken sidecars and byte preservation.
+The related candidate hardening passes 228 assertions per variant (17.609s),
+including dangling WAL aliases; 56 tool contracts pass (8.882s). Native-only
+sources remain excluded from Wasm. POSIX iteration is validated on macOS;
+Windows enumeration currently reports unavailable. Background App requests and
+startup adoption now move to W10c; no recovery UI completion is claimed.
 
 ### Owned data, refresh and complete analytical results
 

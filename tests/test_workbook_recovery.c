@@ -88,7 +88,12 @@ static void normal(Fixture *f) {
     CHECK(workbook_recovery_prepare(f->root,f->name,RECOVERY_REPLAY_TAIL,(WorkbookRecoveryControl){0},&candidate,&error)==RECOVERY_UNBOUND && !candidate && error); free(error); error=NULL; CHECK(!unlink(linked));
     file=fopen(linked,"wb"); CHECK(file && !fclose(file)); char *journal_wal=dx_printf("%s.wal",f->journal); CHECK(!symlink("hardlink",journal_wal));
     CHECK(workbook_recovery_prepare(f->root,f->name,RECOVERY_REPLAY_TAIL,(WorkbookRecoveryControl){0},&candidate,&error)==RECOVERY_UNBOUND && !candidate && error); free(error); error=NULL;
-    CHECK(!unlink(journal_wal) && !unlink(linked)); free(journal_wal); free(linked);
+    CHECK(!unlink(journal_wal) && !unlink(linked));
+    CHECK(!symlink("missing-sidecar",journal_wal));
+    CHECK(workbook_recovery_prepare(f->root,f->name,RECOVERY_REPLAY_TAIL,(WorkbookRecoveryControl){0},&candidate,&error)==RECOVERY_UNBOUND && !candidate && error); free(error); error=NULL; CHECK(!unlink(journal_wal));
+    char *baseline_wal=dx_printf("%s.wal",f->checkpoint); CHECK(!symlink("missing-sidecar",baseline_wal));
+    CHECK(workbook_recovery_prepare(f->root,f->name,RECOVERY_OPEN_CHECKPOINT,(WorkbookRecoveryControl){0},&candidate,&error)==RECOVERY_FAILED && !candidate && error); free(error); error=NULL; CHECK(!unlink(baseline_wal));
+    free(baseline_wal); free(journal_wal); free(linked);
     unchanged(f->checkpoint,baseline); unchanged(f->journal,tail);
 }
 static void bad_tail(Fixture *f) {

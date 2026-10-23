@@ -145,7 +145,7 @@ must still hash the actual checkpoint and compare the complete origin before
 replay. The session now supplies the actual closed-checkpoint fingerprint and immutable
 parent/generation identity before opening the write lane on native macOS.
 Missing/conflicting origin or engine failure retains pending records for exact
-retry; no failed metadata binding can acknowledge an edit. Startup discovery/choice remains W10b/W10c; generation ownership uses the lease below.
+retry; no failed metadata binding can acknowledge an edit. Startup choice/adoption remains W10c; generation ownership uses the lease below.
 
 `src/workbook/journal_queue.c` is the staged native asynchronous owner. The
 producer reserves a bounded immutable record before model mutation and either
@@ -190,7 +190,7 @@ aliases, protecting named artifacts from later cleanup. Only fixed files in
 current-session owned directories are discarded, never an external source/named workbook or unknown
 recovery material. Explicit Don't Save discards the current session; a successful current-state Save
 and clean file replacement/close dispose covered working copies. Unexpected dirty shutdown
-retains committed files. Startup candidate discovery/choice is still W10, and
+retains committed files. The catalog/candidate backend is implemented; startup choice/adoption is W10c, and
 session history is not persisted until W12. Linked-source availability remains
 the existing file-mode policy.
 
@@ -230,8 +230,16 @@ is dirty with no Save path; the original locator is informational. Checkpoint
 inspection explicitly marks deferred/unknown or unbound tails and cannot silently
 resume them. A take operation transfers only the model; the caller retains the
 candidate's lease/info until its lineage choice is resolved. The existing digest
-adapter currently makes this preparation available on native macOS. Discovery
-and App adoption remain separate integration slices.
+adapter currently makes this preparation available on native macOS. `recovery_catalog.c` now streams direct generation rows in 1–128-entry steps.
+It acquires a brief metadata lease, skips active owners, offers bound/unbound/
+checkpoint-only/incomplete/invalid/older entries and releases all borrowed row
+storage after its visitor returns. Pause supports bounded pages; cancellation
+retains the cursor; enumeration failure requires a fresh scan. There is no
+recursion, full-root filename inventory, pruning, sorting or mtime-based branch
+inference. The POSIX cursor/no-follow metadata boundary is in
+`src/platform/directory.c`; Windows iteration currently reports unavailable.
+Missing roots are completed empty scans without filesystem creation. Actual App
+background requests and startup/manual adoption remain W10c.
 
 Native `workbook_save_controlled` (`src/workbook/save.h`) borrows an immutable
 snapshot and a synchronous, bounded saving-thread callback. Progress counts
@@ -377,7 +385,7 @@ Sources: [grid.c](../src/grid/grid.c), [sparse cells](../src/workbook/cells.c), 
 | Failed Open / Save | Load builds a temporary candidate Workbook and replaces the current one only after successful validation. Save uses transactions/rollback. This is not autosave. |
 | Normal native Close / Quit | `request_document_action` commits an open cell edit and offers Save / Don't Save / Cancel for dirty documents. Pending Quit waits for successful Save. |
 | Browser workbook Open / Save | `workbook_browser.c` explicitly returns unavailable. Shared metadata-reader tests do not establish the integrated feature. Browser tab closing also has host constraints. |
-| Local recovery / startup restoration | Manual cells have checkpoint-backed transactional journaling and native isolated candidate preparation. Startup discovery/choice is still W10b/W10c; normal launch currently creates a blank sheet. Named-file autosave is separate. |
+| Local recovery / startup restoration | Manual cells have checkpoint-backed transactional journaling and native isolated candidate preparation. Startup choice/adoption is still W10c; normal launch currently creates a blank sheet. Named-file autosave is separate. |
 | Undo and document version history | Undo/Redo are bounded RAM snapshots. `workbook_snapshot` excludes them and Pages; reopening does not restore the previous session's undo history. |
 | External source data | CSV/Parquet/DuckDB contents are not automatically embedded in the workbook. Source references and supported identity proofs are saved; moving/changing a file requires relinking or reverification. |
 
@@ -455,7 +463,7 @@ DuckLake provides [data inlining](https://ducklake.select/docs/stable/duckdb/adv
 
 Distinguish three promises: the UI accepted the edit; the edit was durably written to recovery storage; the named workbook file was saved. One `dirty` boolean cannot express all three. Track document identity, current revision, recoverable revision and saved revision.
 
-The current manual-cell seam already prepares owned checkpoints and journals ordered commands through DuckDB with pending/durable feedback. There is no artificial debounce; measured bounded natural batching and post-COMMIT receipts define the implemented contract above. General command families, startup discovery/choice, retained history and compaction remain later roadmap work.
+The current manual-cell seam already prepares owned checkpoints and journals ordered commands through DuckDB with pending/durable feedback. There is no artificial debounce; measured bounded natural batching and post-COMMIT receipts define the implemented contract above. General command families, startup choice/adoption, retained history and compaction remain later roadmap work.
 
 Recovery records are not caches and must not live under `build/` or temporary query-spill directories. Store them in the platform's durable user-data location under document/session identities. Startup reads a complete snapshot plus committed continuation records, handles missing/truncated tails safely and resolves source access separately. Acceptance includes disk full, permission failures, writer shutdown and preventing old recovery data from being applied to the wrong workbook. Define how explicit Don't Save retires that session's recovery records.
 

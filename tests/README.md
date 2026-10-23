@@ -181,3 +181,14 @@ while candidate projection runs; the candidate cannot issue live history/draft
 IDs or retain fabricated durable Undo. DB/checkpoint bytes are preserved. This
 controller uses the macOS streaming digest adapter; no App/desktop launch is
 part of this backend gate. Its related `recovery-owner` GUI remains registered.
+
+`make test-feature FEATURE=recovery-catalog` runs `test_directory_cursor.c` and
+`test_recovery_catalog.c` against native streaming iteration and real session
+artifacts. It covers no-create empty roots, borrowed row/cursor ownership,
+pause/cancel/resume and step limits, no-follow symlinks/hardlinks, active leases,
+two distinct same-document/revision branches, older/unbound and malformed/
+incomplete artifacts, and unchanged checkpoint/journal bytes. It never traverses
+unknown folders or prunes anything. POSIX iteration is validated on macOS; the
+Windows adapter currently reports unavailable. The named `recovery-candidate`
+interaction checks shared no-follow/dangling-WAL handling. Both native modules
+stay excluded from the shared-C browser source inventory.

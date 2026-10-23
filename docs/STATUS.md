@@ -265,4 +265,12 @@ queries, delete artifacts or automatically restore an original path. Checkpoint
 inspection marks a deferred/unknown suffix; unbound tails cannot replay. Scoped
 optimized/sanitizer tests cover fingerprints, corrupt tails, cancellation and a
 concurrent live edit/Undo. This remains a native backend capability: recovery
-catalog/startup choice and App adoption are still W10b2b/W10c; durable Undo is W12.
+startup choice and App adoption are still W10c; durable Undo is W12.
+
+The native recovery catalog now streams bounded metadata pages without creating a
+missing root, recursing, pruning artifacts or inferring lineage from timestamps.
+It skips active owners and preserves distinct same-clock branches; older/unbound,
+incomplete and invalid folders remain explicit. Scoped directory/catalog and
+candidate-sidecar optimized/sanitizer gates pass. This remains backend work:
+background App requests and startup/manual recovery UI are W10c. POSIX iteration
+is validated on macOS; Windows enumeration currently returns unavailable.

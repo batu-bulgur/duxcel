@@ -2,6 +2,7 @@
 #include "journal.h"
 #include "../platform/platform.h"
 #include "../platform/file_lease.h"
+#include "../platform/directory.h"
 #include "../data/source_digest.h"
 #include <stdlib.h>
 #include <string.h>
@@ -70,11 +71,11 @@ WorkbookRecoveryResult workbook_recovery_prepare(const char *root,const char *ge
     if (claim!=DX_FILE_LEASE_ACQUIRED) { if (claim==DX_FILE_LEASE_BUSY) { result=RECOVERY_BUSY; fail(error,"This recovery generation is currently in use."); } goto done; }
     char *inspection_error=NULL; SourceFileIdentity journal_identity={0}; char journal_detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
     bool regular=source_file_identity(c->journal,&journal_identity,journal_detail)==SOURCE_DIGEST_OK && journal_identity.links==1;
-    char *journal_wal=dx_printf("%s.wal",c->journal),*present_wal=dx_absolute_path(journal_wal);
-    if (present_wal) {
-        SourceFileIdentity wal_identity={0}; regular=regular && source_file_identity(journal_wal,&wal_identity,journal_detail)==SOURCE_DIGEST_OK && wal_identity.links==1;
+    char *journal_wal=dx_printf("%s.wal",c->journal); DxPathKind wal_kind=dx_path_kind(journal_wal);
+    if (wal_kind!=DX_PATH_MISSING) {
+        SourceFileIdentity wal_identity={0}; regular=regular && wal_kind==DX_PATH_FILE && source_file_identity(journal_wal,&wal_identity,journal_detail)==SOURCE_DIGEST_OK && wal_identity.links==1;
     }
-    free(present_wal); free(journal_wal);
+    free(journal_wal);
     if (!regular && mode==RECOVERY_REPLAY_TAIL) { result=RECOVERY_UNBOUND; fail(error,*journal_detail ? journal_detail : "The recovery journal is not an independent regular file."); goto done; }
     bool inspected=regular && workbook_journal_inspect(&journal,c->journal,&inspection_error);
     JournalSummary summary=workbook_journal_summary(journal); const JournalOrigin *origin=summary.origin;
@@ -86,8 +87,8 @@ WorkbookRecoveryResult workbook_recovery_prepare(const char *root,const char *ge
     c->info.baseline_revision=summary.base_revision; c->info.head_revision=summary.declared_head_revision;
     c->original=dx_strdup(origin ? origin->original_path : "");
     if (origin) { c->info.generation=origin->generation; c->info.parent=origin->parent; r.total=origin->baseline_bytes; }
-    char *wal=dx_printf("%s.wal",c->checkpoint),*unfinished=dx_absolute_path(wal); free(wal);
-    if (unfinished) { free(unfinished); fail(error,"The recovery checkpoint has an unfinished WAL; its closed baseline cannot be verified."); goto done; }
+    char *wal=dx_printf("%s.wal",c->checkpoint); DxPathKind baseline_wal=dx_path_kind(wal); free(wal);
+    if (baseline_wal!=DX_PATH_MISSING) { fail(error,"The recovery checkpoint has an unfinished or inaccessible WAL; its closed baseline cannot be verified."); goto done; }
     SourceDigest digest={0}; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0}; SourceFileIdentity observed={0};
     if (source_file_identity(c->checkpoint,&observed,detail)!=SOURCE_DIGEST_OK || observed.links!=1) { fail(error,*detail ? detail : "Cannot inspect the recovery checkpoint."); goto done; }
     if (origin && observed.size!=origin->baseline_bytes) { fail(error,"The recovery checkpoint size does not match its journal origin."); goto done; }
