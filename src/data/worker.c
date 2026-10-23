@@ -171,6 +171,29 @@ static bool record_selection_payload_valid(const QueryJob *job,const QueryReply 
     for (size_t role=0;role<4;role++) if (job->pivot.counts[role]) return false;
     return true;
 }
+#ifdef DUXCEL_FEATURE_WORKBOOK_SAVE
+extern void dx_test_save_checkpoint(QueryWorker *worker,WorkbookSaveProgress progress);
+#endif
+static bool save_update(void *context,WorkbookSaveProgress progress) {
+    QueryWorker *w=context; dx_lock(&w->mutex); w->save.progress=progress;
+    bool proceed=!w->save.cancel_requested && !w->stop;
+    if (progress.phase==SAVE_PHASE_PUBLISH || progress.phase==SAVE_PHASE_COMPLETE) w->save.cancellable=false;
+    dx_unlock(&w->mutex);
+#ifdef DUXCEL_FEATURE_WORKBOOK_SAVE
+    dx_test_save_checkpoint(w,progress);
+#endif
+    return proceed;
+}
+WorkerSaveState worker_save_state(QueryWorker *w) {
+    if (!w || !w->started) return (WorkerSaveState){0};
+    dx_lock(&w->mutex); WorkerSaveState state=w->save; dx_unlock(&w->mutex); return state;
+}
+bool worker_save_cancel(QueryWorker *w) {
+    if (!w || !w->started) return false;
+    dx_lock(&w->mutex); bool accepted=w->save.active && w->save.cancellable;
+    if (accepted) w->save.cancel_requested=true;
+    dx_unlock(&w->mutex); return accepted;
+}
 static void *worker_main(void *ptr) {
     QueryWorker *w = ptr;
     for (;;) {
@@ -193,7 +216,7 @@ static void *worker_main(void *ptr) {
         else if (j->include_chart_other && (j->kind!=JOB_PIVOT || j->is_table)) r->error=dx_strdup("Chart Other readouts require an analytical Pivot job.");
         else if (j->kind==JOB_VERIFY_SOURCE) verify_source(w,j,r);
         else if (j->kind==JOB_COLLECT_RECORDS && !record_selection_payload_valid(j,r)) r->error=dx_strdup("Record collection requires one bounded raw-source range and its captured native identity without analytical payloads.");
-        else if (j->kind==JOB_SAVE) workbook_save(j->workbook,r->path,&r->error);
+        else if (j->kind==JOB_SAVE) r->save_result=workbook_save_controlled(j->workbook,r->path,(WorkbookSaveControl){save_update,w},&r->error);
         else if (j->kind==JOB_LOAD) {
             r->workbook=dx_alloc(sizeof(*r->workbook)); workbook_init(r->workbook);
             workbook_load(r->workbook,r->path,&r->error);
@@ -265,14 +288,18 @@ bool worker_start(QueryWorker *w) {
 void worker_submit(QueryWorker *w, QueryJob *j) {
     bool format=format_job_kind(j->kind),definition_rejected=format && !format_definition_fits(j);
     size_t reserved=format ? (definition_rejected || j->workbook || j->copy || j->statistics ? SIZE_MAX : DX_WORKER_FORMAT_RESERVED_BYTES) : 0;
-    dx_lock(&w->mutex); w->latest_id = j->id;
+    dx_lock(&w->mutex);
+    if (w->save.active) { dx_unlock(&w->mutex); job_free(j); return; }
+    if (j->kind==JOB_SAVE) w->save=(WorkerSaveState){.id=j->id,.active=true,.cancellable=true};
+    w->latest_id = j->id;
     job_free(w->pending); w->pending = j; reply_free(w->reply); w->reply = NULL;
     w->pending_format_reserved=reserved; w->pending_format_definition_rejected=definition_rejected; w->published_format_owned=0;
     if (w->running && w->db.connection) duckdb_interrupt(w->db.connection);
     dx_signal(&w->condition); dx_unlock(&w->mutex);
 }
 QueryReply *worker_poll(QueryWorker *w) {
-    dx_lock(&w->mutex); QueryReply *r = w->reply; w->reply = NULL; w->published_format_owned=0; dx_unlock(&w->mutex); return r;
+    dx_lock(&w->mutex); QueryReply *r = w->reply; w->reply = NULL;
+    if (r && r->kind==JOB_SAVE) memset(&w->save,0,sizeof(w->save)); w->published_format_owned=0; dx_unlock(&w->mutex); return r;
 }
 WorkerFormatUsage worker_format_usage(QueryWorker *w) {
     if (!w || !w->started) return (WorkerFormatUsage){0};
@@ -282,7 +309,9 @@ WorkerFormatUsage worker_format_usage(QueryWorker *w) {
     dx_unlock(&w->mutex); return usage;
 }
 void worker_cancel(QueryWorker *w) {
-    dx_lock(&w->mutex); w->latest_id++; job_free(w->pending); w->pending = NULL;
+    dx_lock(&w->mutex);
+    if (w->save.active) { if (w->save.cancellable) w->save.cancel_requested=true; dx_unlock(&w->mutex); return; }
+    w->latest_id++; job_free(w->pending); w->pending = NULL;
     reply_free(w->reply); w->reply = NULL;
     w->pending_format_reserved=w->published_format_owned=0; w->pending_format_definition_rejected=false;
     if (w->running && w->db.connection) duckdb_interrupt(w->db.connection);

@@ -447,5 +447,8 @@ snapshot and a synchronous, bounded saving-thread callback. Progress counts
 actual sheet/column/cell writes and bounded metadata stages. Returning false
 before COMMIT yields a distinct cancelled result and transactional rollback;
 post-COMMIT completion cannot be revoked. The original `workbook_save` uses
-empty control. This primitive does not itself provide App progress UI or make
-the latest-wins query worker an ordered writer; W09b owns that integration.
+empty control. Native Save now reserves the worker lane through reply polling; replacement
+read jobs are rejected and generic cancellation cooperatively requests Save
+cancellation without changing its request ID. Mutex-owned progress closes the
+cancellation gate before COMMIT, preserving its completion even if a later read
+or cancellation arrives. App progress/cancel UI remains W09b2.

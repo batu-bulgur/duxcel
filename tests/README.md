@@ -122,3 +122,9 @@ and existing destinations, rollback/retry boundaries, exact content/identity,
 unrelated user tables and refusal to cancel a completed publication. It also
 runs the existing narrow checkpoint/Save GUI. The primitive's callback performs
 no synthetic fixture generation or physical desktop interaction.
+
+`make test-feature FEATURE=save-worker` runs `test_worker_save.c` optimized and
+sanitized, then the narrow checkpoint GUI. Private worker objects alone expose
+saving-thread barriers. The test holds validation/write/publication/completion
+while attempting explicit/generic cancellation and read replacement; committed
+receipts must remain pollable, and failed/cancelled saves preserve old contents.

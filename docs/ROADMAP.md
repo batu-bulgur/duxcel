@@ -136,7 +136,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W08c2 · P0 · Complete | Measured native admission/commit/checkpoint throughput; W08c1. | Pin runtime engine/library provenance; measure bootstrap, warm single edits, burst/backpressure and a finite 20,000-cell legacy paste followed by checkpoint. Set batching policy from evidence; no per-row journal claim for legacy paste. |
 | W09 · P0 · In progress | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
 | W09a · P0 · Complete | Controlled transactional Save primitive; W08. | Cooperative cancellation before COMMIT, proportional completed work and explicit publication boundary; existing destination remains intact on rejection/cancel/failure. Native optimized/sanitizer module gate; no UI completion claim. |
-| W09b · P0 · Next | Worker/UI Save progress, cancellation and complete revision fence; W09a. | Hidden real-App Save/cancel/progress and R/R+1 tests; pending document actions cannot close over unsaved newer edits. Keep post-publication completion distinct from cancellable preparation. |
+| W09b · P0 · In progress | Worker/UI Save progress, cancellation and complete revision fence; W09a. | Hidden real-App Save/cancel/progress and R/R+1 tests; pending document actions cannot close over unsaved newer edits. Keep post-publication completion distinct from cancellable preparation. |
+| W09b1 · P0 · Complete | Preserve ordered worker Save receipts; W09a. | Latest-wins read replacement/cancel cannot erase an admitted Save or its unpublished reply. Progress and cooperative cancellation are mutex-owned; publication closes cancellation atomically. |
+| W09b2 · P0 · Next | Compact Save progress/cancel UI and complete admission fence; W09b1. | Real keyboard/pointer cancellation and publication races, narrow/scaled panel, newer content remains dirty and pending close stays guarded. |
 | W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. Persist generation/parent identity and baseline/journal linkage; two states sharing an admitted clock cannot be ordered by mtime alone. RE02; A14. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -249,6 +251,15 @@ failed destinations and late cancellation pass 413 assertions per optimized and
 ASan/UBSan run (15.885s). The related hidden TEST App checkpoint/Save workflow
 passes 18 stages/28 assertions (6.812s; 11.007s release gate); 56 tool contracts
 pass. Save progress/cancel UI and worker write ownership remain W09b.
+
+W09b1 complete: native Save owns the worker lane until its reply is polled.
+Read replacement and generic cancellation cannot drop its completion; cooperative
+cancel returns a typed result, and pre-publication progress closes cancellation
+under the same mutex. Five deterministic barrier cases pass optimized/sanitizer
+(1.762s/5.477s), including attempted replacement reads, generic cancellation,
+newer live data and late cancellation. The existing hidden 18-stage Save workflow
+passes in 6.583s (22.283s focused gate); 56 tool contracts pass. Test barriers are
+compiled only into private worker objects. App progress/cancel remains W09b2.
 
 ### Owned data, refresh and complete analytical results
 

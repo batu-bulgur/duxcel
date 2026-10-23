@@ -56,6 +56,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "save-worker": Feature((), "journal-session",
+        ("python3 tools/test.py feature --feature workbook-save", "python3 tools/test.py native --scenario background document --config sanitize"),
+        ("src/data/worker.c: ordered native Save lane", "src/data/worker.h"), ("worker_save",)),
     "workbook-save": Feature((), "journal-session",
         ("python3 tools/test.py feature --feature journal-session", "python3 tools/test.py native --scenario document --config sanitize", "python3 tools/test.py formats --config both"),
         ("src/workbook/save.h", "src/workbook/workbook.c: controlled transactional Save"), ("workbook_save",)),

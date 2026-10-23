@@ -4,6 +4,9 @@
 #include "source_digest.h"
 #include "../platform/platform.h"
 #include "../workbook/workbook.h"
+#ifndef DUXCEL_BROWSER_HOST
+#include "../workbook/save.h"
+#endif
 #include "../workbook/clipboard.h"
 typedef struct {
     bool is_pivot;
@@ -91,6 +94,9 @@ typedef struct {
     SourceDigestStatus source_digest_status;
     uint64_t object_id,revision;
     bool is_preview;
+#ifndef DUXCEL_BROWSER_HOST
+    WorkbookSaveResult save_result;
+#endif
 } QueryReply;
 /* Conservative native format-pipeline reservation categories, not measured
    allocator/RSS usage or a bound on SQL construction/engine temporary memory.
@@ -109,8 +115,15 @@ typedef struct {
     size_t active_reserved,pending_reserved,published_owned;
     unsigned active_count,pending_count,published_count;
 } WorkerFormatUsage;
+#ifndef DUXCEL_BROWSER_HOST
+typedef struct {
+    uint64_t id;
+    WorkbookSaveProgress progress;
+    bool active,cancellable,cancel_requested;
+} WorkerSaveState;
+#endif
 /* One worker owns its DuckDB connection. The UI may only call interrupt under mutex.
-   Jobs are latest-wins; replies are immutable and ownership transfers to poll(). */
+   Reads are latest-wins; native Save owns the lane through poll. Replies are immutable and ownership transfers to poll(). */
 typedef struct {
     DxThread thread;
     DxMutex mutex;
@@ -125,11 +138,20 @@ typedef struct {
     size_t active_format_reserved,pending_format_reserved,published_format_owned;
     bool pending_format_definition_rejected;
     Database db;
+#ifndef DUXCEL_BROWSER_HOST
+    WorkerSaveState save; /* Mutex-owned ordered file operation, retained until poll. */
+#endif
 } QueryWorker;
 bool worker_start(QueryWorker *w);
-void worker_submit(QueryWorker *w, QueryJob *job); /* takes job */
+void worker_submit(QueryWorker *w, QueryJob *job); /* Takes job; a native Save in progress rejects replacement jobs without losing its receipt. App owns IO admission. */
 QueryReply *worker_poll(QueryWorker *w); /* transfers reply */
 void worker_cancel(QueryWorker *w);
+#ifndef DUXCEL_BROWSER_HOST
+WorkerSaveState worker_save_state(QueryWorker *worker);
+/* Cooperative request; false means absent/already publishing. Never invalidates
+   the Save reply or interrupts an unrelated analytical connection. */
+bool worker_save_cancel(QueryWorker *worker);
+#endif
 void worker_stop(QueryWorker *w);
 /* Main-thread lifecycle contract, like submit/poll: not concurrent with
    start/stop. Native snapshot is mutex-protected and performs no allocations,
