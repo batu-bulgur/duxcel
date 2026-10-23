@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "workbook/journal.h"
 #include <duckdb.h>
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -122,13 +123,30 @@ static int process_mode(int argc,char **argv) {
     if (!workbook_journal_open(&j,argv[2],document,0,&error)) { fprintf(stderr,"FAIL: %s\n",error); free(error); return 1; }
     if (!strcmp(argv[1],"--init")) { workbook_journal_close(j); puts("PASS: journal initialized"); return 0; }
     JournalCellEdit edits[]={edit(1,"","First"),edit(2,"First","Second")};
-    if (!strcmp(argv[1],"--inspect") && argc==4) {
-        uint64_t expected=(uint64_t)strtoull(argv[3],NULL,10); size_t visited=0; Read read={edits,0};
+    bool any=!strcmp(argv[1],"--inspect-any");
+    if (any || (!strcmp(argv[1],"--inspect") && argc==4)) {
+        uint64_t expected=any ? workbook_journal_durable_revision(j) : (uint64_t)strtoull(argv[3],NULL,10);
+        if (any) { CHECK(expected==0 || expected==2); printf("STATE durable-head=%llu\n",(unsigned long long)expected); } size_t visited=0; Read read={edits,0};
         CHECK(workbook_journal_durable_revision(j)==expected && expected<=2);
         CHECK(workbook_journal_read(j,0,256,read_entry,&read,&visited,&error)); CHECK(read.next==expected && visited==expected);
         workbook_journal_close(j); puts("PASS: complete journal state"); return 0;
     }
     JournalReceipt receipt={0};
+    if (!strcmp(argv[1],"--expect-failure")) {
+        receipt=(JournalReceipt){73,74,75}; JournalReceipt original=receipt;
+        CHECK(!workbook_journal_append(j,edits,2,(JournalControl){0},&receipt,&error));
+        CHECK(error && !memcmp(&receipt,&original,sizeof(receipt)) && !workbook_journal_durable_revision(j));
+        printf("EXPECTED IO failure: %.400s\n",error); free(error); error=NULL;
+        CHECK(!workbook_journal_append(j,edits,2,(JournalControl){0},&receipt,&error));
+        CHECK(error && strstr(error,"reopen") && !memcmp(&receipt,&original,sizeof(receipt))); free(error);
+        workbook_journal_close(j); puts("PASS: journal write failure preserved receipt"); return 0;
+    }
+    if (!strcmp(argv[1],"--close-fault")) {
+        CHECK(workbook_journal_append(j,edits,2,(JournalControl){0},&receipt,&error)); CHECK(receipt.durable_revision==2);
+        void *symbol=dlsym(RTLD_DEFAULT,"duxcel_journal_fault_arm"); void (*arm)(void)=NULL;
+        CHECK(symbol && sizeof(symbol)==sizeof(arm)); memcpy(&arm,&symbol,sizeof(arm)); arm();
+        workbook_journal_close(j); puts("PASS: journal close fault completed"); return 0;
+    }
     JournalControl control={0};
     if (!strcmp(argv[1],"--hold-before")) control.before_commit=before_hold;
     else if (!strcmp(argv[1],"--hold-after")) control.after_commit=after_hold;
@@ -143,6 +161,7 @@ int main(int argc,char **argv) {
     transactions(path); limits(limit); batching(batch);
     WorkbookJournal *j=NULL; char *error=NULL;
     sql(other,"CREATE TABLE unrelated(a INTEGER)"); CHECK(!workbook_journal_open(&j,other,document,0,&error)); CHECK(error && !j); free(error); error=NULL;
+    sql(other,"INSERT INTO unrelated VALUES (1)"); /* Failed open preserves existing user tables. */
     sql(path,"UPDATE duxcel_journal_meta SET version=2"); CHECK(!workbook_journal_open(&j,path,document,100,&error)); CHECK(error && !j); free(error); error=NULL;
     sql(path,"UPDATE duxcel_journal_meta SET version=1; DELETE FROM duxcel_journal_cells WHERE revision=102");
     CHECK(!workbook_journal_open(&j,path,document,100,&error)); CHECK(error && !j); free(error);

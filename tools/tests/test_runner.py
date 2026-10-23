@@ -338,7 +338,7 @@ class RunnerTests(unittest.TestCase):
                     expected.append(["./"+binary,"--format-rows-only"])
                 module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
                 if module in runner.ENGINE_PROCESS_CHECKS:
-                    expected.append([runner.sys.executable,runner.ENGINE_PROCESS_CHECKS[module][0],"--binary",binary])
+                    expected.append([runner.sys.executable,runner.ENGINE_PROCESS_CHECKS[module].script,"--binary",binary,*runner.ENGINE_PROCESS_CHECKS[module].arguments])
             self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
 
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):

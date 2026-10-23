@@ -26,7 +26,8 @@ typedef bool (*JournalVisitor)(void *context,const JournalCellEdit *borrowed,cha
 /* Native DuckDB storage primitive for a private journal, not a workbook file.
    One owner/connection. The immutable base identifies its checkpoint lineage.
    out must point to NULL; failure leaves it unchanged. No model/UI mutation.
-   Initial construction and every append are transactions. Payloads admit only
+   Initial construction and every append are transactions. A failed first open
+   removes only its own new incomplete file/WAL; existing files are preserved. Payloads admit only
    W05 sparse text/clear edits, not typed cells, paste, lifecycle or full history. */
 bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base_revision,char **error);
 void workbook_journal_close(WorkbookJournal *journal);

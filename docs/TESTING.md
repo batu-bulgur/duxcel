@@ -184,6 +184,7 @@ Its headless/engine tests retain optimized/ASan/UBSan coverage; its private App
 fixture uses 18 completion-checked stages, hidden TEST identity and a per-run
 backup root. It checks actual editor/keyboard/pointer behavior, retained drafts,
 post-COMMIT acknowledgement, 150% Retry, checkpoint rotation, Save R/R+1, reopen
-and discard. The process-kill storage drivers run serially for each already-built
-binary in both the feature and full tiers. Full regression is registered, not
+and discard. The storage kill/filesystem drivers run serially for each already-built
+binary in their owning `workbook-journal`/`journal-queue`/`journal-faults` plans
+and the full tier; ordinary checkpoint/UI changes defer the filesystem matrix. Full regression is registered, not
 implicitly run after each journal change.

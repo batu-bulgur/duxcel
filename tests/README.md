@@ -12,6 +12,7 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | `test_journal_session_gui.c`, `support/journal_session_app.inc` | 18-stage real editor/backpressure/retry/checkpoint/Save R+1/reopen/discard workflow | Hidden TEST App; private compile-time fixture excluded from production |
 | `test_journal_queue.c` | Real native worker reservation/publication races, owned bytes, count/byte limits, batching/order, retry, lineage and drain/abort | Serial optimized/sanitizer engine targets; private journals; no App/desktop |
 | `test_workbook_journal.c` | Private DuckDB lineage, atomic batches, BLOB/uint64 round-trip, exact retry, rollback/conflict/cancel, bounds, version/gap rejection and initial timing | Optimized/sanitizer engine runs serially; no App/canonical fixture |
+| `support/journal_fault.c`, `../tools/test_journal_faults.py` | Targeted write/short-write/fsync faults, failed creation and exact queue repair/retry; real file-size-limit failure | Test-only interposer, never an App object/asset; private journal/WAL paths only |
 | `../tools/test_journal_process.py` | Kills the API writer at pre/post-COMMIT barriers and verifies exact old/new payloads and repeated idempotent retries | Each already-built variant; private temp journals; no desktop |
 | `test_workbook_lifecycle.c` | Sheet command chronology, detached ownership, binding/style restoration, IDs, branches, hidden sheets, stale drafts, limits and eviction | Shared-C optimized/sanitizer; no engine/GUI |
 | `test_workbook_lifecycle_gui.c`, `support/workbook_lifecycle_app.inc` | 24-stage menu Delete, Cmd-Z/Shift-Cmd-Z, rename/reorder/duplicate/hide, retained values/styles/objects and Save/Open | Hidden TEST release App; production excludes fixture |
@@ -90,3 +91,14 @@ sheet rotation, real Save/Open and Don't Save cleanup. R+1 is injected through
 the admitted C producer after the Save snapshot; it is not a claim that physical
 editing during IO is already enabled. Source/browser/full-App sanitizer gates
 remain registered for milestones. `journal-session-demo.dxls` is generated output.
+
+W08c1 uses `make test-feature FEATURE=journal-faults`. The private filesystem
+interposer is built/fingerprinted alongside the exact optimized/sanitizer helper;
+its environment applies only to that launched process and journal/WAL. ENOSPC,
+EIO, partial write, fsync and close faults plus a real process file-size limit
+exercise the actual storage API. New-file failures must retry after repair;
+existing file failures must preserve old/new complete state. The queue retains
+both immutable records and acknowledges them only after repaired commit. No real
+disk is filled. Mac is validated; this is not Windows/Linux platform acceptance.
+The full tier includes all registered drivers. The ordinary `journal-session`
+plan defers this matrix, retaining its own model/GUI gate.

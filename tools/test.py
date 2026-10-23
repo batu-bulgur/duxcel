@@ -276,6 +276,7 @@ class Runner:
         targets.append("design-fixture")
         if full:
             targets += [test_binary(module, config) for config in configurations(self.args.config) for module in ENGINE_MODULES]
+            targets += sorted({target for check in ENGINE_PROCESS_CHECKS.values() for target in check.support})
             targets += ["build/tests/test_paint-native-debug", "icons-check"]
         self.build(targets, "build-integration")
         # Snapshot helpers write to these existing conventional destinations.
@@ -319,8 +320,9 @@ class Runner:
         """Mutable private archive checks run serially, including sanitizer variants."""
         runs = [(module, config, test_binary(module, config))
                 for config in configurations(self.args.config) for module in modules]
-        self.build([binary for _, _, binary in runs], "build-feature-engine")
-        self.retain_binaries([binary for _, _, binary in runs])
+        support = sorted({target for module in modules if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(self.args.feature) for target in ENGINE_PROCESS_CHECKS[module].support})
+        self.build([binary for _, _, binary in runs]+support, "build-feature-engine")
+        self.retain_binaries([binary for _, _, binary in runs]+support)
         for module, config, binary in runs:
             ensure_unchanged(self.summary["binaries"])
             self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
@@ -328,10 +330,10 @@ class Runner:
             self.engine_process_check(module,config,binary)
 
     def engine_process_check(self,module,config,binary):
-        if module in ENGINE_PROCESS_CHECKS:
-            script, marker, completion = ENGINE_PROCESS_CHECKS[module]
-            self.record(self.command(f"{module}-{config}-process", [sys.executable, script, "--binary", binary],
-                                     marker, completion_pattern=completion))
+        if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(self.args.feature):
+            check = ENGINE_PROCESS_CHECKS[module]
+            self.record(self.command(f"{module}-{config}-process", [sys.executable, check.script, "--binary", binary, *check.arguments],
+                                     check.marker, completion_pattern=check.completion))
             ensure_unchanged(self.summary["binaries"])
 
     def feature(self):
@@ -390,6 +392,7 @@ class Runner:
         for name in STANDALONE_GUI:
             self.standalone_gui_check(name)
         self.prepare_native(full=True)
+        self.retain_binaries(sorted({target for check in ENGINE_PROCESS_CHECKS.values() for target in check.support}))
         # The workbook suite consumes core's generated fixtures. Each
         # configuration completes both before another can replace their files.
         # Independent record suites follow that adjacent pair, still serially.

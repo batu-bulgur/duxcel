@@ -129,7 +129,10 @@ kill/retry checks per binary. The final hidden TEST App passes 18 stages/28
 assertions in 6.797s (17.542s focused release gate).
 It covers the real editor, retained draft, keyboard/mouse Retry at narrow 150%,
 checkpoint rotation, Save R/R+1, reopen and Don't Save. The existing W06 GUI also
-passes. Actual disk/write fault policy and final throughput remain W08c. Startup
+passes. The separate W08c1 fault matrix now passes actual write-limit and injected
+ENOSPC/EIO/short-write/fsync/close failures in optimized/sanitizer builds. A failed
+first creation cleans up only its own new incomplete journal, allowing Retry;
+existing files remain intact. Final throughput/batching evidence remains W08c2. Startup
 recovery selection is W10; persistent Undo is W12; W09 still owns complete Save
 publication/progress/cancel. Browser persistence is unchanged and has no native
 journal backend. Receipts and captures remain in ignored `build/tests/results/`.

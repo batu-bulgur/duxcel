@@ -1,7 +1,10 @@
 #include "journal.h"
 #include <duckdb.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 struct WorkbookJournal {
     duckdb_database db;
     duckdb_connection connection;
@@ -58,16 +61,23 @@ void workbook_journal_close(WorkbookJournal *j) {
     free(j);
 }
 static bool cell_shape(duckdb_result *r);
+static void discard_failed_creation(const char *path,bool created) {
+    if (!created) return;
+    /* No journal handle/receipt escaped this failed open. Remove only a path
+       proven absent before this single owner's attempt, never an existing file. */
+    remove(path); char *wal=dx_printf("%s.wal",path); remove(wal); free(wal);
+}
 bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,char **error) {
     if (!out || *out || !path || !*path || !strncmp(path,":memory:",8) || (!document.high && !document.low)) return fail(error,"Choose a private journal path and document identity.");
+    struct stat existing; bool created=stat(path,&existing)<0 && errno==ENOENT;
     WorkbookJournal *j=dx_alloc(sizeof(*j)); memset(j,0,sizeof(*j)); j->document=document; j->base=base;
     duckdb_config config=NULL; char *engine_error=NULL;
     bool ok=duckdb_create_config(&config)==DuckDBSuccess && duckdb_set_config(config,"threads","1")==DuckDBSuccess &&
         duckdb_set_config(config,"memory_limit","64MB")==DuckDBSuccess && duckdb_open_ext(path,&j->db,config,&engine_error)==DuckDBSuccess;
     duckdb_destroy_config(&config);
-    if (!ok) { fail(error,engine_error ? engine_error : "Cannot open the journal engine."); duckdb_free(engine_error); workbook_journal_close(j); return false; }
+    if (!ok) { fail(error,engine_error ? engine_error : "Cannot open the journal engine."); duckdb_free(engine_error); workbook_journal_close(j); discard_failed_creation(path,created); return false; }
     duckdb_free(engine_error);
-    if (duckdb_connect(j->db,&j->connection)!=DuckDBSuccess) { workbook_journal_close(j); return fail(error,"Cannot connect the journal writer."); }
+    if (duckdb_connect(j->db,&j->connection)!=DuckDBSuccess) { workbook_journal_close(j); discard_failed_creation(path,created); return fail(error,"Cannot connect the journal writer."); }
     duckdb_result r;
     if (!query(j,"SELECT count(*) FROM duckdb_tables() WHERE NOT internal",&r,error)) goto failed;
     uint64_t tables=duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r);
@@ -97,7 +107,7 @@ bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId doc
 rollback:
     execute(j,"ROLLBACK",NULL);
 failed:
-    workbook_journal_close(j); return false;
+    workbook_journal_close(j); discard_failed_creation(path,created); return false;
 }
 static bool decode(duckdb_result *r,idx_t row,JournalCellEdit *e,char **error) {
     duckdb_blob before=duckdb_value_blob(r,7,row),after=duckdb_value_blob(r,8,row);

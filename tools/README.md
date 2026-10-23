@@ -49,10 +49,17 @@ a named owner and a testable interface. Preserve meaningful existing coverage.
 The one test-package bootstrap mirrors standalone CLI imports; no product code
 imports it. Normal `make` builds the native app and starts no service or agent.
 
-`test_journal_process.py --binary build/tests/test_workbook_journal` owns the
+`test_journal_process.py --binary build/tests/test_workbook_journal --fault-library build/tests/libjournal_fault.dylib` owns the
 native journal process-kill boundary checks. It starts only its private C helper,
 waits for explicit pre/post-COMMIT barriers, kills that process and reopens its
 own temporary databases to assert exact old/new records and idempotent retries.
 The `workbook-journal` feature gate runs it serially for each already-built
 optimized/sanitizer engine binary and verifies binary fingerprints. It never
 starts or addresses a desktop application.
+
+`test_journal_faults.py` owns targeted native journal filesystem failures. Its
+private test-only interposer limits faults to the selected journal and WAL;
+short writes and ENOSPC/EIO/fsync/close failures exercise real engine calls,
+without filling the drive or affecting another process. Queue startup/commit
+failures retain exact records through repaired retries. The owning feature and
+full plans build/hash the support library; checkpoint/UI plans defer the matrix.

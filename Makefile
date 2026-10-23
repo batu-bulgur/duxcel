@@ -1185,20 +1185,21 @@ test-fixture: build/tests/test_fixture build/tests/test_fixture-debug design-fix
 .PHONY: test-fixture design-fixture design-large-fixture
 
 # Native-only journal primitive: no App, raylib, worker or canonical fixture.
+TEST_DL_LIBS = $(if $(filter Darwin,$(shell uname -s)),,-ldl)
 JOURNAL_TEST_OBJECTS = build/obj/release/app/src/common.o build/obj/release/app/src/workbook/journal.o build/obj/release/app/tests/test_workbook_journal.o
 JOURNAL_TEST_SAN_OBJECTS = build/obj/sanitize/app/src/common.o build/obj/sanitize/app/src/workbook/journal.o build/obj/sanitize/app/tests/test_workbook_journal.o
 build/tests/test_workbook_journal: $(JOURNAL_TEST_OBJECTS) | build/tests
-	$(call link_binary,$(CFLAGS) $(JOURNAL_TEST_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+	$(call link_binary,$(CFLAGS) $(JOURNAL_TEST_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm)
 build/tests/test_workbook_journal-debug: $(JOURNAL_TEST_SAN_OBJECTS) | build/tests
-	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_TEST_OBJECTS:.o=.d) $(JOURNAL_TEST_SAN_OBJECTS:.o=.d)
 
 JOURNAL_QUEUE_TEST_OBJECTS = build/obj/release/app/src/common.o build/obj/release/app/src/platform/platform.o build/obj/release/app/src/workbook/journal.o build/obj/release/app/src/workbook/journal_queue.o build/obj/release/app/tests/test_journal_queue.o
 JOURNAL_QUEUE_TEST_SAN_OBJECTS = build/obj/sanitize/app/src/common.o build/obj/sanitize/app/src/platform/platform.o build/obj/sanitize/app/src/workbook/journal.o build/obj/sanitize/app/src/workbook/journal_queue.o build/obj/sanitize/app/tests/test_journal_queue.o
 build/tests/test_journal_queue: $(JOURNAL_QUEUE_TEST_OBJECTS) | build/tests
-	$(call link_binary,$(CFLAGS) $(JOURNAL_QUEUE_TEST_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+	$(call link_binary,$(CFLAGS) $(JOURNAL_QUEUE_TEST_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm)
 build/tests/test_journal_queue-debug: $(JOURNAL_QUEUE_TEST_SAN_OBJECTS) | build/tests
-	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_QUEUE_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_QUEUE_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_QUEUE_TEST_OBJECTS:.o=.d) $(JOURNAL_QUEUE_TEST_SAN_OBJECTS:.o=.d)
 
 JOURNAL_SESSION_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/src/workbook/journal.o build/obj/release/app/src/workbook/journal_queue.o build/obj/release/app/src/workbook/journal_session.o build/obj/release/app/tests/test_journal_session.o
@@ -1208,3 +1209,12 @@ build/tests/test_journal_session: $(JOURNAL_SESSION_OBJECTS) | build/tests
 build/tests/test_journal_session-debug: $(JOURNAL_SESSION_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_SESSION_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_SESSION_OBJECTS:.o=.d) $(JOURNAL_SESSION_SAN_OBJECTS:.o=.d)
+
+# This private fault shim is never an App object, runtime asset or bundle input.
+ifeq ($(shell uname -s),Darwin)
+build/tests/libjournal_fault.dylib: tests/support/journal_fault.c | build/tests
+	$(call link_binary,-O2 -g $(WARN) -dynamiclib $<,-pthread)
+else
+build/tests/libjournal_fault.dylib: tests/support/journal_fault.c | build/tests
+	$(call link_binary,-O2 -g $(WARN) -fPIC -shared $<,-ldl -pthread)
+endif

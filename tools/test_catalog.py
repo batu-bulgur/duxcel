@@ -29,15 +29,37 @@ STANDALONE_GUI = {
 }
 
 
+@dataclass(frozen=True)
+class EngineProcessCheck:
+    script: str
+    marker: str
+    completion: str
+    support: tuple = ()
+    arguments: tuple = ()
+    features: tuple = ()
+
+    def selected(self, feature):
+        return feature is None or not self.features or feature in self.features
+
+
+JOURNAL_FAULT_LIBRARY = "build/tests/libjournal_fault.dylib"
 ENGINE_PROCESS_CHECKS = {
-    "workbook_journal": ("tools/test_journal_process.py", "PASS: journal process boundaries",
-                         r"^PASS: journal process boundaries \([1-9]\d* checks\)$"),
+    "workbook_journal": EngineProcessCheck("tools/test_journal_process.py", "PASS: journal process boundaries",
+        r"^PASS: journal process boundaries \(8 cases, 56 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY), ("workbook-journal", "journal-faults")),
+    "journal_queue": EngineProcessCheck("tools/test_journal_faults.py", "PASS: journal queue filesystem failures",
+        r"^PASS: journal queue filesystem failures \(8 cases, 20 checks\)$", (JOURNAL_FAULT_LIBRARY,), ("--fault-library", JOURNAL_FAULT_LIBRARY, "--queue"), ("journal-queue", "journal-faults")),
 }
 
 
 FEATURES = {
+    "journal-faults": Feature((), "",
+        ("python3 tools/test.py feature --feature journal-session",
+         "python3 tools/test.py native --scenario workspace document --config sanitize"),
+        ("src/workbook/journal.c", "src/workbook/journal_queue.c", "tests/support/journal_fault.c"),
+        ("workbook_journal", "journal_queue")),
     "journal-session": Feature(("cell_command",), "journal-session",
-        ("python3 tools/test.py feature --feature workbook-history",
+        ("python3 tools/test.py feature --feature journal-faults",
+         "python3 tools/test.py feature --feature workbook-history",
          "python3 tools/test.py native --scenario workspace document --config sanitize",
          "python3 tools/test.py formats --config both"),
         ("src/workbook/journal_session.c", "src/workbook/journal_queue.c", "src/app/app.c: checkpoint admission"),
@@ -99,6 +121,7 @@ def plan(name):
             "tool_tests": ["tools.tests.test_build_info"] if name == "about" else
                           ["tools.tests.test_runner", "tools.tests.test_feature_catalog", "tools.tests.test_web_build"] if name == "test-infrastructure" else [],
             "engine_modules": list(feature.engine_modules),
-            "engine_process_checks": [ENGINE_PROCESS_CHECKS[module][0] for module in feature.engine_modules if module in ENGINE_PROCESS_CHECKS], "owns": list(feature.owns), "deferred_interactions": list(feature.interactions),
+            "process_support_targets": sorted({target for module in feature.engine_modules if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(name) for target in ENGINE_PROCESS_CHECKS[module].support}),
+            "engine_process_checks": [ENGINE_PROCESS_CHECKS[module].script for module in feature.engine_modules if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(name)], "owns": list(feature.owns), "deferred_interactions": list(feature.interactions),
             "milestone": "python3 tools/test.py full --config both",
             "limits": "A focused pass covers this boundary; it does not establish whole-application or browser acceptance."}

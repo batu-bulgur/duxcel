@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "workbook/journal_queue.h"
 #include "platform/platform.h"
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -158,7 +159,34 @@ static void lineage_and_options(const char *path,const char *missing) {
     opts=options(&gate,2,2); CHECK(!workbook_journal_queue_start(":memory:",document,0,0,opts,&error)); CHECK(error); free(error);
     gate_free(&gate);
 }
-int main(void) {
+static bool process_prepare(void *context,char **error) { (void)error; return gate_before(context); }
+static int process_mode(int argc,char **argv) {
+    if (argc!=3) return 2;
+    const char *path=argv[2]; char *error=NULL;
+    if (!strcmp(argv[1],"--init")) {
+        WorkbookJournal *j=NULL; CHECK(workbook_journal_open(&j,path,document,0,&error)); CHECK(!error); workbook_journal_close(j);
+        puts("PASS: queue journal initialized"); return 0;
+    }
+    if (!strcmp(argv[1],"--inspect")) { inspect(path,2,"First","Second",false); puts("PASS: queue journal complete"); return 0; }
+    if (strcmp(argv[1],"--fault")) return 2;
+    Gate gate; gate_init(&gate,false,false); JournalQueueOptions opts={.entries=2,.bytes=DX_JOURNAL_BATCH_BYTES,.batch=2};
+    opts.setup=(JournalQueueSetup){.prepare=process_prepare,.context=&gate};
+    /* Setup pauses before opening the existing file, so both records are ready
+       before the actual failing two-record transaction begins. */
+    WorkbookJournalQueue *q=workbook_journal_queue_start(path,document,0,0,opts,&error); CHECK(q && !error);
+    publish(q,edit(1,"","First")); publish(q,edit(2,"","Second")); gate_release(&gate);
+    JournalQueueState failed=wait_state(q,0,true);
+    CHECK(failed.failed && failed.pending==2 && failed.owned_bytes>0 && failed.accepted_revision==2 && !failed.durable_revision && *failed.error);
+    printf("EXPECTED queue I/O failure: %.400s\n",failed.error);
+    void *symbol=dlsym(RTLD_DEFAULT,"duxcel_journal_fault_disable"); unsigned (*disable)(void)=NULL;
+    CHECK(symbol && sizeof(symbol)==sizeof(disable)); memcpy(&disable,&symbol,sizeof(disable)); CHECK(disable()>0);
+    CHECK(workbook_journal_queue_retry(q,&error)); JournalQueueState done=wait_state(q,2,false);
+    CHECK(done.durable_revision==2 && !done.pending && !done.owned_bytes && !done.failed);
+    CHECK(workbook_journal_queue_stop(q,true,&error)); CHECK(!error); workbook_journal_queue_free(q); gate_free(&gate);
+    inspect(path,2,"First","Second",false); puts("PASS: queue I/O retry retained exact records"); return 0;
+}
+int main(int argc,char **argv) {
+    if (argc>1) return process_mode(argc,argv);
     char directory[]="build/tests/journal-queue-XXXXXX"; CHECK(mkdtemp(directory));
     const char *names[]={"bounds","retry","batch","bytes","abort","drain","prepare"}; char *paths[7];
     for (unsigned i=0;i<7;i++) paths[i]=dx_printf("%s/%s.duckdb",directory,names[i]);

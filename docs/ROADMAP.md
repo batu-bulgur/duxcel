@@ -131,9 +131,11 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W08b · P0 · Complete | Bounded owned asynchronous journal queue and App admission; W08a/W06. | Single mutation owner reserves immutable records before applying supported edits; immediate pending and ordered durable feedback; retries retain operation IDs, full/failing queue never silently loses an edit. Explicit boundary for unadmitted legacy/lifecycle commands. Narrow real-App gate; no startup recovery claim. |
 | W08b1 · P0 · Complete | Native bounded asynchronous writer queue; W08a. | Reserve owned bytes before mutation; publish only after success, cancel on rejection; pending/in-flight/reserved share a hard bound. Ordered post-COMMIT acknowledgement, same-ID retry with retained payloads, failed-open recovery and explicit drain/abort shutdown. Engine infrastructure, not App coverage. |
 | W08b2 · P0 · Complete | Checkpoint-backed App admission and pending/durable feedback; W08b1. | Capture valid lineage, reserve before a supported edit, publish after its successful command, retain drafts on backpressure. Unsupported mutation coverage must be explicit; document replacement/Save/close cannot silently discard a pending tail. Narrow hidden real-App gate. |
-| W08c · P0 · Next | Fault/performance integration and batching policy; W08b. | Actual write/disk-full/kill/close failures, measured per-edit tail latency, large-paste/checkpoint throughput and bounded backpressure. Legacy paste remains outside the one-cell journal admission until a resolved range command is added. Preserve all-or-nothing state and retry after uncertain commit; finalize W08 acceptance before W09. |
+| W08c · P0 · In progress | Fault/performance integration and batching policy; W08b. | Actual write/disk-full/kill/close failures, measured per-edit tail latency, large-paste/checkpoint throughput and bounded backpressure. Legacy paste remains outside the one-cell journal admission until a resolved range command is added. Preserve all-or-nothing state and retry after uncertain commit; finalize W08 acceptance before W09. |
+| W08c1 · P0 · Complete | Filesystem failure/retry matrix; W08b. | Real write-limit errors and targeted ENOSPC/EIO/short-write/fsync/close faults preserve complete states and receipts. A failed first creation removes only its newly created incomplete journal; queue records survive repair/retry. |
+| W08c2 · P0 · Next | Measured native admission/commit/checkpoint throughput; W08c1. | Pin runtime engine/library provenance; measure bootstrap, warm single edits, burst/backpressure and a finite 20,000-cell legacy paste followed by checkpoint. Set batching policy from evidence; no per-row journal claim for legacy paste. |
 | W09 · P0 · Queued | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
-| W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. RE02; A14. |
+| W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. Persist generation/parent identity and baseline/journal linkage; two states sharing an admitted clock cannot be ordered by mtime alone. RE02; A14. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
@@ -209,6 +211,17 @@ interaction also passes (5.611s). Receipts, captures and
 `journal-session-demo.dxls` stay under ignored `build/tests/`. W08c is next;
 startup recovery UI, persisted Undo and full Save progress/cancel remain
 W10/W12/W09. No per-slice human approval is required.
+
+W08c1 complete: first-creation disk-full errors no longer strand a malformed
+journal; only files proven absent before the failed attempt are removed. Existing
+journals/user tables stay intact. The separate `journal-faults` gate passes 192
+storage/1,443 queue assertions plus 16 process/fault cases and 76 checks per
+optimized/sanitizer configuration (18.466s total). It covers process kills,
+ENOSPC/EIO, short writes, fsync, shutdown checkpoint failure, real file-size limits
+and failed first creation with retained-record retry. The related 18-stage App
+workflow passes in 6.594s; 52 runner/catalog/web-inventory contracts pass.
+Filesystem injection is test-only and limited to private journal/WAL paths;
+ordinary checkpoint/UI edits defer this matrix to its named gate. W08c2 is next.
 
 ### Owned data, refresh and complete analytical results
 

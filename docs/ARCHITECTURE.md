@@ -124,7 +124,10 @@ Append validates an ordered 256-entry/4 MiB batch before BEGIN, compares complet
 payloads for operation-ID retries and commits all new records plus the durable
 head together. Cancel/conflict rolls back; an engine/commit failure poisons the
 handle, requiring reopen and same-ID retry to resolve uncertain durability.
-Only a successful COMMIT publishes a receipt. Reads return at most 31 records
+Only a successful COMMIT publishes a receipt. Failed initial creation releases
+its own new incomplete database/WAL after closing handles; a pre-existing path
+is never deleted by failed open. This distinguishes safe retry from erasing
+unknown or previously committed state. Reads return at most 31 records
 per page (under 4 MiB worst-case text); borrowed spans end at the visitor return.
 The caller must match the actual checkpoint and validate before-values when
 staging replay. The native App now admits manual-cell commands through the checkpoint/session

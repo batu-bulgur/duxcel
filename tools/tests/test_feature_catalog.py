@@ -117,8 +117,8 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertEqual([event[0] for event in events], [
             "workbook_journal-release", "workbook_journal-release-process",
             "workbook_journal-sanitize", "workbook_journal-sanitize-process"])
-        self.assertEqual(events[1][1][-1], "build/tests/test_workbook_journal")
-        self.assertEqual(events[3][1][-1], "build/tests/test_workbook_journal-debug")
+        self.assertEqual(events[1][1][3], "build/tests/test_workbook_journal")
+        self.assertEqual(events[3][1][3], "build/tests/test_workbook_journal-debug")
         self.assertIn("completion_pattern", events[1][2])
 
     def test_queue_gate_has_no_desktop_or_canonical_fixture(self):
@@ -126,14 +126,31 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertEqual(local["modules"], [])
         self.assertIsNone(local["gui"])
         self.assertEqual(local["engine_modules"], ["journal_queue", "workbook_journal"])
-        self.assertEqual(local["engine_process_checks"], ["tools/test_journal_process.py"])
+        self.assertEqual(local["engine_process_checks"], ["tools/test_journal_faults.py"])
 
     def test_checkpoint_gate_admits_only_its_modules_and_private_gui(self):
         local = plan("journal-session")
         self.assertEqual(local["modules"], ["cell_command"])
         self.assertEqual(local["gui"], "journal-session")
         self.assertEqual(local["engine_modules"], ["journal_session", "journal_queue", "workbook_journal"])
-        self.assertEqual(local["engine_process_checks"], ["tools/test_journal_process.py"])
+        self.assertEqual(local["engine_process_checks"], [])
+        self.assertEqual(local["process_support_targets"], [])
+        self.assertIn("python3 tools/test.py feature --feature journal-faults", local["deferred_interactions"])
+
+    def test_fault_gate_builds_and_fingerprints_private_support(self):
+        local = plan("journal-faults")
+        self.assertIsNone(local["gui"])
+        self.assertEqual(local["engine_modules"], ["workbook_journal", "journal_queue"])
+        self.assertEqual(local["process_support_targets"], ["build/tests/libjournal_fault.dylib"])
+        obj = runner.Runner.__new__(runner.Runner)
+        obj.args = runner.parser().parse_args(["feature", "--feature", "journal-faults", "--config", "release"])
+        obj.summary = {"binaries": {}}; obj.build = mock.Mock(); obj.retain_binaries = mock.Mock()
+        obj.command = mock.Mock(return_value={}); obj.record = mock.Mock()
+        with mock.patch.object(runner, "ensure_unchanged"):
+            obj.feature_engine_checks(["workbook_journal", "journal_queue"])
+        expected = ["build/tests/test_workbook_journal", "build/tests/test_journal_queue", "build/tests/libjournal_fault.dylib"]
+        obj.build.assert_called_once_with(expected, "build-feature-engine")
+        obj.retain_binaries.assert_called_once_with(expected)
 
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))

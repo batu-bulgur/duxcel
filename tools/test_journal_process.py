@@ -8,6 +8,7 @@ import tempfile
 import time
 
 from workspace import ROOT, fingerprint, ensure_unchanged
+from test_journal_faults import storage_cases
 
 
 def command(binary, *arguments):
@@ -42,9 +43,11 @@ def kill_at_barrier(binary, path, phase):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", required=True, type=Path)
+    parser.add_argument("--fault-library", required=True, type=Path)
     args = parser.parse_args()
     binary = (ROOT / args.binary).resolve()
-    provenance = fingerprint([binary])
+    library = (ROOT / args.fault_library).resolve()
+    provenance = fingerprint([binary, library])
     started = time.monotonic()
     checks = 0
     with tempfile.TemporaryDirectory(prefix="journal-process-", dir=ROOT / "build/tests") as directory:
@@ -57,9 +60,10 @@ def main():
             command(binary, "--inspect", path, 2); checks += 1
             command(binary, "--retry", path); checks += 1
             command(binary, "--inspect", path, 2); checks += 1
+        checks += storage_cases(binary, library, directory)
     ensure_unchanged(provenance)
     print(f"Journal crash/retry duration: {time.monotonic() - started:.3f}s")
-    print(f"PASS: journal process boundaries ({checks} checks)")
+    print(f"PASS: journal process boundaries (8 cases, {checks} checks)")
 
 
 if __name__ == "__main__":
