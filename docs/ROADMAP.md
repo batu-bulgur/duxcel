@@ -147,7 +147,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10b1 · P0 · Complete | Exclusive generation ownership and read-only journal access; W10a. | Another live process/instance cannot claim an active generation. Recovery inspection never creates or appends a journal; process death releases ownership. |
 | W10b1a · P0 · Complete | OS-backed private generation lease; W10a. | Hold ownership from allocation through joined cleanup; another handle/process sees busy, and process death releases it. Acquisition/release never replaces the lock file; rejected paths/content stay intact. |
 | W10b1b · P0 · Complete | Read-only journal inspection and interrupted v2 tail proof; W10b1a. | No create/bind/append through inspection; real pre/post-COMMIT kills retain a readable old/new complete state and immutable origin without checkpointing recovery material. |
-| W10b2 · P0 · Next | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
+| W10b2 · P0 · In progress | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
+| W10b2a · P0 · Complete | Isolated verified recovery candidate; W10b1. | Validate closed baseline and exact-before-image bounded tail projection without touching the live model/global draft or history issuers. Hold ownership; failure/cancel preserves all material, checkpoint inspection marks its deferred suffix. |
+| W10b2b · P0 · Next | Bounded native recovery catalog; W10b2a. | Enumerate known direct generations off the UI thread, skip active owners, expose bound/unbound/incomplete entries and ambiguous branches without pruning or mtime-based lineage inference. |
 | W10c · P0 · Queued | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -334,6 +336,23 @@ The focused journal gate passes 264 assertions per optimized/sanitizer variant
 plus 10 process/fault cases/72 checks each (14.989s). The expanded crash driver
 remains in the separate journal/fault plans, not ordinary UI iteration. All 56
 tool contracts pass (9.254s). Verified isolated candidate replay/discovery is next.
+
+W10b2a complete: `recovery.c` prepares an isolated candidate while holding the
+existing generation lease. Actual baseline size/SHA-256, identity/revision and
+exact before-images gate full bounded replay; aliases, unfinished baseline WAL,
+wrong baseline/digest, gaps and protected/invalid targets reject atomically.
+Checkpoint mode preserves deferred/unknown/unbound tails; source queries never
+run. Returned state is dirty with no automatic Save destination. Projection does
+not consume live draft/history issuers or reconstruct durable Undo (W12).
+The `recovery-candidate` gate passes 222 deterministic assertions per optimized/
+sanitizer configuration (18.676s), including all cancel stages, lease contention,
+named/Unicode/format/view state, unbound/broken tails and a real worker preparing
+R while the live model accepts/undoes R+1. Both recovery files stay byte-identical
+across preparation/cancel. The updated journal gate passes 280 assertions plus
+10 process/fault cases/72 checks per configuration (16.009s); the related hidden
+18-stage checkpoint App passes in 6.658s (15.964s gate). All 56 tool contracts pass.
+Preparation currently needs the macOS digest adapter; discovery/App adoption is
+still W10b2b/W10c, and older folders without an existing lease stay untouched.
 
 ### Owned data, refresh and complete analytical results
 

@@ -41,6 +41,16 @@ bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId doc
    opens with READ_ONLY. Caller must still hold the generation lease and match
    the actual baseline/origin before candidate replay. */
 bool workbook_journal_open_readonly(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base_revision,char **error);
+typedef struct {
+    WorkbookId document;
+    uint64_t base_revision,declared_head_revision;
+    const JournalOrigin *origin; /* Handle-owned; NULL for v1. */
+} JournalSummary;
+/* Read-only metadata discovery. It validates inventory/schema/origin but does
+   not scan/prove the tail, and its handle refuses tail reads. Reopen with the
+   matched document/base through open_readonly before candidate replay. */
+bool workbook_journal_inspect(WorkbookJournal **out,const char *path,char **error);
+JournalSummary workbook_journal_summary(const WorkbookJournal *journal);
 void workbook_journal_close(WorkbookJournal *journal);
 /* Bind before the first edit, transactionally. Exact retries are idempotent;
    an existing origin cannot be replaced, nor inferred from an admitted clock.

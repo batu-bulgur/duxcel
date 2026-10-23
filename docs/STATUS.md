@@ -257,3 +257,12 @@ edits. Origin failure/mismatch keeps pending bytes for explicit Retry. Scoped
 optimized/sanitizer model, actual fingerprint/rotation, origin IO-fault and hidden
 App checks pass. Startup recovery/branch choice is still unavailable (W10b/W10c).
 Other native hosts retain unbound v1 backups pending their digest adapter.
+
+The native macOS recovery controller can now prepare a separately owned, verified
+checkpoint/tail candidate with cooperative cancellation and an exclusive lease.
+It does not mutate the current workbook or live draft/history issuers, run source
+queries, delete artifacts or automatically restore an original path. Checkpoint
+inspection marks a deferred/unknown suffix; unbound tails cannot replay. Scoped
+optimized/sanitizer tests cover fingerprints, corrupt tails, cancellation and a
+concurrent live edit/Undo. This remains a native backend capability: recovery
+catalog/startup choice and App adoption are still W10b2b/W10c; durable Undo is W12.

@@ -180,6 +180,10 @@ static void origins(const char *path) {
     CHECK(workbook_journal_bind_origin(j,&origin,&error) && workbook_journal_durable_revision(j)==1);
     CHECK(workbook_journal_append(j,&e,1,(JournalControl){0},&receipt,&error) && receipt.replayed==1 && !receipt.appended);
     workbook_journal_close(j); j=NULL;
+    CHECK(workbook_journal_inspect(&j,path,&error)); JournalSummary summary=workbook_journal_summary(j);
+    CHECK(summary.document.high==document.high && summary.document.low==document.low && summary.base_revision==0 && summary.declared_head_revision==1 && summary.origin);
+    size_t probe_read=0,probe_visited=99;
+    CHECK(!workbook_journal_read(j,0,31,count_entry,&probe_read,&probe_visited,&error) && error && !probe_read && probe_visited==99); free(error); error=NULL; workbook_journal_close(j); j=NULL;
     char *readonly_wal=dx_printf("%s.wal",path); CHECK(access(readonly_wal,F_OK));
     CHECK(workbook_journal_open_readonly(&j,path,document,0,&error));
     CHECK(workbook_journal_origin(j) && workbook_journal_durable_revision(j)==1);
@@ -190,9 +194,10 @@ static void origins(const char *path) {
     workbook_journal_close(j); j=NULL; CHECK(access(readonly_wal,F_OK)); free(readonly_wal);
     const char *malformed[]={"UPDATE duxcel_journal_origin SET baseline_sha256='short'::BLOB", "INSERT INTO duxcel_journal_origin SELECT * FROM duxcel_journal_origin",
         "UPDATE duxcel_journal_origin SET generation_high=0,generation_low=0", "UPDATE duxcel_journal_origin SET original_path='relative.dxls'",
-        "UPDATE duxcel_journal_origin SET original_path='/tmp/'||chr(0)||'hidden'", "ALTER TABLE duxcel_journal_origin ADD COLUMN unknown INTEGER"};
+        "UPDATE duxcel_journal_origin SET original_path='/tmp/'||chr(0)||'hidden'", "ALTER TABLE duxcel_journal_origin ADD COLUMN unknown INTEGER", "UPDATE duxcel_journal_meta SET document_high=0,document_low=0"};
     for (size_t i=0;i<sizeof(malformed)/sizeof(*malformed);i++) {
         sql(path,malformed[i]); CHECK(!workbook_journal_open(&j,path,document,0,&error) && error && !j); free(error); error=NULL;
+        CHECK(!workbook_journal_inspect(&j,path,&error) && error && !j); free(error); error=NULL;
         CHECK(!unlink(path)); CHECK(workbook_journal_open(&j,path,document,0,&error)); CHECK(workbook_journal_bind_origin(j,&origin,&error)); workbook_journal_close(j); j=NULL;
     }
     CHECK(!unlink(path)); CHECK(workbook_journal_open(&j,path,document,0,&error));

@@ -170,3 +170,14 @@ receipts, and real v2 writer kills before/after COMMIT. The driver hashes the DB
 and any WAL before inspection and verifies both content and artifact-set identity
 after it. Exact same-ID retry remains valid afterward. Only private child writers
 are killed; no desktop or user's process is addressed.
+
+`make test-feature FEATURE=recovery-candidate` runs `test_workbook_recovery.c`
+against real session-generated checkpoints/journals in optimized and sanitizer
+variants. It checks held leases, full/checkpoint-only modes, exact values/IDs/
+Unicode/format/view state, all cancellation phases, wrong baselines/digests,
+wrong before-images/gaps, legacy or unreadable tails, aliases/WALs and ownership
+transfer. A private worker barrier lets the live model accept and Undo an edit
+while candidate projection runs; the candidate cannot issue live history/draft
+IDs or retain fabricated durable Undo. DB/checkpoint bytes are preserved. This
+controller uses the macOS streaming digest adapter; no App/desktop launch is
+part of this backend gate. Its related `recovery-owner` GUI remains registered.

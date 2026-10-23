@@ -58,6 +58,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-candidate": Feature((), "",
+        ("python3 tools/test.py feature --feature recovery-owner", "python3 tools/test.py feature --feature workbook-journal"),
+        ("src/workbook/recovery.c", "src/workbook/recovery.h", "src/workbook/journal.c: metadata discovery"), ("workbook_recovery",)),
     "recovery-owner": Feature((), "journal-session",
         ("python3 tools/test.py feature --feature journal-session", "python3 tools/test.py feature --feature journal-faults"),
         ("src/platform/file_lease.c", "src/platform/file_lease.h", "src/workbook/journal_session.c: generation ownership"), ("file_lease", "journal_session")),

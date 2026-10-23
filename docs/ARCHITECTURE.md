@@ -117,7 +117,7 @@ its result/cache adapter when activating the resulting sheet. This does not
 implement formula/reference restoration or durable lifecycle replay.
 
 `src/workbook/journal.c` is the staged native DuckDB storage boundary. One
-connection owns a private schema-v1 journal tied to a document ID and immutable
+connection owns a versioned private journal tied to a document ID and immutable
 checkpoint revision. Cell records carry operation ID, exact uint64 revision and
 targets, and bounded before/after BLOB spans, avoiding UTF-8/numeric conversion.
 Append validates an ordered 256-entry/4 MiB batch before BEGIN, compares complete
@@ -135,9 +135,21 @@ coordinator below. This primitive alone does not establish recovery UI, retained
 Undo or complete Save fencing.
 Its private file format is independent of native workbook v15.
 
+The native journal accepts v1 unbound archives and v2 immutable origins. Binding
+an empty journal transactionally stores generation/parent IDs, checkpoint byte
+length and SHA-256, and an owned bounded original-workbook locator. It cannot
+replace an existing origin or infer one for a nonempty legacy tail. Metadata
+reads bound row count and text/blob sizes before native allocation; path bytes
+are read as BLOB to reject embedded NUL instead of silently truncating. Recovery
+must still hash the actual checkpoint and compare the complete origin before
+replay. The session now supplies the actual closed-checkpoint fingerprint and immutable
+parent/generation identity before opening the write lane on native macOS.
+Missing/conflicting origin or engine failure retains pending records for exact
+retry; no failed metadata binding can acknowledge an edit. Startup discovery/choice remains W10b/W10c; generation ownership uses the lease below.
+
 `src/workbook/journal_queue.c` is the staged native asynchronous owner. The
 producer reserves a bounded immutable record before model mutation and either
-cancels it on rejection/no-op or publishes after success. The worker never reads
+cancels it on rejection/no-op or publishes after success. The worker never reads live
 Workbook/App pointers; it owns a private DuckDB connection and borrows only the
 queue's immutable in-flight prefix. All reserved/pending/in-flight data remains
 charged until acknowledged. A failure racing a reservation cannot make its later
@@ -182,12 +194,64 @@ retains committed files. Startup candidate discovery/choice is still W10, and
 session history is not persisted until W12. Linked-source availability remains
 the existing file-mode policy.
 
-The existing asynchronous Save path now captures the document/admitted-command
-and recorded-action clocks; completion leaves later edits dirty. This is narrow
-publication groundwork, not W09 progress/cancel or admission of every legacy
-mutator. The private journal-session GUI fixture deliberately injects R+1 through
-the real C producer after the Save snapshot; ordinary user editing remains
-IO-guarded until the later Save slice.
+`src/platform/file_lease.c` owns native OS-backed generation leases. The producer
+claims the fixed private zero-byte `lease.lock` before starting its writer and
+releases it only after joining. Kept generations retain the inode for a later
+exclusive recovery claim; acquisition/release never truncate/unlink it. Explicit
+discard removes known owned artifacts while still holding the lease. POSIX uses
+nonblocking flock with close-on-exec/no-follow; Windows has an exclusive native
+handle boundary. Only macOS execution is validated. Recovery discovery must
+claim a generation before inspecting/adopting it and skip active leases. The
+module is excluded from the shared-C browser source inventory.
+
+`workbook_journal_open_readonly` opens an existing private archive with DuckDB
+READ_ONLY. It never initializes an empty/missing archive, and its handle rejects
+bind/append while retaining read/origin access. Actual v2 pre/post-COMMIT process
+kills establish read-only WAL recovery without changing the DB/WAL bytes or file
+set on the validated engine. A recovery controller must still hold its generation
+lease and verify the baseline digest before replay into an isolated candidate.
+
+`src/workbook/recovery.c` prepares an isolated native candidate from a direct
+private generation under a resolved root, holding its existing lease. Metadata
+inspection validates inventory/schema/origin without scanning the tail; that
+handle refuses tail reads. Full replay reopens with the matched document/base
+and validates the complete sequence before streaming bounded records. The
+controller verifies actual closed-baseline size/SHA-256, rejects baseline WALs
+and file/directory aliases, loads through the existing codec and checks every
+before-image/worksheet/target before projection. No external source query runs.
+
+Candidate projection uses local CellStore state and immediately retires transient
+Undo snapshots. It never allocates live draft identities or process-wide history
+order, so another model can accept commands while the worker prepares a candidate.
+It does not reconstruct durable Undo (W12). Progress/cancel covers hashing,
+loading and per-record replay; cancellation/failure releases only owned memory
+and its lease, never the current workbook or recovery files. The returned model
+is dirty with no Save path; the original locator is informational. Checkpoint
+inspection explicitly marks deferred/unknown or unbound tails and cannot silently
+resume them. A take operation transfers only the model; the caller retains the
+candidate's lease/info until its lineage choice is resolved. The existing digest
+adapter currently makes this preparation available on native macOS. Discovery
+and App adoption remain separate integration slices.
+
+Native `workbook_save_controlled` (`src/workbook/save.h`) borrows an immutable
+snapshot and a synchronous, bounded saving-thread callback. Progress counts
+actual sheet/column/cell writes and bounded metadata stages. Returning false
+before COMMIT yields a distinct cancelled result and transactional rollback;
+post-COMMIT completion cannot be revoked. The original `workbook_save` uses
+empty control. Native Save now reserves the worker lane through reply polling; replacement
+read jobs are rejected and generic cancellation cooperatively requests Save
+cancellation without changing its request ID. Mutex-owned progress closes the
+cancellation gate before COMMIT, preserving its completion even if a later read
+or cancellation arrives. The App renders a 360×136 logical-unit progress panel with Escape/button
+cancellation and a non-cancellable publication phase. The panel owns its pointer
+area; the grid retains scrolling outside it with structural edits locked.
+The Save reply retains its immutable snapshot until UI publication, included in
+the existing IO staging reservation. `save_fence.c` compares current registered
+content, exact sparse values, source/format/object clocks, definitions and view
+state with that snapshot, in addition to chronological action order. Failed or
+cancelled Save does not adopt a path or clear dirty/recovery state; an older
+successful Save cannot close a newer dirty document. Snapshot ownership ends
+in `reply_free`; no App pointers cross the worker boundary.
 
 The cell-command GUI fixture has its own App object compiled with
 `DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.
@@ -309,17 +373,17 @@ Sources: [grid.c](../src/grid/grid.c), [sparse cells](../src/workbook/cells.c), 
 
 | Need | Current behavior |
 | --- | --- |
-| Explicit Save / Save As | Native DuckDB `.dxls` persistence exists. A separately owned Workbook snapshot goes to the worker; metadata is written in a transaction. |
+| Explicit Save / Save As | A separately owned snapshot commits transactionally with real progress/cooperative cancellation; publication is fenced against newer content and action order. |
 | Failed Open / Save | Load builds a temporary candidate Workbook and replaces the current one only after successful validation. Save uses transactions/rollback. This is not autosave. |
 | Normal native Close / Quit | `request_document_action` commits an open cell edit and offers Save / Don't Save / Cancel for dirty documents. Pending Quit waits for successful Save. |
 | Browser workbook Open / Save | `workbook_browser.c` explicitly returns unavailable. Shared metadata-reader tests do not establish the integrated feature. Browser tab closing also has host constraints. |
-| Autosave / restoring unsaved work after restart | No complete autosave, recovery journal or startup restoration of unsaved sessions exists in production. Startup without a file path creates a new blank sheet. |
+| Local recovery / startup restoration | Manual cells have checkpoint-backed transactional journaling and native isolated candidate preparation. Startup discovery/choice is still W10b/W10c; normal launch currently creates a blank sheet. Named-file autosave is separate. |
 | Undo and document version history | Undo/Redo are bounded RAM snapshots. `workbook_snapshot` excludes them and Pages; reopening does not restore the previous session's undo history. |
 | External source data | CSV/Parquet/DuckDB contents are not automatically embedded in the workbook. Source references and supported identity proofs are saved; moving/changing a file requires relinking or reverification. |
 
 `.dxls` schema versions 1–15 represent file-format compatibility. The `SourceVersions` ledger binds source/owner/reader/schema/content proofs; it does not retain old Parquet bytes for time travel. Displayed row position is not durable source-record identity. Supported raw CSV/Parquet paths can carry original record ordinals; universal lineage is absent for custom SQL, DISTINCT, aggregates and the browser. Extending this formatting foundation into an editing model needs separate design and validation.
 
-The user's report of closing normally without a warning differs from the native source path and needs reproduction with the actual binary, platform and close mechanism. A dialog in the source does not establish that the running application handles the event correctly. It does not protect against crashes or force quit.
+The user confirmed the compact dirty guard and Command-Q on the current Mac. Scoped native tests cover Save/cancel/failure and pending close with newer edits. Startup recovery choice remains separate from the local durable journal.
 
 Sources: `capture_sheet`, `workspace_job`, `request_document_action`, `draw_unsaved`, `poll_query` and `app_start` in [app.c](../src/app/app.c), [workbook_save/load](../src/workbook/workbook.c), [browser unavailable adapter](../src/workbook/workbook_browser.c), [source_scope.h](../src/workbook/source_scope.h), [browser persistence plan](design/BROWSER_PERSISTENCE.md).
 
@@ -391,7 +455,7 @@ DuckLake provides [data inlining](https://ducklake.select/docs/stable/duckdb/adv
 
 Distinguish three promises: the UI accepted the edit; the edit was durably written to recovery storage; the named workbook file was saved. One `dirty` boolean cannot express all three. Track document identity, current revision, recoverable revision and saved revision.
 
-A first slice can periodically write snapshots using the existing codec into a private recovery session, including untitled workbooks. A later slice can journal command transactions in order, with periodic snapshots/compaction. Before designing a custom WAL format, measure small-write latency and resource costs of the existing transactional store. Display “saved/recoverable” only after the corresponding write completes; state the possible data-loss window during debounce.
+The current manual-cell seam already prepares owned checkpoints and journals ordered commands through DuckDB with pending/durable feedback. There is no artificial debounce; measured bounded natural batching and post-COMMIT receipts define the implemented contract above. General command families, startup discovery/choice, retained history and compaction remain later roadmap work.
 
 Recovery records are not caches and must not live under `build/` or temporary query-spill directories. Store them in the platform's durable user-data location under document/session identities. Startup reads a complete snapshot plus committed continuation records, handles missing/truncated tails safely and resolves source access separately. Acceptance includes disk full, permission failures, writer shutdown and preventing old recovery data from being applied to the wrong workbook. Define how explicit Don't Save retires that session's recovery records.
 
@@ -444,53 +508,3 @@ Proposed initial work: (1) isolate closing-related data loss by build and close 
 These source paths describe the dirty working tree inspected, not HEAD alone. The product source tree contained 135 files; the review examined module interfaces and App/input → model → worker/SQL → Page → render, plus Save/Open/review paths. Generated brand/icon derivatives were not treated as design authority. This section does not establish native visual or physical-keyboard acceptance; the user's application was not controlled.
 
 Focused checks passed for `grid`, `page`, `cellreadout`, `objects` and `selection_ladder` in release and ASan/UBSan configurations (11.933 s including builds). Native workbook `--formats-only` checks passed in release and ASan/UBSan (17.413 s). Both runs executed zero App scenario stages. Results, source/binary hashes and commands were recorded under ignored `build/tests/results/architecture-review/` and `architecture-persistence/`. Cleanup subsequently pruned these disposable payloads; its current acceptance summary is `build/tests/results/cleanup-summary.json`. Test sources and commands remain. These historical checks do not establish new autosave, general formulas or editable Parquet support.
-
-Native `workbook_save_controlled` (`src/workbook/save.h`) borrows an immutable
-snapshot and a synchronous, bounded saving-thread callback. Progress counts
-actual sheet/column/cell writes and bounded metadata stages. Returning false
-before COMMIT yields a distinct cancelled result and transactional rollback;
-post-COMMIT completion cannot be revoked. The original `workbook_save` uses
-empty control. Native Save now reserves the worker lane through reply polling; replacement
-read jobs are rejected and generic cancellation cooperatively requests Save
-cancellation without changing its request ID. Mutex-owned progress closes the
-cancellation gate before COMMIT, preserving its completion even if a later read
-or cancellation arrives. The App renders a 360×136 logical-unit progress panel with Escape/button
-cancellation and a non-cancellable publication phase. The panel owns its pointer
-area; the grid retains scrolling outside it with structural edits locked.
-The Save reply retains its immutable snapshot until UI publication, included in
-the existing IO staging reservation. `save_fence.c` compares current registered
-content, exact sparse values, source/format/object clocks, definitions and view
-state with that snapshot, in addition to chronological action order. Failed or
-cancelled Save does not adopt a path or clear dirty/recovery state; an older
-successful Save cannot close a newer dirty document. Snapshot ownership ends
-in `reply_free`; no App pointers cross the worker boundary.
-
-The native journal accepts v1 unbound archives and v2 immutable origins. Binding
-an empty journal transactionally stores generation/parent IDs, checkpoint byte
-length and SHA-256, and an owned bounded original-workbook locator. It cannot
-replace an existing origin or infer one for a nonempty legacy tail. Metadata
-reads bound row count and text/blob sizes before native allocation; path bytes
-are read as BLOB to reject embedded NUL instead of silently truncating. Recovery
-must still hash the actual checkpoint and compare the complete origin before
-replay. The session now supplies the actual closed-checkpoint fingerprint and immutable
-parent/generation identity before opening the write lane on native macOS.
-Missing/conflicting origin or engine failure retains pending records for exact
-retry; no failed metadata binding can acknowledge an edit. Startup discovery and
-process ownership remain W10b/W10c.
-
-`src/platform/file_lease.c` owns native OS-backed generation leases. The producer
-claims the fixed private zero-byte `lease.lock` before starting its writer and
-releases it only after joining. Kept generations retain the inode for a later
-exclusive recovery claim; acquisition/release never truncate/unlink it. Explicit
-discard removes known owned artifacts while still holding the lease. POSIX uses
-nonblocking flock with close-on-exec/no-follow; Windows has an exclusive native
-handle boundary. Only macOS execution is validated. Recovery discovery must
-claim a generation before inspecting/adopting it and skip active leases. The
-module is excluded from the shared-C browser source inventory.
-
-`workbook_journal_open_readonly` opens an existing private archive with DuckDB
-READ_ONLY. It never initializes an empty/missing archive, and its handle rejects
-bind/append while retaining read/origin access. Actual v2 pre/post-COMMIT process
-kills establish read-only WAL recovery without changing the DB/WAL bytes or file
-set on the validated engine. A recovery controller must still hold its generation
-lease and verify the baseline digest before replay into an isolated candidate.

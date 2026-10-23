@@ -10,7 +10,7 @@ struct WorkbookJournal {
     duckdb_connection connection;
     WorkbookId document;
     uint64_t base,head;
-    bool failed,bound,read_only;
+    bool failed,bound,read_only,inspection_only;
     unsigned version;
     JournalOrigin origin;
 };
@@ -51,8 +51,12 @@ static bool meta(WorkbookJournal *j,char **error) {
     if (!query(j,"SELECT version,document_high,document_low,base_revision,head_revision FROM duxcel_journal_meta",&r,error)) return false;
     static const duckdb_type types[]={DUCKDB_TYPE_UINTEGER,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT,DUCKDB_TYPE_UBIGINT};
     unsigned version=duckdb_row_count(&r)==1 ? duckdb_value_uint32(&r,0,0) : 0;
-    bool ok=duckdb_row_count(&r)==1 && shape(&r,types,5) && (version==1 || version==2) &&
-        duckdb_value_uint64(&r,1,0)==j->document.high && duckdb_value_uint64(&r,2,0)==j->document.low && duckdb_value_uint64(&r,3,0)==j->base;
+    bool identifying=j->inspection_only && !j->document.high && !j->document.low;
+    bool ok=duckdb_row_count(&r)==1 && shape(&r,types,5) && (version==1 || version==2);
+    if (ok && identifying) {
+        j->document=(WorkbookId){duckdb_value_uint64(&r,1,0),duckdb_value_uint64(&r,2,0)}; j->base=duckdb_value_uint64(&r,3,0);
+        ok=j->document.high || j->document.low;
+    } else if (ok) ok=duckdb_value_uint64(&r,1,0)==j->document.high && duckdb_value_uint64(&r,2,0)==j->document.low && duckdb_value_uint64(&r,3,0)==j->base;
     uint64_t head=ok ? duckdb_value_uint64(&r,4,0) : 0; duckdb_destroy_result(&r);
     if (!ok || head<j->base) return fail(error,"Journal version, document or checkpoint lineage does not match.");
     j->head=head; j->version=version; return true;
@@ -132,10 +136,10 @@ static void discard_failed_creation(const char *path,bool created) {
        proven absent before this single owner's attempt, never an existing file. */
     remove(path); char *wal=dx_printf("%s.wal",path); remove(wal); free(wal);
 }
-static bool open_journal(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,bool read_only,char **error) {
-    if (!out || *out || !path || !*path || !strncmp(path,":memory:",8) || (!document.high && !document.low)) return fail(error,"Choose a private journal path and document identity.");
+static bool open_journal(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,bool read_only,bool inspect,char **error) {
+    if (!out || *out || !path || !*path || !strncmp(path,":memory:",8) || (!inspect && !document.high && !document.low)) return fail(error,"Choose a private journal path and document identity.");
     struct stat existing; bool created=!read_only && stat(path,&existing)<0 && errno==ENOENT;
-    WorkbookJournal *j=dx_alloc(sizeof(*j)); memset(j,0,sizeof(*j)); j->document=document; j->base=base; j->read_only=read_only;
+    WorkbookJournal *j=dx_alloc(sizeof(*j)); memset(j,0,sizeof(*j)); j->document=document; j->base=base; j->read_only=read_only; j->inspection_only=inspect;
     duckdb_config config=NULL; char *engine_error=NULL;
     bool ok=duckdb_create_config(&config)==DuckDBSuccess && (!read_only || duckdb_set_config(config,"access_mode","READ_ONLY")==DuckDBSuccess) && duckdb_set_config(config,"threads","1")==DuckDBSuccess &&
         duckdb_set_config(config,"memory_limit","64MB")==DuckDBSuccess && duckdb_open_ext(path,&j->db,config,&engine_error)==DuckDBSuccess;
@@ -165,6 +169,7 @@ static bool open_journal(WorkbookJournal **out,const char *path,WorkbookId docum
     if (!query(j,"SELECT * FROM duxcel_journal_cells LIMIT 0",&r,error)) goto failed;
     ok=cell_shape(&r); duckdb_destroy_result(&r);
     if (!ok) { fail(error,"Journal cell schema does not match this version."); goto failed; }
+    if (inspect) { *out=j; return true; }
     if (!query(j,"SELECT count(*),min(revision),max(revision),count(DISTINCT revision),count(DISTINCT (operation_high,operation_low)) FROM duxcel_journal_cells",&r,error)) goto failed;
     uint64_t count=duckdb_value_uint64(&r,0,0);
     ok=count==j->head-j->base && count==duckdb_value_uint64(&r,3,0) && count==duckdb_value_uint64(&r,4,0) && (!count ||
@@ -178,10 +183,14 @@ failed:
     workbook_journal_close(j); discard_failed_creation(path,created); return false;
 }
 bool workbook_journal_open(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,char **error) {
-    return open_journal(out,path,document,base,false,error);
+    return open_journal(out,path,document,base,false,false,error);
 }
 bool workbook_journal_open_readonly(WorkbookJournal **out,const char *path,WorkbookId document,uint64_t base,char **error) {
-    return open_journal(out,path,document,base,true,error);
+    return open_journal(out,path,document,base,true,false,error);
+}
+bool workbook_journal_inspect(WorkbookJournal **out,const char *path,char **error) { return open_journal(out,path,(WorkbookId){0},0,true,true,error); }
+JournalSummary workbook_journal_summary(const WorkbookJournal *j) {
+    return j ? (JournalSummary){j->document,j->base,j->head,workbook_journal_origin(j)} : (JournalSummary){0};
 }
 static bool decode(duckdb_result *r,idx_t row,JournalCellEdit *e,char **error) {
     duckdb_blob before=duckdb_value_blob(r,7,row),after=duckdb_value_blob(r,8,row);
@@ -265,6 +274,7 @@ rollback:
     return false;
 }
 bool workbook_journal_read(WorkbookJournal *j,uint64_t after,size_t limit,JournalVisitor visitor,void *context,size_t *visited,char **error) {
+    if (j && j->inspection_only) return fail(error,"Open the matched checkpoint journal before reading its recovery tail.");
     if (!j || j->failed || !visitor || !limit || limit>DX_JOURNAL_BATCH || after<j->base || after>j->head)
         return fail(error,"Choose a bounded journal interval within the checkpoint lineage.");
     duckdb_prepared_statement s=NULL; duckdb_result r;
