@@ -1,4 +1,5 @@
 #include "history.h"
+#include "lifecycle.h"
 #include <stdlib.h>
 #include <string.h>
 static uint64_t issued_order;
@@ -25,13 +26,15 @@ static bool journal_valid(const Worksheet *s,bool redo) {
     return true;
 }
 static uint64_t latest_record(const Workbook *book) {
-    uint64_t latest=0; for (size_t i=0;i<book->count;i++) if (book->sheets[i].history_last>latest) latest=book->sheets[i].history_last;
+    uint64_t latest=workbook_lifecycle_latest(book); for (size_t i=0;i<book->count;i++) if (book->sheets[i].history_last>latest) latest=book->sheets[i].history_last;
     return latest;
 }
 WorkbookHistoryResult workbook_history_peek(const Workbook *book,bool redo,char **error) {
     WorkbookHistoryResult result={.status=WORKBOOK_HISTORY_EMPTY};
     if (!workbook_identity_valid(book)) return fail(result,WORKBOOK_HISTORY_INVALID,error,"Invalid workbook history identity.");
-    uint64_t floor=0,ceiling=0,latest=0;
+    WorkbookHistoryResult lifecycle={.status=WORKBOOK_HISTORY_EMPTY};
+    if (!workbook_lifecycle_peek(book,redo,&lifecycle,error)) { result.status=WORKBOOK_HISTORY_INVALID; return result; }
+    uint64_t floor=workbook_lifecycle_floor(book),ceiling=0,latest=workbook_lifecycle_latest(book);
     for (size_t i=0;i<book->count;i++) {
         const Worksheet *s=book->sheets+i;
         if (!journal_valid(s,false) || !journal_valid(s,true)) return fail(result,WORKBOOK_HISTORY_INVALID,error,"Worksheet history is incomplete; no edit was replayed.");
@@ -47,26 +50,31 @@ WorkbookHistoryResult workbook_history_peek(const Workbook *book,bool redo,char 
         if (order<=floor || (redo && ceiling && order>=ceiling)) continue;
         if (result.status==WORKBOOK_HISTORY_READY && result.order==order) return fail(result,WORKBOOK_HISTORY_INVALID,error,"Ambiguous workbook history order.");
         if (result.status!=WORKBOOK_HISTORY_READY || (redo ? order<result.order : order>result.order)) {
-            result=(WorkbookHistoryResult){WORKBOOK_HISTORY_READY,i,s->id,order,(redo ? s->redo_actions : s->undo_actions)[n-1],(redo ? s->redo_columns : s->undo_columns)[n-1]};
+            result=(WorkbookHistoryResult){WORKBOOK_HISTORY_READY,i,s->id,order,(redo ? s->redo_actions : s->undo_actions)[n-1],(redo ? s->redo_columns : s->undo_columns)[n-1],false};
         }
     }
+    if (lifecycle.status==WORKBOOK_HISTORY_READY && lifecycle.order>floor && !(redo && ceiling && lifecycle.order>=ceiling)) {
+        if (result.status==WORKBOOK_HISTORY_READY && result.order==lifecycle.order) return fail(result,WORKBOOK_HISTORY_INVALID,error,"Ambiguous workbook history order.");
+        if (result.status!=WORKBOOK_HISTORY_READY || (redo ? lifecycle.order<result.order : lifecycle.order>result.order)) result=lifecycle;
+    }
     if (result.status==WORKBOOK_HISTORY_READY && (book->command_revision==UINT64_MAX ||
-        ((worksheet_edit_effects(result.kind)&2) && book->sheets[result.sheet].cells.revision==UINT64_MAX) ||
-        ((worksheet_edit_effects(result.kind)&8) && book->sheets[result.sheet].formats.revision==UINT64_MAX)))
+        (!result.lifecycle && (worksheet_edit_effects(result.kind)&2) && book->sheets[result.sheet].cells.revision==UINT64_MAX) ||
+        (!result.lifecycle && (worksheet_edit_effects(result.kind)&8) && book->sheets[result.sheet].formats.revision==UINT64_MAX)))
         return fail(result,WORKBOOK_HISTORY_LIMIT,error,"Undo/Redo revision space is exhausted.");
     return result;
 }
 bool workbook_history_available(const Workbook *book,bool redo) { return workbook_history_peek(book,redo,NULL).status==WORKBOOK_HISTORY_READY; }
+void worksheet_history_clear_redo(Worksheet *s) {
+    for (size_t j=0;j<s->redo_count;j++) analysis_free(s->redo+j);
+    memset(s->redo,0,sizeof(s->redo)); s->redo_count=0;
+    cells_trim_history(&s->cells,true,0); objects_trim_history(&s->objects,true,0); format_trim_history(&s->formats,true,0);
+    s->history_ceiling=0;
+    s->redo_actions_count=0; memset(s->redo_actions,0,sizeof(s->redo_actions));
+    memset(s->redo_columns,0,sizeof(s->redo_columns)); memset(s->redo_order,0,sizeof(s->redo_order));
+}
 void workbook_history_note_edit(Workbook *book) {
-    for (size_t i=0;i<book->count;i++) {
-        Worksheet *s=book->sheets+i;
-        for (size_t j=0;j<s->redo_count;j++) analysis_free(s->redo+j);
-        memset(s->redo,0,sizeof(s->redo)); s->redo_count=0;
-        cells_trim_history(&s->cells,true,0); objects_trim_history(&s->objects,true,0); format_trim_history(&s->formats,true,0);
-        s->history_ceiling=0;
-        s->redo_actions_count=0; memset(s->redo_actions,0,sizeof(s->redo_actions));
-        memset(s->redo_columns,0,sizeof(s->redo_columns)); memset(s->redo_order,0,sizeof(s->redo_order));
-    }
+    for (size_t i=0;i<book->count;i++) worksheet_history_clear_redo(book->sheets+i);
+    workbook_lifecycle_clear_redo(book);
     book->history_branch=latest_record(book);
 }
 void workbook_history_sync(Workbook *book) {
@@ -75,6 +83,7 @@ void workbook_history_sync(Workbook *book) {
 WorkbookHistoryResult workbook_history_step(Workbook *book,bool redo,char **error) {
     WorkbookHistoryResult result=workbook_history_peek(book,redo,error);
     if (result.status!=WORKBOOK_HISTORY_READY) return result;
+    if (result.lifecycle) return workbook_lifecycle_step(book,redo,error);
     if (result.kind!=EDIT_CELLS && result.kind!=EDIT_FORMAT && result.kind!=EDIT_CELLS_FORMAT) { result.status=WORKBOOK_HISTORY_DELEGATE; return result; }
     workbook_history_sync(book);
     Worksheet *s=book->sheets+result.sheet;

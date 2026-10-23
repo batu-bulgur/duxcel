@@ -101,7 +101,7 @@ it from replacing the newer data. Copy any text you want to keep, press Escape,
 and reopen the cell to edit the latest value. Committing unchanged text adds no
 Undo step and preserves an existing Redo action.
 
-Chronological cell/object/analysis undo and redo are per sheet, limited to 32 actions and session-only. Manual history also has an 8 MiB text budget per stack. External source changes can alter results. Closing or replacing a modified workbook offers Save / Don't Save / Cancel; automatic crash recovery remains pending.
+Undo and Redo follow edits across worksheets in workbook chronological order. Worksheet creation, duplication, deletion, rename, reorder, hide and show join that same history. Choose **Delete worksheet** from its menu; Undo restores its data, objects, formatting and layout. At least one sheet must stay visible. Existing sheet journals and the separate worksheet-lifecycle journal retain up to 32 actions each, and all history is session-only. Manual history also has an 8 MiB text budget per stack. External source changes can alter results. Closing or replacing a modified workbook offers Save / Don't Save / Cancel; automatic crash recovery remains pending.
 
 Cmd+W closes the Mac workbook surface and leaves Duxcel running. Cmd+Q quits. Use File→New Workbook (Cmd+N), Open or the Dock to reopen a surface. Shift+F11 adds a worksheet. In the browser, Ctrl/Cmd+W keeps its browser meaning; **Alt→F→C** closes the workbook inside the live tab. Modified workbooks offer Cancel/Discard; browser Save is still unavailable and disabled.
 

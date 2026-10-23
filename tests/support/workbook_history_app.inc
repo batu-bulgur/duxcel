@@ -23,23 +23,23 @@ static void workbook_history_test_frame(AppSession *session) {
         HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"A2"));
         a->sheet_menu_index=0; a->sheet_action=SHEET_ACTION_HIDE; process_sheet_action(a);
         HIST_GUI_CHECK(a->book.active==1 && a->book.sheets[0].hidden);
-        HIST_GUI_CHECK(command_popup_enabled(a,RIBBON_MORE_UNDO)); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+        HIST_GUI_CHECK(command_popup_enabled(a,RIBBON_MORE_UNDO)); history(a,false); /* Undo Hide before the cell. */ ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 4:
         HIST_GUI_CHECK(s->id==history_a && !s->hidden && !strcmp(cells_get(&s->cells,1,1),"A1"));
         HIST_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[1].cells,1,1),"B1")); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 5:
-        HIST_GUI_CHECK(s->id==history_b && !*cells_get(&s->cells,1,1)); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+        HIST_GUI_CHECK(s->id==history_b && !*cells_get(&s->cells,1,1)); history(a,false); /* Undo sheet creation. */ ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 6:
         HIST_GUI_CHECK(s->id==history_a && !*cells_get(&s->cells,1,1));
         HIST_GUI_CHECK(!workbook_history_available(&a->book,false) && command_popup_enabled(a,RIBBON_MORE_REDO));
         ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 7:
-        HIST_GUI_CHECK(s->id==history_a && !strcmp(cells_get(&s->cells,1,1),"A1")); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+        HIST_GUI_CHECK(s->id==history_a && !strcmp(cells_get(&s->cells,1,1),"A1")); history(a,true); /* Redo sheet creation. */ ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 8:
         HIST_GUI_CHECK(s->id==history_b && !strcmp(cells_get(&s->cells,1,1),"B1")); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 9:
         HIST_GUI_CHECK(s->id==history_a && !strcmp(cells_get(&s->cells,1,1),"A2"));
-        HIST_GUI_CHECK(!workbook_history_available(&a->book,true)); activate_sheet(a,1,true); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+        history(a,true); /* Redo Hide. */ HIST_GUI_CHECK(!workbook_history_available(&a->book,true)); activate_sheet(a,1,true); history(a,false); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 10:
         HIST_GUI_CHECK(s->id==history_a && !strcmp(cells_get(&s->cells,1,1),"A1")); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 11:
@@ -69,12 +69,12 @@ static void workbook_history_test_frame(AppSession *session) {
     case 16:
         HIST_GUI_CHECK(a->modal==MODAL_NONE && !strcmp(s->name,"Renamed B"));
         a->sheet_menu_index=a->book.active; a->sheet_action=SHEET_ACTION_UP; process_sheet_action(a);
-        HIST_GUI_CHECK(a->book.active==0 && active_sheet(a)->id==history_b); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+        HIST_GUI_CHECK(a->book.active==0 && active_sheet(a)->id==history_b); history(a,false); history(a,false); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 17:
         HIST_GUI_CHECK(s->id==history_b && !*cells_get(&s->cells,1,1));
-        HIST_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[1].cells,1,1),"A1")); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+        HIST_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[0].cells,1,1),"A1")); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 18:
-        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Branch B")); history_saved_revision=a->book.command_revision;
+        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Branch B")); history(a,true); history(a,true); history_saved_revision=a->book.command_revision;
         workspace_job(a,JOB_SAVE,"build/tests/generated/workbook-history-demo.dxls"); break;
     case 19:
         HIST_GUI_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,"build/tests/generated/workbook-history-demo.dxls"); break;

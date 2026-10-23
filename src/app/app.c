@@ -1,5 +1,6 @@
 #include "../workbook/cell_command.h"
 #include "../workbook/history.h"
+#include "../workbook/lifecycle.h"
 #include "selection.h"
 #include "app.h"
 #include "../data/worker.h"
@@ -55,7 +56,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 
 typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
-typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW } SheetAction;
+typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW,SHEET_ACTION_DELETE } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW } DocumentAction;
 enum { RIBBON_MORE_COMMAND=-2, RIBBON_MORE_UNDO=-1, RIBBON_MORE_REDO=-2, RIBBON_MORE_ITEMS=UI_RIBBON_GROUPS+2 };
 typedef struct { uint64_t id,revision,source_revision,counted_total,count_layout_key; Page page; char *error; bool dirty,failed,waiting_count,count_paused,count_resolved; } ObjectView;
@@ -1290,9 +1291,12 @@ static void open_source(App *a,const char *path,bool demo) {
     if (!absolute) { status(a,"Source file is missing or inaccessible. Open its current location to recover."); return; }
     capture_sheet(a);
     Analysis source={.kind=kind,.path=absolute}; char *error=NULL;
-    if (!workbook_add(&a->book,demo ? "Million-row demo" : dx_basename(path),&source,&error)) {
-        status(a,error); free(error); free(absolute); return;
+    char *name=workbook_unique_sheet_name(&a->book,demo ? "Million-row demo" : dx_basename(path),&error);
+    if (!name) { status(a,error); free(error); free(absolute); return; }
+    if (!(a->book.count ? workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name=name,.analysis=&source},NULL,&error) : workbook_add(&a->book,name,&source,&error))) {
+        status(a,error); free(error); free(absolute); free(name); return;
     }
+    free(name);
     /* The new sheet has no objects. Retire the previous sheet's owned Pages
        before submitting its replacement query; a failed add keeps them intact. */
     SOURCE_FORMAT_RESET(a);
@@ -2040,7 +2044,12 @@ static void history(App *a,bool redo) {
         if (error) status(a,error); free(error); return;
     }
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo."); end_step_preview(a);
-    if (target.kind==EDIT_CELLS || target.kind==EDIT_FORMAT || target.kind==EDIT_CELLS_FORMAT) {
+    if (target.lifecycle) {
+        capture_sheet(a);
+        WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
+        if (applied.status==WORKBOOK_HISTORY_APPLIED) activate_sheet(a,a->book.active,false);
+        else if (error) status(a,error);
+    } else if (target.kind==EDIT_CELLS || target.kind==EDIT_FORMAT || target.kind==EDIT_CELLS_FORMAT) {
         WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
         if (applied.status!=WORKBOOK_HISTORY_APPLIED) { if (error) status(a,error); free(error); return; }
         a->book.sheets[target.sheet].hidden=false;
@@ -2123,9 +2132,11 @@ static void open_modal(App *a,Modal modal) {
 static void new_sheet(App *a) {
     end_step_preview(a);
     if (a->io_busy) return;
-    capture_sheet(a); char *name=dx_printf("Sheet %zu",a->book.count+1),*error=NULL;
+    capture_sheet(a); char *error=NULL,*base=dx_printf("Sheet %zu",a->book.count+1);
+    char *name=workbook_unique_sheet_name(&a->book,base,&error); free(base);
+    if (!name) { status(a,error); free(error); return; }
     Analysis blank={.kind=SOURCE_NONE,.path=""};
-    if (!workbook_add(&a->book,name,&blank,&error)) { status(a,error); free(error); free(name); return; }
+    if (!(a->book.count ? workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name=name,.analysis=&blank},NULL,&error) : workbook_add(&a->book,name,&blank,&error))) { status(a,error); free(error); free(name); return; }
     free(name); activate_sheet(a,a->book.active,false);
 }
 static void relink_source(App *a) {
@@ -5194,16 +5205,17 @@ static void process_sheet_action(App *a) {
     size_t index=a->sheet_menu_index; if (action==SHEET_ACTION_NONE || a->io_busy || index>=a->book.count) return;
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by worksheet navigation.");
     char *error=NULL; size_t previous=a->book.active; bool ok=false;
-    if (action==SHEET_ACTION_DUPLICATE || (action==SHEET_ACTION_HIDE && index==previous)) capture_sheet(a);
-    if (action==SHEET_ACTION_DUPLICATE) ok=workbook_duplicate(&a->book,index,&error);
-    else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=workbook_hide(&a->book,index,action==SHEET_ACTION_HIDE,&error);
+    capture_sheet(a);
+    if (action==SHEET_ACTION_DUPLICATE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=index},NULL,&error);
+    else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=action==SHEET_ACTION_HIDE ? SHEET_HIDE : SHEET_SHOW,.sheet=index},NULL,&error);
+    else if (action==SHEET_ACTION_DELETE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=index},NULL,&error);
     else {
         size_t destination=index;
         while (action==SHEET_ACTION_UP ? destination>0 : destination+1<a->book.count) {
             destination=action==SHEET_ACTION_UP ? destination-1 : destination+1;
             if (!a->book.sheets[destination].hidden) break;
         }
-        ok=workbook_reorder(&a->book,index,destination,&error);
+        ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_REORDER,.sheet=index,.destination=destination},NULL,&error);
     }
     if (!ok) { status(a,error); free(error); return; }
 #ifndef DUXCEL_BROWSER_HOST
@@ -5215,11 +5227,12 @@ static void process_sheet_action(App *a) {
         a->source_format_tables[i].attempt.sheet=a->book.active;
     }
 #endif
-    if (action==SHEET_ACTION_DUPLICATE || (action==SHEET_ACTION_HIDE && index==previous)) activate_sheet(a,a->book.active,false);
+    if (action==SHEET_ACTION_DUPLICATE || action==SHEET_ACTION_DELETE || (action==SHEET_ACTION_HIDE && index==previous)) activate_sheet(a,a->book.active,false);
     else if (action==SHEET_ACTION_SHOW) activate_sheet(a,index,true);
     a->workbook_focus_index=(int)sheet_display_position(&a->book,a->book.active); a->reveal_tab=true;
     if (action==SHEET_ACTION_DUPLICATE) status(a,"Worksheet duplicated. Source files stay shared; notes, objects and layout are independent.");
     else if (action==SHEET_ACTION_HIDE) status(a,"Worksheet hidden. Use Workbook → Unhide worksheets to show it again.");
+    else if (action==SHEET_ACTION_DELETE) status(a,"Worksheet deleted. Undo restores its data, objects and formatting.");
     else status(a,"Worksheet navigation updated.");
 }
 static void draw_sheet_modal(App *a) {
@@ -5239,7 +5252,7 @@ static void draw_sheet_modal(App *a) {
         bool cancel=ui_button(u,box(r.x+w-248*s,r.y+h-48*s,110*s,30*s),"Cancel",false,true);
         if (apply) {
             char *error=NULL;
-            if (workbook_rename(&a->book,a->sheet_menu_index,a->input.text,&error)) { a->modal=MODAL_NONE; a->chrome_focus=2; status(a,"Worksheet renamed."); }
+            if (workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=a->sheet_menu_index,.name=a->input.text},NULL,&error)) { a->modal=MODAL_NONE; a->chrome_focus=2; status(a,"Worksheet renamed."); }
             else { a->sheet_rename_error=true; status(a,error); free(error); }
         } else if (cancel) { a->modal=MODAL_NONE; a->chrome_focus=2; }
         return;
@@ -5247,7 +5260,7 @@ static void draw_sheet_modal(App *a) {
     size_t hidden[DX_MAX_SHEETS],count=0;
     if (unhide) for (size_t i=0;i<a->book.count;i++) if (a->book.sheets[i].hidden) hidden[count++]=i;
     if (unhide && !count) { a->modal=MODAL_NONE; return; }
-    int rows=unhide ? (int)count : 6;
+    int rows=unhide ? (int)count : 7;
     UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},s,rows);
     if (!menu.frame.valid) return;
     int visible=menu.visible; Rectangle r=menu.frame.panel;
@@ -5256,7 +5269,7 @@ static void draw_sheet_modal(App *a) {
     ui_choice_frame(u,&menu.frame,unhide ? "Show a hidden worksheet" : a->book.sheets[a->sheet_menu_index].name);
     REVIEW_AUTHOR_PANEL(a,unhide ? "sheet_unhide" : "sheet_menu",unhide ? "Show a hidden worksheet" : a->book.sheets[a->sheet_menu_index].name,menu.frame.panel,menu.frame.title);
     bool available[DX_MAX_SHEETS]; size_t index=a->sheet_menu_index;
-    for (int i=0;i<rows;i++) available[i]=unhide || (i==1 ? a->book.count<DX_MAX_SHEETS : i==2 ? sheet_display_position(&a->book,index)>0 : i==3 ? sheet_display_position(&a->book,index)+1<workbook_visible_count(&a->book) : i==4 ? workbook_visible_count(&a->book)>1 : i==5 ? workbook_visible_count(&a->book)<a->book.count : true);
+    for (int i=0;i<rows;i++) available[i]=unhide || (i==1 ? a->book.count<DX_MAX_SHEETS : i==2 ? sheet_display_position(&a->book,index)>0 : i==3 ? sheet_display_position(&a->book,index)+1<workbook_visible_count(&a->book) : (i==4 || i==6) ? workbook_visible_count(&a->book)>1 : i==5 ? workbook_visible_count(&a->book)<a->book.count : true);
     if (ui_key(KEY_UP)) a->sheet_menu_focus=(a->sheet_menu_focus+rows-1)%rows;
     if (ui_key(KEY_DOWN)) a->sheet_menu_focus=(a->sheet_menu_focus+1)%rows;
     if (ui_pressed(KEY_TAB)) a->sheet_menu_focus=(a->sheet_menu_focus+rows+(ui_key_shift(KEY_TAB) ? -1 : 1))%rows;
@@ -5270,19 +5283,19 @@ static void draw_sheet_modal(App *a) {
         if (a->sheet_menu_focus>=a->unhide_scroll+visible) a->unhide_scroll=a->sheet_menu_focus-visible+1;
     }
     if (a->unhide_scroll>rows-visible) a->unhide_scroll=rows-visible; if (a->unhide_scroll<0 || !unhide) a->unhide_scroll=0;
-    const char *labels[]={"Rename…","Duplicate worksheet","Move up","Move down","Hide worksheet","Unhide worksheets…"};
-    const UICarbonIcon icons[]={CARBON_STRING_TEXT,CARBON_COPY,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_MINIMIZE,CARBON_VIEW};
+    const char *labels[]={"Rename…","Duplicate worksheet","Move up","Move down","Hide worksheet","Unhide worksheets…","Delete worksheet"};
+    const UICarbonIcon icons[]={CARBON_STRING_TEXT,CARBON_COPY,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_MINIMIZE,CARBON_VIEW,CARBON_TRASH_CAN};
     if (unhide) list_scrollbar(a,menu.items,rows,visible,&a->unhide_scroll,&a->context_drag,&a->context_grab,true);
     for (int j=0;j<visible;j++) {
         int i=j+a->unhide_scroll; Rectangle row=menu.frame.rows[j]; if (rows>visible) row.width-=9*s;
         if (unhide) { REVIEW_SHEET_CHOICE(a,"sheet_unhide","show","workbook.show_sheet",a->book.sheets[hidden[i]].name,row,menu.items,available[i],false,i==a->sheet_menu_focus,hidden[i]); }
-        else { REVIEW_AUTHOR_ITEM(a,"sheet_menu",((const char *const[]){"rename","duplicate","move.up","move.down","hide","unhide"})[i],"workbook.sheet_action","menuitem",labels[i],row,menu.items,available[i],false,i==a->sheet_menu_focus,NULL); }
+        else { REVIEW_AUTHOR_ITEM(a,"sheet_menu",((const char *const[]){"rename","duplicate","move.up","move.down","hide","unhide","delete"})[i],"workbook.sheet_action","menuitem",labels[i],row,menu.items,available[i],false,i==a->sheet_menu_focus,NULL); }
         bool clicked=ui_choice_row(u,row,unhide ? a->book.sheets[hidden[i]].name : labels[i],!unhide && !i ? "F2" : NULL,unhide ? CARBON_TABLE : icons[i],false,i==a->sheet_menu_focus,available[i]);
         if (!clicked && !(!a->consume_grid_input && available[i] && i==a->sheet_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) continue;
         if (unhide) { a->sheet_menu_index=hidden[i]; a->sheet_action=SHEET_ACTION_SHOW; a->modal=MODAL_NONE; }
         else if (i==0) begin_sheet_rename(a,index);
         else if (i==5) { a->modal=MODAL_UNHIDE; a->sheet_menu_focus=a->unhide_scroll=0; a->context_drag=false; }
-        else { const SheetAction actions[]={SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE}; a->sheet_action=actions[i]; a->modal=MODAL_NONE; }
+        else { const SheetAction actions[]={SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_NONE,SHEET_ACTION_DELETE}; a->sheet_action=actions[i]; a->modal=MODAL_NONE; }
         a->consume_grid_input=true; return;
     }
 }
@@ -11268,8 +11281,8 @@ static void layout_smoke_step(App *a,int *step) {
     case 551:
         if (a->modal!=MODAL_SHEET || a->request_id!=request) goto failed; break;
     case 552: {
-        UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,6);
-        if (a->modal!=MODAL_SHEET || a->sheet_menu_focus!=4 || menu.frame.panel.width!=360 || menu.frame.panel.y+menu.frame.panel.height>640 || a->request_id!=request) goto failed;
+        UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,7);
+        if (a->modal!=MODAL_SHEET || a->sheet_menu_focus!=6 || menu.frame.panel.width!=360 || menu.frame.panel.y+menu.frame.panel.height>640 || a->request_id!=request) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/native-sheet-actions-150.png"); break;
     }
     case 553:
@@ -14924,6 +14937,9 @@ static void record_frame(App *a,double started) {
 #endif
 /* A frame may return to a host scheduler without losing owned App state.
    The native runner uses the same start/frame/finish contract as future hosts. */
+#ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
+static void workbook_lifecycle_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_HISTORY
 static void workbook_history_test_frame(AppSession *session);
 #endif
@@ -15725,6 +15741,9 @@ bool app_frame(AppSession *session) {
         }
     }
 #endif /* native scenario input */
+#ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
+    workbook_lifecycle_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_HISTORY
     workbook_history_test_frame(session);
 #endif
@@ -15950,4 +15969,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_HISTORY
 #include "../../tests/support/workbook_history_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
+#include "../../tests/support/workbook_lifecycle_app.inc"
 #endif

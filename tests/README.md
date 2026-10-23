@@ -8,6 +8,8 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | --- | --- | --- |
 | `test_*.c`, `test_*.inc`, `test_*.m` | Native suites and their implementation fragments | Tracked source |
 | `test_fixture.c` | Native load/PIVOT/typed data/save/reload acceptance of canonical/large inputs | Tracked C test |
+| `test_workbook_lifecycle.c` | Sheet command chronology, detached ownership, binding/style restoration, IDs, branches, hidden sheets, stale drafts, limits and eviction | Shared-C optimized/sanitizer; no engine/GUI |
+| `test_workbook_lifecycle_gui.c`, `support/workbook_lifecycle_app.inc` | 24-stage menu Delete, Cmd-Z/Shift-Cmd-Z, rename/reorder/duplicate/hide, retained values/styles/objects and Save/Open | Hidden TEST release App; production excludes fixture |
 | `test_workbook_history.c` | Shared-C global ordering, branch cleanup, composite styles, stable targets, stale drafts, retention barriers, overflow and atomic rejection | Reuses per-file optimized/sanitizer model objects; no engine/GUI |
 | `test_workbook_history_gui.c`, `support/workbook_history_app.inc` | 21-stage real App Cmd-Z/Shift-Cmd-Z across two sheets, hidden owner reveal, no-op/branch behavior, rename/reorder and Save/Open | Hidden TEST release App; production excludes fixture |
 | `test_workbook_identity.c` | Shared-C identity validation, allocation/exhaustion, snapshots and admitted command clock | Tracked C tests; reuses per-file model objects |
@@ -58,3 +60,10 @@ Their named interactions remain in tools/test_catalog.py for milestone runs.
 The saved demo workbook is build/tests/generated/workbook-history-demo.dxls;
 like ordinary current saves it retains values/IDs/revision, not session history.
 No routine human-acceptance-pending status is required after a local pass.
+
+W07 local gate: `make test-feature FEATURE=workbook-lifecycle`. It reuses the
+lifecycle/chronology/cell-command model objects in optimized/ASan/UBSan builds
+and a private 24-stage App fixture. The checkpoint is
+`build/tests/generated/workbook-lifecycle-demo.dxls`; session-only deleted sheets
+are intentionally absent after reopen. The full-App/source/browser interaction
+commands stay registered in the feature catalog for milestone runs.

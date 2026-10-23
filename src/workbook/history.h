@@ -11,6 +11,7 @@ typedef struct {
     uint64_t sheet_id,order;
     EditKind kind;
     ColumnEdit column;
+    bool lifecycle;
 } WorkbookHistoryResult;
 /* Session-only action ordering. One mutation owner; no wrap/recycling. Legacy
    void producers get order0 on exhaustion and the coordinator refuses replay. */
@@ -26,6 +27,7 @@ bool workbook_history_available(const Workbook *book,bool redo);
    No-op/rejected commands must not call this. sync handles legacy new records
    at the App frame boundary or before a direct C history transfer, retaining
    the new branch's subsequent Redo. */
+void worksheet_history_clear_redo(Worksheet *sheet);
 void workbook_history_note_edit(Workbook *book);
 void workbook_history_sync(Workbook *book);
 /* Cell/format snapshot transfer plus matching action transfer, dirty publication

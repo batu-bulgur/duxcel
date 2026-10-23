@@ -101,6 +101,18 @@ registered for milestones. The generated checkpoint is
 build/tests/generated/workbook-history-demo.dxls; tests and source/binary
 receipts remain in ignored build/tests/results/.
 
+W07 adds undoable worksheet creation, duplication, deletion, rename, reorder,
+hide and show to the same workbook chronology. The worksheet menu now offers
+Delete; Undo restores its cells, formats, objects, source bindings, layout and
+stable IDs. Deleted ownership is retained without a data clone and released
+when the bounded session history or abandoned Redo branch no longer needs it.
+The last visible sheet is protected. Save/Open retains current sheets and ID
+high-water but intentionally clears session history; durable replay and formula
+references remain later slices. The focused gate passes 696 lifecycle, 565
+chronology and 158 cell-command checks per optimized/sanitizer configuration,
+then 24 hidden TEST App stages/29 assertions in 6.434s (17.590s total gate).
+The adjusted W06 GUI also passes; broader source/browser regression is deferred.
+
 ## Feature iteration and build identity
 
 The default CLI development tier now requires a registered feature and never

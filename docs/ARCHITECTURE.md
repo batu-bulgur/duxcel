@@ -97,6 +97,22 @@ branch metadata and history are session state, excluded from snapshot/Save/Open.
 The private DUXCEL_FEATURE_WORKBOOK_HISTORY App fixture is compile/link excluded
 from production, matching the other feature fixtures.
 
+`src/workbook/lifecycle.c` owns a separate bounded session journal of sheet
+commands, merged by process order with the existing worksheet journals. Metadata
+replay swaps owned names, positions and visibility. Presence replay moves an
+entire Worksheet between the live array and exactly one detached event owner,
+including its earlier histories, source ledger, objects and formats. It never
+clones a deleted dataset. At most 32 lifecycle events can retain detached sheets
+in addition to the 64 live-sheet bound; duplicate still creates independent
+current stores. Eviction releases detached ownership and raises the coordinator's
+past barrier. Branch disposal also releases detached Redo payloads and clears
+obsolete per-sheet future constituents. Workbook identity/high-water, command
+revision and presentation defaults never rewind. Save snapshots clone live
+current state only, excluding the lifecycle journal and detached sheets.
+The App captures live Analysis/view before structural changes and invalidates
+its result/cache adapter when activating the resulting sheet. This does not
+implement formula/reference restoration or durable lifecycle replay.
+
 The cell-command GUI fixture has its own App object compiled with
 `DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.
 Normal/review/browser App objects omit the hook, state and fixture dependency.

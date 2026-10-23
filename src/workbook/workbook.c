@@ -1,6 +1,7 @@
 #include "workbook.h"
 #include "workbook_codec.h"
 #include "history.h"
+#include "lifecycle.h"
 #include "../platform/platform.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include <duckdb.h>
@@ -483,12 +484,15 @@ bool worksheet_rows(Worksheet *s,uint64_t row,uint64_t count,bool insert,uint64_
     if (changed || mask || format_changed) worksheet_record(s,range_edit(changed,mask!=0,format_changed));
     return true;
 }
+void worksheet_free(Worksheet *s) {
+    free(s->name); analysis_free(&s->analysis); view_free(&s->view); cells_free(&s->cells); objects_free(&s->objects); format_free(&s->formats); source_versions_free(&s->source_versions);
+    for (size_t j=0;j<s->undo_count;j++) analysis_free(&s->undo[j]);
+    for (size_t j=0;j<s->redo_count;j++) analysis_free(&s->redo[j]);
+    memset(s,0,sizeof(*s));
+}
 void workbook_free(Workbook *b) {
-    for (size_t i=0;i<b->count;i++) {
-        Worksheet *s=&b->sheets[i]; free(s->name); analysis_free(&s->analysis); view_free(&s->view); cells_free(&s->cells); objects_free(&s->objects); format_free(&s->formats); source_versions_free(&s->source_versions);
-        for (size_t j=0;j<s->undo_count;j++) analysis_free(&s->undo[j]);
-        for (size_t j=0;j<s->redo_count;j++) analysis_free(&s->redo[j]);
-    }
+    workbook_lifecycle_free(b);
+    for (size_t i=0;i<b->count;i++) worksheet_free(b->sheets+i);
     free(b->sheets); free(b->path); workbook_init(b);
 }
 bool workbook_add(Workbook *b,const char *name,const Analysis *a,char **error) {
@@ -514,14 +518,34 @@ static bool same_name(const char *a,const char *b) {
     }
     return *a==*b;
 }
-bool workbook_rename(Workbook *b,size_t index,const char *name,char **error) {
-    if (index>=b->count || !name) return range_fail(error,"Choose a worksheet to rename.");
+char *workbook_prepare_sheet_name(const Workbook *b,size_t index,const char *name,char **error) {
+    if (index>b->count || !name) { range_fail(error,"Choose a worksheet name."); return NULL; }
     while (*name && isspace((unsigned char)*name)) name++;
     size_t length=strlen(name); while (length && isspace((unsigned char)name[length-1])) length--;
-    if (!length || length>4096) return range_fail(error,"Worksheet names must contain 1–4096 bytes of text.");
-    for (size_t i=0;i<length;i++) if ((unsigned char)name[i]<32 || name[i]==127) return range_fail(error,"Worksheet names cannot contain control characters.");
+    if (!length || length>4096) { range_fail(error,"Worksheet names must contain 1–4096 bytes of text."); return NULL; }
+    for (size_t i=0;i<length;i++) if ((unsigned char)name[i]<32 || name[i]==127) { range_fail(error,"Worksheet names cannot contain control characters."); return NULL; }
     char *owned=dx_printf("%.*s",(int)length,name);
-    for (size_t i=0;i<b->count;i++) if (i!=index && same_name(owned,b->sheets[i].name)) { free(owned); return range_fail(error,"Another worksheet already has that name."); }
+    for (size_t i=0;i<b->count;i++) if (i!=index && same_name(owned,b->sheets[i].name)) { free(owned); range_fail(error,"Another worksheet already has that name."); return NULL; }
+    return owned;
+}
+char *workbook_unique_sheet_name(const Workbook *b,const char *base,char **error) {
+    /* Normalize independently of existing names before searching a bounded
+       suffix space. Invalid names fail rather than looping on validation. */
+    char *normalized=workbook_prepare_sheet_name(&(Workbook){0},0,base,error);
+    if (!normalized) return NULL;
+    char *name=dx_strdup(normalized);
+    for (size_t suffix=1;suffix<=DX_MAX_SHEETS+1;suffix++) {
+        bool taken=false; for (size_t i=0;i<b->count;i++) if (same_name(name,b->sheets[i].name)) taken=true;
+        if (!taken) { free(normalized); return name; }
+        size_t bytes=strlen(normalized);
+        if (bytes>4080) { bytes=4080; while (bytes && ((unsigned char)normalized[bytes]&0xc0)==0x80) bytes--; }
+        free(name); name=dx_printf("%.*s (%zu)",(int)bytes,normalized,suffix+1);
+    }
+    free(normalized); free(name); range_fail(error,"No available worksheet name."); return NULL;
+}
+bool workbook_rename(Workbook *b,size_t index,const char *name,char **error) {
+    if (index>=b->count) return range_fail(error,"Choose a worksheet to rename.");
+    char *owned=workbook_prepare_sheet_name(b,index,name,error); if (!owned) return false;
     if (strcmp(owned,b->sheets[index].name)) { free(b->sheets[index].name); b->sheets[index].name=owned; b->dirty=true; }
     else free(owned);
     return true;
@@ -543,14 +567,8 @@ bool workbook_duplicate(Workbook *b,size_t index,char **error) {
     if (b->count>=DX_MAX_SHEETS) return range_fail(error,"A workspace supports up to 64 worksheets.");
     SourceVersions versions={0};
     if (!source_versions_valid(&b->sheets[index].source_versions,b->sheets[index].objects.next_id,error) || !source_versions_copy(&versions,&b->sheets[index].source_versions,error)) return false;
-    char *name=NULL;
-    for (unsigned suffix=2;;suffix++) {
-        const char *base=b->sheets[index].name; size_t bytes=strlen(base);
-        if (bytes>4080) { bytes=4080; while (bytes && ((unsigned char)base[bytes]&0xc0)==0x80) bytes--; }
-        free(name); name=dx_printf("%.*s (%u)",(int)bytes,base,suffix); bool taken=false;
-        for (size_t i=0;i<b->count;i++) if (same_name(name,b->sheets[i].name)) taken=true;
-        if (!taken) break;
-    }
+    char *name=workbook_unique_sheet_name(b,b->sheets[index].name,error);
+    if (!name) { source_versions_free(&versions); return false; }
     /* add may realloc the sheet array: never retain a pointer into it. */
     if (!workbook_add(b,name,&b->sheets[index].analysis,error)) { free(name); source_versions_free(&versions); return false; } free(name);
     Worksheet *to=&b->sheets[b->active],*from=&b->sheets[index];

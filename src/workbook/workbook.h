@@ -48,6 +48,7 @@ typedef struct {
     WorkbookId id;
     uint64_t sheet_high_water; /* Never decremented or restored by Undo. */
     uint64_t command_revision; /* Monotonic clock for admitted C commands only. */
+    struct WorkbookLifecycle *lifecycle; /* Owned session-only sheet command journal. */
     uint64_t history_branch; /* Latest recorded session edit acknowledged by history. */
     uint64_t edit_session_id; /* Transient command identity; reset on load/snapshot. */
     size_t count,active;
@@ -64,10 +65,14 @@ bool workbook_identity_restore(Workbook *book,WorkbookId document,uint64_t high_
 void view_free(SheetView *view);
 void workbook_init(Workbook *book);
 void workbook_free(Workbook *book);
+void worksheet_free(Worksheet *sheet); /* Releases one independently owned live/detached sheet. */
 /* Copies definitions, source-version ledger/high-water and presentation only;
    undo stacks/pages are session state. NULL denotes an invalid source ledger. */
 Workbook *workbook_snapshot(const Workbook *book);
 bool workbook_add(Workbook *book,const char *name,const Analysis *analysis,char **error);
+/* Returns owned trimmed/validated unique name; except==count admits a new sheet. */
+char *workbook_prepare_sheet_name(const Workbook *book,size_t except,const char *name,char **error);
+char *workbook_unique_sheet_name(const Workbook *book,const char *base,char **error);
 bool workbook_rename(Workbook *book,size_t index,const char *name,char **error);
 bool workbook_reorder(Workbook *book,size_t from,size_t to,char **error);
 bool workbook_duplicate(Workbook *book,size_t index,char **error);

@@ -91,6 +91,13 @@ class FeatureCatalogTests(unittest.TestCase):
         obj.standalone_gui_check.assert_called_once_with("workbook-history")
         obj.prepare_native.assert_not_called(); obj.feature_engine_checks.assert_not_called()
 
+    def test_lifecycle_gate_keeps_history_interactions_deferred(self):
+        local = plan("workbook-lifecycle")
+        self.assertEqual(local["modules"], ["workbook_lifecycle", "workbook_history", "cell_command"])
+        self.assertEqual(local["gui"], "workbook-lifecycle")
+        self.assertEqual(local["engine_modules"], [])
+        self.assertIn("python3 tools/test.py feature --feature workbook-history", local["deferred_interactions"])
+
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))
         self.assertEqual(plan("about")["gui"], "about")

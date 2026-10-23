@@ -16,6 +16,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "workbook-lifecycle": ("build/tests/test_workbook_lifecycle-gui", "PASS: native workbook lifecycle workflow",
+                           r"^PASS: native workbook lifecycle workflow \(24 stages, [1-9]\d* checks\)$", 24),
     "workbook-history": ("build/tests/test_workbook_history-gui", "PASS: native workbook chronology workflow",
                          r"^PASS: native workbook chronology workflow \(21 stages, [1-9]\d* checks\)$", 21),
     "workbook-identity": ("build/tests/test_workbook_identity-gui", "PASS: native workbook identity workflow",
@@ -26,6 +28,11 @@ STANDALONE_GUI = {
 
 
 FEATURES = {
+    "workbook-lifecycle": Feature(("workbook_lifecycle", "workbook_history", "cell_command"), "workbook-lifecycle",
+        ("python3 tools/test.py feature --feature workbook-history",
+         "python3 tools/test.py native --scenario workspace document --config sanitize",
+         "python3 tools/test.py formats --config both"),
+        ("src/workbook/lifecycle.c", "src/workbook/history.c", "src/app/app.c: worksheet actions")),
     "workbook-history": Feature(("workbook_history", "cell_command", "workbook_identity"), "workbook-history",
         ("python3 tools/test.py native --scenario workspace document --config sanitize",
          "python3 tools/test.py formats --config both",

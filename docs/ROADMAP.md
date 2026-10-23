@@ -27,7 +27,7 @@ Never label automated verification as human testing.
   tasks below, not prerequisites for every feature.
 
 T01–T03 are infrastructure, not a change in W02/W03 milestone review or the
-numbered workbook dependencies. W05a/W05b implement the admitted single-cell command foundation; W06 completes session chronology; W07 is the next numbered workbook slice.
+numbered workbook dependencies. W05a/W05b implement the admitted single-cell command foundation; W06 completes session chronology; W07 completes sheet lifecycle; W08 journal work follows.
 
 ## Repository and C tooling
 
@@ -125,7 +125,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W05a · P0 · Complete | Session-fenced, resolved single-cell command; existing cell/history model. | F2/type/click-away/close commit uses the shared producer. Draft captures cell and expected CellStore revision at open; stale data/target cannot be overwritten. Applied/no-op/stale/invalid/protected/limit outcomes are explicit. One existing Undo action, preserved Redo for no-op, exact text and Save/Open. Process-lifetime target fences survive rename/reorder but reset on load/snapshot. |
 | W05b · P0 · Complete | Persisted workbook/sheet identities, non-recycled high-water and admitted-command revision; W05a. | Native v15 persists a 128-bit workbook ID, exact uint64 sheet IDs/high-water and command revision. Rename/reorder/reopen/snapshot preserve IDs; duplicate allocates a new ID. Invalid identity archives preserve the live book and prior file; exhaustion rejects allocation without blocking existing-book Save. v1–v14 migrate in RAM and upgrade on Save. Shared-C model/restore checks pass; the incomplete browser header gate still rejects v15 explicitly. Session fences remain independent; no journal/global Undo claim. |
 | W06 · P0 · Complete | Workbook chronological Undo/Redo for manual edits on two sheets; W05. | Global session ordering selects the newest Undo / earliest Redo across stable sheet IDs. A→B→A replays in exact reverse/forward order; navigation follows the owner, including hidden sheets. Changed cell commands clear abandoned Redo across all sheets; no-op/failure preserve it. Cell/style composites remain atomic; display defaults stay live. A lost local-history interval stops global replay. Save/Open retains current data/revision but not session history. HI01/HI03; A09–A10 for admitted commands. |
-| W07 · P0 · Queued | Undoable sheet lifecycle; W06. | Delete/restore a sheet with cells, objects, binding identities and formats; reorder/hide/duplicate use the same command history. HI02; remaining A09. Do not claim formula restoration before W26b. |
+| W07 · P0 · Complete | Undoable sheet lifecycle; W06. | Delete/restore a sheet with cells, objects, binding identities and formats; reorder/hide/duplicate use the same command history. HI02; remaining A09. Do not claim formula restoration before W26b. |
 | W08 · P0 · Queued | DuckDB journal writer for the admitted command subset; W05–W06. | Measure single/batched edits and large paste on the pinned engine; ordered pending/durable acknowledgement, idempotent retry and bounded queue. Kill before/after commit, disk-full/write failures yield old/new complete state. No SQLite dependency. RE01/RE03/PL02; commit part of A13. |
 | W09 · P0 · Queued | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
 | W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. RE02; A14. |
@@ -170,10 +170,27 @@ Analysis/object actions keep their App-owned replay adapter and share target
 selection without being skipped. Their wider native/source/browser interactions
 remain deferred to the named catalog gates. No second snapshot archive is added.
 The existing 32-entry limit per sheet remains; the largest discarded order is the workbook's
-oldest safe replay boundary. Sheet lifecycle commands remain W07. The local
+oldest safe replay boundary. W07 adds sheet lifecycle to this chronology. The local
 workbook-history plan covers owned C modules plus 21 hidden TEST App stages;
 its generated two-sheet checkpoint is `build/tests/generated/workbook-history-demo.dxls`.
 History is deliberately session-only until the journal/version retention slices.
+
+W07 completes create/duplicate/delete/rename/reorder/hide/show as shared-C commands
+in `src/workbook/lifecycle.c`, merged with existing cell/style/analytical order.
+Delete and creation replay transfer one owned Worksheet, preserving values,
+objects/source bindings, formats, view, IDs and its earlier journals without a
+data clone. At least one visible sheet remains. The 32-event lifecycle journal
+releases detached sheets on eviction/branch disposal and raises the same lost-
+history floor; identity high-water and display preferences never rewind.
+Save/Open deliberately omits this session journal; formula restoration awaits W26b.
+`workbook-lifecycle` passes 696 lifecycle, 565 chronology and 158 cell-command
+assertions in each optimized/ASan/UBSan configuration plus 24 hidden TEST App
+stages/29 assertions (6.434s GUI; 17.590s total). The adjusted W06 interaction
+passes 21 stages in 5.712s; 42 runner/catalog contracts pass. Real menu Delete,
+Cmd-Z/Shift-Cmd-Z, retained value/style/object identities, duplicate/hide,
+Save/Open and non-recycled creation IDs are covered. Wider native/source/browser
+and full-App sanitizer matrices remain milestone gates. Receipts and the generated
+`workbook-lifecycle-demo.dxls` stay under ignored `build/tests/`. W08 is next.
 
 ### Owned data, refresh and complete analytical results
 
