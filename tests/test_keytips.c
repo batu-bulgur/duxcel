@@ -111,7 +111,7 @@ int main(void) {
     CHECK(!ui_keytips_command_custom(RIBBON_DATA,ACTION_SORT_ASC));
     CHECK(ui_keytips_command_custom(RIBBON_ANALYZE,ACTION_MATRIX));
     CHECK(ui_keytips_command_custom(RIBBON_VIEW,ACTION_FIELDS));
-    const char *const file_keys[]={"N","O","S","A","C","I","E","X"};
+    const char *const file_keys[]={"N","O","S","A","C","I","E","X","R"};
     CHECK(UI_KEYTIP_FILE_COUNT==sizeof(file_keys)/sizeof(*file_keys));
     for (int action=0;action<UI_KEYTIP_FILE_COUNT;action++) {
         ui_keytips_begin(&state); sequence(&state,"f");

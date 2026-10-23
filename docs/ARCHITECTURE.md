@@ -258,7 +258,18 @@ a completed named Save. A newly edited recovered branch seeds a copied parent
 and informational original locator before its first checkpoint, validating the
 document identity without changing its Save destination. Noncreating recovery
 location lookup allows startup scans without allocating a recovery directory.
-Actual startup/manual UI adoption remains W10c2b.
+`src/app/recovery.inc` now owns request/presentation epochs, bounded page replies,
+staged candidates and the adopted parent lease. Startup scan uses noncreating
+location lookup and offers choices only over its untouched initial document;
+File → Recover session opens the same controller manually. The borrowed
+`src/ui/recoveryview.c` panel owns selection/focus/geometry, with no filesystem,
+model or lease authority. Current dirty documents pass through the existing
+document guard before candidate adoption. Dismissed/late results are freed
+without deleting files. Format preflight counts worker/staged ownership until
+release. Recovered documents stay dirty/pathless; full clean Save or explicit
+discard may retire the parent, while checkpoint forks always preserve deferred
+tails. Ordinary Open/Save/source entry refuses the private recovery root.
+Crash/restart and broad foundation regression remain W10c3.
 
 Native `workbook_save_controlled` (`src/workbook/save.h`) borrows an immutable
 snapshot and a synchronous, bounded saving-thread callback. Progress counts
@@ -404,13 +415,13 @@ Sources: [grid.c](../src/grid/grid.c), [sparse cells](../src/workbook/cells.c), 
 | Failed Open / Save | Load builds a temporary candidate Workbook and replaces the current one only after successful validation. Save uses transactions/rollback. This is not autosave. |
 | Normal native Close / Quit | `request_document_action` commits an open cell edit and offers Save / Don't Save / Cancel for dirty documents. Pending Quit waits for successful Save. |
 | Browser workbook Open / Save | `workbook_browser.c` explicitly returns unavailable. Shared metadata-reader tests do not establish the integrated feature. Browser tab closing also has host constraints. |
-| Local recovery / startup restoration | Manual cells have checkpoint-backed transactional journaling and native isolated candidate preparation. Startup choice/adoption is still W10c; normal launch currently creates a blank sheet. Named-file autosave is separate. |
+| Local recovery / startup restoration | Manual cells have checkpoint-backed transactional journaling and native isolated candidate preparation. Startup/File recovery choice and guarded adoption are implemented; process crash/restart acceptance remains W10c3. Named-file autosave is separate. |
 | Undo and document version history | Undo/Redo are bounded RAM snapshots. `workbook_snapshot` excludes them and Pages; reopening does not restore the previous session's undo history. |
 | External source data | CSV/Parquet/DuckDB contents are not automatically embedded in the workbook. Source references and supported identity proofs are saved; moving/changing a file requires relinking or reverification. |
 
 `.dxls` schema versions 1–15 represent file-format compatibility. The `SourceVersions` ledger binds source/owner/reader/schema/content proofs; it does not retain old Parquet bytes for time travel. Displayed row position is not durable source-record identity. Supported raw CSV/Parquet paths can carry original record ordinals; universal lineage is absent for custom SQL, DISTINCT, aggregates and the browser. Extending this formatting foundation into an editing model needs separate design and validation.
 
-The user confirmed the compact dirty guard and Command-Q on the current Mac. Scoped native tests cover Save/cancel/failure and pending close with newer edits. Startup recovery choice remains separate from the local durable journal.
+The user confirmed the compact dirty guard and Command-Q on the current Mac. Scoped native tests cover Save/cancel/failure and pending close with newer edits. Startup recovery now offers verified committed manual-cell tails or a checkpoint copy; persistent Undo and broader command journal coverage remain separate.
 
 Sources: `capture_sheet`, `workspace_job`, `request_document_action`, `draw_unsaved`, `poll_query` and `app_start` in [app.c](../src/app/app.c), [workbook_save/load](../src/workbook/workbook.c), [browser unavailable adapter](../src/workbook/workbook_browser.c), [source_scope.h](../src/workbook/source_scope.h), [browser persistence plan](design/BROWSER_PERSISTENCE.md).
 

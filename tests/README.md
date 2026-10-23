@@ -201,3 +201,12 @@ row reservation transfer, cancelled and late results, rejection while an owned
 reply is unpolled, and shutdown/join with a held lease. Artifact hashes remain
 unchanged. Production App/reader objects contain no barrier symbols; no GUI or
 external account/service is used by this backend gate.
+
+`make test-feature FEATURE=recovery-ui` selects keytips (optimized/ASan/UBSan)
+and the private hidden real-App recovery workflow. Its runtime setup uses the
+actual session writer, then exercises startup, dismissed preparation, checkpoint
+fork/edit/Save As, deferred-tail preservation, dirty-guard Cancel/discard, full
+replay/cleanup/reopen and a 640×640 150% panel. Borrowed UI geometry/focus lives
+in `src/ui/recoveryview.c`; App/lease ownership lives in `src/app/recovery.inc`.
+Hooks in `tests/support/recovery_app.inc` compile only into its private App object.
+The process crash/restart milestone remains separately scheduled.

@@ -282,3 +282,24 @@ In manual cells, Select All finds regions connected horizontally or vertically; 
 Move destinations match the visible grid numbering. A source's header occupies displayed row1, so its first data/model row displays2; blank worksheets start at1. Embedded Table headers do not add another global offset. Source header row1 is not a movable data cell.
 
 Build and service state is session-specific. Use the build/test receipt for the actual source/binary under review; [TESTING](TESTING.md) describes verification and [STATUS](STATUS.md) records current capability limits.
+
+## Recovering an interrupted native session
+
+On native macOS, Duxcel offers inactive local sessions at startup. You can return
+to the same chooser with **File → Recover session…** (File keytip R). Sessions
+owned by another running instance are excluded. Refresh checks again; Next page
+continues a bounded list. Use arrow keys to select, Tab to choose an action, or
+the pointer/wheel. Escape or Later keeps every recovery file.
+
+**Recover changes** verifies the checkpoint and replays its committed manual-cell
+edits. **Checkpoint copy** opens the earlier checkpoint while retaining the
+recorded changes separately. Both open an unsaved workbook requiring Save As;
+the original filename is informational. If the current workbook has changes,
+the normal Save / Don't Save / Cancel guard appears first. Saving a checkpoint
+copy does not delete its deferred recorded changes. Unverified/legacy sessions
+may offer only checkpoint inspection or remain listed without an opening action.
+
+Local recovery currently covers admitted individual manual-cell edits. A later
+changed cell captures other current workbook changes into a new checkpoint;
+this does not promise recovery of every legacy command or persistent Undo.
+Browser workbook recovery remains unavailable.

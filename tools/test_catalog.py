@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "recovery": ("build/tests/test_recovery-gui", "PASS: native recovery choice workflow",
+                  r"^PASS: native recovery choice workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "workbook-save": ("build/tests/test_workbook_save-gui", "PASS: native controlled Save workflow",
                       r"^PASS: native controlled Save workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
@@ -58,6 +60,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-ui": Feature(("keytips",), "recovery",
+        ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py feature --feature recovery-worker", "python3 tools/test.py native --scenario document --config sanitize"),
+        ("src/app/recovery.inc", "src/ui/recoveryview.c", "src/app/app.c: recovery document adoption", "src/app/source_format.inc: recovery ownership")),
     "recovery-disposition": Feature((), "journal-session",
         ("python3 tools/test.py feature --feature recovery-worker", "python3 tools/test.py feature --feature recovery-catalog"),
         ("src/workbook/recovery.c: explicit retirement", "src/workbook/journal_session.c: inherited lineage", "src/platform/platform.h: noncreating recovery location"), ("journal_session", "workbook_recovery")),

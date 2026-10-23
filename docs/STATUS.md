@@ -137,9 +137,12 @@ DuckDB v1.5.6; 256 burst edits coalesce into two commits. The full 20,000-cell
 checkpoint and tail replay passes optimized/sanitizer; its background checkpoint
 is about 2.14s. Keep immediate wakeup and bounded natural batching, without an
 artificial delay. These are helper API measurements, not UI frame guarantees.
-Startup
-recovery selection is W10; persistent Undo is W12; W09 still owns complete Save
-publication/progress/cancel. Browser persistence is unchanged and has no native
+Native startup/File recovery now offers verified recorded manual-cell changes or a
+checkpoint copy through the existing dirty-document guard. Checkpoint forks keep
+deferred tails after edits and Save As; dismissed candidates never delete files.
+The 18-stage hidden UI gate passes in 3.622s, including 640×640 at 150%.
+Process crash/restart and foundation regression remain W10c3; persistent Undo is
+W12. W09 Save publication/progress/cancel is complete. Browser persistence is unchanged and has no native
 journal backend. Receipts and captures remain in ignored `build/tests/results/`.
 
 ## Feature iteration and build identity

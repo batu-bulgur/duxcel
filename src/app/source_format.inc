@@ -294,6 +294,10 @@ static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookForma
         .other_staging=sizeof(SourceFormatIntent)+sizeof(SourceFormatProof)+sizeof(SourceFormatAttempt)+sizeof(a->source_format_tables)+DX_FORMAT_VALIDATION_BYTES,.io_snapshots=SOURCE_FORMAT_IO_RESERVE};
     size_t checkpoint_bytes=workbook_journal_session_state(a->journal,&a->book).checkpoint_format_bytes;
     if (!result && !source_format_add(&transient.io_snapshots,checkpoint_bytes)) result=FORMAT_BUDGET_OVERFLOW;
+    size_t recovery_bytes=workbook_recovery_worker_state(a->recovery_worker).format_reservation_bytes;
+    WorkbookFormatUsage staged={0}; const Workbook *candidate=workbook_recovery_book(a->recovery_staged);
+    if (!result && candidate) result=workbook_format_usage(candidate,NULL,0,&staged);
+    if (!result && (!source_format_add(&transient.io_snapshots,recovery_bytes) || !source_format_add(&transient.io_snapshots,staged.retained))) result=FORMAT_BUDGET_OVERFLOW;
     /* Keep capacity for two retiring/current save snapshots. SQL construction
        uses the existing bounded raw helper; its separate staging allowance is
        retained for every active/pending operation, including canceled work.

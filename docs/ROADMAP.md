@@ -152,10 +152,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10b2b · P0 · Complete | Bounded native recovery catalog; W10b2a. | Enumerate known direct generations off the UI thread, skip active owners, expose bound/unbound/incomplete entries and ambiguous branches without pruning or mtime-based lineage inference. |
 | W10c · P0 · In progress | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W10c1 · P0 · Complete | Background recovery requests and owned page/candidate results; W10b. | Keep filesystem/engine work off App frames, cap row/result ownership, support page continuation and cooperative cancel/join without dropping leases or late results. |
-| W10c2 · P0 · In progress | Startup/manual recovery choice and guarded adoption; W10c1. | Restore the complete candidate or explicitly fork from checkpoint; deferred tails survive cancellation, new edits and Save As. Current dirty documents stay guarded; original locators are not automatic write targets. Narrow/scaled hidden App gate. |
+| W10c2 · P0 · Complete | Startup/manual recovery choice and guarded adoption; W10c1. | Restore the complete candidate or explicitly fork from checkpoint; deferred tails survive cancellation, new edits and Save As. Current dirty documents stay guarded; original locators are not automatic write targets. Narrow/scaled hidden App gate. |
 | W10c2a · P0 · Complete | Explicit recovery disposition and inherited branch; W10c1. | A checkpoint copy never retires its deferred tail; full recovery cleanup requires explicit Save/discard and unchanged known artifacts. New edits keep the recovered parent/original locator without an implicit Save target. |
-| W10c2b · P0 · In progress | Startup/manual choice, guarded App adoption and compact UI; W10c2a. | Connect the independent reader to startup and File actions, preserve dirty/current documents and late results, and validate narrow/scaled hidden input. |
-| W10c3 · P0 · Queued | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
+| W10c2b · P0 · Complete | Startup/manual choice, guarded App adoption and compact UI; W10c2a. | Connect the independent reader to startup and File actions, preserve dirty/current documents and late results, and validate narrow/scaled hidden input. |
+| W10c3 · P0 · In progress | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
@@ -400,6 +400,21 @@ per optimized/ASan/UBSan variant plus 18 hidden App stages (6.379s GUI; 31.542s
 total). It covers copied lineage, replay/checkpoint disposition, extra files/WAL,
 lease-held idempotent cleanup and a transferred model surviving retirement.
 Startup/manual UI and crash/restart acceptance remain W10c2b/W10c3.
+
+W10c2b/W10c2 complete: startup and File → Recover session use the independent
+reader, bounded pages and a compact keyboard/pointer panel. Startup only offers
+inactive sessions over its untouched initial document. Cancel/dismiss invalidates
+the presentation epoch, keeping late candidates from adoption. Recovery enters
+the existing dirty-document guard; checkpoint copies keep deferred tails across
+new edits and Save As. Full replay cleanup occurs only after complete current
+Save or explicit discard. Private recovery paths are refused by ordinary IO.
+Format ownership includes pending/ready/staged candidates and checks admission.
+The `recovery-ui` gate passes 18 hidden real-App stages/32 checks (3.622s GUI;
+11.271s total), including cancelled preparation, dirty-guard Cancel, inherited
+edit parent, both Save/reopen outcomes and 640×640 at 150%. Keytip tests pass
+optimized/sanitizer; 25 tool contracts pass in 7.944s. Test hooks are private;
+crash/restart, active-instance exclusion and broad foundation regression remain
+W10c3. No physical-input or browser-persistence completion is claimed.
 
 ### Owned data, refresh and complete analytical results
 
