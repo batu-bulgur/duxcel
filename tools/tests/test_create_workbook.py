@@ -55,6 +55,23 @@ class FixtureTests(unittest.TestCase):
             self.assertTrue(all(path.read_bytes() == b"accepted" for path in paths))
             self.assertFalse(list(output.glob(".transactions-*")))
 
+    @unittest.skipUnless(shutil.which("duckdb"), "existing DuckDB CLI required")
+    def test_identity_only_fixture_and_failed_publication(self):
+        with tempfile.TemporaryDirectory(prefix="duxcel identity ' ") as directory:
+            output = pathlib.Path(directory)
+            target = fixture.create_identity(output)
+            before = target.read_bytes()
+            records = fixture.execute(shutil.which("duckdb"), target,
+                "SELECT version,(SELECT count(*) FROM _duxcel_workspace.sheets) AS sheets,"
+                "(SELECT text FROM _duxcel_workspace.cells WHERE row_id=1 AND column_id=1) AS value "
+                "FROM _duxcel_workspace.meta")
+            self.assertEqual(records, [{"version": 12, "sheets": 1, "value": "Legacy original"}])
+            with mock.patch.object(fixture, "execute", side_effect=RuntimeError("candidate failed")):
+                with self.assertRaisesRegex(RuntimeError, "candidate failed"):
+                    fixture.create_identity(output, duckdb="existing-duckdb")
+            self.assertEqual(target.read_bytes(), before)
+            self.assertFalse(list(output.glob(".identity-*")))
+
     def test_missing_cli_fails_before_creating_outputs(self):
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(fixture.shutil, "which", return_value=None):
             output = pathlib.Path(directory) / "new"

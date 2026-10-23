@@ -15,3 +15,9 @@ tests validate generation, missing CLI and failure-before-publication.
 
 Change the finite SQL only when intentionally changing this acceptance input.
 General `.dxls` persistence remains owned by the C workbook implementation.
+
+`identity-legacy.sql` is a finite v12,24-column manual workbook containing one
+sheet and a B2 text value. `tools/create_workbook.py --identity-only` generates
+`build/tests/generated/identity-legacy.dxls`. Its named consumer is the private
+workbook-identity App fixture (`tests/support/workbook_identity_app.inc`), which
+uses the real asynchronous native Open/Save pipeline to migrate and reopen it.

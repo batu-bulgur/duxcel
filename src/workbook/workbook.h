@@ -5,7 +5,7 @@
 #include "objects.h"
 #include "format.h"
 #include "source_scope.h"
-#define DX_WORKSPACE_VERSION 14
+#define DX_WORKSPACE_VERSION 15
 #define DX_MAX_SHEETS 64
 #define DX_HISTORY 32
 #define DX_ANALYSIS_HISTORY_BYTES (8u*1024u*1024u)
@@ -23,8 +23,10 @@ typedef struct {
     float *widths;
     size_t column_count;
 } SheetView;
+typedef struct { uint64_t high,low; } WorkbookId;
 typedef struct {
     char *name;
+    uint64_t id; /* Durable identity within its workbook, independent of order/name. */
     uint64_t edit_session_id; /* Transient command identity; not a persisted sheet ID. */
     bool hidden;
     Analysis analysis;
@@ -41,12 +43,21 @@ typedef struct {
 } Worksheet;
 typedef struct {
     Worksheet *sheets;
+    WorkbookId id;
+    uint64_t sheet_high_water; /* Never decremented or restored by Undo. */
+    uint64_t command_revision; /* Monotonic clock for admitted C commands only. */
     uint64_t edit_session_id; /* Transient command identity; reset on load/snapshot. */
     size_t count,active;
     float user_scale;
     char *path;
     bool dirty,reduced_motion;
 } Workbook;
+/* Shared-C bounded identity contract. Empty initialized books allocate lazily.
+   Restore is atomic; adapters validate wire types/nulls and complete row counts.
+   UINT64_MAX is a valid exhausted high-water: existing sheets can still save. */
+bool workbook_identity_valid(const Workbook *book);
+bool workbook_identity_next(const Workbook *book,WorkbookId *document,uint64_t *sheet,char **error);
+bool workbook_identity_restore(Workbook *book,WorkbookId document,uint64_t high_water,const uint64_t *sheets,size_t count,char **error);
 void view_free(SheetView *view);
 void workbook_init(Workbook *book);
 void workbook_free(Workbook *book);

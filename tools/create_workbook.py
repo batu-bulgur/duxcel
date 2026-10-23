@@ -85,6 +85,20 @@ def execute(executable, database, sql):
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
+def create_identity(output, *, duckdb=None):
+    """Finite legacy input only; product C owns migration and new-format saving."""
+    executable = duckdb or shutil.which("duckdb")
+    if not executable:
+        raise RuntimeError("The existing DuckDB CLI is required to generate fixtures")
+    output.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".identity-", dir=output) as temporary:
+        stage = Path(temporary) / "identity-legacy.dxls"
+        execute(executable, stage, (ROOT / "tests/fixtures/workbook/identity-legacy.sql").read_text())
+        target = output / stage.name
+        os.replace(stage, target)
+    return target
+
+
 def create(output, *, large=False, duckdb=None):
     executable = duckdb or shutil.which("duckdb")
     if not executable:
@@ -114,10 +128,16 @@ def create(output, *, large=False, duckdb=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--large", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--large", action="store_true")
+    mode.add_argument("--identity-only", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/tests/generated")
     options = parser.parse_args()
     with FileLock(ROOT / "build/locks/fixture-inputs.lock", "Fixture generation"):
+        if options.identity_only:
+            target = create_identity(options.output_dir.resolve())
+            print(f"PASS: identity migration fixture: {target}")
+            return
         stats = create(options.output_dir.resolve(), large=options.large)
     print(f"PASS: Python transaction fixture, {stats['rows']} rows; NULL/empty/literal NULL and DECIMAL preserved")
 

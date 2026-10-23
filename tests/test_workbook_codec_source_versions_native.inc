@@ -59,7 +59,7 @@ static void ledger_fixture_make(const char *path,const char *missing,unsigned ve
         }
         CHECK(objects_valid(&w->objects,&error)&&source_versions_valid(v,w->objects.next_id,&error)&&!error&&!w->formats.source_aware&&!w->analysis.source_version);
     }
-    b.active=63;b.user_scale=1.25f;CHECK(workbook_codec_min_write_version(&b)==version);
+    b.active=63;b.user_scale=1.25f;CHECK(workbook_codec_content_version(&b)==version);
     CHECK(workbook_save(&b,path,&error)&&!error);workbook_free(&b);free(parquet);
 }
 static void ledger_emit_fixture(const char *path,const char *missing,unsigned version) {ledger_fixture_make(path,missing,version,ledger_emit_index++==3);}

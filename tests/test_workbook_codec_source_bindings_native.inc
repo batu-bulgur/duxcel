@@ -37,7 +37,7 @@ static void bindings_fixture_make(const char *path,const char *missing,unsigned 
         for(size_t j=0;j<w->objects.count;j++)if(w->objects.items[j].kind==OBJECT_TABLE)w->objects.items[j].source.source_version=binding_expected(version,large,s,w->objects.items[j].id);
         CHECK(!w->formats.source_aware&&source_versions_valid(&w->source_versions,w->objects.next_id,&error)&&!error);
     }
-    CHECK(workbook_codec_min_write_version(&b)==version&&workbook_save(&b,path,&error)&&!error);workbook_free(&b);free(parquet);
+    CHECK(workbook_codec_content_version(&b)==version&&workbook_save(&b,path,&error)&&!error);workbook_free(&b);free(parquet);
 }
 static const EmitFixture emit_source_bindings_fixtures[]={
     {"source-bindings-v12.dxls",12,25,false},{"source-bindings-v13.dxls",13,25,false},

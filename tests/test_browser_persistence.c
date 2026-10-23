@@ -13,6 +13,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/* BP0 remains a legacy v12 compatibility proof, independent of v15 UI support. */
+#include "support/legacy_workbook.h"
+
 static unsigned checks;
 static bool fail(const char *message,int line) {
     fprintf(stderr,"FAIL browser-persistence:%d: %.2048s\n",line,message); return false;
@@ -158,7 +161,7 @@ static bool create_fixture(const char *path) {
     MarkField label={.name="Amount",.aggregate=AGG_SUM,.measure=true},detail={.name="City"};
     REQUIRE(marks_assign(&marks,MARKS_LABEL,&label,&error) && marks_assign(&marks,MARKS_DETAIL,&detail,&error) &&
         objects_marks(&sheet->objects,2,&marks,&error),error ? error : "Set chart Marks");
-    REQUIRE(workbook_save(&book,path,&error),error ? error : "Native workbook_save failed");
+    REQUIRE(test_legacy_save(&book,path,&error),error ? error : "Native workbook_save failed");
     REQUIRE(version_expected(path,12),"The unchanged lossless BP0 fixture must still be written as native v12");
     REQUIRE(workbook_load(&loaded,path,&error),error ? error : "Native fixture readback failed");
     REQUIRE(fixture_expected(&loaded),"Native fixture readback content mismatch");
@@ -203,7 +206,7 @@ static bool create_owner_fixture(const char *path) {
     REQUIRE(cells_set(&live->cells,20,0,"9007199254740993.1234567890",&error) && cells_set(&live->cells,21,0,"NULL",&error),"Create exact sparse owner fixture cells");
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
     REQUIRE(format_apply(&live->formats,(FormatRange){20,21,0,0},FORMAT_BOLD,bold,&error) && format_apply(&book.sheets[2].formats,(FormatRange){0,DX_SHEET_ROWS-1,1,1},FORMAT_BOLD,bold,&error),error ? error : "Create spatial owner fixture formats");
-    REQUIRE(workbook_save(&book,path,&error),error ? error : "Write owner fixture"); REQUIRE(version_expected(path,13),"Owner fixture must use actual v13");
+    REQUIRE(test_legacy_save(&book,path,&error),error ? error : "Write owner fixture"); REQUIRE(version_expected(path,13),"Owner fixture must use actual v13");
     REQUIRE(workbook_load(&loaded,path,&error) && owner_fixture_expected(&loaded) && compare_books(&book,&loaded),error ? error : "Owner fixture native readback");
     REQUIRE(objects_add(&loaded.sheets[0].objects,8,8,"After native reopen",&error)==1 && loaded.sheets[0].objects.items[1].id==base+3,"Reopen reused a retired owner ID");
     REQUIRE(objects_add(&loaded.sheets[1].objects,0,8,"Cannot wrap",&error)<0 && error && !loaded.sheets[1].objects.count,"Reopen lost uint64 exhaustion");

@@ -25,7 +25,7 @@ THREAD_LIBS =
 endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/cell_command.c src/workbook/workbook_codec.c src/data/worker.c
+CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/cell_command.c src/workbook/identity.c src/workbook/workbook_codec.c src/data/worker.c
 SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m src/platform/macos_about.m
@@ -209,6 +209,14 @@ CELL_COMMAND_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/o
 build/tests/test_cell_command-native: tests/test_cell_command_gui.c $(CELL_COMMAND_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_cell_command_gui.c $(CELL_COMMAND_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(CELL_COMMAND_GUI_OBJECT:.o=.d)
+
+IDENTITY_GUI_OBJECT = build/obj/feature-workbook-identity/app.o
+$(IDENTITY_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_WORKBOOK_IDENTITY)
+IDENTITY_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(IDENTITY_GUI_OBJECT)
+build/tests/test_workbook_identity-gui: tests/test_workbook_identity_gui.c $(IDENTITY_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_workbook_identity_gui.c $(IDENTITY_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(IDENTITY_GUI_OBJECT:.o=.d)
 
 # Only a successful compiler/linker invocation replaces an accepted artifact.
 # Separate object and dependency temporary files preserve the previous pair on
@@ -468,11 +476,14 @@ test-workbook-codec-read: build/tests/test_workbook_codec_read build/tests/test_
 	./build/tests/test_workbook_codec_read
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_read-debug
 .PHONY: test-workbook-codec-read
-WORKBOOK_CODEC_NATIVE_TEST = $(CORE) src/workbook/workbook_codec_read.c tests/test_workbook_codec_native.c
-build/tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc tests/test_workbook_codec_source_counters_native.inc tests/test_workbook_codec_source_versions_native.inc tests/test_workbook_codec_source_bindings_native.inc tests/test_workbook_codec_format_rows_native.inc $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-build/tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_TEST) tests/test_workbook_codec_objects_native.inc tests/test_workbook_codec_queries_native.inc tests/test_workbook_codec_options_native.inc tests/test_workbook_codec_tables_native.inc tests/test_workbook_codec_pivot_marks_native.inc tests/test_workbook_codec_filters_native.inc tests/test_workbook_codec_grid_native.inc tests/test_workbook_codec_counters_native.inc tests/test_workbook_codec_source_counters_native.inc tests/test_workbook_codec_source_versions_native.inc tests/test_workbook_codec_source_bindings_native.inc tests/test_workbook_codec_format_rows_native.inc $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(WORKBOOK_CODEC_NATIVE_TEST) -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+WORKBOOK_CODEC_NATIVE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/src/workbook/workbook_codec_read.o build/obj/release/app/tests/test_workbook_codec_native.o
+WORKBOOK_CODEC_NATIVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/sanitize/app/src/workbook/workbook_codec_read.o build/obj/sanitize/app/tests/test_workbook_codec_native.o
+build/tests/test_workbook_codec_native: $(WORKBOOK_CODEC_NATIVE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(WORKBOOK_CODEC_NATIVE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_workbook_codec_native-debug: $(WORKBOOK_CODEC_NATIVE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(WORKBOOK_CODEC_NATIVE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(WORKBOOK_CODEC_NATIVE_OBJECTS:.o=.d) $(WORKBOOK_CODEC_NATIVE_SAN_OBJECTS:.o=.d)
+
 test-workbook-codec-native: build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug
 	./build/tests/test_workbook_codec_native
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec_native-debug
@@ -481,9 +492,9 @@ test-workbook-codec: build/tests/test_workbook_codec build/tests/test_workbook_c
 	./build/tests/test_workbook_codec
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec-debug
 .PHONY: test-workbook-codec
-build/tests/test_workbook: $(CORE) tests/test_workbook.c $(HEADERS) | build/tests
+build/tests/test_workbook: $(CORE) tests/test_workbook.c tests/support/legacy_workbook.h $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-build/tests/test_workbook-debug: $(CORE) tests/test_workbook.c $(HEADERS) | build/tests
+build/tests/test_workbook-debug: $(CORE) tests/test_workbook.c tests/support/legacy_workbook.h $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 test-analysis-journal: build/tests/test_workbook build/tests/test_workbook-debug
 	./build/tests/test_workbook --journal-only
@@ -774,6 +785,8 @@ distclean:
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
 PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug \
+	build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
+	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_cell_command build/tests/test_cell_command-debug build/tests/test_cell_command-native \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
@@ -893,10 +906,10 @@ web:
 
 # BP0 uses the existing native codec and official browser Worker. It is an
 # isolated compatibility proof; no browser Save UI or new runtime dependency.
-build/web-tests/test-persistence: $(CORE) tests/test_browser_persistence.c $(HEADERS)
+build/web-tests/test-persistence: $(CORE) tests/test_browser_persistence.c tests/support/legacy_workbook.h $(HEADERS)
 	mkdir -p $(@D)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_browser_persistence.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-build/web-tests/test-persistence-sanitize: $(CORE) tests/test_browser_persistence.c $(HEADERS)
+build/web-tests/test-persistence-sanitize: $(CORE) tests/test_browser_persistence.c tests/support/legacy_workbook.h $(HEADERS)
 	mkdir -p $(@D)
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_browser_persistence.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 test-browser-persistence:
@@ -982,6 +995,21 @@ build/tests/test_cell_command: $(CELL_COMMAND_TEST_OBJECTS) build/web-tests/plat
 build/tests/test_cell_command-debug: $(CELL_COMMAND_TEST_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(CELL_COMMAND_TEST_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(CELL_COMMAND_TEST_OBJECTS:.o=.d) $(CELL_COMMAND_TEST_SAN_OBJECTS:.o=.d)
+# Reuse compiled model/core objects; focused edits do not rebuild unrelated UI.
+IDENTITY_MODEL_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_OBJECTS)) build/obj/release/cell-command/tests/test_workbook_identity.o
+IDENTITY_MODEL_SAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_SAN_OBJECTS)) build/obj/sanitize/cell-command/tests/test_workbook_identity.o
+build/tests/test_workbook_identity: $(IDENTITY_MODEL_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $(IDENTITY_MODEL_OBJECTS) build/web-tests/platform-model.o,$(THREAD_LIBS) -lm)
+build/tests/test_workbook_identity-debug: $(IDENTITY_MODEL_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(IDENTITY_MODEL_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
+IDENTITY_NATIVE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/tests/test_workbook_identity_native.o
+IDENTITY_NATIVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/sanitize/app/tests/test_workbook_identity_native.o
+build/tests/test_workbook_identity_native: $(IDENTITY_NATIVE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(IDENTITY_NATIVE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_workbook_identity_native-debug: $(IDENTITY_NATIVE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(IDENTITY_NATIVE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(IDENTITY_MODEL_OBJECTS:.o=.d) $(IDENTITY_MODEL_SAN_OBJECTS:.o=.d) $(IDENTITY_NATIVE_OBJECTS:.o=.d) $(IDENTITY_NATIVE_SAN_OBJECTS:.o=.d)
+
 
 BROWSER_DISTINCT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/distinct.c
 BROWSER_DISTINCT_PAGE_TEST_SRC = $(BROWSER_DISTINCT_TEST_SRC) src/data/page.c src/data/source_digest.c src/data/distinct_page.c

@@ -9,6 +9,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* This component driver intentionally consumes only legacy v12-v14 packages. */
+#include "support/legacy_workbook.h"
+#define workbook_save test_legacy_save
+
 static unsigned checks,executions,feeds,nul_cells,preference_result_rows;
 static unsigned query_result_rows,query_null_rows,query_batches256,query_batches64;
 static size_t query_last_owned,query_last_first;

@@ -2,6 +2,7 @@
 #define DUXCEL_PLATFORM_H
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOGDI
@@ -16,6 +17,8 @@ typedef pthread_mutex_t DxMutex;
 typedef pthread_cond_t DxCond;
 typedef pthread_t DxThread;
 #endif
+/* OS/browser cryptographic entropy; no time/PRNG fallback. */
+bool dx_random_bytes(void *out,size_t bytes);
 void dx_mutex_init(DxMutex *m);
 void dx_mutex_destroy(DxMutex *m);
 void dx_lock(DxMutex *m);

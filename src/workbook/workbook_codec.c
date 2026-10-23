@@ -2,6 +2,8 @@
 #include <string.h>
 
 static const WorkbookCodecTable tables[]={
+        {"workbook_identity","high,low,sheet_high_water,command_revision","U U U U","",15},
+        {"sheet_identity","sheet_id,stable_id","I U","",15},
         {"meta","version,active_sheet,user_scale","I U D","",12},
         {"sheets",DX_WORKBOOK_SHEET_COLUMNS ",canvas_zoom","I T I T T T T T I T T I T B U U U U U U U D D I D","source_schema,source_table,filter_column,filter_value,group_column,measure_column,sort_column",12},
         {"columns","sheet_id,column_id,name,width","I I T D","",12},
@@ -78,7 +80,7 @@ static bool source_version_state(const Worksheet *sheet) {
     }
     return bound || sheet->formats.scope_count || sheet->formats.source_aware;
 }
-unsigned workbook_codec_min_write_version(const Workbook *book) {
+unsigned workbook_codec_content_version(const Workbook *book) {
     if (!book || !book->count || book->count>DX_MAX_SHEETS || !book->sheets) return 0;
     for (size_t i=0;i<book->count;i++) {
         const ObjectStore *objects=&book->sheets[i].objects;
@@ -93,6 +95,9 @@ unsigned workbook_codec_min_write_version(const Workbook *book) {
         if (objects->next_id>live) minimum=13;
     }
     return minimum;
+}
+unsigned workbook_codec_min_write_version(const Workbook *book) {
+    return workbook_codec_content_version(book) ? 15 : 0;
 }
 bool workbook_codec_select_write_version(unsigned minimum,int existing,unsigned *out) {
     if (!out || minimum<12 || minimum>DX_WORKSPACE_VERSION || existing<0 || existing>DX_WORKSPACE_VERSION) return false;

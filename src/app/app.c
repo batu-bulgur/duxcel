@@ -14897,6 +14897,9 @@ static void record_frame(App *a,double started) {
 #endif
 /* A frame may return to a host scheduler without losing owned App state.
    The native runner uses the same start/frame/finish contract as future hosts. */
+#ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
+static void workbook_identity_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_CELL_COMMAND
 static void cell_command_test_frame(AppSession *session);
 #endif
@@ -15692,6 +15695,9 @@ bool app_frame(AppSession *session) {
         }
     }
 #endif /* native scenario input */
+#ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
+    workbook_identity_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_CELL_COMMAND
     cell_command_test_frame(session);
 #endif
@@ -15900,4 +15906,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_CELL_COMMAND
 #include "../../tests/support/cell_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
+#include "../../tests/support/workbook_identity_app.inc"
 #endif

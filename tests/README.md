@@ -8,6 +8,10 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | --- | --- | --- |
 | `test_*.c`, `test_*.inc`, `test_*.m` | Native suites and their implementation fragments | Tracked source |
 | `test_fixture.c` | Native load/PIVOT/typed data/save/reload acceptance of canonical/large inputs | Tracked C test |
+| `test_workbook_identity.c` | Shared-C identity validation, allocation/exhaustion, snapshots and admitted command clock | Tracked C tests; reuses per-file model objects |
+| `test_workbook_identity_native.c` | Private native v15 round-trip, v1–v14 metadata migration, exact uint64 and malformed-archive atomic rejection | Tracked C test; optimized/sanitizer engine runs are serial |
+| `test_workbook_identity_gui.c`, `support/workbook_identity_app.inc` | Nine-stage legacy Open, rename/duplicate/reorder, edit, Save/Open and stale-session workflow | Hidden TEST App; production excludes fixture |
+| `support/legacy_workbook.h` | Explicit test-only downgrade of current checkpoints for historical v12–v14 component assertions | Does not generate source data; never linked to product |
 | `test_cell_command.c` | Shared-C bounded command validation, session fences, stale/no-op/history ownership, protection, exact text and limits | Tracked C test; per-file optimized/sanitizer objects |
 | `test_cell_command_gui.c`, `support/cell_command_app.inc` | Isolated real App editor/Undo/Redo/stale-draft/Save/Open workflow; private compile-time fixture | Tracked C tests; hidden TEST-badged release App |
 | `test_selection.c` | Controller rules over borrowed cells/resolved analytical bounds, with model/viewport retention | Tracked C test; optimized/sanitizer targets |
@@ -32,3 +36,14 @@ those files, checks real product PIVOT/NULL/empty/literal text/exact DECIMAL, th
 saves and reloads the workbook. `make test-fixture` checks optimized and sanitizer
 paths; generation and product acceptance are distinct. Dataset basenames stay
 stable for the existing native/browser scenarios.
+
+W05b local gate: `make test-feature FEATURE=workbook-identity`. Its pure modules
+are identity, cell-command and metadata descriptors, followed by serial private
+native archive checks and the nine-stage real App fixture. The CLI's plan lists
+wider document/workspace/browser interactions without launching them. Native
+source files and both optimized/sanitizer objects are cached per translation unit.
+The finite legacy GUI input comes from `tools/create_workbook.py --identity-only`
+and `tests/fixtures/workbook/identity-legacy.sql`, without canonical/large datasets.
+The completed two-sheet demo is `build/tests/generated/workbook-identity-demo.dxls`.
+The legacy component reader intentionally remains limited to v12–v14 and rejects
+v15; the identity model is shared C, not proof of browser persistence activation.

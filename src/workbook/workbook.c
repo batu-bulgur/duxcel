@@ -482,9 +482,12 @@ void workbook_free(Workbook *b) {
 }
 bool workbook_add(Workbook *b,const char *name,const Analysis *a,char **error) {
     if (b->count>=DX_MAX_SHEETS) { error_set(error,"A workspace supports up to 64 worksheets."); return false; }
+    WorkbookId document; uint64_t identity;
+    if (!workbook_identity_next(b,&document,&identity,error)) return false;
     char *owned_name=dx_strdup(name); Analysis owned_analysis=analysis_copy(a);
     b->sheets=dx_realloc(b->sheets,(b->count+1)*sizeof(*b->sheets));
-    Worksheet *s=&b->sheets[b->count]; memset(s,0,sizeof(*s)); s->name=owned_name; s->analysis=owned_analysis;
+    Worksheet *s=&b->sheets[b->count]; memset(s,0,sizeof(*s)); s->name=owned_name; s->analysis=owned_analysis; s->id=identity;
+    b->id=document; b->sheet_high_water=identity;
     b->active=b->count++; b->dirty=true; return true;
 }
 static void view_copy(SheetView *to,const SheetView *from) {
@@ -563,9 +566,9 @@ bool workbook_hide(Workbook *b,size_t index,bool hidden,char **error) {
     b->dirty=true; return true;
 }
 Workbook *workbook_snapshot(const Workbook *b) {
-    if (!b || b->count>DX_MAX_SHEETS || (b->count && !b->sheets)) return NULL;
+    if (!workbook_identity_valid(b)) return NULL;
     Workbook *out=dx_alloc(sizeof(*out)); workbook_init(out); out->user_scale=b->user_scale; out->reduced_motion=b->reduced_motion;
-    out->path=b->path ? dx_strdup(b->path) : NULL;
+    out->path=b->path ? dx_strdup(b->path) : NULL; out->id=b->id;
     for (size_t i=0;i<b->count;i++) {
         char *error=NULL; SourceVersions versions={0};
         if (!source_versions_valid(&b->sheets[i].source_versions,b->sheets[i].objects.next_id,&error) || !source_versions_copy(&versions,&b->sheets[i].source_versions,&error)) { free(error); workbook_free(out); free(out); return NULL; }
@@ -577,6 +580,8 @@ Workbook *workbook_snapshot(const Workbook *b) {
         format_copy(&out->sheets[i].formats,&b->sheets[i].formats);
         out->sheets[i].source_versions=versions;
     }
+    for (size_t i=0;i<b->count;i++) out->sheets[i].id=b->sheets[i].id;
+    out->sheet_high_water=b->sheet_high_water; out->command_revision=b->command_revision;
     out->active=b->active; out->dirty=b->dirty; return out;
 }
 static bool absolute(const char *path) {
@@ -662,23 +667,23 @@ static bool owner_package_rows_supported(duckdb_connection c,char **error) {
     bool invalid=duckdb_value_boolean(&r,0,0); duckdb_destroy_result(&r);
     if (invalid) error_set(error,"Invalid workspace v13 owner counters or spatial selector metadata."); return !invalid;
 }
-static bool source_package_inventory(duckdb_connection c,bool complete,char **error) {
+static bool source_package_inventory(duckdb_connection c,unsigned package,bool complete,char **error) {
     char *sql=dx_strdup("SELECT count(*),count(*) FILTER(WHERE table_type<>'BASE TABLE' OR table_name NOT IN (");
-    for (size_t i=0;i<workbook_codec_table_count(14);i++) dx_append(&sql,"%s'%s'",i ? "," : "",workbook_codec_table_at(14,i)->table);
+    for (size_t i=0;i<workbook_codec_table_count(package);i++) dx_append(&sql,"%s'%s'",i ? "," : "",workbook_codec_table_at(package,i)->table);
     dx_append(&sql,")) FROM information_schema.tables WHERE table_schema='_duxcel_workspace'");
     duckdb_result r={0}; bool queried=duckdb_query(c,sql,&r)==DuckDBSuccess; free(sql);
     if (!queried) { error_set(error,duckdb_result_error(&r)); duckdb_destroy_result(&r); return false; }
     uint64_t count=duckdb_value_uint64(&r,0,0),unknown=duckdb_value_uint64(&r,1,0); duckdb_destroy_result(&r);
-    bool valid=!unknown && (complete ? count==workbook_codec_table_count(14) : count<=workbook_codec_table_count(14));
-    return valid || range_fail(error,"Workspace v14 requires its 26 known base metadata tables; unknown or view metadata cannot be preserved.");
+    bool valid=!unknown && (complete ? count==workbook_codec_table_count(package) : count<=workbook_codec_table_count(package));
+    return valid || range_fail(error,"Workspace requires its complete known base metadata tables; unknown or view metadata cannot be preserved.");
 }
 /* One required-column inventory serves both ordinary v14 loading and archived
    overwrite preflight. Optional predicates/schema text and pending raw proofs
    retain SQL NULL; required zero values never arise from NULL coercion. */
-static bool source_package_required(duckdb_connection c,char **error) {
+static bool source_package_required(duckdb_connection c,unsigned package,char **error) {
     char *sql=dx_strdup("SELECT ");
-    for (size_t i=0;i<workbook_codec_table_count(14);i++) {
-        const WorkbookCodecTable *table=workbook_codec_table_at(14,i);
+    for (size_t i=0;i<workbook_codec_table_count(package);i++) {
+        const WorkbookCodecTable *table=workbook_codec_table_at(package,i);
         dx_append(&sql,"%sEXISTS(SELECT 1 FROM _duxcel_workspace.%s WHERE ",i ? " OR " : "",table->table);
         bool any=false; const char *type=table->types;
         for (const char *p=table->columns;*p;) {
@@ -704,17 +709,20 @@ static bool codec_package_shape(duckdb_connection c,const char *name,char **erro
     duckdb_type types[DX_WORKBOOK_CODEC_COLUMNS]; size_t count=codec_types(table,types);
     return package_shape(c,table->table,table->columns,types,count,error);
 }
-static bool source_package_shape(duckdb_connection c,char **error) {
-    if (!source_package_inventory(c,true,error)) return false;
-    for (size_t i=0;i<workbook_codec_table_count(14);i++) {
-        const WorkbookCodecTable *table=workbook_codec_table_at(14,i);
+static bool source_package_shape(duckdb_connection c,unsigned package,char **error) {
+    if (!source_package_inventory(c,package,true,error)) return false;
+    for (size_t i=0;i<workbook_codec_table_count(package);i++) {
+        const WorkbookCodecTable *table=workbook_codec_table_at(package,i);
         if (!codec_package_shape(c,table->table,error)) return false;
     }
-    return source_package_required(c,error) && owner_package_rows_supported(c,error);
+    return source_package_required(c,package,error) && owner_package_rows_supported(c,error);
 }
 static bool format_metadata_supported(duckdb_connection c,int workspace_version,char **error) {
     duckdb_result r={0}; bool ok=false;
-    if (workspace_version==14) return source_package_shape(c,error);
+    if (workspace_version>=14) return source_package_shape(c,(unsigned)workspace_version,error);
+    if (duckdb_query(c,"SELECT count(*) FROM information_schema.tables WHERE table_schema='_duxcel_workspace' AND table_name IN ('workbook_identity','sheet_identity')",&r)!=DuckDBSuccess) goto sql_error;
+    bool identities=duckdb_value_uint64(&r,0,0)!=0; duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
+    if (identities) return range_fail(error,"Persistent identity metadata requires workspace v15.");
     if (duckdb_query(c,"SELECT count(*) FROM information_schema.tables WHERE table_schema='_duxcel_workspace' AND table_name IN ('source_version_counters','source_versions','source_bindings','format_records','format_fields','format_state')",&r)!=DuckDBSuccess) goto sql_error;
     bool future=duckdb_value_uint64(&r,0,0)!=0; duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
     if (future) { error_set(error,"Source-version metadata requires workspace v14; an older version cannot load or overwrite it."); return false; }
@@ -1089,7 +1097,44 @@ static bool source_target_valid(const Workbook *book,const char *target,char **e
     }
     return true;
 }
-static bool source_archive_valid(duckdb_connection c,const char *target,char **error);
+/* Ordinal sheet_id remains the archive join key. Stable IDs are an explicit
+   bijection, never inferred from a display name or a physical table position. */
+static bool save_identity_package(duckdb_connection c,const Workbook *book,char **error) {
+    if (!exec(c,"CREATE TABLE IF NOT EXISTS _duxcel_workspace.workbook_identity(high UBIGINT,low UBIGINT,sheet_high_water UBIGINT,command_revision UBIGINT);"
+        "CREATE TABLE IF NOT EXISTS _duxcel_workspace.sheet_identity(sheet_id INTEGER,stable_id UBIGINT);"
+        "DELETE FROM _duxcel_workspace.workbook_identity; DELETE FROM _duxcel_workspace.sheet_identity",error)) return false;
+    duckdb_prepared_statement document=NULL,sheet=NULL; bool ok=false;
+    if (!prepare(c,"INSERT INTO _duxcel_workspace.workbook_identity VALUES (?,?,?,?)",&document,error) ||
+        !prepare(c,"INSERT INTO _duxcel_workspace.sheet_identity VALUES (?,?)",&sheet,error)) goto done;
+    duckdb_bind_uint64(document,1,book->id.high); duckdb_bind_uint64(document,2,book->id.low); duckdb_bind_uint64(document,3,book->sheet_high_water); duckdb_bind_uint64(document,4,book->command_revision);
+    if (!run(document,error)) goto done;
+    for (size_t i=0;i<book->count;i++) {
+        duckdb_bind_int32(sheet,1,(int32_t)i); duckdb_bind_uint64(sheet,2,book->sheets[i].id);
+        if (!run(sheet,error)) goto done;
+    }
+    ok=true;
+ done:
+    if (document) duckdb_destroy_prepare(&document); if (sheet) duckdb_destroy_prepare(&sheet); return ok;
+}
+static bool load_identity_package(duckdb_connection c,Workbook *book,char **error) {
+    duckdb_result r={0}; WorkbookId document={0}; uint64_t high_water=0,revision=0,ids[DX_MAX_SHEETS]={0}; bool ok=false;
+    if (duckdb_query(c,"SELECT high,low,sheet_high_water,command_revision FROM _duxcel_workspace.workbook_identity LIMIT 2",&r)!=DuckDBSuccess) goto done;
+    if (duckdb_row_count(&r)!=1) goto done;
+    document=(WorkbookId){duckdb_value_uint64(&r,0,0),duckdb_value_uint64(&r,1,0)}; high_water=duckdb_value_uint64(&r,2,0); revision=duckdb_value_uint64(&r,3,0);
+    duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
+    if (duckdb_query(c,"SELECT sheet_id,stable_id FROM _duxcel_workspace.sheet_identity ORDER BY sheet_id LIMIT 65",&r)!=DuckDBSuccess) goto done;
+    if (duckdb_row_count(&r)!=book->count) goto done;
+    for (size_t i=0;i<book->count;i++) {
+        if (duckdb_value_int32(&r,0,i)!=(int32_t)i) goto done;
+        ids[i]=duckdb_value_uint64(&r,1,i);
+    }
+    ok=workbook_identity_restore(book,document,high_water,ids,book->count,error);
+    if (ok) book->command_revision=revision;
+ done:
+    duckdb_destroy_result(&r);
+    return ok || range_fail(error,"Invalid workbook/worksheet identity rows; the current document was preserved.");
+}
+static bool source_archive_valid(duckdb_connection c,const char *target,int package,char **error);
 bool workbook_save(const Workbook *b,const char *path,char **error) {
     if (!b || !path || !*path || (b->count && !b->sheets)) { if (error) error_set(error,"No valid workbook or destination to save."); return false; }
     if (!b->count || b->count>DX_MAX_SHEETS || b->active>=b->count) { error_set(error,"No valid worksheet to save."); return false; }
@@ -1115,7 +1160,8 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
                 !objects_fits(&s->objects,(int)j,o->row,o->col,o->rows,o->columns,&s->cells,0,0,error)) { if (!*error) error_set(error,"Invalid sheet object."); return false; }
         }
     }
-    unsigned minimum=workbook_codec_min_write_version(b); bool source_metadata=minimum==14;
+    unsigned minimum=workbook_codec_min_write_version(b); bool source_metadata=workbook_codec_content_version(b)==14;
+    if (!workbook_identity_valid(b)) return range_fail(error,"Invalid workbook/worksheet identities; the destination was not changed.");
     if (source_metadata && !source_model_valid(b,error)) {
         char *detail=*error; *error=dx_printf("Unsupported workspace v14 source metadata (v12/v13 cannot preserve it): %s",detail ? detail : "invalid binding"); free(detail); return false;
     }
@@ -1131,8 +1177,8 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
     if (!open_metadata(target,false,&db,&c,&temporary,error)) goto done;
     if (!version(c,existing,&existing_version,error)) goto done;
     if (!workbook_codec_select_write_version(minimum,existing_version,&write_version)) { error_set(error,"Unsupported or invalid Duxcel workspace version."); goto done; }
-    if (existing_version==14 && !source_archive_valid(c,target,error)) goto done;
-    if (write_version==14 && (!source_package_inventory(c,false,error) || !source_model_valid(b,error) || !source_target_valid(b,target,error))) goto done;
+    if (existing_version>=14 && !source_archive_valid(c,target,existing_version,error)) goto done;
+    if (write_version>=14 && (!source_package_inventory(c,write_version,false,error) || !source_model_valid(b,error) || !source_target_valid(b,target,error))) goto done;
     if (!exec(c,"BEGIN TRANSACTION",error)) goto done; transaction=true;
     if (!exec(c,"CREATE SCHEMA IF NOT EXISTS _duxcel_workspace; "
         "CREATE TABLE IF NOT EXISTS _duxcel_workspace.meta(version INTEGER,active_sheet UBIGINT,user_scale DOUBLE);"
@@ -1172,14 +1218,14 @@ bool workbook_save(const Workbook *b,const char *path,char **error) {
             if (!run(cell,error)) goto done;
         }
     }
-    if (!save_objects(c,b,target,error) || !save_marks(c,b,error) || !save_formats(c,b,error) || (write_version>=13 && !save_owner_package(c,b,write_version==14,error)) || (write_version==14 && !save_source_package(c,b,target,error)) || !save_filters(c,b,error) || !save_sorts(c,b,error) || !save_queries(c,b,error) || !save_source_options(c,b,error) ||
+    if (!save_objects(c,b,target,error) || !save_marks(c,b,error) || !save_formats(c,b,error) || (write_version>=13 && !save_owner_package(c,b,write_version>=14,error)) || (write_version>=14 && !save_source_package(c,b,target,error)) || !save_filters(c,b,error) || !save_sorts(c,b,error) || !save_queries(c,b,error) || !save_source_options(c,b,error) ||
         !exec(c,"CREATE TABLE IF NOT EXISTS _duxcel_workspace.preferences(name VARCHAR PRIMARY KEY,value BOOLEAN); DELETE FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_')",error) ||
         !exec(c,b->reduced_motion ? "INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('reduce_motion',true)" : "INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('reduce_motion',false)",error)) goto done;
     for (size_t i=0;i<b->count;i++) if (b->sheets[i].hidden) {
         char sql[128]; snprintf(sql,sizeof(sql),"INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('sheet_hidden_%zu',true)",i);
         if (!exec(c,sql,error)) goto done;
     }
-    if (write_version==14 && !source_package_shape(c,error)) goto done;
+    if (!save_identity_package(c,b,error) || !source_package_shape(c,write_version,error)) goto done;
     if (!exec(c,"COMMIT",error)) goto done;
     transaction=false; ok=true;
  done:
@@ -1692,8 +1738,8 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
 /* version() has already validated the exact v14 package on this connection.
    Use the ordinary staged reader so archived overwrite rejects the same invalid
    core/source state as Open, without a second connection or interpretation. */
-static bool source_archive_valid(duckdb_connection c,const char *target,char **error) {
-    Workbook staged; workbook_init(&staged); bool ok=read_workbook(c,target,14,&staged,error); workbook_free(&staged); return ok;
+static bool source_archive_valid(duckdb_connection c,const char *target,int package,char **error) {
+    Workbook staged; workbook_init(&staged); bool ok=read_workbook(c,target,package,&staged,error); workbook_free(&staged); return ok;
 }
 static bool read_workbook(duckdb_connection c,const char *target,int workspace_version,Workbook *out,char **error) {
     Workbook book; workbook_init(&book); duckdb_result r={0}; bool ok=false;
@@ -1708,7 +1754,8 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
         if (duckdb_value_uint64(&r,0,i)!=i) { error_set(error,"Invalid worksheet ordering."); goto done; }
         char *name=text_value(&r,1,i); Analysis a={0};
         if (!name || strlen(name)>4096 || !load_sheet_analysis(&r,i,target,&a,error)) { free(name); analysis_free(&a); if (!*error) error_set(error,"Invalid worksheet definition."); goto done; }
-        workbook_add(&book,name,&a,error); free(name); analysis_free(&a);
+        bool added=workbook_add(&book,name,&a,error); free(name); analysis_free(&a);
+        if (!added) goto done;
         SheetView *v=&book.sheets[i].view;
         v->row=duckdb_value_uint64(&r,14,i); v->col=(size_t)duckdb_value_uint64(&r,15,i);
         v->anchor_row=duckdb_value_uint64(&r,16,i); v->anchor_col=(size_t)duckdb_value_uint64(&r,17,i);
@@ -1719,7 +1766,8 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
         if (!isfinite(v->horizontal)||v->horizontal<0||!isfinite(v->fraction)||v->fraction<0||v->fraction>=1||v->selection>3||v->row>=DX_SHEET_ROWS||v->anchor_row>=DX_SHEET_ROWS||v->end_row>=DX_SHEET_ROWS||v->top>=DX_SHEET_ROWS||v->col>=16384||v->anchor_col>=16384||v->end_col>=16384) { error_set(error,"Invalid worksheet viewport."); goto done; }
     }
     duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
-    if (workspace_version==14 && !source_package_budget(c,&book,error)) goto done;
+    if (workspace_version>=15 && !load_identity_package(c,&book,error)) goto done;
+    if (workspace_version>=14 && !source_package_budget(c,&book,error)) goto done;
     if (duckdb_query(c,"SELECT sheet_id,column_id,name,width FROM _duxcel_workspace.columns ORDER BY sheet_id,column_id LIMIT 1048577",&r)!=DuckDBSuccess) { error_set(error,duckdb_result_error(&r)); goto done; }
     if (duckdb_row_count(&r)>1048576) { error_set(error,"Too many workspace columns."); goto done; }
     size_t column_counts[DX_MAX_SHEETS]={0};
@@ -1759,7 +1807,7 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
         }
     }
     duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
-    if (!load_filters(c,&book,error) || !load_sorts(c,&book,error) || !load_objects(c,&book,target,error) || !load_formats(c,&book,error) || !load_queries(c,&book,error) || !load_source_options(c,&book,error) || (workspace_version>=13 && !load_owner_package(c,&book,workspace_version==14,error)) || (workspace_version==14 && !load_source_package(c,&book,target,error))) goto done;
+    if (!load_filters(c,&book,error) || !load_sorts(c,&book,error) || !load_objects(c,&book,target,error) || !load_formats(c,&book,error) || !load_queries(c,&book,error) || !load_source_options(c,&book,error) || (workspace_version>=13 && !load_owner_package(c,&book,workspace_version>=14,error)) || (workspace_version>=14 && !load_source_package(c,&book,target,error))) goto done;
     if (duckdb_query(c,"SELECT count(*) FROM information_schema.tables WHERE table_schema='_duxcel_workspace' AND table_name='preferences'",&r)!=DuckDBSuccess) { error_set(error,duckdb_result_error(&r)); goto done; }
     bool preferences=duckdb_value_uint64(&r,0,0)!=0; duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
     if (preferences) {

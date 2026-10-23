@@ -58,6 +58,32 @@ bool dx_web_download_parquet(const unsigned char *data,size_t size,const char *n
 #ifndef _WIN32
 #include <unistd.h>
 #endif
+#ifdef DUXCEL_BROWSER_HOST
+EM_JS(int, dx_random_bytes_js, (void *out,unsigned bytes), {
+    try { crypto.getRandomValues(HEAPU8.subarray(out,out+bytes)); return 1; }
+    catch { return 0; }
+})
+#endif
+bool dx_random_bytes(void *out,size_t bytes) {
+    if (!out || !bytes || bytes>65536) return false;
+#ifdef DUXCEL_BROWSER_HOST
+    return dx_random_bytes_js(out,(unsigned)bytes)!=0;
+#elif defined(_WIN32)
+    /* Resolve the OS provider dynamically; preserve the existing link boundary. */
+    HMODULE module=LoadLibraryA("advapi32.dll");
+    if (!module) return false;
+    typedef BOOLEAN (WINAPI *RandomBytes)(void *,ULONG);
+    RandomBytes random_bytes=(RandomBytes)(void *)GetProcAddress(module,"SystemFunction036");
+    bool ok=random_bytes && random_bytes(out,(ULONG)bytes); FreeLibrary(module); return ok;
+#else
+    FILE *source=fopen("/dev/urandom","rb");
+    if (!source) return false;
+    bool ok=fread(out,1,bytes,source)==bytes && !ferror(source);
+    if (fclose(source)) ok=false;
+    return ok;
+#endif
+}
+
 #ifdef _WIN32
 void dx_mutex_init(DxMutex *m) { InitializeCriticalSection(m); }
 void dx_mutex_destroy(DxMutex *m) { DeleteCriticalSection(m); }

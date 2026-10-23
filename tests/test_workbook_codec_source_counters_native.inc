@@ -22,7 +22,7 @@ static void source_counters_fixture(const char *path,const char *missing,unsigne
         CHECK(!w->formats.source_aware&&!w->source_versions.items&&!w->source_versions.count&&!w->source_versions.capacity&&!w->source_versions.bytes&&!w->analysis.source_version);
     }
     book.active=63;book.user_scale=1.25f;
-    CHECK(workbook_codec_min_write_version(&book)==version); /* v14 is HWM-only. */
+    CHECK(workbook_codec_content_version(&book)==version); /* v14 is HWM-only. */
     CHECK(workbook_save(&book,path,&error)&&!error);workbook_free(&book);
 }
 static const EmitFixture emit_source_counters_fixtures[]={

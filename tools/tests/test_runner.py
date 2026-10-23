@@ -312,9 +312,9 @@ class RunnerTests(unittest.TestCase):
                  mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"):
                 instance.full()
             about_check.assert_called_once_with()
-            standalone_gui_check.assert_called_once_with("cell-command")
+            self.assertEqual(standalone_gui_check.call_args_list, [mock.call(name) for name in runner.STANDALONE_GUI])
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
-                       for module in ("core", "workbook", "record_sql", "record_pages", "workbook_codec_native")]
+                       for module in runner.ENGINE_MODULES]
             self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))
             expected=[]
             for binary in engines:

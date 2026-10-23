@@ -41,17 +41,36 @@ no worker, workbook, history, page allocation or renderer. Pure module checks
 and the real App GUI slice exercise the same controller. Extend this pattern
 when a feature changes rather than pre-emptively rewriting all App state.
 
-`src/workbook/cell_command.c` is the first admitted mutation producer. A borrowed
-byte span plus frozen cell/expected CellStore revision enters the coordinator;
-an explicit result reports applied/no-op/stale/invalid/protected/limit and
-before/after store revision. The producer resolves a process-lifetime document
-and sheet fence, rechecks primary/object protection and owns cell-history/dirty
-publication. The App owns draft lifecycle, authoritative source readiness,
-keyboard navigation and feedback. Preparing a target lazily assigns transient
-identities without entering Undo or dirtying data. Rename/reorder carry the
-sheet fence; duplicate/snapshot/load do not copy it. This is not the persistent
-W05b identity scheme, global document revision, automation wire ABI or durable
-journal. No file schema or source writes are introduced.
+`src/workbook/cell_command.c` is the first admitted mutation producer. Its v2
+in-process envelope freezes durable workbook/sheet IDs, a process/session fence,
+expected CellStore and admitted-document revisions, coordinates and bounded
+borrowed bytes. The producer rechecks primary/object protection, then publishes
+one cell-history action, dirty state and one monotonic command revision only for
+a changed value. No-op and failure preserve all three. The App owns drafts,
+source readiness, navigation and feedback. The persisted command clock covers
+this admitted subset; legacy paste/range/object/Undo paths still use their own
+store revisions and histories. It is not a durable receipt or retry protocol.
+
+`src/workbook/identity.c` owns bounded identity validation/allocation/restore.
+The first sheet allocates a 128-bit workbook ID from OS/browser cryptographic
+entropy, with no time/PRNG fallback. Sheet IDs use a non-recycled uint64 high-water
+outside Undo. Rename/reorder preserve them, duplicate allocates another, and Save
+snapshots retain the exact durable identity/clock. Transient session fences are
+not copied to snapshot/load, so an outstanding draft cannot replay after reopen.
+Exhausted counters still allow Open/Save of existing data but reject allocation
+atomically. Native entropy and shared-C model behavior are tested; browser crypto
+and Windows entropy branches are not platform acceptance in this slice.
+
+Native v15 adds required workbook_identity(high,low,sheet_high_water,command_revision)
+and sheet_identity(sheet_id,stable_id) tables to the strict v14 metadata package.
+Existing integer sheet_id values remain archive ordinals. The adapter validates
+exact types, SQL NULL, row counts, complete ordinal coverage, uniqueness,
+nonzero IDs and high-water bounds before publishing a staged Workbook. Native
+v1–v14 Open generates identities in RAM without modifying the file or making it
+dirty; Save upgrades transactionally. Snapshot/Save As preserve logical identity.
+Physical copies can share an identity but their runtime fences remain separate.
+The shared partial browser decoder still rejects v15; browser Workbook Open/Save
+and final staged-model activation remain incomplete.
 
 The cell-command GUI fixture has its own App object compiled with
 `DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.
@@ -134,7 +153,7 @@ Current limits are 20,000 editable cells and 4 MiB of text per sheet, with 64 Ki
 
 Sources: [cells.c](../src/workbook/cells.c), [cells.h](../src/workbook/cells.h), `commit_cell`, `draw_blank_cells` and `statistics_snapshot` in [app.c](../src/app/app.c).
 
-Manual range moves preflight the complete model through `worksheet_check_move`, returning ready, invalid/protected or needs explicit replacement. The default `worksheet_move_range` still rejects occupied destinations. After UI confirmation, `worksheet_replace_range` revalidates read-only/object boundaries and admits only manual ranges. It prepares formatting before changing cells, clears destination values under source holes and translates the original sparse cells once, so self-overlap cannot read partially moved values. Existing composite worksheet history records cells/formats as one action. The transient C dialog captures the sheet index, selection and data/format/Analysis revisions; it refuses stale approval and never owns a second copy of the document. This does not introduce W05 stable sheet IDs, general formula rewrites or durable journal commands.
+Manual range moves preflight the complete model through `worksheet_check_move`, returning ready, invalid/protected or needs explicit replacement. The default `worksheet_move_range` still rejects occupied destinations. After UI confirmation, `worksheet_replace_range` revalidates read-only/object boundaries and admits only manual ranges. It prepares formatting before changing cells, clears destination values under source holes and translates the original sparse cells once, so self-overlap cannot read partially moved values. Existing composite worksheet history records cells/formats as one action. The transient C dialog captures the sheet index, selection and data/format/Analysis revisions; it refuses stale approval and never owns a second copy of the document. This legacy range adapter does not yet use the W05 stable target envelope; general formula rewrites and durable journal commands remain separate.
 
 ### How query results live in memory
 
@@ -181,7 +200,7 @@ Sources: [grid.c](../src/grid/grid.c), [sparse cells](../src/workbook/cells.c), 
 | Undo and document version history | Undo/Redo are bounded RAM snapshots. `workbook_snapshot` excludes them and Pages; reopening does not restore the previous session's undo history. |
 | External source data | CSV/Parquet/DuckDB contents are not automatically embedded in the workbook. Source references and supported identity proofs are saved; moving/changing a file requires relinking or reverification. |
 
-`.dxls` schema versions 1–14 represent file-format compatibility. The `SourceVersions` ledger binds source/owner/reader/schema/content proofs; it does not retain old Parquet bytes for time travel. Displayed row position is not durable source-record identity. Supported raw CSV/Parquet paths can carry original record ordinals; universal lineage is absent for custom SQL, DISTINCT, aggregates and the browser. Extending this formatting foundation into an editing model needs separate design and validation.
+`.dxls` schema versions 1–15 represent file-format compatibility. The `SourceVersions` ledger binds source/owner/reader/schema/content proofs; it does not retain old Parquet bytes for time travel. Displayed row position is not durable source-record identity. Supported raw CSV/Parquet paths can carry original record ordinals; universal lineage is absent for custom SQL, DISTINCT, aggregates and the browser. Extending this formatting foundation into an editing model needs separate design and validation.
 
 The user's report of closing normally without a warning differs from the native source path and needs reproduction with the actual binary, platform and close mechanism. A dialog in the source does not establish that the running application handles the event correctly. It does not protect against crashes or force quit.
 

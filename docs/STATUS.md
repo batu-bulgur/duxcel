@@ -30,18 +30,21 @@ W02 adds explicit Replace/Cancel after a manual drag or destination-address move
 
 W03 implements deterministic manual containing regions for Select All. Four-neighbor components use the original finite selection as the seed; diagonal islands and format-only coordinates do not connect. Blank interiors use area/coordinate tie rules. Strict supersets retain active cell/direction and viewport, while current Table/Pivot/source bounds keep their existing priority. Pure C component/ladder tests pass 133/170 checks per optimized/sanitizer build. Hidden native W03 passes 14 stages (7.43s optimized/7.34s sanitizer), including reversed three-row selection, 100%/narrow 150%, offscreen data/format-only exclusion, no data/history/query changes and reopen. The existing analytical selection ladder passes 27 optimized stages; the shared-C/official-Worker browser selection profile passes 705 checks (77.70s) with actual Ctrl/Cmd+A and prior range-move/analytical-owner coverage. The rebuilt bundle passes strict signature verification and cold/warm LaunchServices Open with the native-alert guard. Physical/human W03 acceptance is pending. Cmd+Arrow data boundaries remain separate C01 work; no inferred Table, typed cell or formula engine is introduced.
 
-W05 is split into W05a (implemented command boundary) and W05b (queued durable
-identities/migration). Manual cell entry now captures its target and CellStore
-revision when the editor opens and commits through a shared C producer. Changed
-values record one existing worksheet action; no-op/stale/invalid/protected/limit
-outcomes are explicit. A stale draft stays editable with a wrapped inline warning
-and Escape/reopen guidance; it cannot overwrite the newer value. Transient
-process-lifetime document/sheet fences follow rename/reorder and reset on
-snapshot/load; they are not persisted identities, a global revision clock,
-global Undo, a durable journal or a final automation protocol. Existing workbook
-codec versions and external source write behavior are unchanged.
+W05a/W05b implement the single-cell command foundation; human acceptance remains
+pending. The v2 command captures durable workbook/sheet IDs, session fences and
+expected CellStore/admitted-command revisions. Changed edits create one worksheet
+action and advance the persisted command clock; no-op/failure preserve it.
+Native v15 persists a 128-bit document ID and exact uint64 sheet IDs/high-water.
+Rename/reorder/snapshot/reopen retain identity; duplicate allocates a fresh ID.
+Exhaustion rejects allocation atomically while existing sheets remain saveable.
+Legacy v1–v14 Open assigns IDs in RAM without writing the file; Save upgrades.
+Malformed current identity metadata rejects Open/overwrite without replacing the
+live document or corrupt archive. Session fences still reject old drafts after
+reopen, including a file with matching durable IDs. Legacy mutation families,
+global Undo and the durable journal are not brought under the clock by this slice.
+The partial browser header decoder still rejects v15; no browser Open/Save claim.
 
-W05a focused verification passes 158 shared-model assertions per optimized and
+The W05a baseline verification recorded 158 shared-model assertions per optimized and
 ASan/UBSan build and 13 real native App stages (29 assertions). Native GUI time
 is 5.06s; the last local gate is 12.11s including a 6.12s feature App recompile.
 The fixture covers actual Enter/Escape/Undo/Redo, preserved no-op Redo, a second
@@ -56,6 +59,20 @@ workspace, recovery and browser suites remain explicitly deferred. Source/binary
 receipts and captures live under ignored `build/tests/results/`; physical input
 and human demo acceptance remain pending. The clean generated demo is
 `build/tests/generated/cell-command-demo.dxls`.
+
+W05b's focused gate passes75 identity,158 cell-command and2,353 descriptor checks
+per optimized/ASan/UBSan configuration, followed by800 private native identity/
+migration checks per configuration. The nine-stage hidden TEST App passes18
+checks in3.668s; the final local gate takes66.831s including39.595s native archive
+sanitizer work and6.119s feature App compilation. It exercises legacy Open,
+rename/duplicate/reorder, independent edits, asynchronous Save/Open and stale
+session rejection. A separate optimized legacy-header comparison passes1,611
+checks across v12/v13/v14/physical-reorder/legacy24 components;41 focused runner,
+catalog and identity-fixture tool contracts pass. Source/binary fingerprints,
+completion markers, logs and captures are under ignored build/tests/results/.
+Full native/source/browser regression remains deferred. Human test inputs are
+build/tests/generated/identity-legacy.dxls (untouched v12) and
+build/tests/generated/workbook-identity-demo.dxls (saved v15, two independent sheets).
 
 ## Feature iteration and build identity
 

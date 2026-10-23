@@ -17,13 +17,13 @@ from test_catalog import FEATURES, STANDALONE_GUI, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged)
 FAST_MODULES = (
-    "build_info", "cell_command", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
+    "build_info", "workbook_identity", "cell_command", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
     "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "sortview_input", "sortview_input_review", "fontmetrics", "ui_font_fallback",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")
-ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native")
+ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native")
 FORMATS_COMPLETION_PATTERN = r"^PASS: [1-9]\d* focused workspace formatting checks \(format round-trip, validation, scoped-save rejection and original-file preservation\)$"
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
@@ -299,6 +299,9 @@ class Runner:
                 completion_pattern=r"^PASS: native About and test identity \([1-9]\d* checks\)$"))
 
     def standalone_gui_check(self,name):
+        if name == "workbook-identity":
+            self.record(self.command("identity-fixture", [sys.executable, "tools/create_workbook.py", "--identity-only"],
+                                     "PASS: identity migration fixture:"))
         binary, marker, completion, stages = STANDALONE_GUI[name]
         self.build([binary], "build-feature-gui")
         self.retain_binaries([binary])
@@ -308,6 +311,17 @@ class Runner:
             self.record(self.command(name+"-native",["./"+binary],marker,native=True,
                                      completion_pattern=completion,stages=stages))
 
+    def feature_engine_checks(self, modules):
+        """Mutable private archive checks run serially, including sanitizer variants."""
+        runs = [(module, config, test_binary(module, config))
+                for config in configurations(self.args.config) for module in modules]
+        self.build([binary for _, _, binary in runs], "build-feature-engine")
+        self.retain_binaries([binary for _, _, binary in runs])
+        for module, config, binary in runs:
+            ensure_unchanged(self.summary["binaries"])
+            self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
+            ensure_unchanged(self.summary["binaries"])
+
     def feature(self):
         plan = feature_plan(self.args.feature)
         self.summary["feature_plan"] = plan
@@ -316,6 +330,8 @@ class Runner:
             self.record(self.command("feature-tools", [sys.executable, "-m", "unittest", *plan["tool_tests"]], "OK"))
         if plan["modules"]:
             self.headless(plan["modules"])
+        if plan["engine_modules"]:
+            self.feature_engine_checks(plan["engine_modules"])
         if plan["gui"] == "about":
             self.about_check()
         elif plan["gui"] in STANDALONE_GUI:

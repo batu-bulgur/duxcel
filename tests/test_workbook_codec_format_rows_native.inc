@@ -13,7 +13,7 @@ static FormatPatch format_fixture_patch(bool large,size_t sheet,size_t position)
 static void format_rows_fixture_make(const char *path,const char *missing,unsigned version,bool large) {
     bindings_fixture_make(path,missing,version,large);Workbook book;workbook_init(&book);char *error=NULL;CHECK(workbook_load(&book,path,&error)&&!error&&book.count==64);
     size_t total=0;for(size_t s=0;s<64;s++){FormatStore *f=&book.sheets[s].formats;CHECK(!f->source_aware&&!f->count&&!f->scope_count&&!f->undo_count&&!f->redo_count);f->count=format_fixture_count(large,s);f->items=f->count?dx_alloc(f->count*sizeof(*f->items)):NULL;for(size_t p=0;p<f->count;p++)f->items[p]=format_fixture_patch(large,s,p);CHECK(format_valid(f,&error)&&!error);total+=f->count;}
-    CHECK(total==(large?285u:7u)&&workbook_codec_min_write_version(&book)==version&&workbook_save(&book,path,&error)&&!error);workbook_free(&book);CHECK(access(missing,F_OK)!=0);
+    CHECK(total==(large?285u:7u)&&workbook_codec_content_version(&book)==version&&workbook_save(&book,path,&error)&&!error);workbook_free(&book);CHECK(access(missing,F_OK)!=0);
 }
 static const EmitFixture emit_format_rows_fixtures[]={{"format-rows-v12.dxls",12,25,false},{"format-rows-v13.dxls",13,25,false},{"format-rows-v14.dxls",14,25,false},{"format-rows-v14-reordered.dxls",14,25,true}};
 static const char format_rows_reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_format_rows AS SELECT decimals,numeric_format,font_size,color,alignment,flags,mask,c1,c0,r1,r0,position,sheet_id FROM _duxcel_workspace.formats; DROP TABLE _duxcel_workspace.formats; ALTER TABLE _duxcel_workspace.reordered_format_rows RENAME TO formats";

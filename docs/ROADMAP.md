@@ -23,7 +23,7 @@ Continue product correctness, persistence internals and focused tests together. 
   tasks below, not prerequisites for every feature.
 
 T01–T03 are infrastructure, not a change in W02/W03 hands-on acceptance or the
-numbered workbook dependencies. The next numbered workbook foundation is W05, now split into W05a and W05b below.
+numbered workbook dependencies. W05a/W05b implement the admitted single-cell command foundation; W06 is the next numbered workbook slice after human acceptance.
 
 ## Repository and C tooling
 
@@ -107,7 +107,7 @@ W02 follows accepted W01 and reuses its atomic move/history boundary. W03 region
 
 W02 verification: `python3 tools/test.py affected --feature range-replace --config release --modules grid --jobs 2` and its sanitizer counterpart pass 15 native stages (7.83s/8.72s for the App workflow), including actual drag/Escape/Cancel/Replace input, full-model offscreen targets, clean cancellation, stale data-revision refusal, exact self-overlap Undo/Redo and Save/Open. The existing range-move and selection-start optimized regressions pass 10 and 45 stages. The shared model passes 186 optimized/sanitizer checks, covering holes, literal NULL/exact decimal text, formats, both overlap directions, the last worksheet cell, empty-source replacement, no-op and protected areas. The real shared-C/official-Worker browser controls profile passes 1,366 checks (34.36s), including button and Enter-driven Move, default Cancel, exact replaced value/style Undo/Redo and no source query. Source/binary receipts and screenshots remain under ignored `build/tests/results/`. Physical replacement gestures and human visual acceptance remain pending.
 
-W03 follows W02 in the numbered roadmap without requiring another data-mutation subsystem. The shared sparse component reader replaces bounding growth with bounded O(n log n) traversal/O(n) scratch (about 180 KB of payload at 20,000 cells on this 64-bit host). It never changes cells, formats or history. The `containing-regions` native profile demonstrates B2:E5 → B2:E7 → B2:Z20001 → whole sheet, with reversed three-row seeds, blank interiors and an offscreen format-only exclusion. Its clean product Save is `build/tests/generated/region-selection-demo.dxls`; human acceptance remains pending. W02's previous hands-on status is unchanged by authorization to continue. W05 is the next numbered foundation slice.
+W03 follows W02 in the numbered roadmap without requiring another data-mutation subsystem. The shared sparse component reader replaces bounding growth with bounded O(n log n) traversal/O(n) scratch (about 180 KB of payload at 20,000 cells on this 64-bit host). It never changes cells, formats or history. The `containing-regions` native profile demonstrates B2:E5 → B2:E7 → B2:Z20001 → whole sheet, with reversed three-row seeds, blank interiors and an offscreen format-only exclusion. Its clean product Save is `build/tests/generated/region-selection-demo.dxls`; human acceptance remains pending. W02's previous hands-on status is unchanged by authorization to continue. W05a/W05b are implemented below; W06 follows human acceptance.
 
 W03 verification: 133 sparse component checks and 170 existing ladder checks pass optimized/ASan/UBSan, including maximum admitted cell count, equal-area blank ties independent of insertion order and original model/history retention. The 14-stage hidden native `containing-regions` workflow passes optimized (7.43s) and sanitizer (7.34s); the existing Table/Pivot/source selection-ladder regression passes 27 optimized stages (13.06s). The real shared-C/official-Worker browser selection profile passes 705 checks (77.70s), including eight new actual Ctrl/Cmd+A shape/finite-selection steps plus prior analytical-owner and range-move coverage. Automatic selection statistics are disabled through the ordinary controls before query-retention assertions. Source/binary receipts and screenshots live under ignored `build/tests/results/`; no full physical-device/platform matrix is implied.
 
@@ -117,9 +117,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 
 | ID / priority / state | Scope and dependency | Demo and acceptance gate |
 | --- | --- | --- |
-| W05 · P0 · In progress; split below | Stable workbook/sheet IDs and revision-bearing C command boundary for one manual edit; existing C05/C03. | Complete W05a and W05b before claiming persistent identities or the full W05 envelope. AU01/HI03/PL01; foundation of A09/A18/A19. |
+| W05 · P0 · Implemented; human demo pending | Stable workbook/sheet IDs and revision-bearing C command boundary for one manual edit; existing C05/C03. | W05a/W05b cover persistent targets and the revision-bearing single-cell envelope; other mutation families remain outside this admission. AU01/HI03/PL01; foundation of A09/A18/A19. |
 | W05a · P0 · Implemented; human demo pending | Session-fenced, resolved single-cell command; existing cell/history model. | F2/type/click-away/close commit uses the shared producer. Draft captures cell and expected CellStore revision at open; stale data/target cannot be overwritten. Applied/no-op/stale/invalid/protected/limit outcomes are explicit. One existing Undo action, preserved Redo for no-op, exact text and Save/Open. Process-lifetime target fences survive rename/reorder but reset on load/snapshot. |
-| W05b · P0 · Queued | Persisted workbook/sheet identities, non-recycled high-water, migration and document revision/envelope completion; W05a. | IDs survive rename/reorder/reopen, duplicate receives a new ID, malformed/duplicate/exhausted IDs reject atomically, and supported old files migrate through native/shared-C/browser gates. Replace transient command fences with durable identities without promising journal durability or global Undo yet. |
+| W05b · P0 · Implemented; human demo pending | Persisted workbook/sheet identities, non-recycled high-water and admitted-command revision; W05a. | Native v15 persists a 128-bit workbook ID, exact uint64 sheet IDs/high-water and command revision. Rename/reorder/reopen/snapshot preserve IDs; duplicate allocates a new ID. Invalid identity archives preserve the live book and prior file; exhaustion rejects allocation without blocking existing-book Save. v1–v14 migrate in RAM and upgrade on Save. Shared-C model/restore checks pass; the incomplete browser header gate still rejects v15 explicitly. Session fences remain independent; no journal/global Undo claim. |
 | W06 · P0 · Queued | Workbook chronological Undo/Redo for manual edits on two sheets; W05. | Edit A then B and traverse in chronological order; branching clears the correct redo tail; display defaults do not alter replayed data. HI01/HI03; A09–A10 for admitted commands. |
 | W07 · P0 · Queued | Undoable sheet lifecycle; W06. | Delete/restore a sheet with cells, objects, binding identities and formats; reorder/hide/duplicate use the same command history. HI02; remaining A09. Do not claim formula restoration before W26b. |
 | W08 · P0 · Queued | DuckDB journal writer for the admitted command subset; W05–W06. | Measure single/batched edits and large paste on the pinned engine; ordered pending/durable acknowledgement, idempotent retry and bounded queue. Kill before/after commit, disk-full/write failures yield old/new complete state. No SQLite dependency. RE01/RE03/PL02; commit part of A13. |
@@ -134,11 +134,26 @@ W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source
 protection at commit; the producer resolves sheet ownership and records one
 existing worksheet action only after a changed value is adopted. No-op and
-failure preserve dirty/history state. Session IDs are outside Undo and are not
-serialized; this deliberately leaves the existing v12–v14 codec unchanged.
-Expected revision is the target CellStore revision, not a workbook-global clock.
-W05b remains necessary for the original persistent identity/document-envelope
-guarantee. W06 global history and W08 durability remain separate prerequisites.
+failure preserve dirty/history state. W05b resolves durable workbook/sheet IDs
+and checks both expected CellStore revision and the admitted-command clock.
+Session fences stay outside Undo/serialization: even the same saved workbook
+cannot accept an old draft after reopen. Native v15 adds workbook_identity and
+sheet_identity to the strict v14 package. The ordinal sheet_id joins in existing
+metadata remain unchanged; sheet_identity maps them to durable IDs. Old files
+are not rewritten by Open, and are clean until a user edit; their first Save
+persists the generated identities. Reopening an unsaved legacy file can generate
+a different identity. Ordinary Save As retains the logical document ID; independent
+runtime instances have separate fences. W13 historical forks must explicitly
+choose a new document identity. The command clock covers only admitted changed
+cell commands, not legacy paste/range/object/Undo paths. W06 global history and
+W08 journal durability remain separate prerequisites.
+
+The local workbook-identity gate reuses per-file objects, runs shared-C identity,
+cell-command and descriptor checks, serial private native archive tests and a
+nine-stage hidden TEST App fixture. Broader lifecycle/browser/source interaction
+checks remain registered and deferred. Its two-sheet demo is
+build/tests/generated/workbook-identity-demo.dxls; the untouched finite legacy
+input is build/tests/generated/identity-legacy.dxls. See tests/README.md for limits.
 The local `cell-command` gate runs isolated C model checks and a test-only real
 App fixture without the canonical workbook or background/browser suites. Its
 clean demo is `build/tests/generated/cell-command-demo.dxls`; stale draft and

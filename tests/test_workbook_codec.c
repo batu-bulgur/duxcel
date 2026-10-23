@@ -24,8 +24,8 @@ static void test_inventory(void) {
         "object_counters","format_scopes","format_selectors","format_state","format_guards","source_version_counters",
         "source_versions","source_bindings","format_records","format_fields"};
     CHECK(workbook_codec_table_count(12)==16 && workbook_codec_table_count(13)==20 && workbook_codec_table_count(14)==26);
-    CHECK(!workbook_codec_table_count(0) && !workbook_codec_table_count(1) && !workbook_codec_table_count(11) && !workbook_codec_table_count(15) && !workbook_codec_table_count(UINT_MAX));
-    CHECK(!workbook_codec_table_at(0,0) && !workbook_codec_table_at(11,0) && !workbook_codec_table_at(15,0));
+    CHECK(!workbook_codec_table_count(0) && !workbook_codec_table_count(1) && !workbook_codec_table_count(11) && !workbook_codec_table_count(16) && !workbook_codec_table_count(UINT_MAX));
+    CHECK(!workbook_codec_table_at(0,0) && !workbook_codec_table_at(11,0) && !workbook_codec_table_at(16,0));
     CHECK(!workbook_codec_table_at(14,26) && !workbook_codec_table_at(12,16) && !workbook_codec_table_at(13,20) && !workbook_codec_table_at(14,SIZE_MAX));
     CHECK(!workbook_codec_table_find(NULL) && !workbook_codec_table_find("") && !workbook_codec_table_find("custom_note") && !workbook_codec_table_find("META"));
     size_t maximum=0;
@@ -50,6 +50,12 @@ static void test_inventory(void) {
         for (unsigned v=1;v<=14;v++) CHECK(workbook_codec_reserved_before(table->table,v)==(table->min_package>=13 && table->min_package>v));
     }
     CHECK(maximum==DX_WORKBOOK_CODEC_COLUMNS);
+    CHECK(workbook_codec_table_count(15)==28);
+    CHECK(workbook_codec_reserved_before("workbook_identity",14));
+    CHECK(workbook_codec_reserved_before("sheet_identity",14));
+    CHECK(!workbook_codec_reserved_before("sheet_identity",15));
+    CHECK(!strcmp(workbook_codec_table_find("workbook_identity")->types,"U U U U"));
+    CHECK(!strcmp(workbook_codec_table_find("sheet_identity")->types,"I U"));
     for (unsigned package=12;package<=14;package++) {
         const WorkbookCodecTable *last=NULL;
         for (size_t i=0;i<workbook_codec_table_count(package);i++) {
@@ -71,23 +77,24 @@ static void test_inventory(void) {
     CHECK(!workbook_codec_reserved_before(NULL,1));
 }
 static void test_selection(void) {
-    for (unsigned minimum=12;minimum<=14;minimum++) for (int existing=0;existing<=14;existing++) {
+    for (unsigned minimum=12;minimum<=15;minimum++) for (int existing=0;existing<=15;existing++) {
         unsigned out=999; CHECK(workbook_codec_select_write_version(minimum,existing,&out));
         CHECK(out==(minimum>(unsigned)existing ? minimum : (unsigned)existing));
     }
-    const unsigned invalid[]={0,1,11,15,UINT_MAX};
+    const unsigned invalid[]={0,1,11,16,UINT_MAX};
     for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
         unsigned out=777; CHECK(!workbook_codec_select_write_version(invalid[i],0,&out) && out==777);
     }
     unsigned out=777; CHECK(!workbook_codec_select_write_version(12,-1,&out) && out==777);
-    CHECK(!workbook_codec_select_write_version(12,15,&out) && out==777);
+    CHECK(!workbook_codec_select_write_version(12,16,&out) && out==777);
     CHECK(!workbook_codec_select_write_version(12,INT_MAX,&out) && out==777);
     CHECK(!workbook_codec_select_write_version(12,0,NULL));
 }
 static void minimum(const Workbook *book,unsigned expected) {
     Workbook before=*book; Worksheet *saved=malloc(book->count*sizeof(*saved)); CHECK(saved);
     memcpy(saved,book->sheets,book->count*sizeof(*saved));
-    CHECK(workbook_codec_min_write_version(book)==expected);
+    CHECK(workbook_codec_content_version(book)==expected);
+    CHECK(workbook_codec_min_write_version(book)==(expected ? 15u : 0u));
     CHECK(!memcmp(book,&before,sizeof(before)) && !memcmp(book->sheets,saved,book->count*sizeof(*saved))); free(saved);
 }
 static void test_model_policy(void) {
@@ -138,11 +145,11 @@ static void test_model_policy(void) {
        malformed historical packet still selects14 for the native validator. */
     sheets[0].analysis.source_version=3; sheets[1].objects.next_id=0; minimum(&book,14);
     free(sheets);
-    Workbook invalid={0}; CHECK(!workbook_codec_min_write_version(NULL) && !workbook_codec_min_write_version(&invalid));
-    invalid=(Workbook){.count=1}; CHECK(!workbook_codec_min_write_version(&invalid));
-    Worksheet one={0}; invalid=(Workbook){.sheets=&one,.count=DX_MAX_SHEETS+1}; CHECK(!workbook_codec_min_write_version(&invalid));
-    invalid.count=1; one.objects.count=DX_MAX_OBJECTS+1; CHECK(!workbook_codec_min_write_version(&invalid));
-    one.objects.count=1; CHECK(!workbook_codec_min_write_version(&invalid));
+    Workbook invalid={0}; CHECK(!workbook_codec_content_version(NULL) && !workbook_codec_content_version(&invalid));
+    invalid=(Workbook){.count=1}; CHECK(!workbook_codec_content_version(&invalid));
+    Worksheet one={0}; invalid=(Workbook){.sheets=&one,.count=DX_MAX_SHEETS+1}; CHECK(!workbook_codec_content_version(&invalid));
+    invalid.count=1; one.objects.count=DX_MAX_OBJECTS+1; CHECK(!workbook_codec_content_version(&invalid));
+    one.objects.count=1; CHECK(!workbook_codec_content_version(&invalid));
 }
 int main(void) {
     test_inventory(); test_selection(); test_model_policy();

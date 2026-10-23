@@ -54,6 +54,31 @@ class FeatureCatalogTests(unittest.TestCase):
         obj.standalone_gui_check.assert_called_once_with("cell-command")
         obj.prepare_native.assert_not_called()
 
+    def test_identity_gate_keeps_engine_separate_and_gui_narrow(self):
+        obj = runner.Runner.__new__(runner.Runner)
+        obj.args = runner.parser().parse_args(["feature", "--feature", "workbook-identity"])
+        obj.summary = {}; obj.headless = mock.Mock(); obj.feature_engine_checks = mock.Mock()
+        obj.standalone_gui_check = mock.Mock()
+        obj.prepare_native = mock.Mock(side_effect=AssertionError("Unrelated canonical bootstrap"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            obj.feature()
+        obj.headless.assert_called_once_with(["workbook_identity", "cell_command", "workbook_codec"])
+        obj.feature_engine_checks.assert_called_once_with(["workbook_identity_native"])
+        obj.standalone_gui_check.assert_called_once_with("workbook-identity")
+        obj.prepare_native.assert_not_called()
+
+    def test_engine_variants_finish_serially(self):
+        obj = runner.Runner.__new__(runner.Runner)
+        obj.args = runner.parser().parse_args(["feature", "--feature", "workbook-identity"])
+        obj.summary = {"binaries": {}}; events = []
+        obj.build = mock.Mock(); obj.retain_binaries = mock.Mock()
+        obj.command = lambda name, argv, marker: events.append(name) or {"name": name}
+        obj.record = lambda result: events.append("completed:" + result["name"])
+        with mock.patch.object(runner, "ensure_unchanged"):
+            obj.feature_engine_checks(["workbook_identity_native"])
+        self.assertEqual(events, ["workbook_identity_native-release", "completed:workbook_identity_native-release",
+                                  "workbook_identity_native-sanitize", "completed:workbook_identity_native-sanitize"])
+
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))
         self.assertEqual(plan("about")["gui"], "about")
