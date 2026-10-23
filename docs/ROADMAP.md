@@ -38,7 +38,7 @@ numbered workbook dependencies. W05a/W05b implement the admitted single-cell com
 - [x] Separate reference data, dependency caches and stable locks from disposable build output; clean preserves data.
 - [ ] Improve orchestration through its existing Python boundary with equivalent timeout, locking, failure/recovery and browser/platform coverage; no blanket language rewrite.
 - [ ] Extract native scenarios from App into a test-only build boundary without losing assertions. Split cohesive App controllers only when directly needed.
-- [x] Default incremental native App/review/helper builds to eight parallel compilation jobs, with one icon-generation owner and separate configuration/temp outputs. Keep mutable engine/desktop execution serialized.
+- [x] Default incremental native App/review/helper builds to eight parallel compilation jobs, with one icon-generation owner and separate configuration/temp outputs. Keep mutable engine/desktop execution serialized. Recursive Python test builds now preserve the inherited Make jobserver, including its explicit BUILD_JOBS limit; Make inspection modes do not launch tests.
 - [ ] Extend compatible per-file compilation to legacy module-test builds, preserving renderer-stub/configuration boundaries before admitting their graph to parallel builds.
 - [ ] Split the large browser integration driver by workflow behind one shared CDP/lifecycle layer; remove duplicated helpers instead of writing a second engine.
 
@@ -415,6 +415,21 @@ edit parent, both Save/reopen outcomes and 640×640 at 150%. Keytip tests pass
 optimized/sanitizer; 25 tool contracts pass in 7.944s. Test hooks are private;
 crash/restart, active-instance exclusion and broad foundation regression remain
 W10c3. No physical-input or browser-persistence completion is claimed.
+
+W10c3 process workflow implemented: a private hidden real-App writer commits
+one editor change, a second hidden observer excludes the live lease, and only
+the owned writer PID is SIGKILLed. A fresh App restores the same document and
+revision; checkpoint/journal/WAL artifact names and hashes remain unchanged.
+Optimized and ASan/UBSan process drivers pass (2.269s/3.697s; 7.716s gate), with
+shutdown before private-directory cleanup. The updated UI fixture waits for its
+dirty dialog's first paint before injecting a click; 18 stages pass in 4.145s
+(11.296s gate). These are automated TEST processes, not user hands-on evidence.
+The gate exposed recursive test Make calls losing their jobserver descriptors.
+Recipes now expose the inherited pipe only to recursive Make; an actual Python
+bridge honors the parent's two-slot limit. All 76 incremental build checks and
+49 runner/catalog contracts pass; -n/-t/-q cannot launch tests. The registered
+full native foundation milestone is next; W10/W10c remain in progress until it
+passes. Browser persistence and full durable Undo remain separate.
 
 ### Owned data, refresh and complete analytical results
 

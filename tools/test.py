@@ -15,7 +15,7 @@ import time
 
 from test_catalog import FEATURE_FIXTURES, FEATURES, STANDALONE_GUI, ENGINE_PROCESS_CHECKS, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
-                       utc_now, sha256, fingerprint, ensure_unchanged)
+                       utc_now, sha256, fingerprint, ensure_unchanged, make_jobserver_fds)
 FAST_MODULES = (
     "build_info", "workbook_lifecycle", "workbook_history", "workbook_identity", "cell_command", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
@@ -23,7 +23,7 @@ FAST_MODULES = (
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")
-ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native", "workbook_journal", "journal_queue", "journal_session", "journal_performance", "workbook_save", "worker_save", "file_lease", "workbook_recovery", "directory_cursor", "recovery_catalog", "recovery_worker")
+ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native", "workbook_journal", "journal_queue", "journal_session", "journal_performance", "workbook_save", "worker_save", "file_lease", "workbook_recovery", "directory_cursor", "recovery_catalog", "recovery_worker", "recovery_process")
 FORMATS_COMPLETION_PATTERN = r"^PASS: [1-9]\d* focused workspace formatting checks \(format round-trip, validation, scoped-save rejection and original-file preservation\)$"
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
@@ -188,7 +188,8 @@ class Runner:
                 stream.write("Command: " + json.dumps(command) + "\n")
                 stream.flush()
                 process = subprocess.run(command, cwd=self.root, env=env, stdout=stream, stderr=subprocess.STDOUT,
-                                         timeout=self.args.timeout if not native else max(self.args.timeout, 900))
+                                         timeout=self.args.timeout if not native else max(self.args.timeout, 900),
+                                         pass_fds=make_jobserver_fds(env) if command[0]=="make" else ())
             result["exit_code"] = process.returncode
             validate_output(log.read_text(errors="replace"), process.returncode, marker, native, base, completion_pattern)
             result["status"] = "passed"
@@ -613,6 +614,13 @@ def main(argv=None):
         argument_parser.error("--visible applies only to affected/native/full")
     if args.timeout <= 0:
         argument_parser.error("--timeout must be positive")
+    # Recursive recipes expose the jobserver, so Make also invokes this process
+    # under -n/-t/-q. Preserve those non-executing modes before creating a runner.
+    flags=os.environ.get("MAKEFLAGS", "").split()
+    modes=flags[0] if flags and not flags[0].startswith("-") else ""
+    if os.environ.get("MAKELEVEL", "0")!="0" and set(modes)&set("ntq"):
+        print("Make inspection mode: tests were not built or launched.")
+        return 1 if "q" in modes else 0
     return Runner(args).run()
 
 

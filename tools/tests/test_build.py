@@ -227,6 +227,23 @@ sys.exit(result)
         check(len(compiled) == 8 and links == 0, "recursive builds complete their object inventory")
         check(json.loads((tree / "compiler-state.json").read_text())["peak"] == 2,
               "recursive make shares the parent jobserver even when its local budget is eight")
+        # The real Python runner must preserve the inherited jobserver through
+        # its Make subprocess, rather than silently degrading to one compiler.
+        (tree / "tools/python_make.py").write_text(
+            "import subprocess,sys\n"+
+            "sys.path.insert(0,"+repr(str(ROOT / "tools"))+")\n"+
+            "from workspace import make_jobserver_fds\n"+
+            "subprocess.run(['make',*sys.argv[1:]],check=True,pass_fds=make_jobserver_fds())\n")
+        makefile=(tree / "Makefile").read_text().replace("all: recursive-probe", "")
+        makefile+="\nall: python-probe\npython-probe:\n\t+python3 tools/python_make.py BUILD_JOBS=8 "+" ".join(probe_targets)+"\n"
+        (tree / "Makefile").write_text(makefile)
+        for target in probe_targets:
+            (tree / target).unlink()
+        (tree / "compiler-state.json").unlink()
+        compiled,links=build("all",options=["BUILD_JOBS=2"],env=dict(os.environ,DUXCEL_BUILD_BARRIER="2"))
+        check(len(compiled)==8 and links==0,"Python recursive builds complete their object inventory")
+        check(json.loads((tree / "compiler-state.json").read_text())["peak"]==2,
+              "Python runner passes the parent two-slot jobserver without serial fallback or oversubscription")
     print(f"PASS: {checks} incremental build checks in {time.monotonic()-started:.3f}s")
 
 

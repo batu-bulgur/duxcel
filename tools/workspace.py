@@ -10,12 +10,29 @@ import fcntl
 import hashlib
 import json
 import os
+import re
+import stat
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+
+def make_jobserver_fds(env=None):
+    """Borrow inherited GNU Make pipe descriptors only for recursive Make calls."""
+    flags=(os.environ if env is None else env).get("MAKEFLAGS", "")
+    matches=re.findall(r"--jobserver-(?:fds|auth)=(\d+),(\d+)(?:\s|$)", flags)
+    if not matches:
+        return ()
+    pair=tuple(map(int,matches[-1]))
+    if pair[0]==pair[1] or min(pair)<3:
+        return ()
+    try:
+        return pair if all(stat.S_ISFIFO(os.fstat(fd).st_mode) for fd in pair) else ()
+    except OSError:
+        return ()
+
 
 def utc_now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()

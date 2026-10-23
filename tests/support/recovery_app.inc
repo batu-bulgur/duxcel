@@ -3,6 +3,7 @@
 #include <unistd.h>
 static unsigned recovery_gui_stage,recovery_gui_wait,recovery_gui_checks;
 static int recovery_gui_result;
+static bool recovery_gui_modal_painted;
 static const char *recovery_gui_checkpoint,*recovery_gui_journal;
 static WorkbookId recovery_gui_parent;
 static const char *recovery_gui_copy="build/tests/generated/recovery-checkpoint-copy.dxls",*recovery_gui_full="build/tests/generated/recovery-full.dxls";
@@ -12,8 +13,37 @@ int app_test_recovery_result(void) { return recovery_gui_result; }
 static void recovery_gui_click(Rectangle r) { Vector2 p={r.x+r.width/2,r.y+r.height/2}; ui_note_pointer_gesture((DxPointerGesture){p.x,p.y,p.x,p.y,0,false}); }
 static void recovery_gui_edit(App *a,const char *text) { a->chrome_focus=0; grid_select_cell(&a->grid,1,1,false); open_modal(a,MODAL_CELL); input_set(&a->input,text); ui_note_key_press(KEY_ENTER,0); }
 static bool recovery_gui_idle(App *a) { WorkbookRecoveryWorkerState state=workbook_recovery_worker_state(a->recovery_worker); return !state.active && !state.ready && !a->io_busy && !a->busy; }
+static void recovery_process_frame(App *a,const char *role) {
+    if (++recovery_gui_wait<8) return; recovery_gui_wait=0;
+    JournalSessionState backup=workbook_journal_session_state(a->journal,&a->book);
+    if (!strcmp(role,"writer")) {
+        if (!recovery_gui_stage) { a->chrome_focus=0; grid_select_cell(&a->grid,0,0,false); open_modal(a,MODAL_CELL); input_set(&a->input,"Crash value"); ui_note_key_press(KEY_ENTER,0); recovery_gui_stage=1; }
+        else if (recovery_gui_stage==1 && backup.covered && !backup.queue.opening && !backup.queue.pending) {
+            RECOVERY_GUI_CHECK(backup.queue.durable_revision==1 && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Crash value"));
+            printf("RECOVERY_WRITER_READY %016" PRIx64 "%016" PRIx64 " %" PRIu64 "\n",a->book.id.high,a->book.id.low,a->book.command_revision); fflush(stdout); recovery_gui_stage=2;
+        }
+    } else if (!strcmp(role,"observer")) {
+        if (!a->recovery_page || a->recovery_startup || !recovery_gui_idle(a)) return;
+        RECOVERY_GUI_CHECK(a->recovery_page->page.scan.done && a->recovery_page->page.scan.active==1 && !a->recovery_page->page.count);
+        RECOVERY_GUI_CHECK(a->modal==MODAL_NONE && !a->book.dirty && !a->recovery_owner);
+        puts("RECOVERY_ACTIVE_EXCLUDED"); fflush(stdout); recovery_gui_result=1;
+    } else if (!strcmp(role,"restore")) {
+        if (!recovery_gui_stage) {
+            if (!recovery_gui_idle(a) || a->modal!=MODAL_RECOVERY) return;
+            RECOVERY_GUI_CHECK(a->recovery_page && a->recovery_page->page.count==1 && a->recovery_page->page.rows[0].kind==RECOVERY_ENTRY_BOUND);
+            recovery_gui_click(a->recovery_view.layout.buttons[0]); recovery_gui_stage=1;
+        } else {
+            if (!recovery_gui_idle(a)) return;
+            RECOVERY_GUI_CHECK(a->recovery_owner && !a->book.path && a->book.dirty && a->modal==MODAL_NONE);
+            RECOVERY_GUI_CHECK(a->book.command_revision==1 && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Crash value"));
+            printf("RECOVERY_RESTORED %016" PRIx64 "%016" PRIx64 " %" PRIu64 "\n",a->book.id.high,a->book.id.low,a->book.command_revision); fflush(stdout); recovery_gui_result=1;
+        }
+    } else RECOVERY_GUI_CHECK(false);
+}
 static void recovery_test_frame(AppSession *session) {
-    App *a=&session->app; if (recovery_gui_result || ++recovery_gui_wait<8) return; recovery_gui_wait=0;
+    App *a=&session->app; const char *role=getenv("DUXCEL_TEST_RECOVERY_PROCESS_ROLE");
+    if (role && !recovery_gui_result) { recovery_process_frame(a,role); return; }
+    if (recovery_gui_result || ++recovery_gui_wait<8) return; recovery_gui_wait=0;
     JournalSessionState backup=workbook_journal_session_state(a->journal,&a->book);
     switch (recovery_gui_stage) {
     case 0: {
@@ -53,7 +83,8 @@ static void recovery_test_frame(AppSession *session) {
     case 8:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(a->modal==MODAL_UNSAVED && a->recovery_staged && a->book.dirty);
-        recovery_gui_click(a->document_actions[2]); break;
+        if (!recovery_gui_modal_painted) { recovery_gui_modal_painted=true; return; }
+        recovery_gui_modal_painted=false; recovery_gui_click(a->document_actions[2]); break;
     case 9:
         RECOVERY_GUI_CHECK(a->modal==MODAL_NONE && !a->recovery_staged && !a->recovery_owner && a->book.dirty);
         RECOVERY_GUI_CHECK(!strcmp(cells_get(&active_sheet(a)->cells,1,1),"Current draft") && !access(recovery_gui_checkpoint,F_OK)); recovery_open(a); break;
@@ -62,7 +93,9 @@ static void recovery_test_frame(AppSession *session) {
         RECOVERY_GUI_CHECK(a->modal==MODAL_RECOVERY && a->recovery_page->page.count==1); recovery_gui_click(a->recovery_view.layout.buttons[0]); break;
     case 11:
         if (!recovery_gui_idle(a)) return;
-        RECOVERY_GUI_CHECK(a->modal==MODAL_UNSAVED && a->recovery_staged); recovery_gui_click(a->document_actions[1]); break;
+        RECOVERY_GUI_CHECK(a->modal==MODAL_UNSAVED && a->recovery_staged);
+        if (!recovery_gui_modal_painted) { recovery_gui_modal_painted=true; return; }
+        recovery_gui_modal_painted=false; recovery_gui_click(a->document_actions[1]); break;
     case 12:
         RECOVERY_GUI_CHECK(a->recovery_owner && !a->book.path && a->book.dirty && !a->journal);
         RECOVERY_GUI_CHECK(!workbook_recovery_info(a->recovery_owner)->tail_deferred && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Recovered") && !*cells_get(&active_sheet(a)->cells,1,1));

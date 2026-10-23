@@ -188,3 +188,18 @@ and discard. The storage kill/filesystem drivers run serially for each already-b
 binary in their owning `workbook-journal`/`journal-queue`/`journal-faults` plans
 and the full tier; ordinary checkpoint/UI changes defer the filesystem matrix. Full regression is registered, not
 implicitly run after each journal change.
+
+The Python test runner borrows an inherited GNU Make jobserver only when
+launching recursive Make, retaining BUILD_JOBS rather than falling back to one
+compiler. Test recipes expose those descriptors; Make -n/-t/-q still performs
+no build/test launch. `tools/tests/test_build.py` verifies an actual Python
+bridge with a two-slot parent and an eight-slot child request, preventing both
+serial fallback and oversubscription. Test execution concurrency is unchanged.
+
+`make test-feature FEATURE=recovery-crash` runs the real hidden TEST App crash/
+restart driver in optimized and ASan/UBSan configurations. It holds the shared
+desktop lock, owns every launched PID, verifies active-instance exclusion, kills
+only its writer after durable acknowledgement, and restores the same document/
+revision without changing recovery artifact hashes. Owned processes stop before
+their temporary directory is removed. This process gate is also in the full
+native milestone inventory; ordinary feature gates do not run it implicitly.

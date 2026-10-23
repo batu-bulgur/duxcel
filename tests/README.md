@@ -209,4 +209,8 @@ fork/edit/Save As, deferred-tail preservation, dirty-guard Cancel/discard, full
 replay/cleanup/reopen and a 640×640 150% panel. Borrowed UI geometry/focus lives
 in `src/ui/recoveryview.c`; App/lease ownership lives in `src/app/recovery.inc`.
 Hooks in `tests/support/recovery_app.inc` compile only into its private App object.
-The process crash/restart milestone remains separately scheduled.
+`make test-feature FEATURE=recovery-crash` uses the same private App build with
+explicit writer/observer/restore roles, driven by `tools/test_recovery_process.py`.
+It proves actual SIGKILL/restart and live-instance exclusion in optimized and
+ASan/UBSan builds. The driver owns all PIDs, leases, private paths and logs; it
+never interacts with the user's instance. The full milestone includes this gate.

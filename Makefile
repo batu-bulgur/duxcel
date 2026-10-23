@@ -438,7 +438,7 @@ build/tests/test_record_pages: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HE
 build/tests/test_record_pages-debug: $(RECORD_PAGE_SRC) tests/test_record_pages.c $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(RECORD_PAGE_SRC) tests/test_record_pages.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
 test-records:
-	python3 tools/test.py records $(TEST_ARGS)
+	+python3 tools/test.py records $(TEST_ARGS)
 .PHONY: test-records
 
 # Native source verification prerequisites. The helper has no database/window;
@@ -816,7 +816,7 @@ PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
 	build/tests/test_workbook_lifecycle build/tests/test_workbook_lifecycle-debug build/tests/test_workbook_lifecycle-gui \
-	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui build/tests/test_journal_performance build/tests/test_journal_performance-debug build/tests/test_workbook_save build/tests/test_workbook_save-debug build/tests/test_worker_save build/tests/test_worker_save-debug build/tests/test_workbook_save-gui build/tests/test_file_lease build/tests/test_file_lease-debug build/tests/test_workbook_recovery build/tests/test_workbook_recovery-debug build/tests/test_directory_cursor build/tests/test_directory_cursor-debug build/tests/test_recovery_catalog build/tests/test_recovery_catalog-debug build/tests/test_recovery_worker build/tests/test_recovery_worker-debug \
+	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui build/tests/test_journal_performance build/tests/test_journal_performance-debug build/tests/test_workbook_save build/tests/test_workbook_save-debug build/tests/test_worker_save build/tests/test_worker_save-debug build/tests/test_workbook_save-gui build/tests/test_file_lease build/tests/test_file_lease-debug build/tests/test_workbook_recovery build/tests/test_workbook_recovery-debug build/tests/test_directory_cursor build/tests/test_directory_cursor-debug build/tests/test_recovery_catalog build/tests/test_recovery_catalog-debug build/tests/test_recovery_worker build/tests/test_recovery_worker-debug build/tests/test_recovery-gui build/tests/test_recovery_process build/tests/test_recovery_process-debug \
 	build/tests/test_cell_command build/tests/test_cell_command-debug build/tests/test_cell_command-native \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
@@ -830,23 +830,23 @@ endif
 # mutable engine/desktop checks remain serialized; TEST_ARGS may set --jobs 2
 # for independent already-built headless checks. See tools/test.py --list.
 test-fast:
-	python3 tools/test.py fast $(TEST_ARGS)
+	+python3 tools/test.py fast $(TEST_ARGS)
 test-feature:
-	python3 tools/test.py feature --feature $(FEATURE) $(TEST_ARGS)
+	+python3 tools/test.py feature --feature $(FEATURE) $(TEST_ARGS)
 test-milestone:
-	python3 tools/test.py full $(TEST_ARGS)
+	+python3 tools/test.py full $(TEST_ARGS)
 .PHONY: test-feature test-milestone
 test-affected:
-	python3 tools/test.py affected --feature $(FEATURE) $(TEST_ARGS)
+	+python3 tools/test.py affected --feature $(FEATURE) $(TEST_ARGS)
 test-native:
-	python3 tools/test.py native --scenario $(SCENARIO) $(TEST_ARGS)
+	+python3 tools/test.py native --scenario $(SCENARIO) $(TEST_ARGS)
 
 build/tests/test_background-native-debug: tests/test_background_native.m | build/tests
 	$(CC) $(RAYLIB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $< -o $@ $(RAYLIB_LIBS) -framework AppKit $(SANFLAGS)
 build/tests/native-alert-guard.dylib: tests/support/native_alert_guard.m | build/tests
 	$(CC) $(WARN) -O1 -g -dynamiclib $< -o $@ -framework AppKit
 test-full:
-	python3 tools/test.py full $(TEST_ARGS)
+	+python3 tools/test.py full $(TEST_ARGS)
 test-runner:
 	python3 -m tools.tests.test_runner
 test-build:
@@ -1306,3 +1306,13 @@ RECOVERY_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/r
 build/tests/test_recovery-gui: tests/test_recovery_gui.c $(RECOVERY_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_recovery_gui.c $(RECOVERY_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(RECOVERY_GUI_OBJECT:.o=.d)
+
+build/tests/test_recovery_process: tests/test_recovery_gui.c $(RECOVERY_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_recovery_gui.c $(RECOVERY_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+RECOVERY_PROCESS_SAN_OBJECT = build/obj/feature-recovery-sanitize/app.o
+$(RECOVERY_PROCESS_SAN_OBJECT): src/app/app.c build/obj/sanitize/app/compile.flags
+	$(call compile_object,$(APP_SANITIZE_FLAGS) -DDUXCEL_FEATURE_RECOVERY)
+RECOVERY_PROCESS_SAN_LINK = $(filter-out build/obj/sanitize/app/src/app/app.o build/obj/sanitize/app/src/main.o,$(APP_SANITIZE_OBJECTS)) $(RECOVERY_PROCESS_SAN_OBJECT)
+build/tests/test_recovery_process-debug: tests/test_recovery_gui.c $(RECOVERY_PROCESS_SAN_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_SANITIZE_FLAGS) tests/test_recovery_gui.c $(RECOVERY_PROCESS_SAN_LINK),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
+-include $(RECOVERY_PROCESS_SAN_OBJECT:.o=.d)

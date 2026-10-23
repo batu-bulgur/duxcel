@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import pathlib
+import os
 import tempfile
 import unittest
 from unittest import mock
@@ -16,6 +17,25 @@ SPEC.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
+    def test_recursive_make_inspection_modes_do_not_launch_tests(self):
+        for flags,result in (("n -j8",0),("t",0),("q",1)):
+            with mock.patch.dict(os.environ,{"MAKEFLAGS":flags,"MAKELEVEL":"1"}), mock.patch.object(runner,"Runner") as build, contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.main(["feature","--feature","recovery-ui"]),result)
+                build.assert_not_called()
+
+    def test_jobserver_borrows_only_live_pipe_descriptors(self):
+        self.assertEqual(runner.make_jobserver_fds({"MAKEFLAGS":" -j8"}), ())
+        read,write=os.pipe()
+        try:
+            for option in ("fds", "auth"):
+                self.assertEqual(runner.make_jobserver_fds({"MAKEFLAGS":f" -j --jobserver-{option}={read},{write}"}), (read,write))
+            self.assertEqual(runner.make_jobserver_fds({"MAKEFLAGS":f"--jobserver-fds={read},{read}"}), ())
+            with tempfile.TemporaryFile() as regular:
+                self.assertEqual(runner.make_jobserver_fds({"MAKEFLAGS":f"--jobserver-fds={regular.fileno()},{write}"}), ())
+        finally:
+            os.close(read); os.close(write)
+        self.assertEqual(runner.make_jobserver_fds({"MAKEFLAGS":f"--jobserver-fds={read},{write}"}), ())
+
     def test_web_runtime_inputs_are_fingerprinted_without_generated_dependencies(self):
         with tempfile.TemporaryDirectory() as directory:
             root=pathlib.Path(directory);(root/'Makefile').write_text('test:\n')

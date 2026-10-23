@@ -11,6 +11,12 @@ void app_test_recovery_fixture(const char *checkpoint,const char *journal,Workbo
 int app_test_recovery_result(void);
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"FAIL recovery GUI setup:%d: %s\n",__LINE__,#x); return 1; } } while (0)
 int main(void) {
+    if (getenv("DUXCEL_TEST_RECOVERY_PROCESS_ROLE")) {
+        AppSession *session=app_start(&(AppOptions){.frames=3600}); CHECK(session);
+        while (!app_test_recovery_result() && app_frame(session)) {}
+        int complete=app_test_recovery_result(),result=app_finish(session);
+        return complete==1 ? result : 1;
+    }
     char root[]="build/tests/recovery-ui-XXXXXX"; CHECK(mkdtemp(root));
     CHECK(!setenv("DUXCEL_TEST_RECOVERY_ROOT",root,1) && !setenv("DUXCEL_TEST_RECOVERY_STARTUP","1",1));
     Workbook b; workbook_init(&b); char *error=NULL;

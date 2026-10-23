@@ -50,6 +50,8 @@ class EngineProcessCheck:
 
 JOURNAL_FAULT_LIBRARY = "build/tests/libjournal_fault.dylib"
 ENGINE_PROCESS_CHECKS = {
+    "recovery_process": EngineProcessCheck("tools/test_recovery_process.py", "PASS: native recovery crash and ownership",
+        r"^PASS: native recovery crash and ownership \(3 processes\)$", primary=True),
     "journal_performance": EngineProcessCheck("tools/benchmark_journal.py", "PASS: journal workload provenance and measurements",
         r"^PASS: journal workload provenance and measurements$", arguments=("--input", "build/tests/generated/journal-paste.tsv"), primary=True),
     "workbook_journal": EngineProcessCheck("tools/test_journal_process.py", "PASS: journal process boundaries",
@@ -60,6 +62,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-crash": Feature((), "",
+        ("python3 tools/test.py feature --feature recovery-ui", "python3 tools/test.py full --config both"),
+        ("tools/test_recovery_process.py", "tests/support/recovery_app.inc: owned process roles"), ("recovery_process",)),
     "recovery-ui": Feature(("keytips",), "recovery",
         ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py feature --feature recovery-worker", "python3 tools/test.py native --scenario document --config sanitize"),
         ("src/app/recovery.inc", "src/ui/recoveryview.c", "src/app/app.c: recovery document adoption", "src/app/source_format.inc: recovery ownership")),
