@@ -21,7 +21,7 @@ bool workbook_prepare_cell_edit(Workbook *book,size_t index,uint64_t row,size_t 
         .expected_revision=sheet->cells.revision,.row=row,.column=col,.workbook=book->id,.expected_document_revision=book->command_revision,.sheet_id=sheet->id};
     return true;
 }
-CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error) {
+CellEditResult workbook_check_cell_edit(const Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error) {
     CellEditResult result={.status=CELL_EDIT_INVALID};
     if (!book || !command || command->version!=CELL_EDIT_COMMAND_VERSION || book->count>DX_MAX_SHEETS ||
         (book->count && !book->sheets) || command->target.row>=DX_SHEET_ROWS || command->target.column>=16384 ||
@@ -34,7 +34,7 @@ CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *co
         target->workbook.high!=book->id.high || target->workbook.low!=book->id.low) {
         result.status=CELL_EDIT_STALE; fail(error,"The document changed. Cancel and reopen the cell editor."); return result;
     }
-    Worksheet *sheet=NULL;
+    const Worksheet *sheet=NULL;
     for (size_t i=0;i<book->count;i++) if (book->sheets[i].id==target->sheet_id) {
         if (sheet) { fail(error,"Ambiguous cell edit target."); return result; }
         sheet=&book->sheets[i];
@@ -61,6 +61,15 @@ CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *co
     if (workbook_history_peek(book,false,NULL).status==WORKBOOK_HISTORY_INVALID) {
         result.status=CELL_EDIT_INVALID; fail(error,"Worksheet history is incomplete; no cell edit was applied."); return result;
     }
+    result.status=CELL_EDIT_READY; return result;
+}
+CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error) {
+    CellEditResult result=workbook_check_cell_edit(book,command,policy,error);
+    if (result.status!=CELL_EDIT_READY) return result;
+    const CellEditTarget *target=&command->target; Worksheet *sheet=NULL;
+    for (size_t i=0;i<book->count;i++) if (book->sheets[i].id==target->sheet_id) sheet=book->sheets+i;
+    char *failure=NULL;
+    result.status=CELL_EDIT_LIMIT;
     char *owned=dx_alloc(command->bytes+1);
     if (command->bytes) memcpy(owned,command->text,command->bytes);
     owned[command->bytes]=0;

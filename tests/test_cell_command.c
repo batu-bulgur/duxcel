@@ -112,7 +112,23 @@ static void object_and_capacity(void) {
     span[0]='N'; CHECK(!strcmp(cells_get(&s->cells,0,0),"OK"));
     workbook_free(&book); free(error);
 }
+static void pure_admission(void) {
+    Workbook book; workbook_init(&book); char *error=NULL;
+    CHECK(workbook_add(&book,"Pure",&(Analysis){0},&error));
+    CellEditCommand c={CELL_EDIT_COMMAND_VERSION,prepare(&book,0,1,1),"New",3};
+    Workbook before=book; Worksheet sheet=book.sheets[0];
+    CellEditResult ready=workbook_check_cell_edit(&book,&c,manual,&error);
+    CHECK(ready.status==CELL_EDIT_READY && !error && ready.before_revision==ready.after_revision && ready.before_document_revision==ready.after_document_revision);
+    CHECK(!memcmp(&before,&book,sizeof(book)) && !memcmp(&sheet,book.sheets,sizeof(sheet)));
+    CHECK(workbook_apply_cell_edit(&book,&c,manual,&error).status==CELL_EDIT_APPLIED);
+    before=book; sheet=book.sheets[0];
+    CHECK(workbook_check_cell_edit(&book,&c,manual,&error).status==CELL_EDIT_STALE && error); free(error); error=NULL;
+    CHECK(!memcmp(&before,&book,sizeof(book)) && !memcmp(&sheet,book.sheets,sizeof(sheet)));
+    c.target=prepare(&book,0,1,1);
+    CHECK(workbook_check_cell_edit(&book,&c,manual,&error).status==CELL_EDIT_NOOP && !error);
+    workbook_free(&book);
+}
 int main(void) {
-    basic_and_history(); identity_and_validation(); object_and_capacity();
+    basic_and_history(); identity_and_validation(); object_and_capacity(); pure_admission();
     printf("PASS: %u cell command checks\n",checks); return 0;
 }

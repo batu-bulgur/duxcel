@@ -22,7 +22,7 @@ typedef struct {
     bool source_ready; /* App resolves its independent live primary authority. */
 } CellEditPolicy;
 typedef enum { CELL_EDIT_APPLIED,CELL_EDIT_NOOP,CELL_EDIT_STALE,CELL_EDIT_INVALID,
-    CELL_EDIT_PROTECTED,CELL_EDIT_LIMIT } CellEditStatus;
+    CELL_EDIT_PROTECTED,CELL_EDIT_LIMIT,CELL_EDIT_READY } CellEditStatus;
 typedef struct {
     CellEditStatus status;
     uint64_t before_revision,after_revision; /* Target CellStore. */
@@ -45,5 +45,7 @@ bool workbook_prepare_cell_edit(Workbook *book,size_t sheet,uint64_t row,size_t 
    legacy mutations still use their store fences. No IO/query, durable receipt,
    global history or idempotent retry is implied. Allocation exhaustion follows
    the existing process-fatal allocator. */
+/* Pure admission check; READY still requires apply after any journal reservation. */
+CellEditResult workbook_check_cell_edit(const Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
 CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
 #endif

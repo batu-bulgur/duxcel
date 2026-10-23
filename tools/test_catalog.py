@@ -16,6 +16,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
+                        r"^PASS: native checkpoint journal workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "workbook-lifecycle": ("build/tests/test_workbook_lifecycle-gui", "PASS: native workbook lifecycle workflow",
                            r"^PASS: native workbook lifecycle workflow \(24 stages, [1-9]\d* checks\)$", 24),
     "workbook-history": ("build/tests/test_workbook_history-gui", "PASS: native workbook chronology workflow",
@@ -34,6 +36,12 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "journal-session": Feature(("cell_command",), "journal-session",
+        ("python3 tools/test.py feature --feature workbook-history",
+         "python3 tools/test.py native --scenario workspace document --config sanitize",
+         "python3 tools/test.py formats --config both"),
+        ("src/workbook/journal_session.c", "src/workbook/journal_queue.c", "src/app/app.c: checkpoint admission"),
+        ("journal_session", "journal_queue", "workbook_journal")),
     "journal-queue": Feature((), "",
         ("python3 tools/test.py feature --feature workbook-journal",
          "python3 tools/test.py feature --feature workbook-lifecycle"),

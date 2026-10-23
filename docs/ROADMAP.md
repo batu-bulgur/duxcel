@@ -128,10 +128,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W07 · P0 · Complete | Undoable sheet lifecycle; W06. | Delete/restore a sheet with cells, objects, binding identities and formats; reorder/hide/duplicate use the same command history. HI02; remaining A09. Do not claim formula restoration before W26b. |
 | W08 · P0 · In progress | DuckDB journal writer for the admitted command subset; W05–W06. | Measure single/batched edits and large paste on the pinned engine; ordered pending/durable acknowledgement, idempotent retry and bounded queue. Kill before/after commit, disk-full/write failures yield old/new complete state. No SQLite dependency. RE01/RE03/PL02; commit part of A13. |
 | W08a · P0 · Complete | Native DuckDB journal transaction/receipt primitive; W05. | Private checkpoint lineage, exact before/after byte spans and uint64 IDs; bounded atomic append/read; identical operation-ID retry; reject payload/revision conflicts; process kill before/after commit preserves complete old/new state. Engine component only, no App durability claim. |
-| W08b · P0 · In progress | Bounded owned asynchronous journal queue and App admission; W08a/W06. | Single mutation owner reserves immutable records before applying supported edits; immediate pending and ordered durable feedback; retries retain operation IDs, full/failing queue never silently loses an edit. Explicit boundary for unadmitted legacy/lifecycle commands. Narrow real-App gate; no startup recovery claim. |
+| W08b · P0 · Complete | Bounded owned asynchronous journal queue and App admission; W08a/W06. | Single mutation owner reserves immutable records before applying supported edits; immediate pending and ordered durable feedback; retries retain operation IDs, full/failing queue never silently loses an edit. Explicit boundary for unadmitted legacy/lifecycle commands. Narrow real-App gate; no startup recovery claim. |
 | W08b1 · P0 · Complete | Native bounded asynchronous writer queue; W08a. | Reserve owned bytes before mutation; publish only after success, cancel on rejection; pending/in-flight/reserved share a hard bound. Ordered post-COMMIT acknowledgement, same-ID retry with retained payloads, failed-open recovery and explicit drain/abort shutdown. Engine infrastructure, not App coverage. |
-| W08b2 · P0 · Next | Checkpoint-backed App admission and pending/durable feedback; W08b1. | Capture valid lineage, reserve before a supported edit, publish after its successful command, retain drafts on backpressure. Unsupported mutation coverage must be explicit; document replacement/Save/close cannot silently discard a pending tail. Narrow hidden real-App gate. |
-| W08c · P0 · Queued | Fault/performance integration and batching policy; W08b. | Actual write/disk-full/kill/close failures, measured per-edit tail latency, large paste admission and bounded backpressure. Preserve all-or-nothing state and retry after uncertain commit; finalize W08 acceptance before W09. |
+| W08b2 · P0 · Complete | Checkpoint-backed App admission and pending/durable feedback; W08b1. | Capture valid lineage, reserve before a supported edit, publish after its successful command, retain drafts on backpressure. Unsupported mutation coverage must be explicit; document replacement/Save/close cannot silently discard a pending tail. Narrow hidden real-App gate. |
+| W08c · P0 · Next | Fault/performance integration and batching policy; W08b. | Actual write/disk-full/kill/close failures, measured per-edit tail latency, large-paste/checkpoint throughput and bounded backpressure. Legacy paste remains outside the one-cell journal admission until a resolved range command is added. Preserve all-or-nothing state and retry after uncertain commit; finalize W08 acceptance before W09. |
 | W09 · P0 · Queued | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
 | W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. RE02; A14. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
@@ -180,63 +180,35 @@ workbook-history plan covers owned C modules plus 21 hidden TEST App stages;
 its generated two-sheet checkpoint is `build/tests/generated/workbook-history-demo.dxls`.
 History is deliberately session-only until the journal/version retention slices.
 
-W07 completes create/duplicate/delete/rename/reorder/hide/show as shared-C commands
-in `src/workbook/lifecycle.c`, merged with existing cell/style/analytical order.
-Delete and creation replay transfer one owned Worksheet, preserving values,
-objects/source bindings, formats, view, IDs and its earlier journals without a
-data clone. At least one visible sheet remains. The 32-event lifecycle journal
-releases detached sheets on eviction/branch disposal and raises the same lost-
-history floor; identity high-water and display preferences never rewind.
-Save/Open deliberately omits this session journal; formula restoration awaits W26b.
-`workbook-lifecycle` passes 696 lifecycle, 565 chronology and 158 cell-command
-assertions in each optimized/ASan/UBSan configuration plus 24 hidden TEST App
-stages/29 assertions (6.434s GUI; 17.590s total). The adjusted W06 interaction
-passes 21 stages in 5.712s; 42 runner/catalog contracts pass. Real menu Delete,
-Cmd-Z/Shift-Cmd-Z, retained value/style/object identities, duplicate/hide,
-Save/Open and non-recycled creation IDs are covered. Wider native/source/browser
-and full-App sanitizer matrices remain milestone gates. Receipts and the generated
-`workbook-lifecycle-demo.dxls` stay under ignored `build/tests/`. W08 follows.
-Integration follow-up: detached sheets remain charged to retained formatting/
-source-version/history budgets until actually released. Duplicate and restoration
-preflight prospective current/retained limits without pruning history on failure.
-The added ownership-accounting checks pass optimized/sanitizer; the same 24-stage
-GUI passes in 7.027s (18.561s focused gate). Save snapshots exclude detached
-charges, while branch disposal and lifecycle eviction release them.
+W07 complete: shared-C sheet lifecycle joins workbook chronology; detached
+ownership, IDs, format/ledger budgets and retained-history barriers are preserved.
+Focused evidence: 788 lifecycle assertions per optimized/sanitizer build;
+24 hidden GUI stages/29 assertions, plus the adjusted W06 workflow. History
+remains session-only; formula restoration is W26b.
 
-W08a adds `src/workbook/journal.c` as a native engine component, separate from
-`.dxls` and not yet called by the App. Schema v1 stores exact byte spans as BLOBs,
-full uint64 document/sheet/operation/revision identities, immutable checkpoint
-lineage and ordered before/after text. A 256-entry/4 MiB append is one DuckDB
-transaction; reads page at 31 entries so worst-case spans remain below 4 MiB.
-Receipts publish after COMMIT only. Exact operation-ID retry is idempotent;
-changed payload/gaps/conflicts/cancel roll back the whole batch. Engine failure
-requires reopen and retry with the same IDs. No SQLite dependency is introduced.
-The `workbook-journal` gate runs only the private engine tests and process-barrier
-checks, serially per optimized/sanitizer binary; no GUI or fixture bootstrap.
-Initial evidence: 190 storage assertions and 14 process-kill/retry checks per
-configuration, 5.704s total. A writer killed before COMMIT reopens at the old head;
-after COMMIT it reopens with both exact records, and repeated retries add none.
-The measured native engine is v1.5.6; the preliminary optimized sample is 20.900ms
-for 32 single commits and 38.666ms for 256 edits in one commit. These are local
-component samples, not UI latency or large-paste acceptance. W08b/W08c remain
-required; current App edits still have no durable journal acknowledgement.
+W08a complete: private DuckDB schema-v1 cell journal, bounded atomic append/read,
+post-COMMIT receipts and exact operation-ID retry. Optimized/sanitizer each pass
+190 storage assertions and 14 real pre/post-COMMIT kill/retry checks. Initial
+32-single/256-batch timing samples are component evidence, not a UI latency SLA.
 
-W08b1 adds `src/workbook/journal_queue.c`: one producer reserves immutable bytes
-before applying a model edit, then publishes nonfallibly or cancels the unused
-reservation. The writer owns its DuckDB connection; pending, in-flight and the
-single outstanding reservation share a 256-entry/4 MiB hard bound. A writer
-failure racing reservation cannot lose the successfully applied edit: publication
-still retains it, and explicit retry reopens with the same operation IDs. Durable
-revision advances only after successful COMMIT. Missing-path open failure can
-retry; drain/abort joins the owned writer and reports remaining non-durable work.
-`journal-queue` passes 1,426 queue and 190 storage assertions per optimized/
-sanitizer configuration, plus 14 kill/retry process checks per binary (6.866s
-whole local gate). Coverage includes immutable bytes after caller mutation/free,
-count/byte backpressure including in-flight data, a failure between reserve and
-publish, batching of 256 records, ordered acknowledgements, retained failed
-records, retry, mismatched lineage, and drain/abort. No GUI is launched. App
-checkpoint lifecycle/admission/feedback remains W08b2; actual disk/write faults
-and final latency/paste policy remain W08c. There is still no App durability claim.
+W08b1 complete: immutable reserve/publish/cancel admission, 256-entry/4 MiB queue,
+ordered acknowledgements, retained failures and drain/abort. Checkpoint setup and
+nonblocking retirement extend the same owner in W08b2; 1,443 queue assertions now
+pass per optimized/sanitizer configuration.
+
+W08b2 complete: native manual-cell edits use an owned asynchronous checkpoint
+plus journal. Pending/backed-up/paused/Save-needed feedback and keyboard/mouse
+Retry are integrated; backpressure keeps the draft. Unsupported edits make
+coverage explicit and the next changed cell starts a bounded replacement
+checkpoint. Newer admitted/recorded edits remain dirty after an older Save.
+Focused models: 126 session, 1,443 queue, 190 storage and 169 cell-command
+assertions; optimized/sanitizer coverage and 14 kill/retry checks per binary.
+The final narrow GUI passes 18 stages/28 assertions (6.797s; 17.542s release gate). Narrow 150% Retry, checkpoint
+rotation, Save R/R+1, protected working-file ownership, reopen and discard pass; the 21-stage W06
+interaction also passes (5.611s). Receipts, captures and
+`journal-session-demo.dxls` stay under ignored `build/tests/`. W08c is next;
+startup recovery UI, persisted Undo and full Save progress/cancel remain
+W10/W12/W09. No per-slice human approval is required.
 
 ### Owned data, refresh and complete analytical results
 

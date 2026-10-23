@@ -654,3 +654,13 @@ char *dx_export_parquet_panel(const char *suggested) {
         return dx_strdup(panel.URL.fileSystemRepresentation);
     }
 }
+
+char *dx_recovery_directory(void) {
+    @autoreleasepool {
+        NSURL *support=[[NSFileManager defaultManager] URLForDirectory:NSApplicationSupportDirectory inDomain:NSUserDomainMask appropriateForURL:nil create:YES error:nil];
+        if (!support) return NULL;
+        NSURL *folder=[support URLByAppendingPathComponent:@"Duxcel/Recovery" isDirectory:YES];
+        if (![[NSFileManager defaultManager] createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil]) return NULL;
+        return dx_strdup(folder.fileSystemRepresentation);
+    }
+}

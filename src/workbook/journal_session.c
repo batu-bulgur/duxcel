@@ -1,0 +1,182 @@
+#include "journal_session.h"
+#include "../platform/platform.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+typedef struct {
+    uint64_t id,revision,row,rows,source,source_version;
+    size_t col,columns;
+    ObjectKind kind;
+} ObjectFence;
+typedef struct {
+    uint64_t id,cells,formats,last,object_high,title,marks,source_high,source_version;
+    size_t source_bytes,source_count,objects;
+    bool hidden;
+    char name[4097];
+    ObjectFence object[DX_MAX_OBJECTS];
+} SheetFence;
+typedef struct {
+    WorkbookId id;
+    uint64_t revision;
+    size_t count;
+    SheetFence sheet[DX_MAX_SHEETS];
+} ContentFence;
+typedef struct {
+    Workbook *snapshot;
+    char *directory,*checkpoint,*journal;
+    size_t format_bytes;
+} Checkpoint;
+typedef struct { WorkbookJournalQueue *queue; Checkpoint *checkpoint; } Generation;
+struct WorkbookJournalSession {
+    char *root;
+    JournalQueueOptions options;
+    WorkbookId operation;
+    ContentFence expected;
+    Generation active,retired;
+};
+static bool fail(char **error,const char *message) {
+    if (error) { free(*error); *error=dx_strdup(message); } return false;
+}
+static void sheet_fence(SheetFence *f,const Worksheet *s) {
+    memset(f,0,sizeof(*f));
+    f->id=s->id; f->cells=s->cells.revision; f->formats=s->formats.revision; f->last=s->history_last;
+    f->object_high=s->objects.next_id; f->title=s->objects.title_revision; f->marks=s->objects.marks_revision;
+    f->source_high=s->source_versions.high_water; f->source_bytes=s->source_versions.bytes; f->source_count=s->source_versions.count;
+    f->source_version=s->analysis.source_version; f->objects=s->objects.count; f->hidden=s->hidden;
+    snprintf(f->name,sizeof(f->name),"%s",s->name ? s->name : "");
+    for (size_t i=0;i<s->objects.count && i<DX_MAX_OBJECTS;i++) {
+        const SheetObject *o=s->objects.items+i; ObjectFence *v=f->object+i;
+        v->id=o->id; v->revision=o->revision; v->row=o->row; v->rows=o->rows; v->source=o->source_id; v->source_version=o->source.source_version;
+        v->col=o->col; v->columns=o->columns; v->kind=o->kind;
+    }
+}
+static void capture(ContentFence *f,const Workbook *b) {
+    f->id=b->id; f->revision=b->command_revision; f->count=b->count;
+    for (size_t i=0;i<b->count;i++) sheet_fence(f->sheet+i,b->sheets+i);
+}
+static bool matches(const ContentFence *f,const Workbook *b) {
+    if (!workbook_identity_valid(b) || f->count!=b->count || f->id.high!=b->id.high || f->id.low!=b->id.low || f->revision!=b->command_revision) return false;
+    for (size_t i=0;i<b->count;i++) { SheetFence current; sheet_fence(&current,b->sheets+i); if (memcmp(&current,f->sheet+i,sizeof(current))) return false; }
+    return true;
+}
+static void checkpoint_release(void *context) {
+    Checkpoint *c=context;
+    if (c->snapshot) { workbook_free(c->snapshot); free(c->snapshot); }
+    free(c->directory); free(c->checkpoint); free(c->journal); free(c);
+}
+static bool checkpoint_prepare(void *context,char **error) {
+    Checkpoint *c=context;
+    if (!c->snapshot) return true;
+    if (!workbook_save(c->snapshot,c->checkpoint,error)) return false;
+    workbook_free(c->snapshot); free(c->snapshot); c->snapshot=NULL; return true;
+}
+static void remove_owned(const Checkpoint *c) {
+    /* Fixed private filenames only. Never recursively remove an unrecognized
+       file or touch an external source/named workbook. */
+    remove(c->checkpoint); remove(c->journal);
+    char *wal=dx_printf("%s.wal",c->journal); remove(wal); free(wal);
+    dx_remove_temp_directory(c->directory);
+}
+static bool generation_close(Generation *g,bool discard,bool *published,char **error) {
+    if (!g->queue) return true;
+    bool complete=workbook_journal_queue_stop(g->queue,!discard,discard ? NULL : error);
+    if (published) *published=complete && !discard && workbook_journal_queue_state(g->queue).prepared;
+    if (discard) remove_owned(g->checkpoint);
+    workbook_journal_queue_free(g->queue); *g=(Generation){0}; return discard || complete;
+}
+WorkbookJournalSession *workbook_journal_session_new(const char *root,JournalQueueOptions options,char **error) {
+    if (!root || !*root || options.setup.prepare || options.setup.release || options.setup.context ||
+        !options.entries || options.entries>DX_JOURNAL_BATCH || !options.bytes || options.bytes>DX_JOURNAL_BATCH_BYTES || !options.batch || options.batch>options.entries) {
+        fail(error,"Choose a recovery root and bounded journal options."); return NULL;
+    }
+    WorkbookId operation;
+    if (!dx_random_bytes(&operation,sizeof(operation)) || (!operation.high && !operation.low)) { fail(error,"Cannot allocate a recovery operation identity."); return NULL; }
+    WorkbookJournalSession *s=dx_alloc(sizeof(*s)); memset(s,0,sizeof(*s)); s->root=dx_strdup(root); s->options=options; s->operation=operation; return s;
+}
+bool workbook_journal_session_needs_checkpoint(const WorkbookJournalSession *s,const Workbook *b) { return !s || !s->active.queue || !matches(&s->expected,b); }
+static size_t generation_bytes(Generation *g) {
+    return g->queue && !workbook_journal_queue_state(g->queue).prepared ? g->checkpoint->format_bytes : 0;
+}
+void workbook_journal_session_poll(WorkbookJournalSession *s) {
+    if (!s || !s->active.queue || !s->retired.queue) return;
+    JournalQueueState current=workbook_journal_queue_state(s->active.queue),old=workbook_journal_queue_state(s->retired.queue);
+    /* The new complete checkpoint contains all previous accepted edits before
+       its base. Retire only after publication and the old writer's exit. */
+    if (current.prepared && !current.opening && !current.failed && old.stopped) generation_close(&s->retired,true,NULL,NULL);
+}
+static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **error) {
+    workbook_journal_session_poll(s);
+    if (s->retired.queue) return fail(error,"The previous backup is still finishing. Your draft is kept; try again shortly.");
+    WorkbookFormatUsage usage; FormatBudget budget;
+    FormatBudgetStatus status=workbook_format_usage(b,NULL,0,&usage);
+    if (status!=FORMAT_BUDGET_OK) return fail(error,workbook_format_budget_message(status));
+    status=workbook_format_preflight(&usage,&usage,&(FormatTransientUsage){.adopted_staging=usage.current,.io_snapshots=generation_bytes(&s->active)},&budget);
+    if (status!=FORMAT_BUDGET_OK) return fail(error,workbook_format_budget_message(status));
+    if (!dx_make_directories(s->root)) return fail(error,"Cannot create the local backup folder. Your draft is kept.");
+    Checkpoint *c=dx_alloc(sizeof(*c)); memset(c,0,sizeof(*c)); c->format_bytes=usage.current;
+    c->directory=dx_private_directory(s->root);
+    if (!c->directory) { checkpoint_release(c); return fail(error,"Cannot create a private local backup. Your draft is kept."); }
+    c->checkpoint=dx_printf("%s/checkpoint.dxls",c->directory); c->journal=dx_printf("%s/journal.duckdb",c->directory);
+    c->snapshot=workbook_snapshot(b);
+    if (!c->snapshot) { remove_owned(c); checkpoint_release(c); return fail(error,"Cannot prepare this workbook for local backup. Your draft is kept."); }
+    JournalQueueOptions options=s->options; options.setup=(JournalQueueSetup){checkpoint_prepare,checkpoint_release,c};
+    WorkbookJournalQueue *queue=workbook_journal_queue_start(c->journal,b->id,b->command_revision,b->command_revision,options,error);
+    if (!queue) { remove_owned(c); checkpoint_release(c); return false; }
+    if (s->active.queue) {
+        workbook_journal_queue_request_stop(s->active.queue,true,NULL); s->retired=s->active;
+    }
+    s->active=(Generation){queue,c}; capture(&s->expected,b); return true;
+}
+CellEditResult workbook_journal_session_apply(WorkbookJournalSession *s,Workbook *b,const CellEditCommand *command,CellEditPolicy policy,char **error) {
+    CellEditResult result=workbook_check_cell_edit(b,command,policy,error);
+    if (result.status!=CELL_EDIT_READY) return result;
+    result.status=CELL_EDIT_LIMIT;
+    if (!s) { fail(error,"Local backup is unavailable. Your draft is kept."); return result; }
+    if (workbook_journal_session_needs_checkpoint(s,b) && !begin_generation(s,b,error)) return result;
+    if (s->operation.high==UINT64_MAX && s->operation.low==UINT64_MAX) { fail(error,"Recovery operation identity space is exhausted."); return result; }
+    const Worksheet *sheet=NULL; for (size_t i=0;i<b->count;i++) if (b->sheets[i].id==command->target.sheet_id) sheet=b->sheets+i;
+    const char *before=cells_get(&sheet->cells,command->target.row,command->target.column);
+    JournalCellEdit edit={.operation=s->operation,.previous_revision=b->command_revision,.revision=b->command_revision+1,.sheet=sheet->id,
+        .row=command->target.row,.column=command->target.column,.before=before,.before_bytes=strlen(before),.after=command->text,.after_bytes=command->bytes};
+    JournalReservation *reservation=NULL;
+    if (!workbook_journal_queue_reserve(s->active.queue,&edit,&reservation,error)) return result;
+    if (!++s->operation.low) s->operation.high++;
+    result=workbook_apply_cell_edit(b,command,policy,error);
+    if (result.status==CELL_EDIT_APPLIED) { workbook_journal_queue_publish(reservation); capture(&s->expected,b); }
+    else workbook_journal_queue_cancel(reservation);
+    return result;
+}
+JournalSessionState workbook_journal_session_state(WorkbookJournalSession *s,const Workbook *b) {
+    JournalSessionState state={0}; if (!s) return state;
+    state.active=s->active.queue!=NULL; state.covered=state.active && matches(&s->expected,b);
+    if (state.active) state.queue=workbook_journal_queue_state(s->active.queue);
+    state.checkpoint_format_bytes=generation_bytes(&s->active)+generation_bytes(&s->retired); return state;
+}
+bool workbook_journal_session_retry(WorkbookJournalSession *s,char **error) {
+    return s && s->active.queue ? workbook_journal_queue_retry(s->active.queue,error) : fail(error,"There is no pending local backup to retry.");
+}
+bool workbook_journal_session_close(WorkbookJournalSession *s,bool discard,char **error) {
+    if (!s) return true;
+    bool published=false;
+    bool active=generation_close(&s->active,discard,&published,error),retired=generation_close(&s->retired,discard || published,NULL,error);
+    free(s->root); free(s); return active && retired;
+}
+bool workbook_journal_session_owns_path(const WorkbookJournalSession *s,const char *path) {
+    if (!s || !path || !*path) return false;
+    const Generation *generations[]={&s->active,&s->retired};
+    for (size_t i=0;i<2;i++) if (generations[i]->queue) {
+        const Checkpoint *c=generations[i]->checkpoint;
+        if (!strcmp(path,c->checkpoint) || !strcmp(path,c->journal) || dx_same_file(path,c->checkpoint) || dx_same_file(path,c->journal)) return true;
+        char *ancestor=dx_strdup(path);
+        for (;;) {
+            char *last=NULL; for (char *p=ancestor;*p;p++) if (*p=='/' || *p=='\\') last=p;
+            if (!last || last==ancestor) break;
+            *last=0;
+            if (dx_same_file(ancestor,c->directory)) { free(ancestor); return true; }
+        }
+        free(ancestor);
+    }
+    return false;
+}
+const char *workbook_journal_session_checkpoint(const WorkbookJournalSession *s) { return s && s->active.queue ? s->active.checkpoint->checkpoint : NULL; }
+const char *workbook_journal_session_journal(const WorkbookJournalSession *s) { return s && s->active.queue ? s->active.checkpoint->journal : NULL; }

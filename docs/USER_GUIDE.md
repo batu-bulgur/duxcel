@@ -103,6 +103,17 @@ Undo step and preserves an existing Redo action.
 
 Undo and Redo follow edits across worksheets in workbook chronological order. Worksheet creation, duplication, deletion, rename, reorder, hide and show join that same history. Choose **Delete worksheet** from its menu; Undo restores its data, objects, formatting and layout. At least one sheet must stay visible. Existing sheet journals and the separate worksheet-lifecycle journal retain up to 32 actions each, and all history is session-only. Manual history also has an 8 MiB text budget per stack. External source changes can alter results. Closing or replacing a modified workbook offers Save / Don't Save / Cancel; automatic crash recovery remains pending.
 
+Native manual-cell commits are backed up locally in the background. The status
+bar shows **Backup pending…**, **Cell edits backed up**, or **Backup paused · Retry**.
+Click Retry, or reach the status bar with F6 and select Retry with Left/Right/Tab,
+then press Space/Enter. A full/busy backup queue keeps the cell editor and your
+draft open; try committing again after it clears. These backups do not replace
+Save. Other changes, including Undo/Redo and formatting, currently show **Save
+needed** until a fresh checkpoint is captured by the next changed cell edit or
+you explicitly Save. Startup recovery selection and persistent Undo history are
+not connected yet; the current slice establishes the local files and admission
+path. Browser workbook persistence remains unavailable.
+
 Cmd+W closes the Mac workbook surface and leaves Duxcel running. Cmd+Q quits. Use File→New Workbook (Cmd+N), Open or the Dock to reopen a surface. Shift+F11 adds a worksheet. In the browser, Ctrl/Cmd+W keeps its browser meaning; **Alt→F→C** closes the workbook inside the live tab. Modified workbooks offer Cancel/Discard; browser Save is still unavailable and disabled.
 
 **File→Import table…** places a separate read-only source table at the current destination in the same worksheet; Open adds a worksheet instead. **Alt→F→I** is a Duxcel extension. Native import uses the macOS file picker. Browser import accepts CSV/TSV/CSV.gz/Parquet up to256MiB; keep the sheet and destination unchanged while it loads. Moving the destination rejects the pending import. This session can issue1,024 source names; reloading discards its unsaved data. Browser workbook persistence remains unavailable.

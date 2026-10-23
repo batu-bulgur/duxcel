@@ -28,7 +28,7 @@ static JournalCellEdit edit(uint64_t revision,const char *before,const char *aft
         .before=before,.after=after,.before_bytes=strlen(before),.after_bytes=strlen(after)};
 }
 static JournalQueueOptions options(Gate *gate,size_t entries,size_t batch) {
-    return (JournalQueueOptions){entries,DX_JOURNAL_BATCH_BYTES,batch,{gate_before,NULL,gate}};
+    return (JournalQueueOptions){.entries=entries,.bytes=DX_JOURNAL_BATCH_BYTES,.batch=batch,.observer={gate_before,NULL,gate}};
 }
 static JournalQueueState wait_state(WorkbookJournalQueue *q,uint64_t head,bool failure) {
     double limit=dx_millis()+5000; JournalQueueState state;
@@ -124,6 +124,23 @@ static void shutdown_case(const char *path,bool drain) {
     CHECK(!workbook_journal_queue_retry(q,&error)); CHECK(error); free(error);
     workbook_journal_queue_free(q); gate_free(&gate); inspect(path,drain ? 1 : 0,"First",NULL,false);
 }
+typedef struct { size_t calls; bool released; } Setup;
+static bool setup_prepare(void *context,char **error) {
+    Setup *setup=context;
+    if (++setup->calls==1) { if (error) *error=dx_strdup("Checkpoint preparation failed."); return false; }
+    return true;
+}
+static void setup_release(void *context) { ((Setup *)context)->released=true; }
+static void preparation(const char *path) {
+    Gate gate; gate_init(&gate,true,false); Setup setup={0}; char *error=NULL;
+    JournalQueueOptions opts=options(&gate,2,2); opts.setup=(JournalQueueSetup){setup_prepare,setup_release,&setup};
+    WorkbookJournalQueue *q=workbook_journal_queue_start(path,document,0,0,opts,&error); CHECK(q && !error);
+    JournalQueueState failed=wait_state(q,0,true); CHECK(!failed.prepared && !failed.durable_revision && *failed.error && !setup.released);
+    CHECK(workbook_journal_queue_retry(q,&error)); publish(q,edit(1,"","Prepared"));
+    JournalQueueState done=wait_state(q,1,false); CHECK(done.prepared && !done.failed);
+    CHECK(workbook_journal_queue_request_stop(q,true,&error)); CHECK(workbook_journal_queue_stop(q,true,&error));
+    workbook_journal_queue_free(q); CHECK(setup.calls==2 && setup.released); gate_free(&gate); inspect(path,1,"Prepared",NULL,false);
+}
 static void lineage_and_options(const char *path,const char *missing) {
     Gate gate; gate_init(&gate,true,false); char *error=NULL; JournalQueueOptions opts=options(&gate,2,2);
     WorkbookJournalQueue *q=workbook_journal_queue_start(path,document,0,0,opts,&error); CHECK(q && !error);
@@ -143,10 +160,10 @@ static void lineage_and_options(const char *path,const char *missing) {
 }
 int main(void) {
     char directory[]="build/tests/journal-queue-XXXXXX"; CHECK(mkdtemp(directory));
-    const char *names[]={"bounds","retry","batch","bytes","abort","drain"}; char *paths[6];
-    for (unsigned i=0;i<6;i++) paths[i]=dx_printf("%s/%s.duckdb",directory,names[i]);
-    reservation_and_backpressure(paths[0]); failure_during_reservation(paths[1]); batching(paths[2]); byte_budget(paths[3]); shutdown_case(paths[4],false); shutdown_case(paths[5],true);
+    const char *names[]={"bounds","retry","batch","bytes","abort","drain","prepare"}; char *paths[7];
+    for (unsigned i=0;i<7;i++) paths[i]=dx_printf("%s/%s.duckdb",directory,names[i]);
+    reservation_and_backpressure(paths[0]); failure_during_reservation(paths[1]); batching(paths[2]); byte_budget(paths[3]); shutdown_case(paths[4],false); shutdown_case(paths[5],true); preparation(paths[6]);
     char *missing=dx_printf("%s/missing/edits.duckdb",directory); lineage_and_options(paths[0],missing); free(missing);
-    for (unsigned i=0;i<6;i++) { unlink(paths[i]); free(paths[i]); } CHECK(!rmdir(directory));
+    for (unsigned i=0;i<7;i++) { unlink(paths[i]); free(paths[i]); } CHECK(!rmdir(directory));
     printf("PASS: %u journal queue checks\n",checks); return 0;
 }

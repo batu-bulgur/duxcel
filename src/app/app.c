@@ -1,6 +1,9 @@
 #include "../workbook/cell_command.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
+#ifndef DUXCEL_BROWSER_HOST
+#include "../workbook/journal_session.h"
+#endif
 #include "selection.h"
 #include "app.h"
 #include "../data/worker.h"
@@ -156,6 +159,12 @@ typedef struct {
     uint64_t matrix_object;
     Analysis analysis;
     Workbook book;
+#ifndef DUXCEL_BROWSER_HOST
+    WorkbookJournalSession *journal;
+    WorkbookId save_document;
+    uint64_t save_revision,save_history;
+#endif
+    bool discard_journal,discard_journal_on_load;
 #ifdef DUXCEL_BROWSER_HOST
     unsigned browser_file_intent; /* 0 none, 1 new source sheet, 2 same-sheet Table */
     uint64_t browser_file_revision,browser_file_row;
@@ -269,7 +278,7 @@ typedef struct {
     bool step_menu_opening;
     bool key_tips, ribbon_focus, diagnostics, consume_grid_input;
     UIKeytips keytip_state;
-    bool file_menu,window_closed,background_test;
+    bool file_menu,window_closed,background_test,automated;
     int file_menu_focus,file_menu_scroll;
     double file_menu_wheel;
     bool file_menu_drag;
@@ -1139,6 +1148,36 @@ static void create_chart(App *a) {
     grid_ensure_columns(&a->grid,col+6); grid_select_cell(&a->grid,row,col,false);
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Chart inserted. Its field shelves edit an independent definition.");
 }
+#ifndef DUXCEL_BROWSER_HOST
+#ifdef DUXCEL_FEATURE_JOURNAL_SESSION
+static JournalControl journal_session_test_observer(void);
+static size_t journal_session_test_capacity(void);
+#endif
+static void close_journal(App *a,bool discard) {
+    char *error=NULL;
+    bool complete=workbook_journal_session_close(a->journal,discard,&error); a->journal=NULL;
+    if (!discard && !complete && error) fprintf(stderr,"Local backup: %s\n",error);
+    free(error);
+}
+static bool ensure_journal(App *a,char **error) {
+    if (a->journal) return true;
+    const char *override=a->automated ? getenv("DUXCEL_TEST_RECOVERY_ROOT") : NULL;
+    char *root=a->automated ? dx_strdup(override && *override ? override : "build/tests/generated/recovery") : dx_recovery_directory();
+    if (!root) { if (error) *error=dx_strdup("The local backup folder is unavailable. Your draft is kept."); return false; }
+    JournalQueueOptions options={.entries=DX_JOURNAL_BATCH,.bytes=DX_JOURNAL_BATCH_BYTES,.batch=DX_JOURNAL_BATCH};
+#ifdef DUXCEL_FEATURE_JOURNAL_SESSION
+    options.observer=journal_session_test_observer(); options.entries=journal_session_test_capacity(); options.batch=1;
+#endif
+    a->journal=workbook_journal_session_new(root,options,error); free(root); return a->journal!=NULL;
+}
+static uint64_t workbook_history_stamp(const Workbook *book) {
+    uint64_t order=workbook_lifecycle_latest(book);
+    for (size_t i=0;i<book->count;i++) if (book->sheets[i].history_last>order) order=book->sheets[i].history_last;
+    return order;
+}
+#else
+#define close_journal(a,discard) ((void)0)
+#endif
 static void capture_sheet(App *a) {
     Worksheet *sheet=active_sheet(a); if (!sheet) return;
     analysis_free(&sheet->analysis); sheet->analysis=analysis_copy(&a->analysis);
@@ -1269,8 +1308,16 @@ static void workspace_job(App *a,JobKind kind,const char *path) {
     char *requested=kind==JOB_SAVE && !workbook_is_path(path) ? dx_printf("%s.dxls",path) : dx_strdup(path);
     char *absolute=kind==JOB_SAVE ? workbook_target_path(requested) : dx_absolute_path(requested); free(requested);
     if (!absolute) { status(a,"Workspace path is missing or its directory is inaccessible."); return; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (workbook_journal_session_owns_path(a->journal,absolute)) { free(absolute); status(a,"Local backup files are managed by Duxcel. Choose a saved workbook location outside that folder."); return; }
+#endif
     QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=kind; j->path=absolute;
-    if (kind==JOB_SAVE) { capture_sheet(a); j->workbook=workbook_snapshot(&a->book); }
+    if (kind==JOB_SAVE) {
+        capture_sheet(a); j->workbook=workbook_snapshot(&a->book);
+#ifndef DUXCEL_BROWSER_HOST
+        a->save_document=a->book.id; a->save_revision=a->book.command_revision; a->save_history=workbook_history_stamp(&a->book);
+#endif
+    }
     a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=false; a->grid.resizing=-1;
     a->pending_kind=kind; a->busy=a->io_busy=true; a->modal=MODAL_NONE;
     app_worker_submit(a,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
@@ -1289,6 +1336,9 @@ static void open_source(App *a,const char *path,bool demo) {
     char *absolute=demo ? dx_strdup("") : dx_absolute_path(path);
 #endif
     if (!absolute) { status(a,"Source file is missing or inaccessible. Open its current location to recover."); return; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (workbook_journal_session_owns_path(a->journal,absolute)) { free(absolute); status(a,"Local backup files are managed by Duxcel. Choose a saved workbook or data source."); return; }
+#endif
     capture_sheet(a);
     Analysis source={.kind=kind,.path=absolute}; char *error=NULL;
     char *name=workbook_unique_sheet_name(&a->book,demo ? "Million-row demo" : dx_basename(path),&error);
@@ -1309,18 +1359,20 @@ static void open_source(App *a,const char *path,bool demo) {
     SOURCE_FORMAT_ORIGIN_ARM(a);
 }
 static void cancel_document_action(App *a) {
-    free(a->document_path); a->document_path=NULL; a->document_action=DOCUMENT_NONE; a->document_saving=false;
+    free(a->document_path); a->document_path=NULL; a->document_action=DOCUMENT_NONE; a->document_saving=false; a->discard_journal=false;
     if (a->modal==MODAL_UNSAVED) a->modal=MODAL_NONE;
     a->consume_grid_input=true;
 }
 static void finish_document_action(App *a) {
     DocumentAction action=a->document_action; char *path=a->document_path; a->document_path=NULL;
+    bool discard=a->discard_journal || !a->book.dirty;
     cancel_document_action(a);
-    if (action==DOCUMENT_QUIT) a->exit_ready=true;
-    else if (action==DOCUMENT_OPEN) workspace_job(a,JOB_LOAD,path);
+    if (action==DOCUMENT_QUIT) { a->discard_journal=discard; a->exit_ready=true; }
+    else if (action==DOCUMENT_OPEN) { a->discard_journal_on_load=discard; workspace_job(a,JOB_LOAD,path); }
     else if (action==DOCUMENT_CLOSE || action==DOCUMENT_NEW) {
         SOURCE_FORMAT_RESET(a);
         end_step_preview(a); cancel_values(a); statistics_cancel(a);
+        close_journal(a,discard);
         workbook_free(&a->book); workbook_init(&a->book); new_sheet(a); a->book.dirty=false;
         a->key_tips=a->ribbon_focus=a->file_menu=false;
 #ifdef DUXCEL_DEV_REVIEW
@@ -1919,12 +1971,19 @@ static void poll_query(App *a) {
 #ifdef DUXCEL_DEV_REVIEW
             if (a->review) a->review->document_serial++;
 #endif
+            close_journal(a,a->discard_journal_on_load || !a->book.dirty); a->discard_journal_on_load=false;
             workbook_free(&a->book); a->book=*r->workbook; workbook_init(r->workbook);
             if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }
             activate_sheet(a,a->book.active,false);
             SOURCE_FORMAT_ORIGIN_ARM(a);
         } else {
-            free(a->book.path); a->book.path=r->path; r->path=NULL; a->book.dirty=false; status(a,"Workspace saved.");
+            free(a->book.path); a->book.path=r->path; r->path=NULL;
+#ifndef DUXCEL_BROWSER_HOST
+            bool same=a->book.id.high==a->save_document.high && a->book.id.low==a->save_document.low && a->book.command_revision==a->save_revision && workbook_history_stamp(&a->book)==a->save_history;
+            a->book.dirty=!same; if (same) close_journal(a,true); status(a,same ? "Workspace saved." : "An earlier state was saved. New changes still need saving.");
+#else
+            a->book.dirty=false; status(a,"Workspace saved.");
+#endif
             if (!a->page.column_count && a->analysis.kind!=SOURCE_NONE) request_page(a,false);
         }
         reply_free(r); return;
@@ -4611,7 +4670,26 @@ static bool commit_cell(App *a) {
     CellEditCommand command={CELL_EDIT_COMMAND_VERSION,a->cell_edit_target,a->input.text,strlen(a->input.text)};
     CellEditPolicy policy={source_rows(a),a->page.column_count,
         !(a->analysis.kind!=SOURCE_NONE && !a->page.column_count && !a->fetch_failed)};
-    CellEditResult result=workbook_apply_cell_edit(&a->book,&command,policy,&error);
+    CellEditResult result;
+#ifndef DUXCEL_BROWSER_HOST
+    result=workbook_check_cell_edit(&a->book,&command,policy,&error);
+    if (result.status==CELL_EDIT_READY) {
+        capture_sheet(a);
+        if (!ensure_journal(a,&error)) result.status=CELL_EDIT_LIMIT;
+        else {
+            FormatBudgetStatus budget=FORMAT_BUDGET_OK;
+            if (workbook_journal_session_needs_checkpoint(a->journal,&a->book)) {
+                WorkbookFormatUsage usage;
+                budget=workbook_format_usage(&a->book,NULL,0,&usage);
+                if (!budget) budget=source_format_budget_status(a,NULL,usage.current,0,0,0,0);
+            }
+            if (budget) { result.status=CELL_EDIT_LIMIT; free(error); error=dx_strdup(workbook_format_budget_message(budget)); }
+            else result=workbook_journal_session_apply(a->journal,&a->book,&command,policy,&error);
+        }
+    }
+#else
+    result=workbook_apply_cell_edit(&a->book,&command,policy,&error);
+#endif
     if (result.status!=CELL_EDIT_APPLIED && result.status!=CELL_EDIT_NOOP) {
         cell_edit_failed(a,error ? error : "Cell edit could not be applied."); free(error); return false;
     }
@@ -5412,7 +5490,7 @@ static void draw_unsaved(App *a) {
         REVIEW_AUTHOR_ITEM(a,"unsaved",((const char *const[]){"save","discard","cancel"})[i],"document.action","button",labels[i],r,a->document_panel,available,false,a->document_focus==i,NULL);
         if (a->document_focus==i) ui_focus_border(box(r.x-3*s,r.y-3*s,r.width+6*s,r.height+6*s),a->document_panel,1.5f*s);
         if (ui_button(u,r,labels[i],i==0,available) || (available && a->document_focus==i && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) {
-            if (!i) save_document_action(a); else if (i==1) finish_document_action(a); else cancel_document_action(a);
+            if (!i) save_document_action(a); else if (i==1) { a->discard_journal=true; finish_document_action(a); } else cancel_document_action(a);
             return;
         }
     }
@@ -6796,6 +6874,11 @@ static void cycle_focus(App *a,bool backwards) {
     a->ribbon_command=-1; a->pivot_search_focus=false; a->key_tips=false; a->consume_grid_input=true;
 }
 static void status_activate(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->status_focus==5) {
+        char *error=NULL; if (!workbook_journal_session_retry(a->journal,&error)) { status(a,error); free(error); }
+    } else
+#endif
     if (!a->status_focus) open_statistics(a);
     else if (a->status_focus==3) begin_scale_menu(a,(Vector2){a->status_layout.scale.x,GetScreenHeight()});
     else if (a->status_focus==4) zoom_canvas(a,1,(Vector2){a->grid.body.x,a->grid.body.y});
@@ -6820,9 +6903,14 @@ static bool chrome_keyboard(App *a) {
     if (ui_key_control(KEY_TAB) && ui_pressed(KEY_TAB)) return false;
     if ((a->chrome_focus==2 && !a->sidebar) || (a->chrome_focus==8 && !a->pipeline) || ui_pressed(KEY_ESCAPE)) { a->chrome_focus=0; a->consume_grid_input=true; return true; }
     if (a->chrome_focus==10) {
-        const int order[]={0,3,1,4,2}; int index=0; for (int i=0;i<5;i++) if (order[i]==a->status_focus) index=i;
-        if (ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB))) a->status_focus=order[(index+4)%5];
-        if (ui_key(KEY_RIGHT) || (ui_pressed(KEY_TAB) && !ui_key_shift(KEY_TAB))) a->status_focus=order[(index+1)%5];
+        const int order[]={5,0,3,1,4,2}; int first=1;
+#ifndef DUXCEL_BROWSER_HOST
+        if (workbook_journal_session_state(a->journal,&a->book).queue.failed) first=0;
+#endif
+        int count=6-first,index=first; for (int i=first;i<6;i++) if (order[i]==a->status_focus) index=i;
+        if (a->status_focus==5 && first) a->status_focus=0;
+        if (ui_key(KEY_LEFT) || (ui_pressed(KEY_TAB) && ui_key_shift(KEY_TAB))) a->status_focus=order[first+(index-first+count-1)%count];
+        if (ui_key(KEY_RIGHT) || (ui_pressed(KEY_TAB) && !ui_key_shift(KEY_TAB))) a->status_focus=order[first+(index-first+1)%count];
         if (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE) || (!a->status_focus && (ui_pressed(KEY_KB_MENU) || (ui_pressed(KEY_F10) && ui_key_shift(KEY_F10))))) status_activate(a);
         a->consume_grid_input=true; return true;
     }
@@ -7745,6 +7833,10 @@ static void draw_status(App *a,bool enabled) {
     bool preview=a->step_preview.active; SheetObject *object=selected_object(a); const Analysis *source=object_source(a,object);
     const Page *page=preview ? &a->step_preview.page : object && object->kind==OBJECT_TABLE ? &a->objects[a->selected_object].page : &a->page;
     const char *ready=preview ? "Preview" : a->busy || a->io_busy ? "Working…" : a->fetch_failed ? "Query failed" : "Ready";
+#ifndef DUXCEL_BROWSER_HOST
+    JournalSessionState backup=workbook_journal_session_state(a->journal,&a->book);
+    if (!preview && !a->busy && !a->io_busy && backup.active) ready=backup.queue.failed ? "Backup paused · Retry" : !backup.covered ? "Save needed" : backup.queue.opening || backup.queue.pending ? "Backup pending…" : "Cell edits backed up";
+#endif
     const char *kind=source->kind==SOURCE_PARQUET ? "Parquet" : source->kind==SOURCE_CSV ? "CSV" : source->kind==SOURCE_DATABASE ? "DuckDB" : source->kind==SOURCE_DEMO ? "Synthetic data" : "";
     char rows[544]={0},raw_count[64],count[512];
     if (page->column_count) { snprintf(raw_count,sizeof(raw_count),"%" PRIu64,page->total); number_display(raw_count,0,false,count); snprintf(rows,sizeof(rows),"%s%s rows",page->count_pending ? "≥ " : "",count); }
@@ -7756,6 +7848,12 @@ static void draw_status(App *a,bool enabled) {
     REVIEW_FEEDBACK(a,"interface",NULL,"status.panel","","status.inspect","group","Worksheet status",layout.panel,layout.panel,true,false,false,NULL,false,NULL);
     for (int i=0;i<3;i++) if (layout.context[i].width) {
         Rectangle entry=layout.context[i]; float left=i ? 11*s : 0;
+#ifndef DUXCEL_BROWSER_HOST
+        if (!i && backup.active && backup.queue.failed && !preview && ui_tool_button(u,entry,"",false,passive_control(a,enabled))) {
+            a->chrome_focus=10; a->status_focus=5;
+            char *error=NULL; if (!workbook_journal_session_retry(a->journal,&error)) { status(a,error); free(error); }
+        }
+#endif
         ui_label(u,context[i],box(entry.x+left,entry.y,fmaxf(0,entry.width-left-12*s),entry.height),12,ink,false,UI_REGULAR);
         REVIEW_FEEDBACK(a,i ? "source_footer" : "task",object && object->kind==OBJECT_TABLE ? object : NULL,((const char *const[]){"status.task","status.source_kind","status.source_count"})[i],"status.panel","status.inspect","text",((const char *const[]){"Task status","Source kind","Source row count"})[i],entry,layout.panel,true,false,false,"VARCHAR",false,context[i]);
         DrawLineV((Vector2){entry.x+entry.width-s,layout.panel.y+5*s},(Vector2){entry.x+entry.width-s,layout.panel.y+17*s},(Color){199,212,222,255});
@@ -7815,7 +7913,10 @@ static void draw_status(App *a,bool enabled) {
     char zoom_label[24]; snprintf(zoom_label,sizeof(zoom_label),"%.0f%%",zoom*100); float label=ui_measure(u,zoom_label,11);
     ui_label(u,zoom_label,box(layout.level.x+(layout.level.width-label)*.5f,layout.level.y,label+.001f*s,layout.level.height),11,ink,false,UI_REGULAR);
     if (a->chrome_focus==10) {
-        Rectangle focus=a->status_focus==0 ? layout.customize : a->status_focus==3 ? layout.scale : a->status_focus==4 ? layout.level : a->status_focus==1 ? layout.minus : layout.plus;
+#ifndef DUXCEL_BROWSER_HOST
+        if (a->status_focus==5 && !backup.queue.failed) a->status_focus=0;
+#endif
+        Rectangle focus=a->status_focus==5 ? layout.context[0] : a->status_focus==0 ? layout.customize : a->status_focus==3 ? layout.scale : a->status_focus==4 ? layout.level : a->status_focus==1 ? layout.minus : layout.plus;
         ui_focus_border(focus,layout.panel,s);
     }
 }
@@ -14937,6 +15038,9 @@ static void record_frame(App *a,double started) {
 #endif
 /* A frame may return to a host scheduler without losing owned App state.
    The native runner uses the same start/frame/finish contract as future hosts. */
+#ifdef DUXCEL_FEATURE_JOURNAL_SESSION
+static void journal_session_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
 static void workbook_lifecycle_test_frame(AppSession *session);
 #endif
@@ -15015,7 +15119,7 @@ AppSession *app_start(const AppOptions *options) {
 #endif
         options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->export_smoke || options->count_smoke || options->clipboard_smoke || options->sort_smoke || options->layout_smoke || options->navigation_smoke || options->nyc_smoke || options->document_smoke || options->chart_smoke || options->statistics_smoke || options->table_smoke || options->icon_smoke || options->query_smoke || options->unique_smoke || options->frames;
     const char *visible_test=getenv("DUXCEL_TEST_VISIBLE");
-    bool background_test=automated && !(visible_test && !strcmp(visible_test,"1")); a->background_test=background_test;
+    bool background_test=automated && !(visible_test && !strcmp(visible_test,"1")); a->background_test=background_test; a->automated=automated;
     /* Hide before native creation: hiding afterwards still steals focus and
        can switch Spaces. Hidden windows retain their real GL framebuffer. */
     SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT |
@@ -15741,6 +15845,9 @@ bool app_frame(AppSession *session) {
         }
     }
 #endif /* native scenario input */
+#ifdef DUXCEL_FEATURE_JOURNAL_SESSION
+    journal_session_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
     workbook_lifecycle_test_frame(session);
 #endif
@@ -15784,6 +15891,9 @@ bool app_frame(AppSession *session) {
     /* Legacy UI producers record atomically inside the frame. Retire every
        abandoned cross-sheet Redo payload before accepting the next frame. */
     workbook_history_sync(&a->book);
+#ifndef DUXCEL_BROWSER_HOST
+    workbook_journal_session_poll(a->journal);
+#endif
 #ifdef DUXCEL_DEV_REVIEW
     if (review_capture) { record_frame(a,frame); return true; }
 #endif
@@ -15933,6 +16043,7 @@ int app_finish(AppSession *session) {
     for (size_t i=0;i<a->browser_source_label_count;i++) { free(a->browser_source_labels[i].key); free(a->browser_source_labels[i].name); }
 #endif
     page_free(&a->page); page_free(&a->spare); analysis_free(&a->analysis);
+    close_journal(a,a->discard_journal || !a->book.dirty);
     clear_cell_edit_error(a); workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor); REVIEW_SQL_CLEAR(a);
     reply_free(a->query_validated); text_editor_free(&a->query_editor); text_lines_free(&a->query_errors); free(a->query_error);
     clear_value_choices(a); free(a->value_pending_key); free(a->values_context);
@@ -15973,4 +16084,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
 #include "../../tests/support/workbook_lifecycle_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_JOURNAL_SESSION
+#include "../../tests/support/journal_session_app.inc"
 #endif

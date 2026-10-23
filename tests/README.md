@@ -8,6 +8,8 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | --- | --- | --- |
 | `test_*.c`, `test_*.inc`, `test_*.m` | Native suites and their implementation fragments | Tracked source |
 | `test_fixture.c` | Native load/PIVOT/typed data/save/reload acceptance of canonical/large inputs | Tracked C test |
+| `test_journal_session.c` | Native checkpoint plus exact cell-tail replay, lazy no-op, protected/rejected admission, rotation after other edits, IDs/styles/history branching and root failure/discard | Private optimized/sanitizer engine runs; no App/desktop |
+| `test_journal_session_gui.c`, `support/journal_session_app.inc` | 18-stage real editor/backpressure/retry/checkpoint/Save R+1/reopen/discard workflow | Hidden TEST App; private compile-time fixture excluded from production |
 | `test_journal_queue.c` | Real native worker reservation/publication races, owned bytes, count/byte limits, batching/order, retry, lineage and drain/abort | Serial optimized/sanitizer engine targets; private journals; no App/desktop |
 | `test_workbook_journal.c` | Private DuckDB lineage, atomic batches, BLOB/uint64 round-trip, exact retry, rollback/conflict/cancel, bounds, version/gap rejection and initial timing | Optimized/sanitizer engine runs serially; no App/canonical fixture |
 | `../tools/test_journal_process.py` | Kills the API writer at pre/post-COMMIT barriers and verifies exact old/new payloads and repeated idempotent retries | Each already-built variant; private temp journals; no desktop |
@@ -76,3 +78,15 @@ underlying storage API and each already-built binary's kill/retry process gate
 run. Commit barriers make in-flight capacity and failure races deterministic;
 short bounded waits only observe completion. The queue's private checkpoints
 are finite API test outputs, not authored user/source fixtures or recovery UI.
+
+W08b2 local gate: `make test-feature FEATURE=journal-session`. It runs only the
+cell-command model, session/queue/storage engine variants, registered process
+barriers and the private 18-stage App. The runner supplies a per-run absolute
+`DUXCEL_TEST_RECOVERY_ROOT`; native automated launches without a runner fall back
+to `build/tests/generated/recovery`, never the production user-data root. The GUI
+uses a two-entry queue to exercise ordinary backpressure without 256 UI commits,
+then both keyboard and pointer Retry, narrow 150% layout, unsupported Undo/new-
+sheet rotation, real Save/Open and Don't Save cleanup. R+1 is injected through
+the admitted C producer after the Save snapshot; it is not a claim that physical
+editing during IO is already enabled. Source/browser/full-App sanitizer gates
+remain registered for milestones. `journal-session-demo.dxls` is generated output.

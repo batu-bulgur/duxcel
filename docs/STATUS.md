@@ -113,22 +113,26 @@ chronology and 158 cell-command checks per optimized/sanitizer configuration,
 then 24 hidden TEST App stages/29 assertions in 6.434s (17.590s total gate).
 The adjusted W06 GUI also passes; broader source/browser regression is deferred.
 
-W08a provides a native DuckDB journal storage primitive, with atomic bounded
-batches, exact byte payloads and IDs, checkpoint lineage and idempotent retries.
-Receipts appear only after COMMIT. Optimized/sanitizer component tests and real
-process kills before/after COMMIT pass; their private databases and binary
-receipts stay under `build/tests/`. This module is not yet connected to App edits:
-visible pending/durable state, App admission, disk/write failure policy,
-Save coordination and startup recovery remain W08b2/W08c/W09/W10. There is no
-current application-level crash-recovery or durable Undo claim.
+Native manual-cell edits now have an asynchronous checkpoint-backed local
+journal. The status bar distinguishes Backup pending, Cell edits backed up,
+Backup paused with keyboard/mouse Retry, and Save needed when other changes are
+outside the current admitted prefix. Queue backpressure preserves the draft.
+The next changed manual cell captures a new baseline after unsupported changes;
+only two generations may coexist, and obsolete ownership is released after the
+replacement is complete. Explicit discard removes current-session owned files;
+clean Save/Open retains the named workbook. An older Save acknowledgement does
+not clear newer admitted/recorded edits.
 
-W08b1 adds the native asynchronous queue as tested infrastructure: immutable
-reservation before mutation, bounded pending/in-flight bytes, ordered durable
-acknowledgement, retained failures and same-ID retry, and explicit drain/abort.
-Its 1,426 assertions pass optimized/sanitizer, along with the underlying storage
-and kill/retry checks (6.866s local gate). The queue is not yet connected to the
-App; checkpoint-backed admission and user feedback remain W08b2. No additional
-application-level durability or recovery is claimed.
+The local `journal-session` gate passes 126 session, 1,443 queue, 190 storage and
+169 cell-command assertions with optimized/sanitizer coverage, plus 14 process-
+kill/retry checks per binary. The final hidden TEST App passes 18 stages/28
+assertions in 6.797s (17.542s focused release gate).
+It covers the real editor, retained draft, keyboard/mouse Retry at narrow 150%,
+checkpoint rotation, Save R/R+1, reopen and Don't Save. The existing W06 GUI also
+passes. Actual disk/write fault policy and final throughput remain W08c. Startup
+recovery selection is W10; persistent Undo is W12; W09 still owns complete Save
+publication/progress/cancel. Browser persistence is unchanged and has no native
+journal backend. Receipts and captures remain in ignored `build/tests/results/`.
 
 ## Feature iteration and build identity
 

@@ -40,6 +40,10 @@ char *dx_save_file_panel(const char *suggested_path);
 char *dx_export_parquet_panel(const char *suggested_path);
 /* Export staging uses a reserved sibling file and an atomic final replacement. */
 char *dx_temp_sibling(const char *path);
+/* Durable per-user recovery root; native adapter creates it privately. */
+char *dx_recovery_directory(void);
+bool dx_make_directories(const char *path);
+char *dx_private_directory(const char *parent); /* Owned private child of an existing parent. */
 char *dx_temp_directory(void); /* new private writable absolute directory; caller owns */
 void dx_remove_temp_directory(const char *path); /* remove empty owned directory */
 bool dx_replace_file(const char *temporary,const char *target);

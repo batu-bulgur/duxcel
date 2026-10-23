@@ -128,6 +128,13 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertEqual(local["engine_modules"], ["journal_queue", "workbook_journal"])
         self.assertEqual(local["engine_process_checks"], ["tools/test_journal_process.py"])
 
+    def test_checkpoint_gate_admits_only_its_modules_and_private_gui(self):
+        local = plan("journal-session")
+        self.assertEqual(local["modules"], ["cell_command"])
+        self.assertEqual(local["gui"], "journal-session")
+        self.assertEqual(local["engine_modules"], ["journal_session", "journal_queue", "workbook_journal"])
+        self.assertEqual(local["engine_process_checks"], ["tools/test_journal_process.py"])
+
     def test_about_does_not_build_full_app_or_canonical_fixture(self):
         self.assertEqual(FEATURES["about"].modules, ("build_info",))
         self.assertEqual(plan("about")["gui"], "about")

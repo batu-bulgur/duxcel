@@ -197,9 +197,11 @@ class RunnerTests(unittest.TestCase):
                 instance=runner.Runner(args,root)
                 def child(command, **kwargs):
                     self.assertEqual(kwargs["env"]["DUXCEL_TEST_VISIBLE"], "1" if visible else "0")
+                    self.assertEqual(pathlib.Path(kwargs["env"]["DUXCEL_TEST_RECOVERY_ROOT"]),instance.log_dir / "hidden-native-recovery")
+                    self.assertTrue(pathlib.Path(kwargs["env"]["DUXCEL_TEST_RECOVERY_ROOT"]).is_dir())
                     kwargs["stdout"].write("PASS: final\nDuxcel frames=10 mean=1.0 ms smoke=0\n")
                     return mock.Mock(returncode=0)
-                with mock.patch.dict(runner.os.environ,{"DUXCEL_TEST_VISIBLE":"1"}), mock.patch.object(runner.subprocess,"run",side_effect=child), contextlib.redirect_stdout(io.StringIO()):
+                with mock.patch.dict(runner.os.environ,{"DUXCEL_TEST_VISIBLE":"1","DUXCEL_TEST_RECOVERY_ROOT":"/must-not-inherit"}), mock.patch.object(runner.subprocess,"run",side_effect=child), contextlib.redirect_stdout(io.StringIO()):
                     result=instance.command("hidden-native",["test-owned-process"],"PASS: final",native=True)
                 self.assertEqual(result["status"],"passed")
                 self.assertEqual(instance.summary["native_visibility"],"visible" if visible else "hidden")
@@ -334,6 +336,9 @@ class RunnerTests(unittest.TestCase):
                     expected.append(["./"+binary,"--source-versions-only"])
                     expected.append(["./"+binary,"--source-bindings-only"])
                     expected.append(["./"+binary,"--format-rows-only"])
+                module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
+                if module in runner.ENGINE_PROCESS_CHECKS:
+                    expected.append([runner.sys.executable,runner.ENGINE_PROCESS_CHECKS[module][0],"--binary",binary])
             self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
 
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):

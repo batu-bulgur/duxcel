@@ -47,9 +47,12 @@ static void *writer(void *context) {
         while (q->state.failed && !q->state.stopping) dx_cond_wait(&q->changed,&q->mutex);
         if (q->state.stopping && (!q->drain || q->state.failed || !q->state.pending)) { dx_unlock(&q->mutex); break; }
         if (!journal) {
+            bool already_prepared=q->state.prepared;
             dx_unlock(&q->mutex); char *error=NULL;
-            bool opened=workbook_journal_open(&journal,q->path,q->document,q->base,&error);
+            bool prepared=already_prepared || !q->options.setup.prepare || q->options.setup.prepare(q->options.setup.context,&error);
+            bool opened=prepared && workbook_journal_open(&journal,q->path,q->document,q->base,&error);
             dx_lock(&q->mutex);
+            q->state.prepared=prepared;
             uint64_t head=workbook_journal_durable_revision(journal);
             bool matches=opened && (q->attempted ? head>=q->state.durable_revision && head<=q->state.accepted_revision : head==q->expected_head);
             if (!matches) failure_locked(q,error ? error : "Journal head does not match the admitted checkpoint.");
@@ -103,7 +106,12 @@ bool workbook_journal_queue_reserve(WorkbookJournalQueue *q,const JournalCellEdi
     bool room=!q->reservation && !q->state.stopping && !q->state.failed && e->previous_revision==q->state.accepted_revision &&
         q->state.pending<q->options.entries && bytes<=q->options.bytes-q->state.owned_bytes;
     for (size_t i=0;room && i<q->state.pending;i++) if (q->items[i]->edit.operation.high==e->operation.high && q->items[i]->edit.operation.low==e->operation.low) room=false;
-    if (!room) { dx_unlock(&q->mutex); return fail(error,"Journal queue is full, paused, reserved or no longer matches this edit revision. Your edit was not published."); }
+    if (!room) {
+        const char *message=q->state.failed ? "Local backup is paused. Retry it in the status bar. Your draft is kept." :
+            e->previous_revision!=q->state.accepted_revision ? "The workbook changed while preparing backup. Your draft is kept; cancel and reopen the cell." :
+            "Local backup is busy. Your draft is kept; try again shortly.";
+        dx_unlock(&q->mutex); return fail(error,message);
+    }
     JournalReservation *r=dx_alloc(bytes); r->owner=q; r->edit=*e; r->bytes=bytes;
     if (e->before_bytes) memcpy(r->data,e->before,e->before_bytes);
     if (e->after_bytes) memcpy(r->data+e->before_bytes,e->after,e->after_bytes);
@@ -132,11 +140,15 @@ bool workbook_journal_queue_retry(WorkbookJournalQueue *q,char **error) {
     if (!q->state.failed || q->state.stopping) { dx_unlock(&q->mutex); return fail(error,"Only a paused active journal queue can retry."); }
     q->state.failed=false; q->state.opening=true; q->state.error[0]=0; dx_signal(&q->changed); dx_unlock(&q->mutex); return true;
 }
-bool workbook_journal_queue_stop(WorkbookJournalQueue *q,bool drain,char **error) {
+bool workbook_journal_queue_request_stop(WorkbookJournalQueue *q,bool drain,char **error) {
     if (!q) return true;
     dx_lock(&q->mutex);
     if (q->reservation) { dx_unlock(&q->mutex); return fail(error,"Publish or cancel the reserved edit before stopping the journal."); }
-    q->state.stopping=true; q->drain=drain; dx_signal(&q->changed); dx_unlock(&q->mutex);
+    q->state.stopping=true; q->drain=drain; dx_signal(&q->changed); dx_unlock(&q->mutex); return true;
+}
+bool workbook_journal_queue_stop(WorkbookJournalQueue *q,bool drain,char **error) {
+    if (!q) return true;
+    if (!workbook_journal_queue_request_stop(q,drain,error)) return false;
     if (!q->joined) { dx_thread_join(q->thread); q->joined=true; }
     JournalQueueState state=workbook_journal_queue_state(q);
     return (!state.failed && !state.pending) || fail(error,*state.error ? state.error : "Journal stopped with uncommitted edits; preserve the live workbook.");
@@ -146,5 +158,6 @@ void workbook_journal_queue_free(WorkbookJournalQueue *q) {
     if (q->reservation) workbook_journal_queue_cancel(q->reservation);
     workbook_journal_queue_stop(q,false,NULL);
     for (size_t i=0;i<q->state.pending;i++) free(q->items[i]);
+    if (q->options.setup.release) q->options.setup.release(q->options.setup.context);
     dx_cond_destroy(&q->changed); dx_mutex_destroy(&q->mutex); free(q->path); free(q);
 }

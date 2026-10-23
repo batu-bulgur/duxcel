@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <errno.h>
 #ifdef DUXCEL_BROWSER_HOST
 #include <emscripten/emscripten.h>
 EM_JS(unsigned, dx_web_clipboard_begin_js, (const char *text), {
@@ -132,6 +133,57 @@ void dx_sleep_ms(unsigned ms) {
     nanosleep(&ts, NULL);
 }
 char *dx_absolute_path(const char *path) { return realpath(path, NULL); }
+#endif
+static bool make_directory(const char *path) {
+#ifdef _WIN32
+    return CreateDirectoryA(path,NULL) || (GetLastError()==ERROR_ALREADY_EXISTS && (GetFileAttributesA(path)&FILE_ATTRIBUTE_DIRECTORY));
+#else
+    if (!mkdir(path,0700)) return true;
+    struct stat st; return errno==EEXIST && !stat(path,&st) && S_ISDIR(st.st_mode);
+#endif
+}
+bool dx_make_directories(const char *path) {
+    if (!path || !*path || strlen(path)>4096) return false;
+    char *copy=dx_strdup(path); bool ok=true;
+    for (char *p=copy+1;*p && ok;p++) if (*p=='/'
+#ifdef _WIN32
+        || *p=='\\'
+#endif
+    ) {
+#ifdef _WIN32
+        if (p==copy+2 && copy[1]==':') continue;
+#endif
+        char separator=*p; *p=0; ok=make_directory(copy); *p=separator;
+    }
+    if (ok) ok=make_directory(copy);
+    free(copy); return ok;
+}
+char *dx_private_directory(const char *parent) {
+    if (!parent || !*parent) return NULL;
+    for (unsigned attempt=0;attempt<8;attempt++) {
+        uint64_t id[2]; if (!dx_random_bytes(id,sizeof(id))) return NULL;
+        char *path=dx_printf("%s/session-%016llx%016llx",parent,(unsigned long long)id[0],(unsigned long long)id[1]);
+#ifdef _WIN32
+        if (CreateDirectoryA(path,NULL)) return path;
+#else
+        if (!mkdir(path,0700)) return path;
+#endif
+        free(path);
+    }
+    return NULL;
+}
+#ifndef __APPLE__
+char *dx_recovery_directory(void) {
+#ifdef _WIN32
+    const char *root=getenv("LOCALAPPDATA"); if (!root || !*root) return NULL;
+    char *path=dx_printf("%s/Duxcel/Recovery",root);
+#else
+    const char *root=getenv("XDG_DATA_HOME"),*user_root=getenv("HOME");
+    char *path=root && *root=='/' ? dx_printf("%s/Duxcel/Recovery",root) : user_root && *user_root=='/' ? dx_printf("%s/.local/share/Duxcel/Recovery",user_root) : NULL;
+#endif
+    if (path && !dx_make_directories(path)) { free(path); return NULL; }
+    return path;
+}
 #endif
 char *dx_temp_directory(void) {
 #ifdef _WIN32

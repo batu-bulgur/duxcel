@@ -23,7 +23,7 @@ FAST_MODULES = (
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
 )
 RECORD_MODULES = ("record_sql", "record_pages")
-ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native", "workbook_journal", "journal_queue")
+ENGINE_MODULES = ("core", "workbook", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native", "workbook_journal", "journal_queue", "journal_session")
 FORMATS_COMPLETION_PATTERN = r"^PASS: [1-9]\d* focused workspace formatting checks \(format round-trip, validation, scoped-save rejection and original-file preservation\)$"
 # These are existing, independently bootstrapped layout checkpoints. The end is
 # exclusive, as in DUXCEL_LAYOUT_TO. Never jump into arbitrary stateful stages.
@@ -170,6 +170,10 @@ class Runner:
         for key in ("DUXCEL_LAYOUT_FROM", "DUXCEL_LAYOUT_TO", "DUXCEL_FRAME_CAP", "DUXCEL_RENDER_BUFFERS", "DUXCEL_FONT", "DUXCEL_MONO_FONT", "DUXCEL_TEST_VISIBLE"):
             env.pop(key, None)
         env["DUXCEL_TEST_INSTANCE"] = "1"
+        if native:
+            recovery = self.log_dir / (name + "-recovery")
+            recovery.mkdir(parents=True, exist_ok=True)
+            env["DUXCEL_TEST_RECOVERY_ROOT"] = str(recovery)
         env["DUXCEL_TEST_VISIBLE"] = "1" if getattr(self.args, "visible", False) else "0"
         env["PYTHONPATH"] = str(self.root / "tools") + os.pathsep + env.get("PYTHONPATH", "")
         env.update(env_extra or {})
@@ -321,11 +325,14 @@ class Runner:
             ensure_unchanged(self.summary["binaries"])
             self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
             ensure_unchanged(self.summary["binaries"])
-            if module in ENGINE_PROCESS_CHECKS:
-                script, marker, completion = ENGINE_PROCESS_CHECKS[module]
-                self.record(self.command(f"{module}-{config}-process", [sys.executable, script, "--binary", binary],
-                                         marker, completion_pattern=completion))
-                ensure_unchanged(self.summary["binaries"])
+            self.engine_process_check(module,config,binary)
+
+    def engine_process_check(self,module,config,binary):
+        if module in ENGINE_PROCESS_CHECKS:
+            script, marker, completion = ENGINE_PROCESS_CHECKS[module]
+            self.record(self.command(f"{module}-{config}-process", [sys.executable, script, "--binary", binary],
+                                     marker, completion_pattern=completion))
+            ensure_unchanged(self.summary["binaries"])
 
     def feature(self):
         plan = feature_plan(self.args.feature)
@@ -435,6 +442,7 @@ class Runner:
                     self.record(self.command(f"{module}-format-rows-{config}", ["./" + binary,"--format-rows-only"],
                                              completion_pattern=r"^PASS: native format rows \d+ checks;"))
                     ensure_unchanged(self.summary["binaries"])
+                self.engine_process_check(module,config,binary)
         with FileLock(native_lock_path(), "Native desktop tests"):
             self.background_check()
             self.record(self.command("gpu-sanitize", ["./build/tests/test_paint-native-debug"], "PASS: 110 native paint checks"))

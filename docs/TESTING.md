@@ -178,3 +178,12 @@ Source archives/direct C compilation use an honest unavailable-history fallback.
 `SOURCE_DATE_EPOCH` supplies a reproducible UTC metadata timestamp. Rebuild a
 bundle after a commit to embed that commit; an already-running process retains
 its compiled metadata. Use a fresh `open -n -a` process for hands-on validation.
+
+The `journal-session` local gate owns native checkpoint-backed one-cell admission.
+Its headless/engine tests retain optimized/ASan/UBSan coverage; its private App
+fixture uses 18 completion-checked stages, hidden TEST identity and a per-run
+backup root. It checks actual editor/keyboard/pointer behavior, retained drafts,
+post-COMMIT acknowledgement, 150% Retry, checkpoint rotation, Save R/R+1, reopen
+and discard. The process-kill storage drivers run serially for each already-built
+binary in both the feature and full tiers. Full regression is registered, not
+implicitly run after each journal change.

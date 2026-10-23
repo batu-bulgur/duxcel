@@ -44,7 +44,8 @@ when a feature changes rather than pre-emptively rewriting all App state.
 `src/workbook/cell_command.c` is the first admitted mutation producer. Its v2
 in-process envelope freezes durable workbook/sheet IDs, a process/session fence,
 expected CellStore and admitted-document revisions, coordinates and bounded
-borrowed bytes. The producer rechecks primary/object protection, then publishes
+borrowed bytes. The pure admission check rechecks primary/object protection and revision fences;
+the mutation producer repeats it before adoption, then publishes
 one cell-history action, dirty state and one monotonic command revision only for
 a changed value. No-op and failure preserve all three. The App owns drafts,
 source readiness, navigation and feedback. The persisted command clock covers
@@ -126,8 +127,9 @@ handle, requiring reopen and same-ID retry to resolve uncertain durability.
 Only a successful COMMIT publishes a receipt. Reads return at most 31 records
 per page (under 4 MiB worst-case text); borrowed spans end at the visitor return.
 The caller must match the actual checkpoint and validate before-values when
-staging replay. This primitive is not yet linked into the App command path and
-does not establish recovery, retained Undo, async queue ownership or Save fencing.
+staging replay. The native App now admits manual-cell commands through the checkpoint/session
+coordinator below. This primitive alone does not establish recovery UI, retained
+Undo or complete Save fencing.
 Its private file format is independent of native workbook v15.
 
 `src/workbook/journal_queue.c` is the staged native asynchronous owner. The
@@ -139,10 +141,47 @@ charged until acknowledged. A failure racing a reservation cannot make its later
 publication fail or release its bytes. Failed records remain for explicit
 same-ID retry; uncertain commits reopen and resolve through the storage API.
 Accepted and durable revisions stay separate. Stop joins only this owned thread,
-with explicit drain/abort semantics and reported non-durable work. App adapters
-must still create a valid checkpoint lineage, fence unsupported mutation families,
-and preserve pending work across Save/replacement/close; those are W08b2/W09/W10.
-No queue exists in the current App and no browser journal adapter is implemented.
+with explicit drain/abort semantics and reported non-durable work. Checkpoint setup owns an independent Workbook snapshot until the writer has
+published its `.dxls` baseline. Failed preparation retains it for retry; setup
+release runs only after joining. Nonblocking stop allows the producer to retire
+an old generation without waiting inside ordinary frames. No browser journal
+adapter is implemented.
+
+`src/workbook/journal_session.c` connects native one-cell admission to complete
+checkpoint lineage. It creates a private generation only for a valid changed
+command, snapshots current owned state, reserves immutable before/after bytes,
+applies through the existing producer and publishes only on success. Checkpoint
+Save and journal opening run on the queue owner, before any edit COMMIT can be
+acknowledged. No App/Page/renderer pointer crosses that boundary. The App captures
+its independent live Analysis/view first; source protection remains authoritative.
+
+A bounded scalar/identity/store/action fence tracks the admitted prefix, including
+object extents and source-ledger publication. Unadmitted changes/Undo/Redo mark it
+uncovered. The next changed cell stages a fresh full current checkpoint; at most
+current/retiring generations coexist, and old files/owned bytes retire only when
+the replacement is complete and the old writer has stopped. This fence covers
+registered mutation paths, not arbitrary writes into model pointers or a content
+hash proof. Display defaults/view navigation do not become data edits. Retained
+checkpoint format bytes join the App's existing additional-format budget.
+
+Native production generations live under the platform user-data Recovery root
+(macOS Application Support/Duxcel/Recovery); automated runners override a private
+root under their ignored run directory. Cryptographic directory/operation IDs
+separate instances and generations. Normal Open/Save/source entry points reject active managed working paths and
+aliases, protecting named artifacts from later cleanup. Only fixed files in
+current-session owned directories are discarded, never an external source/named workbook or unknown
+recovery material. Explicit Don't Save discards the current session; a successful current-state Save
+and clean file replacement/close dispose covered working copies. Unexpected dirty shutdown
+retains committed files. Startup candidate discovery/choice is still W10, and
+session history is not persisted until W12. Linked-source availability remains
+the existing file-mode policy.
+
+The existing asynchronous Save path now captures the document/admitted-command
+and recorded-action clocks; completion leaves later edits dirty. This is narrow
+publication groundwork, not W09 progress/cancel or admission of every legacy
+mutator. The private journal-session GUI fixture deliberately injects R+1 through
+the real C producer after the Save snapshot; ordinary user editing remains
+IO-guarded until the later Save slice.
 
 The cell-command GUI fixture has its own App object compiled with
 `DUXCEL_FEATURE_CELL_COMMAND`; its private fixture lives in `tests/support/`.
