@@ -14,6 +14,10 @@ typedef struct {
    Analysis/view before admission and account other App-owned staging buffers.
    Root is copied; no IO/thread starts until a changed, valid cell command. */
 WorkbookJournalSession *workbook_journal_session_new(const char *root,JournalQueueOptions options,char **error);
+typedef struct { WorkbookId document,parent; const char *original_path; } JournalSessionLineage;
+/* Seed a recovered branch before its first generation. Metadata is copied;
+   the document must match admission, and it never changes the Save target. */
+bool workbook_journal_session_lineage(WorkbookJournalSession *session,JournalSessionLineage lineage,char **error);
 bool workbook_journal_session_needs_checkpoint(const WorkbookJournalSession *session,const Workbook *book);
 CellEditResult workbook_journal_session_apply(WorkbookJournalSession *session,Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
 JournalSessionState workbook_journal_session_state(WorkbookJournalSession *session,const Workbook *book);

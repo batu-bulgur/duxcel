@@ -32,5 +32,10 @@ const WorkbookRecoveryInfo *workbook_recovery_info(const WorkbookRecoveryCandida
 /* Transfers the complete owned model, retaining the candidate's lease/info.
    A caller adopting it must keep the candidate until its lineage is resolved. */
 Workbook *workbook_recovery_take_book(WorkbookRecoveryCandidate *candidate);
+/* Explicit disposition after a complete named Save or user discard. Only a
+   full bound candidate is eligible; deferred/unknown tails cannot be retired.
+   Changed artifacts or extra files reject before deletion. Filesystem deletion
+   can still partially fail; the caller must not equate cleanup with Save. */
+bool workbook_recovery_retire(WorkbookRecoveryCandidate *candidate,char **error);
 void workbook_recovery_free(WorkbookRecoveryCandidate *candidate);
 #endif

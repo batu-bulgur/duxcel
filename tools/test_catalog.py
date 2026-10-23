@@ -58,6 +58,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-disposition": Feature((), "journal-session",
+        ("python3 tools/test.py feature --feature recovery-worker", "python3 tools/test.py feature --feature recovery-catalog"),
+        ("src/workbook/recovery.c: explicit retirement", "src/workbook/journal_session.c: inherited lineage", "src/platform/platform.h: noncreating recovery location"), ("journal_session", "workbook_recovery")),
     "recovery-worker": Feature((), "",
         ("python3 tools/test.py feature --feature recovery-catalog", "python3 tools/test.py feature --feature recovery-candidate"),
         ("src/workbook/recovery_worker.c", "src/workbook/recovery_worker.h"), ("recovery_worker",)),

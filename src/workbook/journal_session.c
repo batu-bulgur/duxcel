@@ -33,7 +33,8 @@ typedef struct {
 } Checkpoint;
 typedef struct { WorkbookJournalQueue *queue; Checkpoint *checkpoint; } Generation;
 struct WorkbookJournalSession {
-    char *root;
+    char *root,*inherited_original;
+    WorkbookId inherited_document,inherited_parent;
     JournalQueueOptions options;
     WorkbookId operation;
     ContentFence expected;
@@ -94,6 +95,7 @@ static void remove_owned(const Checkpoint *c) {
        file or touch an external source/named workbook. */
     remove(c->checkpoint); remove(c->journal); if (c->lease_path) remove(c->lease_path);
     char *wal=dx_printf("%s.wal",c->journal); remove(wal); free(wal);
+    wal=dx_printf("%s.wal",c->checkpoint); remove(wal); free(wal);
     dx_remove_temp_directory(c->directory);
 }
 static bool generation_close(Generation *g,bool discard,bool *published,char **error) {
@@ -104,7 +106,7 @@ static bool generation_close(Generation *g,bool discard,bool *published,char **e
     workbook_journal_queue_free(g->queue); *g=(Generation){0}; return discard || complete;
 }
 WorkbookJournalSession *workbook_journal_session_new(const char *root,JournalQueueOptions options,char **error) {
-    if (!root || !*root || options.setup.prepare || options.setup.release || options.setup.context ||
+    if (!root || !*root || options.setup.prepare || options.setup.release || options.setup.context || options.origin ||
         !options.entries || options.entries>DX_JOURNAL_BATCH || !options.bytes || options.bytes>DX_JOURNAL_BATCH_BYTES || !options.batch || options.batch>options.entries) {
         fail(error,"Choose a recovery root and bounded journal options."); return NULL;
     }
@@ -116,6 +118,12 @@ bool workbook_journal_session_needs_checkpoint(const WorkbookJournalSession *s,c
 static size_t generation_bytes(Generation *g) {
     return g->queue && !workbook_journal_queue_state(g->queue).prepared ? g->checkpoint->format_bytes : 0;
 }
+bool workbook_journal_session_lineage(WorkbookJournalSession *s,JournalSessionLineage lineage,char **error) {
+    const char *path=lineage.original_path;
+    if (!s || s->active.queue || s->retired.queue || (!lineage.document.high && !lineage.document.low) || (!lineage.parent.high && !lineage.parent.low) || !path || strlen(path)>65536 ||
+        (*path && path[0]!='/' && path[0]!='\\' && !(strlen(path)>2 && path[1]==':' && (path[2]=='/' || path[2]=='\\')))) return fail(error,"Choose a recovered document/parent and informational original locator before editing.");
+    char *owned=dx_strdup(path); free(s->inherited_original); s->inherited_original=owned; s->inherited_document=lineage.document; s->inherited_parent=lineage.parent; return true;
+}
 void workbook_journal_session_poll(WorkbookJournalSession *s) {
     if (!s || !s->active.queue || !s->retired.queue) return;
     JournalQueueState current=workbook_journal_queue_state(s->active.queue),old=workbook_journal_queue_state(s->retired.queue);
@@ -124,6 +132,7 @@ void workbook_journal_session_poll(WorkbookJournalSession *s) {
     if (current.prepared && !current.opening && !current.failed && old.stopped) generation_close(&s->retired,true,NULL,NULL);
 }
 static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **error) {
+    if ((s->inherited_document.high || s->inherited_document.low) && (s->inherited_document.high!=b->id.high || s->inherited_document.low!=b->id.low)) return fail(error,"The recovered lineage belongs to a different workbook. Your draft is kept.");
     workbook_journal_session_poll(s);
     if (s->retired.queue) return fail(error,"The previous backup is still finishing. Your draft is kept; try again shortly.");
     WorkbookFormatUsage usage; FormatBudget budget;
@@ -139,9 +148,9 @@ static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **
         identified=c->origin.generation.high || c->origin.generation.low;
     }
     if (!identified) { checkpoint_release(c); return fail(error,"Cannot allocate a recovery generation identity. Your draft is kept."); }
-    c->origin.parent=s->active.checkpoint ? s->active.checkpoint->origin.generation : (WorkbookId){0};
+    c->origin.parent=s->active.checkpoint ? s->active.checkpoint->origin.generation : s->inherited_parent;
     if (b->path && strlen(b->path)>65536) { checkpoint_release(c); return fail(error,"The original workbook path exceeds the recovery metadata limit."); }
-    c->origin.original_path=dx_strdup(b->path ? b->path : "");
+    c->origin.original_path=dx_strdup(b->path && *b->path ? b->path : s->inherited_original ? s->inherited_original : "");
     c->directory=dx_private_directory(s->root);
     if (!c->directory) { checkpoint_release(c); return fail(error,"Cannot create a private local backup. Your draft is kept."); }
     c->checkpoint=dx_printf("%s/checkpoint.dxls",c->directory); c->journal=dx_printf("%s/journal.duckdb",c->directory);
@@ -194,7 +203,7 @@ bool workbook_journal_session_close(WorkbookJournalSession *s,bool discard,char 
     if (!s) return true;
     bool published=false;
     bool active=generation_close(&s->active,discard,&published,error),retired=generation_close(&s->retired,discard || published,NULL,error);
-    free(s->root); free(s); return active && retired;
+    free(s->inherited_original); free(s->root); free(s); return active && retired;
 }
 bool workbook_journal_session_owns_path(const WorkbookJournalSession *s,const char *path) {
     if (!s || !path || !*path) return false;

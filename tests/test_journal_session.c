@@ -124,10 +124,33 @@ static void root_failure_and_discard(const char *root) {
     ready(s,&b); char *directory=parent(workbook_journal_session_checkpoint(s)); CHECK(workbook_journal_session_close(s,true,&error)); CHECK(!error && access(directory,F_OK));
     CHECK(!strcmp(cells_get(&b.sheets[0].cells,3,2),"First")); CHECK(!rmdir(root)); free(directory); workbook_free(&b);
 }
+static void inherited_lineage(const char *root) {
+    Workbook b,wrong; base(&b); base(&wrong); char *error=NULL;
+    WorkbookJournalSession *s=session(root,options());
+    JournalSessionLineage lineage={b.id,{71,92},"relative.dxls"};
+    CHECK(!workbook_journal_session_lineage(s,lineage,&error) && error && access(root,F_OK)); free(error); error=NULL;
+    char *location=dx_absolute_path("build/tests"); CHECK(location); char *original=dx_printf("%s/recovered original.dxls",location);
+    lineage.original_path=original; CHECK(workbook_journal_session_lineage(s,lineage,&error) && !error); memset(original,'x',strlen(original)); free(original);
+    CellEditCommand c=command(&wrong,0,"Wrong document"); uint64_t revision=wrong.command_revision;
+    CHECK(workbook_journal_session_apply(s,&wrong,&c,(CellEditPolicy){0,0,true},&error).status==CELL_EDIT_LIMIT && error);
+    CHECK(wrong.command_revision==revision && !*cells_get(&wrong.sheets[0].cells,3,2) && access(root,F_OK)); free(error); error=NULL;
+    apply(s,&b,0,"Recovered edit"); JournalSessionState state=ready(s,&b);
+    CHECK(state.parent.high==71 && state.parent.low==92 && !b.path);
+    CHECK(!workbook_journal_session_lineage(s,lineage,&error) && error); free(error); error=NULL;
+    WorkbookJournal *journal=NULL;
+    /* Inspect only after the writer has joined; its exact origin is immutable. */
+    char *checkpoint=dx_strdup(workbook_journal_session_checkpoint(s)),*path=dx_strdup(workbook_journal_session_journal(s));
+    CHECK(workbook_journal_session_close(s,false,&error) && !error);
+    CHECK(workbook_journal_inspect(&journal,path,&error) && !error);
+    const JournalOrigin *origin=workbook_journal_origin(journal);
+    original=dx_printf("%s/recovered original.dxls",location); free(location);
+    CHECK(origin && origin->parent.high==71 && origin->parent.low==92 && !strcmp(origin->original_path,original)); free(original); workbook_journal_close(journal);
+    cleanup_generation(checkpoint,path); CHECK(!rmdir(root)); free(checkpoint); free(path); workbook_free(&wrong); workbook_free(&b);
+}
 int main(void) {
     char directory[]="build/tests/journal-session-XXXXXX"; CHECK(mkdtemp(directory));
     char *first=dx_printf("%s/first",directory),*rotation=dx_printf("%s/rotation",directory),*failure=dx_printf("%s/failure",directory);
-    initial_checkpoint(first); rotation_and_history(rotation); root_failure_and_discard(failure);
+    initial_checkpoint(first); rotation_and_history(rotation); root_failure_and_discard(failure); inherited_lineage(first);
     CHECK(!rmdir(directory)); free(first); free(rotation); free(failure);
     printf("PASS: %u journal session checks\n",checks); return 0;
 }

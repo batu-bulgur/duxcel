@@ -171,6 +171,25 @@ static void parallel_live_edit(Fixture *f) {
     CHECK(workbook_history_step(&f->live,false,&error).status==WORKBOOK_HISTORY_APPLIED && !error && !strcmp(cells_get(&f->live.sheets[0].cells,0,0),"Final"));
     workbook_recovery_free(a.candidate); dx_cond_destroy(&a.condition); dx_mutex_destroy(&a.mutex);
 }
+static void retirement(Fixture *f) {
+    char *error=NULL; WorkbookRecoveryCandidate *candidate=NULL;
+    SourceDigest baseline=digest(f->checkpoint),tail=digest(f->journal);
+    CHECK(workbook_recovery_prepare(f->root,f->name,RECOVERY_OPEN_CHECKPOINT,(WorkbookRecoveryControl){0},&candidate,&error)==RECOVERY_PREPARED && !error);
+    CHECK(!workbook_recovery_retire(candidate,&error) && error); free(error); error=NULL; workbook_recovery_free(candidate); candidate=NULL;
+    unchanged(f->checkpoint,baseline); unchanged(f->journal,tail);
+    CHECK(workbook_recovery_prepare(f->root,f->name,RECOVERY_REPLAY_TAIL,(WorkbookRecoveryControl){0},&candidate,&error)==RECOVERY_PREPARED && !error);
+    char *extra=dx_printf("%s/keep.txt",f->directory); FILE *file=fopen(extra,"wb"); CHECK(file && fputs("private note",file)>=0 && !fclose(file));
+    CHECK(!workbook_recovery_retire(candidate,&error) && error && !access(extra,F_OK)); free(error); error=NULL;
+    unchanged(f->checkpoint,baseline); unchanged(f->journal,tail); CHECK(!unlink(extra)); free(extra);
+    char *wal=dx_printf("%s.wal",f->journal); file=fopen(wal,"wb"); CHECK(file && !fclose(file));
+    CHECK(!workbook_recovery_retire(candidate,&error) && error); free(error); error=NULL; CHECK(!unlink(wal)); free(wal);
+    unchanged(f->checkpoint,baseline); unchanged(f->journal,tail);
+    Workbook *book=workbook_recovery_take_book(candidate); CHECK(book && !book->path && book->dirty);
+    CHECK(workbook_recovery_retire(candidate,&error) && !error && access(f->directory,F_OK));
+    CHECK(workbook_recovery_retire(candidate,NULL) && !strcmp(cells_get(&book->sheets[0].cells,0,0),"Final"));
+    workbook_recovery_free(candidate); workbook_free(book); free(book);
+    CHECK(!rmdir(f->root)); workbook_free(&f->live); free(f->root); free(f->directory); free(f->name); free(f->checkpoint); free(f->journal);
+}
 int main(void) {
     char directory[]="build/tests/recovery-candidate-XXXXXX"; CHECK(mkdtemp(directory));
     const char *names[]={"normal","bad-tail","legacy","wrong-base","parallel","wrong-digest"};
@@ -179,5 +198,6 @@ int main(void) {
         if (!i) normal(&f); else if (i==1) bad_tail(&f); else if (i==2) unbound(&f); else if (i==3) wrong_baseline(&f); else if (i==4) parallel_live_edit(&f); else wrong_digest(&f);
         cleanup(&f);
     }
+    char *root=dx_printf("%s/retirement",directory); Fixture retired=fixture(root); free(root); retirement(&retired);
     CHECK(!rmdir(directory)); printf("PASS: %u isolated recovery candidate checks\n",checks); return 0;
 }

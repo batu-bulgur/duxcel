@@ -250,7 +250,15 @@ loader's maximum format ownership; ready state exposes actual format/row bytes,
 not total RSS. Poll transfers those owners to the App; replies/candidates may
 outlive the worker. Shutdown cancels/joins and releases only worker-owned data,
 without deleting recovery files. No App/live-model pointers cross this seam.
-Actual startup/manual UI adoption remains W10c2.
+Explicit candidate retirement is separate from free/cancellation. It requires
+full bound replay, unchanged known file identities and no additional directory
+entries. Deferred/unknown/unbound material is preserved. The lease stays held
+through fixed-file cleanup; partial filesystem cleanup failures never invalidate
+a completed named Save. A newly edited recovered branch seeds a copied parent
+and informational original locator before its first checkpoint, validating the
+document identity without changing its Save destination. Noncreating recovery
+location lookup allows startup scans without allocating a recovery directory.
+Actual startup/manual UI adoption remains W10c2b.
 
 Native `workbook_save_controlled` (`src/workbook/save.h`) borrows an immutable
 snapshot and a synchronous, bounded saving-thread callback. Progress counts

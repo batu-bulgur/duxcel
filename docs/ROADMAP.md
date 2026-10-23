@@ -153,6 +153,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10c · P0 · In progress | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W10c1 · P0 · Complete | Background recovery requests and owned page/candidate results; W10b. | Keep filesystem/engine work off App frames, cap row/result ownership, support page continuation and cooperative cancel/join without dropping leases or late results. |
 | W10c2 · P0 · In progress | Startup/manual recovery choice and guarded adoption; W10c1. | Restore the complete candidate or explicitly fork from checkpoint; deferred tails survive cancellation, new edits and Save As. Current dirty documents stay guarded; original locators are not automatic write targets. Narrow/scaled hidden App gate. |
+| W10c2a · P0 · Complete | Explicit recovery disposition and inherited branch; W10c1. | A checkpoint copy never retires its deferred tail; full recovery cleanup requires explicit Save/discard and unchanged known artifacts. New edits keep the recovered parent/original locator without an implicit Save target. |
+| W10c2b · P0 · In progress | Startup/manual choice, guarded App adoption and compact UI; W10c2a. | Connect the independent reader to startup and File actions, preserve dirty/current documents and late results, and validate narrow/scaled hidden input. |
 | W10c3 · P0 · Queued | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -387,6 +389,17 @@ late results, unpolled admission, shutdown join, lease transfer and replies
 outliving the worker. Original checkpoint/journal bytes remain unchanged; 56 tool
 contracts pass (9.362s). Barriers exist only in private worker objects and the
 module is excluded from Wasm. Actual startup/manual UI adoption is W10c2.
+
+W10c2a complete: recovered edits seed copied document/parent/original metadata
+without acquiring a Save destination. Wrong-document admission rejects before
+IO/model mutation. Explicit retirement preserves every deferred/unknown/unbound
+tail and refuses changed artifacts or additional files before deletion. Candidate
+free/cancel never retires files; cleanup failures remain separate from named Save.
+The `recovery-disposition` gate passes 172 session and 271 candidate assertions
+per optimized/ASan/UBSan variant plus 18 hidden App stages (6.379s GUI; 31.542s
+total). It covers copied lineage, replay/checkpoint disposition, extra files/WAL,
+lease-held idempotent cleanup and a transferred model surviving retirement.
+Startup/manual UI and crash/restart acceptance remain W10c2b/W10c3.
 
 ### Owned data, refresh and complete analytical results
 

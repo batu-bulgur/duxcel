@@ -5,13 +5,16 @@
 #include "../platform/directory.h"
 #include "../data/source_digest.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 struct WorkbookRecoveryCandidate {
     Workbook *book;
     WorkbookRecoveryInfo info;
     DxFileLease *lease;
     char *directory,*checkpoint,*journal,*original;
+    SourceFileIdentity artifacts[5]; bool present[5],retirement_valid,retired;
 };
+static const char *const artifact_names[]={"checkpoint.dxls","journal.duckdb","lease.lock","checkpoint.dxls.wal","journal.duckdb.wal"};
 typedef struct {
     WorkbookRecoveryControl control;
     WorkbookRecoveryCandidate *candidate;
@@ -56,6 +59,38 @@ void workbook_recovery_free(WorkbookRecoveryCandidate *c) {
     if (!c) return;
     if (c->book) { workbook_free(c->book); free(c->book); }
     dx_file_lease_release(c->lease); free(c->directory); free(c->checkpoint); free(c->journal); free(c->original); free(c);
+}
+static bool capture_artifacts(WorkbookRecoveryCandidate *c,bool verify) {
+    for (size_t i=0;i<5;i++) {
+        char *path=dx_printf("%s/%s",c->directory,artifact_names[i]); DxPathKind kind=dx_path_kind(path); bool present=kind!=DX_PATH_MISSING; SourceFileIdentity identity={0}; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+        bool valid=!present || (kind==DX_PATH_FILE && source_file_identity(path,&identity,detail)==SOURCE_DIGEST_OK && identity.links==1);
+        free(path);
+        if (!valid || (verify && (present!=c->present[i] || (present && !source_file_identity_same(&identity,c->artifacts+i))))) return false;
+        if (!verify) { c->present[i]=present; c->artifacts[i]=identity; }
+    }
+    return c->present[0] && c->present[1] && c->present[2] && !c->present[3];
+}
+bool workbook_recovery_retire(WorkbookRecoveryCandidate *c,char **error) {
+    if (c && c->retired) return true;
+    if (!c || !c->lease || !c->info.bound || c->info.tail_deferred || c->info.tail_unknown || !c->retirement_valid) return fail(error,"Deferred, unknown or unbound recovery material must be kept.");
+    if (!capture_artifacts(c,true)) return fail(error,"Recovery artifacts changed after preparation; they were kept.");
+    DxDirectory *directory=NULL;
+    if (dx_directory_open(c->directory,&directory,error)!=DX_DIRECTORY_OPEN) return false;
+    DxDirectoryEntry entry={0}; DxDirectoryNext next; bool known=true;
+    while ((next=dx_directory_next(directory,&entry,error))==DX_DIRECTORY_ENTRY) {
+        bool match=false; for (size_t i=0;i<5;i++) if (!strcmp(entry.name,artifact_names[i])) match=true;
+        if (!match) { known=false; break; }
+    }
+    dx_directory_close(directory);
+    if (!known || next==DX_DIRECTORY_FAILED) return fail(error,"Additional or unreadable recovery files were kept; no cleanup was performed.");
+    /* The lease remains held through fixed-file deletion, including its inode.
+       A second scanner cannot claim a live generation during retirement. */
+    for (size_t i=0;i<5;i++) if (c->present[i]) {
+        char *path=dx_printf("%s/%s",c->directory,artifact_names[i]); bool removed=remove(path)==0; free(path);
+        if (!removed) return fail(error,"Some recovery files could not be removed. The named Save result is unchanged.");
+    }
+    if (remove(c->directory)) return fail(error,"The empty recovery folder could not be removed. The named Save result is unchanged.");
+    c->retired=true; return true;
 }
 WorkbookRecoveryResult workbook_recovery_prepare(const char *root,const char *generation,WorkbookRecoveryMode mode,WorkbookRecoveryControl control,WorkbookRecoveryCandidate **out,char **error) {
     char *ignored_error=NULL; if (!error) error=&ignored_error;
@@ -124,6 +159,8 @@ WorkbookRecoveryResult workbook_recovery_prepare(const char *root,const char *ge
     } else c->info.tail_deferred=c->info.tail_unknown || c->info.head_revision>c->info.baseline_revision;
     free(c->book->path); c->book->path=NULL; c->book->dirty=true;
     c->info.directory=c->directory; c->info.original_path=c->original;
+    workbook_journal_close(journal); journal=NULL;
+    c->retirement_valid=c->info.bound && !c->info.tail_deferred && !c->info.tail_unknown && capture_artifacts(c,false);
     if (!progress(&r,RECOVERY_READY,1,1)) goto done;
     *out=c; c=NULL; result=RECOVERY_PREPARED;
 done:

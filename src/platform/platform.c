@@ -173,7 +173,7 @@ char *dx_private_directory(const char *parent) {
     return NULL;
 }
 #ifndef __APPLE__
-char *dx_recovery_directory(void) {
+char *dx_recovery_location(bool create) {
 #ifdef _WIN32
     const char *root=getenv("LOCALAPPDATA"); if (!root || !*root) return NULL;
     char *path=dx_printf("%s/Duxcel/Recovery",root);
@@ -181,9 +181,10 @@ char *dx_recovery_directory(void) {
     const char *root=getenv("XDG_DATA_HOME"),*user_root=getenv("HOME");
     char *path=root && *root=='/' ? dx_printf("%s/Duxcel/Recovery",root) : user_root && *user_root=='/' ? dx_printf("%s/.local/share/Duxcel/Recovery",user_root) : NULL;
 #endif
-    if (path && !dx_make_directories(path)) { free(path); return NULL; }
+    if (path && create && !dx_make_directories(path)) { free(path); return NULL; }
     return path;
 }
+char *dx_recovery_directory(void) { return dx_recovery_location(true); }
 #endif
 char *dx_temp_directory(void) {
 #ifdef _WIN32

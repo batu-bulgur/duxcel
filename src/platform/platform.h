@@ -42,6 +42,7 @@ char *dx_export_parquet_panel(const char *suggested_path);
 char *dx_temp_sibling(const char *path);
 /* Durable per-user recovery root; native adapter creates it privately. */
 char *dx_recovery_directory(void);
+char *dx_recovery_location(bool create); /* Owned location; false never creates directories. */
 bool dx_make_directories(const char *path);
 char *dx_private_directory(const char *parent); /* Owned private child of an existing parent. */
 char *dx_temp_directory(void); /* new private writable absolute directory; caller owns */

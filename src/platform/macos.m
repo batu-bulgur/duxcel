@@ -655,12 +655,14 @@ char *dx_export_parquet_panel(const char *suggested) {
     }
 }
 
-char *dx_recovery_directory(void) {
+char *dx_recovery_location(bool create) {
     @autoreleasepool {
-        NSURL *support=[[NSFileManager defaultManager] URLForDirectory:NSApplicationSupportDirectory inDomain:NSUserDomainMask appropriateForURL:nil create:YES error:nil];
+        NSURL *support=[[[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask] firstObject];
         if (!support) return NULL;
         NSURL *folder=[support URLByAppendingPathComponent:@"Duxcel/Recovery" isDirectory:YES];
-        if (![[NSFileManager defaultManager] createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil]) return NULL;
+        if (create && ![[NSFileManager defaultManager] createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil]) return NULL;
         return dx_strdup(folder.fileSystemRepresentation);
     }
 }
+
+char *dx_recovery_directory(void) { return dx_recovery_location(true); }
