@@ -23,6 +23,10 @@
 
 ## Verification
 
+- Default to a registered `make test-feature FEATURE=<id>` plan in `tools/test_catalog.py`: selected module tests plus the smallest real GUI slice. Inspect `--plan`; update ownership and deferred interaction coverage with each feature. Do not run all fast modules, full-App sanitizer, browser suites or platform lifecycle/Open gates after every feature revision. Run named interactions only when their boundary changes; full regression belongs at explicit major milestones/releases. Keep those tests implemented and sanitizer coverage available.
+- Extract cohesive C controllers with borrowed typed context and explicit outcomes as features change; keep App adapters responsible for result readiness, jobs, focus and history. Avoid a speculative whole-App rewrite. New standalone feature tests must depend on their actual modules/headers rather than a global header inventory.
+- Automated real-App launches must use the runtime TEST icon/Dock identity (automatic smoke/frames role or `DUXCEL_TEST_INSTANCE=1`), remain hidden and preserve the user's running instance. Compiled About provenance must not require Git at runtime or force every translation unit to rebuild.
+
 - Use focused C tests during edits, then the relevant real native/browser workflow. Retain sanitizer coverage, meaningful assertions, completion checks and animation waits. Full regression belongs at integration boundaries, not after each cosmetic edit.
 - Native desktop/file-panel/clipboard/preferences/signing tests have one owner across worktrees and use the runner's desktop lock. Keep automated windows hidden. Do not interact with or terminate the user's app. Never overwrite a binary being tested.
 - Generated databases are private to each worktree; preserve core-before-workbook fixture ordering. Never share writable fixtures across worktrees.

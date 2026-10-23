@@ -4,6 +4,11 @@ The native C99 application and explicit written requirements define the product.
 
 All project documentation, source code, code comments and developer-facing text must be in English, regardless of the language used in conversation.
 
+Daily development uses a registered feature gate: `make test-feature FEATURE=<id>`.
+Inspect local/deferred coverage with `python3 tools/test.py feature --feature <id> --plan`.
+Broad regression and browser/platform gates are explicit milestone work; see
+[TESTING.md](TESTING.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Scope of design documents
 
 `docs/design/` means detailed software and product design, including data models, persistence, identity, algorithms, interaction and visual contracts. It is not restricted to UI appearance. `DESIGN.md` and `INTERACTIONS.md` own the visual/interaction subset; `WORKBOOK_MODEL_TRD.md`, `BROWSER_PERSISTENCE.md` and `SOURCE_FORMAT_IDENTITY.md` own detailed technical designs. `ARCHITECTURE.md` remains the system-wide ownership and implementation overview, `REQUIREMENTS.md` the concise human decision record, and `ROADMAP.md` the scheduled/dependency work. A document's folder does not indicate whether its proposals are implemented or accepted.

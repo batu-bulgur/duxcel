@@ -31,6 +31,25 @@ The macOS adapter owns an explicit application menu rather than depending on GLF
 
 The shared workbook metadata reader is staged infrastructure, not completed browser Open/Save. Complete candidate validation, migration, activation, writer/output adapters and recovery remain roadmap work.
 
+## Feature seams and build identity
+
+`src/app/selection.c` owns selection expansion from borrowed sparse cells and
+resolved body/header/owner/primary/used bounds. Its typed outcome reports whether
+the selection stays inside or selects the whole owner. The App adapter verifies
+page/result/source revisions and applies UI focus changes; the controller owns
+no worker, workbook, history, page allocation or renderer. Pure module checks
+and the real App GUI slice exercise the same controller. Extend this pattern
+when a feature changes rather than pre-emptively rewriting all App state.
+
+`src/app/build_info.c` owns immutable compiled provenance with a source-archive
+fallback. The build generates metadata into one object only; browser cache input
+signatures include the generated metadata while other object flags stay stable.
+`src/platform/macos_about.m` owns the scrollable native About panel and runtime
+TEST icon/Dock badge, preserving raylib's OpenGL context and restoring session
+resources. No Git call, test capture bridge or external service runs in product
+frames. `tools/test_catalog.py` owns local test plans and deferred interactions;
+[TESTING.md](TESTING.md) owns execution policy and acceptance limits.
+
 ## Review isolation
 
 Normal binaries omit review modules, command strings and browser bridges at compile/link/package time. Review binaries enumerate bounded stable widget IDs during an armed capture, retain an owned same-frame image/state and publish immutable reports. External Python tools validate/store/queue them and optionally dispatch an agent; product frames do not poll a service or require Python/Node. Browser review uses the same C registry with development-only capture/upload/IndexedDB transport.

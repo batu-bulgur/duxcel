@@ -30,6 +30,37 @@ W02 adds explicit Replace/Cancel after a manual drag or destination-address move
 
 W03 implements deterministic manual containing regions for Select All. Four-neighbor components use the original finite selection as the seed; diagonal islands and format-only coordinates do not connect. Blank interiors use area/coordinate tie rules. Strict supersets retain active cell/direction and viewport, while current Table/Pivot/source bounds keep their existing priority. Pure C component/ladder tests pass 133/170 checks per optimized/sanitizer build. Hidden native W03 passes 14 stages (7.43s optimized/7.34s sanitizer), including reversed three-row selection, 100%/narrow 150%, offscreen data/format-only exclusion, no data/history/query changes and reopen. The existing analytical selection ladder passes 27 optimized stages; the shared-C/official-Worker browser selection profile passes 705 checks (77.70s) with actual Ctrl/Cmd+A and prior range-move/analytical-owner coverage. The rebuilt bundle passes strict signature verification and cold/warm LaunchServices Open with the native-alert guard. Physical/human W03 acceptance is pending. Cmd+Arrow data boundaries remain separate C01 work; no inferred Table, typed cell or formula engine is introduced.
 
+## Feature iteration and build identity
+
+The default CLI development tier now requires a registered feature and never
+silently runs every fast module. `make test-feature FEATURE=<id>` selects local
+C logic and a narrow GUI workflow; plans retain explicit deferred interaction
+commands and the native full milestone gate. Current registrations cover manual
+containing regions, selection ladder, range move/replacement, About and test
+infrastructure. Legacy tests remain available; this is not a completed extraction
+of all native scenarios or all App controllers.
+
+Selection expansion now has a borrowed-context C controller, with App retaining
+result readiness/jobs/focus ownership. About metadata has its own C translation
+unit and source-archive fallback; the macOS adapter owns history scrolling and
+runtime TEST icon/Dock identity. About includes compiled commit subject/hash,
+author/date, build time, dirty status and a source fingerprint that distinguishes
+uncommitted code revisions. Git is not needed at runtime. The native standalone
+check exercises hidden real AppKit widgets; lifecycle menu/Open/Quit interaction
+coverage is extended and deliberately deferred to its explicit gate.
+
+Focused verification: 42 runner/catalog/browser-build contract tests and six
+metadata-generator tests pass. Selection cells/ladder/controller checks pass
+353 assertions per optimized/sanitizer build, followed by 14 real native GUI
+stages. The warm feature command completes in 9.86s on this Mac, including build
+checks; App GUI time is 7.58s. The About gate passes its direct-C archive builds
+and 36 hidden real AppKit checks in 5.11s including incremental compilation.
+Its offscreen panel/icon captures were inspected. The bundle builds and the
+extended lifecycle helper compiles; full lifecycle/Open/browser suites were
+intentionally not run for this change. Receipts remain under ignored
+`build/tests/results/runs/`. These timings describe the narrower gates, not an
+equivalent full-suite benchmark or human acceptance.
+
 ## Current repository and tooling
 
 

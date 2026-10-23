@@ -51,6 +51,8 @@ char *dx_take_open_path(void); /* caller owns; NULL when no document is queued *
 float dx_native_titlebar_inset(void);
 void dx_native_titlebar_height(float height);
 void dx_native_shutdown(void); /* detach input/menu hooks before destroying the window */
+/* Runtime-only badge; canonical icon assets remain unchanged. */
+void dx_native_test_identity(bool automated);
 bool dx_native_set_icon(const unsigned char *icns,size_t length);
 void dx_native_context(bool modal,bool text_input,bool pivot,bool key_tips);
 bool dx_native_quit_requested(void);

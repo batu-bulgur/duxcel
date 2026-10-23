@@ -6,6 +6,23 @@ an audit, a document edit, a test run or every individual implementation step.
 Codex commits use command-scoped author and committer environment variables:
 `Codex <codex@openai.com>`. Never change global Git identity.
 
+## Daily verification contract
+
+Start with `make test-feature FEATURE=<id>`; inspect its plan with
+`python3 tools/test.py feature --feature <id> --plan`. Maintain the explicit
+ownership/local/interaction map in `tools/test_catalog.py` with the slice. The
+normal edit loop runs selected logic and one focused GUI workflow. Broader
+cross-feature tests remain implemented but run only for a changed shared
+boundary or an explicit milestone. `make test-milestone` retains native full
+regression; browser and platform lifecycle/Open gates remain explicit. Do not
+repeat all broad gates for each review revision. See [TESTING.md](TESTING.md).
+
+Extract cohesive controllers incrementally: borrowed typed snapshots in,
+explicit outcomes out; App owns readiness, jobs, focus and history. Keep product
+logic in C99 and native-only AppKit ownership in the adapter. A standalone test
+must link actual product modules and declare its acceptance limit. TEST-badged
+launches and compiled About metadata distinguish QA from the user's instance.
+
 ## What a worktree adds
 
 A branch is a named pointer to a commit. A worktree is another directory with

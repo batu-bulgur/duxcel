@@ -8,6 +8,9 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | --- | --- | --- |
 | `test_*.c`, `test_*.inc`, `test_*.m` | Native suites and their implementation fragments | Tracked source |
 | `test_fixture.c` | Native load/PIVOT/typed data/save/reload acceptance of canonical/large inputs | Tracked C test |
+| `test_selection.c` | Controller rules over borrowed cells/resolved analytical bounds, with model/viewport retention | Tracked C test; optimized/sanitizer targets |
+| `test_build_info.c` | Direct C/source-archive metadata fallback without Git or generated headers | Tracked C test; optimized/sanitizer targets |
+| `test_about_native.m` | Standalone real AppKit history scrolling, TEST icon/Dock identity and repeated cleanup; consumes canonical `assets/icons/duxcel.icns` | Tracked macOS adapter test; hidden ASan/UBSan GUI |
 | `test_cell_regions.c` | Pure shared-C sparse region shapes, blank ties, read ownership, edges and 20,000-cell traversal limit | Tracked C test; optimized/sanitizer targets |
 | `fixtures/workbook/transactions.sql` | Finite v12 four-sheet workbook input for the Python generator | Tracked SQL test input |
 | `fixtures/*.csv` | Seven tiny input datasets: NULL/text/quoting/sort/chart cases | Tracked authored inputs |

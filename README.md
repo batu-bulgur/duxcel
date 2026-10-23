@@ -10,7 +10,7 @@ make bundle
 open build/Duxcel.app
 ```
 
-The Mac build uses Apple Clang, raylib, DuckDB and pkg-config. The bundle currently links Homebrew libraries; standalone distribution remains unfinished. `make` builds the native app; browser builds, tests and review services are explicit separate targets. No server starts automatically.
+The Mac build uses Apple Clang, raylib, DuckDB, pkg-config and Python 3 (build metadata). Git is optional for compilation; source archives show unavailable revision/history in About. The bundle currently links Homebrew libraries; standalone distribution remains unfinished. `make` builds the native app; browser builds, tests and review services are explicit separate targets. No server starts automatically.
 
 The former JavaScript mock is retired. The current native UI and [written requirements](docs/REQUIREMENTS.md) define the baseline. The optional browser product compiles this same C UI into Wasm; `web/` contains its platform/Worker glue and tests, not another spreadsheet interface.
 

@@ -17,6 +17,14 @@ TARGETS = ('web-sources', 'web-review-sources', 'web-worker-sources',
 
 
 class WebBuildMetadataTests(unittest.TestCase):
+    def test_product_metadata_is_confined_to_its_translation_unit(self):
+        flags=['-O2','-DDUXCEL_BROWSER_HOST']
+        for source in ('src/app/app.c','src/grid/grid.c','src/app/selection.c'):
+            self.assertEqual(build_web.source_compile_flags(flags,source,Path('info.h')),flags)
+        self.assertEqual(build_web.source_compile_flags(flags,'src/app/build_info.c',Path('info.h')),
+                         flags+['-include','info.h'])
+        self.assertEqual(flags,['-O2','-DDUXCEL_BROWSER_HOST'])
+
     def test_all_source_inventories_reference_existing_c_files(self):
         for target in TARGETS[:-1]:
             with self.subTest(target=target):

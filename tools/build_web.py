@@ -8,7 +8,12 @@ import web_raylib_adapter as adapter
 from web_object_cache import ObjectCacheError,ensure_object
 from workspace import FileLock,source_metadata
 from browser_test_assets import flat_test_module
+from build_info import generate as generate_build_info
 ROOT=Path(__file__).resolve().parents[1]
+
+def source_compile_flags(flags,source,product_header):
+    # Preserve the common cache configuration when only the revision changes.
+    return flags+(['-include',str(product_header)] if source=='src/app/build_info.c' else [])
 
 def make_metadata(target):
     """Read Make's data channel without treating scheduler diagnostics as data.
@@ -55,6 +60,8 @@ def main():
     mode='codec-read' if options.codec_read_driver else 'worker' if options.worker_driver else 'review' if options.review else 'app'
     folder=ROOT/('build/web/codec-read-test' if options.codec_read_driver else 'build/web/worker-test' if options.worker_driver else 'build/web/review' if options.review else 'build/web/app'); folder.mkdir(parents=True,exist_ok=True)
     with FileLock(folder/'.build.lock','shared web App build'):
+        product_header=folder/"product_build_info.h"
+        generate_build_info(ROOT,product_header)
         review_header=None
         if options.review:
             flags+=['-DDUXCEL_DEV_REVIEW','-include','src/dev/review_input.h','-Ibuild/web/review-info']
@@ -70,6 +77,8 @@ def main():
         # Only DuckDB's type declarations are read from its existing native header;
         # no native engine, thread, Objective-C or web runtime is linked into C UI.
         inputs={str(p.relative_to(ROOT)):tools.sha256(p) for p in [*(ROOT/p for p in sources),*headers,*host,*assets,ROOT/'Makefile',Path(__file__),ROOT/'tools/web_object_cache.py',ROOT/'tools/browser_test_assets.py']}
+        inputs[str(product_header.relative_to(ROOT))]=tools.sha256(product_header)
+        inputs['tools/build_info.py']=tools.sha256(ROOT/'tools/build_info.py')
         if options.review:
             inputs[str(review_header.relative_to(ROOT))]=tools.sha256(review_header)
             inputs['tools/review_build_info.py']=tools.sha256(ROOT/'tools/review_build_info.py')
@@ -105,7 +114,8 @@ def main():
             for source in sources:
                 obj=(cache/source).with_suffix('.o');objects.append(obj)
                 try:
-                    changed=ensure_object(compiler=compiler,flags=flags,source=source,target=obj,cwd=ROOT,env=env,log=output,
+                    object_flags=source_compile_flags(flags,source,product_header)
+                    changed=ensure_object(compiler=compiler,flags=object_flags,source=source,target=obj,cwd=ROOT,env=env,log=output,
                                           configuration=object_key,validate_source=validate_inputs)
                 except ObjectCacheError as error:
                     raise ValueError(str(error)+'; see '+str(log)) from error

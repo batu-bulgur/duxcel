@@ -2,6 +2,29 @@
 
 Continue product correctness, persistence internals and focused tests together. The native UI is the baseline; the former mock is retired. Native trackpad jitter/snap-back is implemented and user-confirmed on the current Mac. Reopen it only for a new reproduction. Browser workbook Open/Save and complete native/browser input coverage remain incomplete.
 
+## Feature iteration gate
+
+- [x] T01 · P0: Introduce explicit local/deferred/milestone feature plans. The
+  default development gate selects owned logic and a narrow real GUI slice;
+  full/background/browser/platform regression is explicit. Preserve source and
+  binary receipts, sanitizer modules, terminal assertions, waits and desktop locks.
+- [x] T02 · P0: Establish a real controller seam in selection expansion using
+  borrowed resolved context and explicit outcomes. Standalone C checks require
+  no App/worker/engine. Keep the existing analytical/source/statistics/clipboard
+  interaction tests registered without running them after every local revision.
+- [x] T03 · P0: Distinguish automated real-App instances with a runtime TEST
+  icon/Dock badge. Add compiled About revision/author/date/dirty/source identity
+  and scrollable recent history, with a Git-free source-archive fallback and
+  metadata confined to one translation unit.
+- [ ] Register each upcoming W05+ slice before implementation; extend its local
+  feature test and add deferred cross-feature coverage alongside it. Extract
+  the affected controller incrementally. Existing legacy scenario extraction,
+  per-module object caching and browser-driver splitting remain the tooling
+  tasks below, not prerequisites for every feature.
+
+T01–T03 are infrastructure, not a change in W02/W03 hands-on acceptance or the
+numbered workbook dependencies. The next numbered workbook slice remains W05.
+
 ## Repository and C tooling
 
 - [x] Remove executable mock, obsolete visual studies, duplicate document entry points and tracked historical screenshots/log payloads. Keep current requirements, real regression inputs, runtime assets/licenses and Git history.

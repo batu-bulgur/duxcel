@@ -23,7 +23,7 @@ def main():
     alert_guard = ROOT / 'build/tests/native-alert-guard.dylib'
     summary = {'status': 'failed', 'source': source_metadata(ROOT), 'results': []}
     started = time.monotonic()
-    env = {**os.environ, 'DUXCEL_TEST_VISIBLE': '0'}
+    env = {**os.environ, 'DUXCEL_TEST_VISIBLE': '0', 'DUXCEL_TEST_INSTANCE': '1'}
     for key in ('DUXCEL_LAYOUT_FROM', 'DUXCEL_LAYOUT_TO'):
         env.pop(key, None)
     lsregister = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
@@ -68,13 +68,13 @@ def main():
                 run([str(executable), str(workbook), '--frames', '120', '--screenshot', str(reference)], 'direct-path', extra_env=guard_env)
                 cold, cold_out, cold_err = (output / name for name in ('cold.png', 'cold-out.txt', 'cold-err.txt'))
                 run(['open', '-W', '-n', '-g', '-j', '-a', str(bundle), '--stdout', str(cold_out), '--stderr', str(cold_err),
-                     '--env', 'DUXCEL_TEST_VISIBLE=0', '--env', 'DYLD_INSERT_LIBRARIES=' + str(alert_guard),
+                     '--env', 'DUXCEL_TEST_VISIBLE=0', '--env', 'DUXCEL_TEST_INSTANCE=1', '--env', 'DYLD_INSERT_LIBRARIES=' + str(alert_guard),
                      str(workbook), '--args', '--frames', '120', '--screenshot', str(cold)], 'cold-launch')
                 warm = output / 'warm.png'
                 with (output / 'warm-launcher.txt').open('w') as stream:
                     process = subprocess.Popen(['open', '-W', '-n', '-g', '-j', '-a', str(bundle),
                         '--stdout', str(output / 'warm.txt'), '--stderr', str(output / 'warm-err.txt'),
-                        '--env', 'DUXCEL_TEST_VISIBLE=0', '--env', 'DYLD_INSERT_LIBRARIES=' + str(alert_guard),
+                        '--env', 'DUXCEL_TEST_VISIBLE=0', '--env', 'DUXCEL_TEST_INSTANCE=1', '--env', 'DYLD_INSERT_LIBRARIES=' + str(alert_guard),
                         '--args', '--frames', '300', '--screenshot', str(warm)],
                         cwd='/', env=env, stdout=stream, stderr=stream)
                     try:

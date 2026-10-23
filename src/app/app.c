@@ -1,3 +1,4 @@
+#include "selection.h"
 #include "app.h"
 #include "../data/worker.h"
 #include "../grid/grid.h"
@@ -6641,7 +6642,7 @@ static void paste_selection(App *a) {
 static void select_region(App *a) {
     Worksheet *sheet=active_sheet(a); Grid *g=&a->grid;
     if (!sheet) return;
-    GridRegion candidates[5]; size_t count=0;
+    SelectionContext context={.cells=&sheet->cells};
     ObjectStore *store=&sheet->objects; int hit=objects_hit(store,g->row,g->col);
     bool primary_ready=!a->page_stale && !a->fetch_failed && !a->page.count_pending;
     if (hit>=0) {
@@ -6651,35 +6652,25 @@ static void select_region(App *a) {
             !page->count_pending && v->id==o->id && v->revision==o->revision &&
             v->source_revision==object_source_revision(a,o) && page->column_count && page->total &&
             o->rows>2 && page->total<=o->rows-2 && page->column_count<=o->columns;
+        context.owner=(GridRegion){o->row,o->row+o->rows-1,o->col,o->col+o->columns-1,true};
         if (ready) {
-            candidates[count++]=(GridRegion){o->row+2,o->row+1+page->total,o->col,o->col+page->column_count-1,true};
-            candidates[count++]=(GridRegion){o->row+1,o->row+1+page->total,o->col,o->col+page->column_count-1,true};
+            context.body=(GridRegion){o->row+2,o->row+1+page->total,o->col,o->col+page->column_count-1,true};
+            context.headers=(GridRegion){o->row+1,o->row+1+page->total,o->col,o->col+page->column_count-1,true};
         }
-        candidates[count++]=(GridRegion){o->row,o->row+o->rows-1,o->col,o->col+o->columns-1,true};
-    } else if (primary_ready && a->page.total && a->page.column_count &&
-        g->row<a->page.total && g->col<a->page.column_count) {
-        /* Primary headers are chrome, not worksheet cells. */
-        candidates[count++]=(GridRegion){0,a->page.total-1,0,a->page.column_count-1,true};
-    } else if (g->selection==SELECT_CELLS) {
-        SheetRange region; grid_bounds(g,&region.r0,&region.r1,&region.c0,&region.c1);
-        if (cells_containing_region(&sheet->cells,&region.r0,&region.r1,&region.c0,&region.c1))
-            candidates[count++]=(GridRegion){region.r0,region.r1,region.c0,region.c1,true};
     }
-    /* A provisional primary count cannot define the complete used rectangle.
-       Never issue a COUNT (or scan a dense canvas) for a selection command. */
+    if (primary_ready && a->page.total && a->page.column_count)
+        context.primary=(GridRegion){0,a->page.total-1,0,a->page.column_count-1,true};
+    /* The adapter resolves current owner/source bounds. The controller never
+       queries a provisional count, mutates a workbook or changes UI focus. */
     if (primary_ready || a->analysis.kind==SOURCE_NONE) {
         SheetRange used=objects_region(store,&sheet->cells,a->page.total,a->page.column_count,g->row,g->col,true);
-        candidates[count++]=(GridRegion){used.r0,used.r1,used.c0,used.c1,true};
+        context.used=(GridRegion){used.r0,used.r1,used.c0,used.c1,true};
     }
-    grid_select_next_region(g,candidates,count);
+    SelectionOutcome outcome=selection_expand(g,&context);
     if (hit>=0) {
-        const SheetObject *o=&store->items[hit]; uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
-        bool within=g->selection==SELECT_CELLS && r0>=o->row && r1<o->row+o->rows && c0>=o->col && c1<o->col+o->columns;
-        if (within && o->kind==OBJECT_PIVOT)
-            a->matrix_cells_active=!(r0==o->row && r1==o->row+o->rows-1 && c0==o->col && c1==o->col+o->columns-1);
-        if (!within) {
-            /* Browse restores a source bookmark. Keep these newly chosen bounds
-               instead when the selection grows beyond an analytical object. */
+        if (outcome.within_owner && store->items[hit].kind==OBJECT_PIVOT)
+            a->matrix_cells_active=!outcome.whole_owner;
+        if (!outcome.within_owner) {
             a->selected_object=-1; a->matrix_cells_active=false; a->pivot_reveal_object=false;
             a->pivot_focus=a->chrome_focus=0; a->pivot_search_focus=a->ribbon_focus=false;
         }
@@ -14922,7 +14913,8 @@ AppSession *app_start(const AppOptions *options) {
     options=&session->options;
     App *a=&session->app; a->gridlines=true; a->ribbon_command=a->selected_object=a->filter_object=a->sort_object=a->pivot_drag_field=a->pivot_drag_role=-1;
     workbook_init(&a->book); a->known_total=-1; a->launched_ms=dx_millis(); a->sidebar_width=228; a->pipeline_width=280; a->sidebar=a->fields_visible=true; a->field_highlight=-1;
-    bool automated=
+    const char *test_role=getenv("DUXCEL_TEST_INSTANCE");
+    bool automated=(test_role && !strcmp(test_role,"1")) ||
 #ifdef DUXCEL_DEV_REVIEW
         options->review_smoke ||
 #endif
@@ -14940,6 +14932,7 @@ AppSession *app_start(const AppOptions *options) {
     printf("Native test window: %s\n",background_test ? "hidden, unfocused" : "visible");
     dx_native_setup(GetWindowHandle()); SetWindowMinSize(640,640); SetExitKey(KEY_NULL);
     if (!brand_install_icon()) TraceLog(LOG_WARNING,"Cannot install the application icon");
+    dx_native_test_identity(automated);
     if (!brand_init()) TraceLog(LOG_WARNING,"Cannot create the application identity display cache");
     int refresh=GetMonitorRefreshRate(GetCurrentMonitor());
     /* Keep a bounded fallback when the driver ignores vsync. A one-frame-per-

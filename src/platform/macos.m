@@ -1,3 +1,4 @@
+#include "macos_about.h"
 #import <AppKit/AppKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
@@ -296,11 +297,7 @@ void dx_native_context(bool modal,bool editing,bool pivot,bool tips) { app_modal
 }
 - (void)about:(id)sender {
     (void)sender; if (native_panel_active) return;
-    NSOpenGLContext *context=[NSOpenGLContext currentContext];
-    NSString *version=[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    if (!version) version=@"Development";
-    [NSApp orderFrontStandardAboutPanelWithOptions:@{NSAboutPanelOptionApplicationName:@"Duxcel",NSAboutPanelOptionApplicationVersion:version,NSAboutPanelOptionApplicationIcon:NSApp.applicationIconImage}];
-    [context makeCurrentContext];
+    dx_native_about_show();
 }
 @end
 static DuxcelMenuActions *actions;
@@ -357,6 +354,8 @@ void dx_native_setup(void *window) {
     NSOpenGLContext *context=[NSOpenGLContext currentContext];
     (void)window;
     trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
+    const char *test_role=getenv("DUXCEL_TEST_INSTANCE");
+    if (test_role && !strcmp(test_role,"1")) dx_native_test_identity(true);
     NSView *canvas=context.view;
     canvas_window=canvas.window; canvas_view=canvas;
     native_titlebar_height=0;
@@ -510,6 +509,7 @@ void dx_native_setup(void *window) {
 }
 void dx_native_shutdown(void) {
     @autoreleasepool {
+        dx_native_about_shutdown();
         if (launch_observer) [[NSNotificationCenter defaultCenter] removeObserver:launch_observer];
         launch_observer=nil;
         char *path; while ((path=dx_take_open_path())) free(path);

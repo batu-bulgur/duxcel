@@ -159,6 +159,7 @@ char *dx_take_open_path(void) { return NULL; }
 float dx_native_titlebar_inset(void) { return 0; }
 void dx_native_titlebar_height(float height) { (void)height; }
 void dx_native_shutdown(void) {}
+void dx_native_test_identity(bool automated) { (void)automated; }
 bool dx_native_set_icon(const unsigned char *icns,size_t length) { (void)icns; (void)length; return false; }
 void dx_native_context(bool modal,bool text_input,bool pivot,bool key_tips) { (void)modal; (void)text_input; (void)pivot; (void)key_tips; }
 #ifdef DUXCEL_BROWSER_HOST

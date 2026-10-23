@@ -2,12 +2,60 @@
 
 Product/engine/grid/codec assertions are primarily C; macOS integration uses Objective-C. Python owns process/fixture/desktop orchestration and browser lifecycle, while Node exercises the real Wasm/browser adapters. No test requires the retired mock.
 
-## Focused development
+## Feature development (default)
+
+```sh
+make test-feature FEATURE=containing-regions
+make test-feature FEATURE=about
+python3 tools/test.py feature --feature containing-regions --plan
+make test-feature FEATURE=test-infrastructure
+```
+
+A feature plan in `tools/test_catalog.py` lists its owned boundary, selected C
+modules, one focused GUI workflow, deferred cross-feature commands and the
+milestone gate. `--plan` never builds or launches anything. The default CLI tier
+is `feature` and requires a registered feature; it never silently selects every
+module. Add/update the plan when implementing a slice. There is no automatic
+claim that changed filenames reveal every dependency.
+
+Local selection checks run only cells/ladder/controller logic in optimized and
+ASan/UBSan configurations, then one real release-App GUI slice. They retain
+terminal-stage checks, source/binary fingerprints, animation waits and the
+shared hidden-desktop lock. They omit the broad background-window check and
+unrelated modules/browser scenarios. Local About checks compile/link only the
+metadata and AppKit adapter plus their test, exercise real scrolling and TEST
+identity restoration, and compile the direct-C source-archive fallback. They do
+not load the App, DuckDB or the canonical workbook.
+
+`--config` controls the selected headless modules. Feature App GUI stays release;
+standalone About GUI stays ASan/UBSan. Use explicit integration commands below
+when full-App sanitizer or platform boundaries are affected. The receipt records
+these configurations and the deferred commands. A focused pass is acceptance of
+that boundary, not whole-product/native-browser parity.
+
+## Interaction checks and milestones (explicit)
+
+A feature's `deferred_interactions` are implemented tests, kept available without
+running them after every revision. Run a named interaction when its shared
+boundary changes or a reproduction needs it. Run the broad gate at a major
+milestone/release; it retains mutable engine ordering and existing coverage.
+
+```sh
+make test-affected FEATURE=selection-ladder TEST_ARGS='--modules selection_ladder selection --config sanitize'
+make test-native SCENARIO='statistics clipboard'
+make test-milestone
+# Separate explicit browser/platform milestone gates, as applicable:
+python3 tools/test_web_app.py --review --selection-only --source tests/fixtures/null-text.csv
+python3 tools/test_app_lifecycle.py
+python3 tools/test_open_documents.py
+```
+
+The native `full` gate also includes standalone About checks. It does not imply
+that the separate browser/platform matrix passed. Do not schedule those gates
+implicitly from a feature run. Existing low-level helpers remain available:
 
 ```sh
 make test-fast TEST_ARGS='--modules grid motion cellreadout --jobs 2'
-make test-affected FEATURE=active-cell TEST_ARGS='--modules grid motion cellreadout'
-make test-native SCENARIO=base
 make test-fixture
 make test-records
 make test-formats
@@ -25,7 +73,7 @@ The W04 document workflow additionally captures `build/tests/results/current-wor
 
 W02 has a focused `range-replace` layout profile: `python3 tools/test.py affected --feature range-replace --config release --modules grid --jobs 2` and the corresponding `--config sanitize` command. Its 15 stages bootstrap an independent manual sheet and use real UI gestures/clicks for cancellation and replacement, compare exact values/styles/history, refuse stale approval, and Save/Open the result. `build/tests/generated/move-replace-demo.dxls` is the clean product Save used to prove cancellation leaves dirty state unchanged; `layout-replace-range.dxls` is the final round-trip output. They are generated test/demo outputs, not authored fixture inputs. Screenshots are `build/tests/results/workspace-layout/replace-range-100.png` and `replace-range-150.png`. `tests/test_workbook_model.c` owns the shared pure model checks for replacement holes, overlap, boundary, format/history and protected-area behavior. The browser controls profile above additionally exercises button/Enter-driven Move, default Cancel and one-action replacement/Undo/Redo through trusted input; exact small values are read back through the real cell editor. A broader physical-input matrix remains separate.
 
-W03's focused gates are `python3 tools/test.py fast --modules cell_regions selection_ladder --config both --jobs 2` and `python3 tools/test.py affected --feature containing-regions --config release --modules cell_regions selection_ladder --jobs 2` with the corresponding sanitizer run. `test_cell_regions.c` owns finite shape/blank/tie/bridge/edge cases and the maximum 20,000-cell read-only stress input; it links only shared C cells/common code. The 14-stage real App workflow uses queued Command-A, checks data/format/history/request/Worker retention, captures `region-selection-100.png` / `region-selection-150.png` under `build/tests/results/workspace-layout/`, and reopens its clean product Save `build/tests/generated/region-selection-demo.dxls`. It is a test/demo output, not an authored generator input. The existing `selection-ladder` profile retains analytical/source transient-state coverage. The browser gate is `python3 tools/test_web_app.py --review --selection-only --source tests/fixtures/null-text.csv`; it seeds a separate manual sheet through real entry and checks eight new shape/finite-selection steps through trusted Ctrl/Cmd+A. Selection statistics are explicitly disabled through actual controls before zero-query assertions. Native and browser desktop runs remain serial; physical input acceptance remains separate.
+W03's default local gate is `make test-feature FEATURE=containing-regions`. Its explicit full-App sanitizer interaction gate is `python3 tools/test.py affected --feature containing-regions --config sanitize --modules cell_regions selection_ladder selection --jobs 2`. `test_cell_regions.c` owns finite shape/blank/tie/bridge/edge cases and the maximum 20,000-cell read-only stress input; it links only shared C cells/common code. The 14-stage real App workflow uses queued Command-A, checks data/format/history/request/Worker retention, captures `region-selection-100.png` / `region-selection-150.png` under `build/tests/results/workspace-layout/`, and reopens its clean product Save `build/tests/generated/region-selection-demo.dxls`. It is a test/demo output, not an authored generator input. The existing `selection-ladder` profile retains analytical/source transient-state coverage. The browser gate is `python3 tools/test_web_app.py --review --selection-only --source tests/fixtures/null-text.csv`; it seeds a separate manual sheet through real entry and checks eight new shape/finite-selection steps through trusted Ctrl/Cmd+A. Selection statistics are explicitly disabled through actual controls before zero-query assertions. Native and browser desktop runs remain serial; physical input acceptance remains separate.
 
 ## Engine and integration ordering
 
@@ -96,3 +144,21 @@ The runner records source/binary hashes, commands, expected completion, exit sta
 `make clean` removes all of `build/`. `make distclean` also removes `.cache/` and `web/node_modules`. Both preserve `data/downloads/`, authored fixtures, assets/licenses, user workbooks and the external review outbox. Operation locks live in `build/locks/` and are removed too. A checkout-specific OS-temp shared/exclusive gate remains stable while cleanup deletes build output, preventing a new runner from locking a replacement inode. Legacy `.state/` is retired after refusing any active legacy owner. Legacy data/cache is migrated before cleanup; conflicting copies cause refusal rather than overwrite. A moved SDK may require offline bootstrap to refresh its absolute configuration.
 
 Use `python3 -m unittest discover -s tools/tests -t .` for automation contracts, `make test-build` for the real miniature Make graph, and `npm test --prefix web` for browser adapter/contracts. Native suite sources remain under `tests/`; product-linked helpers under `tests/support/`; browser test-only hosts/probes and drivers under `web/tests/`. No test source is a disposable output. Only targeted tests are required during edits; full native/browser/OS acceptance remains separately scoped.
+
+## Test identity and compiled provenance
+
+Real App automated options (`--frames`/smoke) or `DUXCEL_TEST_INSTANCE=1` apply a
+purple TEST strip to the runtime macOS icon and a TEST Dock badge; authored icon
+assets and the normal bundle icon remain unchanged. Hidden/unfocused behavior
+and desktop locks remain required. The Open/lifecycle runners set the explicit
+role too. The standalone adapter check verifies the badge, different image,
+no key/visible window, repeated panel lifetime and restored original identity.
+
+About Duxcel shows the compiled revision, subject, author/date, build time,
+working-tree status, a source-code fingerprint and a selectable, scrollable recent-40-commit history. It
+never calls Git at runtime. `tools/build_info.py` generates a stable header;
+only `build_info.c` includes it, so a new commit recompiles one small object.
+Source archives/direct C compilation use an honest unavailable-history fallback.
+`SOURCE_DATE_EPOCH` supplies a reproducible UTC metadata timestamp. Rebuild a
+bundle after a commit to embed that commit; an already-running process retains
+its compiled metadata. Use a fresh `open -n -a` process for hands-on validation.

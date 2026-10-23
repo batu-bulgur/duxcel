@@ -26,9 +26,9 @@ endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/workbook_codec.c src/data/worker.c
-SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/app.c src/main.c
+SRC = $(CORE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
-SRC += src/platform/macos.m
+SRC += src/platform/macos.m src/platform/macos_about.m
 LDLIBS += -framework AppKit -framework UniformTypeIdentifiers
 endif
 ifeq ($(OS),Windows_NT)
@@ -207,9 +207,18 @@ build/review-sanitize/duxcel-review: build/review-sanitize/assets $(REVIEW_SANIT
 define compile_object
 	@mkdir -p "$(@D)"
 	@set -e; trap 'rm -f "$@.new" "$(@:.o=.d).new"' 0; \
-	$(CC) $(1) -MMD -MP -MF "$(@:.o=.d).new" -MT "$@" -c "$<" -o "$@.new"; \
+	$(CC) $(1) $(OBJECT_CPPFLAGS) -MMD -MP -MF "$(@:.o=.d).new" -MT "$@" -c "$<" -o "$@.new"; \
 	mv -f "$(@:.o=.d).new" "$(@:.o=.d)"; mv -f "$@.new" "$@"
 endef
+# Metadata changes recompile one small translation unit, never the whole App.
+BUILD_INFO_HEADER = build/generated/product_build_info.h
+$(BUILD_INFO_HEADER): force-build-info tools/build_info.py
+	@python3 tools/build_info.py --output $@
+.PHONY: force-build-info
+BUILD_INFO_OBJECTS = $(filter %/src/app/build_info.o,$(INCREMENTAL_OBJECTS))
+$(BUILD_INFO_OBJECTS): OBJECT_CPPFLAGS = -include $(BUILD_INFO_HEADER)
+$(BUILD_INFO_OBJECTS): $(BUILD_INFO_HEADER)
+
 build/obj/release/app/%.o: %.c build/obj/release/app/compile.flags
 	$(call compile_object,$(APP_RELEASE_FLAGS))
 build/obj/release/app/%.o: %.m build/obj/release/app/compile.flags
@@ -314,6 +323,22 @@ build/tests/test_source_scope: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
 build/tests/test_source_scope-debug: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm $(SANFLAGS)
 SELECTION_LADDER_SRC = src/grid/selection_ladder.c tests/test_selection_ladder.c
+build/tests/test_build_info: src/app/build_info.c src/app/build_info.h tests/test_build_info.c | build/tests
+	$(CC) $(CFLAGS) $(WARN) -Isrc src/app/build_info.c tests/test_build_info.c -o $@
+build/tests/test_build_info-debug: src/app/build_info.c src/app/build_info.h tests/test_build_info.c | build/tests
+	$(CC) -O1 -g $(WARN) $(SANFLAGS) -Isrc src/app/build_info.c tests/test_build_info.c -o $@ $(SANFLAGS)
+SELECTION_SRC = src/common.c src/workbook/cells.c src/grid/selection_ladder.c src/app/selection.c tests/test_selection.c
+SELECTION_HEADERS = src/common.h src/workbook/cells.h src/grid/grid.h src/grid/selection_ladder.h src/app/selection.h src/ui/ui.h src/workbook/format.h src/data/database.h src/platform/platform.h
+build/tests/test_selection: $(SELECTION_SRC) $(SELECTION_HEADERS) | build/tests
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SELECTION_SRC) -o $@ -lm
+build/tests/test_selection-debug: $(SELECTION_SRC) $(SELECTION_HEADERS) | build/tests
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SELECTION_SRC) -o $@ -lm $(SANFLAGS)
+
+# Adapter GUI checks link two product modules, not the App or DuckDB engine.
+ifeq ($(shell uname -s),Darwin)
+build/tests/test_about-native-debug: tests/test_about_native.m assets/icons/duxcel.icns src/platform/macos_about.h src/platform/platform.h src/app/build_info.h build/obj/sanitize/app/src/platform/macos_about.o build/obj/sanitize/app/src/app/build_info.o | build/tests
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) tests/test_about_native.m build/obj/sanitize/app/src/platform/macos_about.o build/obj/sanitize/app/src/app/build_info.o -o $@ -framework AppKit $(SANFLAGS)
+endif
 CELL_REGIONS_SRC = src/common.c src/workbook/cells.c tests/test_cell_regions.c
 build/tests/test_cell_regions: $(CELL_REGIONS_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -O2 -g $(WARN) $(CELL_REGIONS_SRC) -o $@ -lm
@@ -753,6 +778,11 @@ endif
 # for independent already-built headless checks. See tools/test.py --list.
 test-fast:
 	python3 tools/test.py fast $(TEST_ARGS)
+test-feature:
+	python3 tools/test.py feature --feature $(FEATURE) $(TEST_ARGS)
+test-milestone:
+	python3 tools/test.py full $(TEST_ARGS)
+.PHONY: test-feature test-milestone
 test-affected:
 	python3 tools/test.py affected --feature $(FEATURE) $(TEST_ARGS)
 test-native:

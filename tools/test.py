@@ -13,10 +13,11 @@ import sys
 import time
 
 
+from test_catalog import FEATURES, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged)
 FAST_MODULES = (
-    "cellreadout", "filterlabel", "grid", "selection_ladder", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
+    "build_info", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
     "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "sortview_input", "sortview_input_review", "fontmetrics", "ui_font_fallback",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
@@ -168,7 +169,9 @@ class Runner:
         # Do not inherit focused-layout/debug/performance overrides into a run.
         for key in ("DUXCEL_LAYOUT_FROM", "DUXCEL_LAYOUT_TO", "DUXCEL_FRAME_CAP", "DUXCEL_RENDER_BUFFERS", "DUXCEL_FONT", "DUXCEL_MONO_FONT", "DUXCEL_TEST_VISIBLE"):
             env.pop(key, None)
+        env["DUXCEL_TEST_INSTANCE"] = "1"
         env["DUXCEL_TEST_VISIBLE"] = "1" if getattr(self.args, "visible", False) else "0"
+        env["PYTHONPATH"] = str(self.root / "tools") + os.pathsep + env.get("PYTHONPATH", "")
         env.update(env_extra or {})
         start = time.monotonic()
         result = {"name": name, "command": command, "log": str(log), "expected_stages": stages}
@@ -261,9 +264,12 @@ class Runner:
                                      completion_pattern=FORMATS_COMPLETION_PATTERN))
             ensure_unchanged(self.summary["binaries"])
 
-    def prepare_native(self, full=False):
+    def prepare_native(self, full=False, background=True):
         validate_native_contract(self.root)
-        targets = [self.native_binary(), "build/tests/test_background-native-debug", "design-fixture"]
+        targets = [self.native_binary()]
+        if background:
+            targets.append("build/tests/test_background-native-debug")
+        targets.append("design-fixture")
         if full:
             targets += [test_binary(module, config) for config in configurations(self.args.config) for module in ENGINE_MODULES]
             targets += ["build/tests/test_paint-native-debug", "icons-check"]
@@ -276,10 +282,49 @@ class Runner:
         (self.root / "build/tests/generated/workspace-new").mkdir(parents=True, exist_ok=True)
         if not (self.root / "build/tests/generated/design-definition.dxls").is_file():
             raise RuntimeError("Missing canonical design fixture; omit --no-build")
-        self.retain_binaries([self.native_binary(), "build/tests/test_background-native-debug"] + (["build/tests/test_paint-native-debug"] if full else []))
+        self.retain_binaries([self.native_binary()] + (["build/tests/test_background-native-debug"] if background else []) + (["build/tests/test_paint-native-debug"] if full else []))
 
     def background_check(self):
         self.record(self.command("background-sanitize", ["./build/tests/test_background-native-debug"], "PASS: 477 background native checks"))
+
+    def about_check(self):
+        if sys.platform != "darwin":
+            self.summary["results"].append({"name": "about-native", "status": "skipped", "reason": "AppKit adapter requires macOS"})
+            return
+        binary = "build/tests/test_about-native-debug"
+        self.build([binary], "build-about")
+        self.retain_binaries([binary])
+        with FileLock(native_lock_path(), "Native feature tests"):
+            self.record(self.command("about-native", ["./" + binary], "PASS: native About and test identity",
+                completion_pattern=r"^PASS: native About and test identity \([1-9]\d* checks\)$"))
+
+    def feature(self):
+        plan = feature_plan(self.args.feature)
+        self.summary["feature_plan"] = plan
+        self.summary["app_config"] = "release" if plan["gui"] and plan["gui"] != "about" else "standalone-sanitize" if plan["gui"] else None
+        if plan["tool_tests"]:
+            self.record(self.command("feature-tools", [sys.executable, "-m", "unittest", *plan["tool_tests"]], "OK"))
+        if plan["modules"]:
+            self.headless(plan["modules"])
+        if plan["gui"] == "about":
+            self.about_check()
+        elif plan["gui"]:
+            # The local GUI uses release; the selected logic modules retain
+            # ASan/UBSan. Full-App sanitizer/background coverage is deferred.
+            original_config = self.args.config
+            self.args.config = "release"
+            try:
+                self.prepare_native(background=False)
+                start, end, marker = LAYOUT_PROFILES[plan["gui"]]
+                with FileLock(native_lock_path(), "Native feature tests"):
+                    self.record(self.command("feature-" + plan["gui"],
+                        ["./" + self.native_binary(), "--layout-smoke", "--frames", str(max(1200,(end-start+10)*48)),
+                         "--screenshot", str(self.log_dir / "final.png")], marker, native=True,
+                        env_extra={"DUXCEL_LAYOUT_FROM": str(start), "DUXCEL_LAYOUT_TO": str(end)},
+                        stages=end-start, completion_pattern=layout_completion_pattern(start,end)))
+            finally:
+                self.args.config = original_config
+        print("Deferred interaction checks (not run): " + str(len(plan["deferred_interactions"])), flush=True)
 
     def affected(self):
         self.headless(self.args.modules or FAST_MODULES)
@@ -301,6 +346,7 @@ class Runner:
         if self.args.require_data and not data.is_file():
             raise RuntimeError("Required NYC dataset missing: " + str(data))
         self.headless(FAST_MODULES)
+        self.about_check()
         self.prepare_native(full=True)
         # The workbook suite consumes core's generated fixtures. Each
         # configuration completes both before another can replace their files.
@@ -404,6 +450,8 @@ class Runner:
             with FileLock(self.root / "build/locks/test-runner.lock", "Tests in this worktree"):
                 if self.args.tier == "fast":
                     self.headless(self.args.modules or FAST_MODULES)
+                elif self.args.tier == "feature":
+                    self.feature()
                 elif self.args.tier == "affected":
                     self.affected()
                 elif self.args.tier == "native":
@@ -437,11 +485,11 @@ class Runner:
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__, epilog="Native windows and clipboard checks run serially under a cross-worktree lock. --jobs only overlaps already-built read-only headless tests. No packages are installed.")
-    result.add_argument("tier", nargs="?", choices=("fast", "records", "formats", "affected", "native", "full"), default="fast")
+    result.add_argument("tier", nargs="?", choices=("feature", "fast", "records", "formats", "affected", "native", "full"), default="feature")
     result.add_argument("--config", choices=("release", "sanitize", "both"), default="both", help="headless build configuration; native uses sanitizer when both (default: both)")
     result.add_argument("--edit", action="store_true", help="affected/native: use the isolated -O0 ASan/UBSan App; headless configurations stay unchanged")
     result.add_argument("--modules", nargs="+", choices=FAST_MODULES, help="read-only headless modules for fast/affected; full always runs all")
-    result.add_argument("--feature", choices=tuple(LAYOUT_PROFILES), help="existing independently bootstrapped native slice; required for affected")
+    result.add_argument("--feature", choices=tuple(dict.fromkeys((*LAYOUT_PROFILES, *FEATURES))), help="registered local feature, or existing layout profile for affected")
     result.add_argument("--scenario", nargs="+", choices=tuple(row[0] for row in NATIVE), help="native: run only the named existing workflows, serially")
     result.add_argument("--jobs", type=int, choices=(1, 2), default=1)
     result.add_argument("--no-build", action="store_true", help="use existing binaries/fixtures; hashes are retained, freshness is the caller's responsibility")
@@ -449,6 +497,7 @@ def parser():
     result.add_argument("--require-data", action="store_true", help="native/full: fail rather than skip NYC if its downloaded Parquet is absent")
     result.add_argument("--timeout", type=float, default=300, help="per-command seconds, native minimum900 (default:300)")
     result.add_argument("--log-dir", help="dedicated output directory; default build/tests/results/runs/<UTC>-<tier>-<pid>")
+    result.add_argument("--plan", action="store_true", help="feature: print local/deferred coverage without building or launching")
     result.add_argument("--list", action="store_true", help="print modules, focused profiles and native inventory without building/running")
     return result
 
@@ -460,7 +509,17 @@ def main(argv=None):
         argument_parser.error("--edit applies only to affected/native")
     if args.edit and args.config == "release":
         argument_parser.error("--edit requires --config sanitize or both; the edit App uses ASan/UBSan")
+    if args.plan:
+        if args.tier != "feature" or args.feature not in FEATURES:
+            argument_parser.error("--plan requires feature --feature <registered feature>")
+        print(json.dumps(feature_plan(args.feature), indent=2))
+        return 0
+    if not args.list and args.tier == "feature" and (args.feature not in FEATURES or args.modules):
+        argument_parser.error("feature requires a registered --feature and does not accept --modules; inspect --plan")
+    if args.tier == "affected" and args.feature not in LAYOUT_PROFILES:
+        argument_parser.error("affected requires an existing layout profile")
     if args.list:
+        print("Feature slices: " + ", ".join(FEATURES))
         print("Read-only modules: " + ", ".join(FAST_MODULES))
         print("Records: " + ", ".join(RECORD_MODULES) + "; sequential native engine checks without GUI or shared fixtures")
         print("Formats: workbook --formats-only; sequential format/save checks without GUI or core fixture regeneration")
@@ -480,8 +539,8 @@ def main(argv=None):
         argument_parser.error("native requires --scenario and does not accept --modules")
     if args.scenario and args.tier != "native":
         argument_parser.error("--scenario applies only to native")
-    if args.feature and args.tier != "affected":
-        argument_parser.error("--feature applies only to affected")
+    if args.feature and args.tier not in ("affected", "feature"):
+        argument_parser.error("--feature applies only to feature/affected")
     if args.require_data and args.tier not in ("native", "full"):
         argument_parser.error("--require-data applies only to native/full")
     if args.visible and args.tier not in ("affected", "native", "full"):

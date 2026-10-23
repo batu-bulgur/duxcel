@@ -19,7 +19,7 @@ def main():
     summary={'started_utc':utc_now(),'status':'failed','results':[]}
     def run(argv,name,marker):
         start=time.monotonic()
-        env=os.environ.copy(); env.pop('DUXCEL_TEST_VISIBLE',None); env['ASAN_OPTIONS']='halt_on_error=1'
+        env=os.environ.copy(); env.pop('DUXCEL_TEST_VISIBLE',None); env['ASAN_OPTIONS']='halt_on_error=1'; env['DUXCEL_TEST_INSTANCE']='1'
         log=output/(name+'.txt')
         with log.open('w') as stream:
             result=subprocess.run(argv,cwd=ROOT,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=300)
