@@ -504,7 +504,11 @@ sanitizer checks pass148 formatting,34 inspector/preview,43 pane-motion,48 joine
 source-menu/canvas/readout and24 criteria/select stages; the last three GUI runs
 took24.536s,25.283s and19.358s. Registered continuation profiles preserve all950
 layout stages without repeatedly replaying completed prefixes. Remaining layout,
-native scenarios and lifecycle/Open gates are still open. Current receipts and
+native scenarios and lifecycle/Open gates are still open. The source-format
+fixture now starts a clean document rather than retaining unrelated legacy sheets
+in its Save closure; all43 sanitizer stages pass in22.924s, preserving the
+all-sheet legacy-format Save guard. All49 runner/catalog contracts pass.
+Current receipts and
 source/binary fingerprints are under ignored build/tests/results/.
 
 ### Owned data, refresh and complete analytical results

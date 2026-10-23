@@ -32,6 +32,7 @@ LAYOUT_PROFILES = {
     "ribbon": (0, 64, "PASS: measured native ribbon"),
     "format-controls": (0, 148, "PASS: real native Bold/Italic/Underline"),
     "inspector-basics": (216, 250, "PASS: real native historical step preview/Return"),
+    "foundation-sources": (730, 950, "PASS: native deterministic sparse containing regions"),
     "source-layout": (474, 522, "PASS: exact source value strip at 100/150 percent"),
     "foundation-final": (522, 950, "PASS: native deterministic sparse containing regions"),
     "foundation-remainder": (400, 950, "PASS: native deterministic sparse containing regions"),

@@ -12093,8 +12093,10 @@ static void layout_smoke_step(App *a,int *step) {
 
     case 687:
         a->statistics_enabled=false; statistics_cancel(a); end_step_preview(a);
-        if (s->objects.count || !a->analysis.path || strcmp(dx_basename(a->analysis.path),"null-text.csv"))
-            open_source(a,"tests/fixtures/null-text.csv",false);
+        /* This independent record-format fixture must not retain unrelated
+           legacy sheets from preceding layout scenarios in its Save closure. */
+        a->document_action=DOCUMENT_NEW; finish_document_action(a);
+        open_source(a,"tests/fixtures/null-text.csv",false);
         break;
     case 688:
         if (a->page.total!=6 || a->page.column_count!=3 || s->objects.count) goto failed;

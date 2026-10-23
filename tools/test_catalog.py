@@ -64,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "foundation-sources": Feature((), "foundation-sources",
+        ("python3 tools/test.py native --scenario layout --config sanitize",),
+        ("src/app/app.c: source-format and range milestone workflow",)),
     "source-layout": Feature(("cellreadout",), "source-layout",
         ("python3 tools/test.py native --scenario layout --config sanitize",),
         ("src/app/app.c: source menu to canvas layout and value-strip isolation",)),
