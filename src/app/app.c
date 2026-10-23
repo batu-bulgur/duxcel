@@ -8079,10 +8079,9 @@ static void draw_file_menu(App *a) {
     if (a->file_menu) {
         ui_choice_frame(u,&layout,"File");
         if (maximum) list_scrollbar(a,list.items,UI_KEYTIP_FILE_COUNT,list.visible,&a->file_menu_scroll,&a->file_menu_drag,&a->file_menu_grab,!reveal);
-        const UICarbonIcon icons[]={CARBON_DOCUMENT_BLANK,CARBON_FOLDER_OPEN,CARBON_SAVE,CARBON_SAVE,CARBON_CLOSE,CARBON_TABLE,CARBON_ARROW_DOWN,CARBON_CLOSE};
         for (int row=0;row<list.visible;row++) {
             int i=row+a->file_menu_scroll; bool available=file_action_available(a,i); Rectangle item=layout.rows[row]; if (maximum) item.width-=9*s;
-            bool chosen=ui_choice_row(u,item,ui_keytips_file_name((UIKeytipFileAction)i),NULL,icons[i],false,i==a->file_menu_focus,available);
+            bool chosen=ui_choice_row(u,item,ui_keytips_file_name((UIKeytipFileAction)i),NULL,ui_keytips_file_spec((UIKeytipFileAction)i)->icon,false,i==a->file_menu_focus,available);
             const char *hint=ui_keytips_file_label(&a->keytip_state,(UIKeytipFileAction)i);
             if (a->keytip_alpha>0 && hint) ui_keytip(u,box(item.x+item.width-24*s,item.y+5*s,18*s,16*s),hint,a->keytip_alpha);
             if (available && (chosen || (i==a->file_menu_focus && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE))))) { file_action(a,(UIKeytipFileAction)i); break; }

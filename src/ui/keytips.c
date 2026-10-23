@@ -47,8 +47,19 @@ static const Binding bindings[]={
 #undef E
 static const char *const tab_keys[RIBBON_TABS]={"H","N","A","Y","W","J"};
 /* Import is a Duxcel extension; Export retains the Excel File E sequence. */
-static const char *const file_keys[UI_KEYTIP_FILE_COUNT]={"N","O","S","A","C","I","E","X","R"};
-static const char *const file_names[UI_KEYTIP_FILE_COUNT]={"New workbook","Open…","Save","Save as…","Close workbook","Import table…","Export Parquet…","Quit Duxcel","Recover session…"};
+static const UIKeytipFileSpec file_specs[]={
+    {"N","New workbook","new","command.new_workbook",CARBON_DOCUMENT_BLANK},
+    {"O","Open…","open","command.open",CARBON_FOLDER_OPEN},
+    {"S","Save","save","command.save",CARBON_SAVE},
+    {"A","Save as…","save_as","command.save_as",CARBON_SAVE},
+    {"C","Close workbook","close","command.close",CARBON_CLOSE},
+    {"I","Import table…","import","command.import_table",CARBON_TABLE},
+    {"E","Export Parquet…","export","command.export",CARBON_ARROW_DOWN},
+    {"R","Recover session…","recover","command.recover_session",CARBON_UNDO},
+    {"X","Quit Duxcel","quit","command.quit",CARBON_CLOSE}
+};
+typedef char FileRegistryMatchesEnum[sizeof(file_specs)/sizeof(*file_specs)==UI_KEYTIP_FILE_COUNT ? 1 : -1];
+const UIKeytipFileSpec *ui_keytips_file_spec(UIKeytipFileAction action) { return (unsigned)action<UI_KEYTIP_FILE_COUNT ? file_specs+action : NULL; }
 
 static size_t prefix_length(const UIKeytips *state) {
     if (!state) return UI_KEYTIPS_PREFIX_CAP;
@@ -75,10 +86,10 @@ bool ui_keytips_command_custom(int tab,UIAction action) {
     return false;
 }
 const char *ui_keytips_file_label(const UIKeytips *state,UIKeytipFileAction action) {
-    return state && state->tab==UI_KEYTIPS_FILE && action>=0 && action<UI_KEYTIP_FILE_COUNT ? suffix(state,file_keys[action]) : NULL;
+    return state && state->tab==UI_KEYTIPS_FILE && action>=0 && action<UI_KEYTIP_FILE_COUNT ? suffix(state,file_specs[action].keys) : NULL;
 }
 const char *ui_keytips_file_name(UIKeytipFileAction action) {
-    return action>=0 && action<UI_KEYTIP_FILE_COUNT ? file_names[action] : NULL;
+    return action>=0 && action<UI_KEYTIP_FILE_COUNT ? file_specs[action].name : NULL;
 }
 void ui_keytips_begin(UIKeytips *state) {
     if (state) *state=(UIKeytips){.active=true,.tab=UI_KEYTIPS_ROOT};
@@ -110,7 +121,7 @@ UIKeytipResult ui_keytips_feed(UIKeytips *state,int ascii,bool repeat) {
     UIKeytips next=*state; next.prefix[n]=(char)ascii; next.prefix[n+1]=0;
     if (state->tab==UI_KEYTIPS_FILE) {
         for (int i=0;i<UI_KEYTIP_FILE_COUNT;i++) {
-            const char *remaining=suffix(&next,file_keys[i]);
+            const char *remaining=suffix(&next,file_specs[i].keys);
             if (remaining && !*remaining) {
                 state->active=false;
                 return (UIKeytipResult){UI_KEYTIP_FILE,i};

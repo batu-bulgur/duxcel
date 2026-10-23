@@ -111,10 +111,13 @@ int main(void) {
     CHECK(!ui_keytips_command_custom(RIBBON_DATA,ACTION_SORT_ASC));
     CHECK(ui_keytips_command_custom(RIBBON_ANALYZE,ACTION_MATRIX));
     CHECK(ui_keytips_command_custom(RIBBON_VIEW,ACTION_FIELDS));
-    const char *const file_keys[]={"N","O","S","A","C","I","E","X","R"};
+    const char *const file_keys[]={"N","O","S","A","C","I","E","R","X"};
     CHECK(UI_KEYTIP_FILE_COUNT==sizeof(file_keys)/sizeof(*file_keys));
     for (int action=0;action<UI_KEYTIP_FILE_COUNT;action++) {
         ui_keytips_begin(&state); sequence(&state,"f");
+        const UIKeytipFileSpec *spec=ui_keytips_file_spec((UIKeytipFileAction)action);
+        CHECK(spec && spec->keys && spec->name && spec->code && spec->command && (unsigned)spec->icon<CARBON_COUNT);
+        for (int prior=0;prior<action;prior++) CHECK(strcmp(spec->code,ui_keytips_file_spec((UIKeytipFileAction)prior)->code));
         const char *keys=ui_keytips_file_label(&state,(UIKeytipFileAction)action);
         CHECK(keys && *keys && ui_keytips_file_name((UIKeytipFileAction)action));
         CHECK(!strcmp(keys,file_keys[action]));
@@ -134,7 +137,7 @@ int main(void) {
     ui_keytips_begin(&state); sequence(&state,"f"); ui_keytips_cancel(&state);
     CHECK(!strcmp(ui_keytips_file_label(&state,UI_KEYTIP_FILE_EXPORT),"E"));
     CHECK(ui_keytips_feed(&state,'E',false).kind==UI_KEYTIP_NONE);
-    CHECK(!ui_keytips_file_name(UI_KEYTIP_FILE_COUNT));
+    CHECK(!ui_keytips_file_name(UI_KEYTIP_FILE_COUNT)); CHECK(!ui_keytips_file_spec(UI_KEYTIP_FILE_COUNT) && !ui_keytips_file_spec((UIKeytipFileAction)-1));
     CHECK(!ui_keytips_file_label(NULL,UI_KEYTIP_FILE_NEW));
     CHECK(!ui_keytips_command_label(NULL,RIBBON_HOME,ACTION_COPY));
     ui_keytips_begin(NULL); ui_keytips_cancel(NULL);

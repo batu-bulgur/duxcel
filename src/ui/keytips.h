@@ -6,9 +6,14 @@ enum { UI_KEYTIPS_ROOT=-1, UI_KEYTIPS_FILE=-2, UI_KEYTIPS_PREFIX_CAP=4 };
 typedef enum {
     UI_KEYTIP_FILE_NEW, UI_KEYTIP_FILE_OPEN, UI_KEYTIP_FILE_SAVE,
     UI_KEYTIP_FILE_SAVE_AS, UI_KEYTIP_FILE_CLOSE, UI_KEYTIP_FILE_IMPORT,
-    UI_KEYTIP_FILE_EXPORT, UI_KEYTIP_FILE_QUIT, UI_KEYTIP_FILE_RECOVER,
+    UI_KEYTIP_FILE_EXPORT, UI_KEYTIP_FILE_RECOVER, UI_KEYTIP_FILE_QUIT,
     UI_KEYTIP_FILE_COUNT
 } UIKeytipFileAction;
+typedef struct { const char *keys,*name,*code,*command; UICarbonIcon icon; } UIKeytipFileSpec;
+/* One borrowed command registry for File paint, access keys and semantic IDs.
+   Invalid actions return NULL; append/edit entries in the registry, not arrays
+   indexed independently by this enum. */
+const UIKeytipFileSpec *ui_keytips_file_spec(UIKeytipFileAction action);
 typedef enum {
     UI_KEYTIP_NONE, UI_KEYTIP_PREFIX, UI_KEYTIP_TAB,
     UI_KEYTIP_COMMAND, UI_KEYTIP_FILE

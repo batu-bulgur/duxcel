@@ -204,7 +204,7 @@ external account/service is used by this backend gate.
 
 `make test-feature FEATURE=recovery-ui` selects keytips (optimized/ASan/UBSan)
 and the private hidden real-App recovery workflow. Its runtime setup uses the
-actual session writer, then exercises startup, dismissed preparation, checkpoint
+actual session writer, then exercises startup, actual File menu paint/activation, dismissed preparation, checkpoint
 fork/edit/Save As, deferred-tail preservation, dirty-guard Cancel/discard, full
 replay/cleanup/reopen and a 640×640 150% panel. Borrowed UI geometry/focus lives
 in `src/ui/recoveryview.c`; App/lease ownership lives in `src/app/recovery.inc`.
@@ -214,3 +214,9 @@ explicit writer/observer/restore roles, driven by `tools/test_recovery_process.p
 It proves actual SIGKILL/restart and live-instance exclusion in optimized and
 ASan/UBSan builds. The driver owns all PIDs, leases, private paths and logs; it
 never interacts with the user's instance. The full milestone includes this gate.
+
+The File command registry in `src/ui/keytips.c` supplies label/key/icon/semantic
+metadata together. `test_keytips.c` validates every entry, unique IDs and invalid
+actions. `make test-feature FEATURE=recovery-menu` additionally runs the real
+19-stage recovery menu/document workflow in ASan/UBSan, preventing a direct
+controller call from hiding a menu-paint or metadata indexing regression.

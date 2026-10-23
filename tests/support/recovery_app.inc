@@ -76,35 +76,38 @@ static void recovery_test_frame(AppSession *session) {
         recovery_gui_edit(a,"Current draft"); break;
     case 6:
         if (backup.queue.opening || backup.queue.pending) return;
-        RECOVERY_GUI_CHECK(a->book.dirty && !strcmp(cells_get(&active_sheet(a)->cells,1,1),"Current draft")); file_action(a,UI_KEYTIP_FILE_RECOVER); break;
+        RECOVERY_GUI_CHECK(a->book.dirty && !strcmp(cells_get(&active_sheet(a)->cells,1,1),"Current draft")); a->file_menu=true; a->file_menu_frame=a->frames; a->file_menu_focus=UI_KEYTIP_FILE_RECOVER; break;
     case 7:
+        RECOVERY_GUI_CHECK(a->file_menu && a->modal==MODAL_NONE && ui_keytips_file_spec(UI_KEYTIP_FILE_RECOVER));
+        ui_note_key_press(KEY_ENTER,0); break;
+    case 8:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(a->modal==MODAL_RECOVERY && a->recovery_page->page.count==1); recovery_gui_click(a->recovery_view.layout.buttons[0]); break;
-    case 8:
+    case 9:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(a->modal==MODAL_UNSAVED && a->recovery_staged && a->book.dirty);
         if (!recovery_gui_modal_painted) { recovery_gui_modal_painted=true; return; }
         recovery_gui_modal_painted=false; recovery_gui_click(a->document_actions[2]); break;
-    case 9:
+    case 10:
         RECOVERY_GUI_CHECK(a->modal==MODAL_NONE && !a->recovery_staged && !a->recovery_owner && a->book.dirty);
         RECOVERY_GUI_CHECK(!strcmp(cells_get(&active_sheet(a)->cells,1,1),"Current draft") && !access(recovery_gui_checkpoint,F_OK)); recovery_open(a); break;
-    case 10:
+    case 11:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(a->modal==MODAL_RECOVERY && a->recovery_page->page.count==1); recovery_gui_click(a->recovery_view.layout.buttons[0]); break;
-    case 11:
+    case 12:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(a->modal==MODAL_UNSAVED && a->recovery_staged);
         if (!recovery_gui_modal_painted) { recovery_gui_modal_painted=true; return; }
         recovery_gui_modal_painted=false; recovery_gui_click(a->document_actions[1]); break;
-    case 12:
+    case 13:
         RECOVERY_GUI_CHECK(a->recovery_owner && !a->book.path && a->book.dirty && !a->journal);
         RECOVERY_GUI_CHECK(!workbook_recovery_info(a->recovery_owner)->tail_deferred && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Recovered") && !*cells_get(&active_sheet(a)->cells,1,1));
         workspace_job(a,JOB_SAVE,recovery_gui_full); break;
-    case 13:
+    case 14:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(!a->book.dirty && !a->recovery_owner && access(recovery_gui_checkpoint,F_OK) && access(recovery_gui_journal,F_OK));
         recovery_open(a); SetWindowSize(640,640); ui_set_scale(&a->ui,1.5f); break;
-    case 14: {
+    case 15: {
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(a->modal==MODAL_RECOVERY && a->recovery_page && !a->recovery_page->page.count);
         UIRecoveryLayout *layout=&a->recovery_view.layout;
@@ -112,17 +115,17 @@ static void recovery_test_frame(AppSession *session) {
         for (int i=0;i<5;i++) RECOVERY_GUI_CHECK(layout->buttons[i].x>=layout->panel.x && layout->buttons[i].x+layout->buttons[i].width<=layout->panel.x+layout->panel.width);
         smoke_snapshot("build/tests/results/recovery/narrow.png"); ui_note_key_press(KEY_ESCAPE,0); break;
     }
-    case 15:
+    case 16:
         RECOVERY_GUI_CHECK(a->modal==MODAL_NONE && !a->book.dirty && !a->recovery_staged);
         workspace_job(a,JOB_LOAD,recovery_gui_copy); break;
-    case 16:
+    case 17:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(!a->book.dirty && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Baseline") && !strcmp(cells_get(&active_sheet(a)->cells,1,1),"Copy edit"));
         workspace_job(a,JOB_LOAD,recovery_gui_full); break;
-    case 17:
+    case 18:
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(!a->book.dirty && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Recovered") && !*cells_get(&active_sheet(a)->cells,1,1));
-        recovery_gui_result=1; printf("PASS: native recovery choice workflow (18 stages, %u checks)\n",recovery_gui_checks); break;
+        recovery_gui_result=1; printf("PASS: native recovery choice workflow (19 stages, %u checks)\n",recovery_gui_checks); break;
     }
     recovery_gui_stage++;
 }

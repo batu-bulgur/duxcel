@@ -157,6 +157,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10c2b · P0 · Complete | Startup/manual choice, guarded App adoption and compact UI; W10c2a. | Connect the independent reader to startup and File actions, preserve dirty/current documents and late results, and validate narrow/scaled hidden input. |
 | W10c3 · P0 · In progress | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
+| W11a · P1 · Queued | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
+| W11b · P1 · Queued | Immutable named-state payloads and transactional tag operation; W11a. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
+| W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
+| W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
@@ -430,6 +434,18 @@ bridge honors the parent's two-slot limit. All 76 incremental build checks and
 49 runner/catalog contracts pass; -n/-t/-q cannot launch tests. The registered
 full native foundation milestone is next; W10/W10c remain in progress until it
 passes. Browser persistence and full durable Undo remain separate.
+
+W10c3 integration review corrected File metadata ownership: adding recovery had
+left independent eight-entry icon/review arrays. One checked File registry now
+owns labels, keys, icons and semantic IDs; Quit remains last. The recovery
+scenario enters through the actual painted File menu, with explicit first-paint
+waits before dirty-guard clicks. `recovery-ui` passes 19 stages/33 checks in
+4.195s (13.195s gate); the named `recovery-menu` ASan/UBSan App gate passes the
+same 19 stages in 9.210s (42.984s including 32.896s compilation). Its registry
+passes 2,753 optimized/sanitizer checks, and 54 tool contracts pass. The earlier
+full run was intentionally interrupted before continuing with this correction;
+no success is claimed for that interrupted receipt. Current milestone regression
+and the shared review interaction still need completion.
 
 ### Owned data, refresh and complete analytical results
 

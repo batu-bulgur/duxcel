@@ -28,7 +28,8 @@ metadata and AppKit adapter plus their test, exercise real scrolling and TEST
 identity restoration, and compile the direct-C source-archive fallback. They do
 not load the App, DuckDB or the canonical workbook.
 
-`--config` controls the selected headless modules. Feature App GUI stays release;
+`--config` controls the selected headless modules. Feature App GUI normally stays release; the named `recovery-menu` boundary gate
+uses an ASan/UBSan App to verify actual File paint/activation.
 standalone About GUI stays ASan/UBSan. Use explicit integration commands below
 when full-App sanitizer or platform boundaries are affected. The receipt records
 these configurations and the deferred commands. A focused pass is acceptance of

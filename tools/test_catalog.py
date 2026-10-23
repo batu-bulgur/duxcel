@@ -17,8 +17,10 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "recovery-menu": ("build/tests/test_recovery_process-debug", "PASS: native recovery choice workflow",
+                       r"^PASS: native recovery choice workflow \(19 stages, [1-9]\d* checks\)$", 19),
     "recovery": ("build/tests/test_recovery-gui", "PASS: native recovery choice workflow",
-                  r"^PASS: native recovery choice workflow \(18 stages, [1-9]\d* checks\)$", 18),
+                  r"^PASS: native recovery choice workflow \(19 stages, [1-9]\d* checks\)$", 19),
     "workbook-save": ("build/tests/test_workbook_save-gui", "PASS: native controlled Save workflow",
                       r"^PASS: native controlled Save workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
@@ -62,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-menu": Feature(("keytips",), "recovery-menu",
+        ("python3 tools/test.py feature --feature recovery-ui", "python3 tools/test_web_app.py --review --review-controls-only --source tests/fixtures/transactions.csv"),
+        ("src/ui/keytips.c: File command registry", "src/app/app.c: File menu paint", "src/dev/review_app.inc: File target metadata")),
     "recovery-crash": Feature((), "",
         ("python3 tools/test.py feature --feature recovery-ui", "python3 tools/test.py full --config both"),
         ("tools/test_recovery_process.py", "tests/support/recovery_app.inc: owned process roles"), ("recovery_process",)),

@@ -140,7 +140,8 @@ artificial delay. These are helper API measurements, not UI frame guarantees.
 Native startup/File recovery now offers verified recorded manual-cell changes or a
 checkpoint copy through the existing dirty-document guard. Checkpoint forks keep
 deferred tails after edits and Save As; dismissed candidates never delete files.
-The 18-stage hidden UI gate passes in 3.622s, including 640×640 at 150%.
+The 19-stage hidden UI gate passes through the real File menu in 4.195s
+optimized/9.210s ASan/UBSan, including 640×640 at 150%.
 Process crash/restart and foundation regression remain W10c3; persistent Undo is
 W12. W09 Save publication/progress/cancel is complete. Browser persistence is unchanged and has no native
 journal backend. Receipts and captures remain in ignored `build/tests/results/`.
