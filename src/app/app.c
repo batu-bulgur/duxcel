@@ -6660,9 +6660,10 @@ static void select_region(App *a) {
         g->row<a->page.total && g->col<a->page.column_count) {
         /* Primary headers are chrome, not worksheet cells. */
         candidates[count++]=(GridRegion){0,a->page.total-1,0,a->page.column_count-1,true};
-    } else if (*cells_get(&sheet->cells,g->row,g->col)) {
-        SheetRange region; cells_region(&sheet->cells,g->row,g->col,&region.r0,&region.r1,&region.c0,&region.c1,false);
-        candidates[count++]=(GridRegion){region.r0,region.r1,region.c0,region.c1,true};
+    } else if (g->selection==SELECT_CELLS) {
+        SheetRange region; grid_bounds(g,&region.r0,&region.r1,&region.c0,&region.c1);
+        if (cells_containing_region(&sheet->cells,&region.r0,&region.r1,&region.c0,&region.c1))
+            candidates[count++]=(GridRegion){region.r0,region.r1,region.c0,region.c1,true};
     }
     /* A provisional primary count cannot define the complete used rectangle.
        Never issue a COUNT (or scan a dense canvas) for a selection command. */
@@ -8210,7 +8211,7 @@ static void draw_app(App *a) {
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
 }
-#define LAYOUT_SMOKE_STAGES 936
+#define LAYOUT_SMOKE_STAGES 950
 static unsigned inspector_pan_evidence;
 static uint64_t inspector_pan_top;
 static double inspector_pan_fraction;
@@ -9046,6 +9047,7 @@ static Rectangle workbook_new_target;
 /* Scenario assertions run after drawing. Deliver follow-up gestures after the
    next ui_update, which otherwise clears the prior frame's input snapshot. */
 static int layout_select_key;
+static unsigned layout_select_modifiers;
 static Rectangle layout_select_click;
 static Rectangle document_smoke_click;
 static DxPointerGesture layout_range_gesture;
@@ -10200,6 +10202,7 @@ static void layout_smoke_step(App *a,int *step) {
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"675")) { *step=675; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"911")) { *step=911; return; }
             if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"921")) { *step=921; return; }
+            if (!strcmp(getenv("DUXCEL_LAYOUT_FROM"),"936")) { *step=936; return; }
         }
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->statistics_enabled=true; a->statistics_mask=49;
         grid_select_cell(&a->grid,5,5,false); a->grid.end_row=8; a->grid.top=0; a->grid.horizontal=0; break;
@@ -13382,6 +13385,73 @@ static void layout_smoke_step(App *a,int *step) {
     case 935:
         puts("PASS: native explicit manual Replace/Cancel, Escape and pointer actions, offscreen holes and stale confirmation guard, atomic self-overlap value/style Undo/Redo, narrow 150 percent bounds and dxls reopen"); break;
 
+    case 936:
+        a->statistics_enabled=false; a->document_action=DOCUMENT_NEW; finish_document_action(a); break;
+    case 937: {
+        a->reduced_motion=true; a->sidebar=a->fields_visible=a->pipeline=false; a->selected_object=-1;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; set_ribbon_mode(a,0);
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->grid.zoom=1;
+        for (size_t c=1;c<=4;c++) if (!cells_set(&s->cells,1,c,"Connected header",&error)) goto failed;
+        for (uint64_t r=2;r<=4;r++) if (!cells_set(&s->cells,r,4,r==2 ? "NULL" : "Connected data",&error)) goto failed;
+        for (uint64_t r=4;r<=6;r++) if (!cells_set(&s->cells,r,1,"Separate island",&error)) goto failed;
+        if (!cells_set(&s->cells,5,5,"Diagonal",&error) || !cells_set(&s->cells,6,6,"İstanbul",&error) ||
+            !cells_set(&s->cells,20000,25,"Offscreen extent",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS); CellFormat style=format_default(); style.flags=FORMAT_BOLD;
+        if (!format_apply(&s->formats,(FormatRange){20004,20004,26,26},FORMAT_BOLD,style,&error)) goto failed;
+        worksheet_record(s,EDIT_FORMAT);
+        for (size_t c=0;c<30;c++) grid_set_width(&a->grid,c,100);
+        grid_select_cell(&a->grid,1,1,false); a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0;
+        workspace_job(a,JOB_SAVE,"build/tests/generated/region-selection-demo.dxls"); break;
+    }
+    case 938:
+        if (a->book.dirty) goto failed;
+        draft_history=s->undo_actions_count; draft_revision=s->cells.revision; inspector_revision=s->formats.revision;
+        request=a->request_id; ribbon_cells=a->page.cells;
+        dx_lock(&a->worker.mutex); inspector_jobs=a->worker.jobs_started; inspector_queries=a->worker.sql_executed; dx_unlock(&a->worker.mutex);
+        layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 939:
+        if (!smoke_selected(a,1,1,1,4,1,4)) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/region-selection-100.png");
+        layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 940:
+        if (!smoke_selected(a,1,1,1,6,1,4)) goto failed;
+        layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 941:
+        if (!smoke_selected(a,1,1,1,20000,1,25)) goto failed;
+        layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 942:
+        if (a->grid.selection!=SELECT_ALL || a->grid.row!=1 || a->grid.col!=1) goto failed;
+        grid_select_cell(&a->grid,4,4,false); grid_select_cell(&a->grid,2,4,true);
+        layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 943:
+        if (!smoke_selected(a,4,4,1,4,1,4) || a->grid.anchor_row!=4 || a->grid.end_row!=1) goto failed;
+        grid_select_cell(&a->grid,5,5,false); layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 944:
+        if (!smoke_selected(a,5,5,1,20000,1,25)) goto failed;
+        grid_select_cell(&a->grid,2,2,false); layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 945:
+        if (!smoke_selected(a,2,2,1,4,1,4)) goto failed;
+        ui_set_scale(&a->ui,1.5f); SetWindowSize(640,640);
+        grid_select_cell(&a->grid,4,4,false); grid_select_cell(&a->grid,2,4,true);
+        layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 946: {
+        if (!smoke_selected(a,4,4,1,4,1,4) || a->grid.anchor_row!=4 || a->grid.end_row!=1 || a->book.dirty ||
+            s->undo_actions_count!=draft_history || s->cells.revision!=draft_revision || s->formats.revision!=inspector_revision ||
+            a->request_id!=request || a->page.cells!=ribbon_cells || strcmp(cells_get(&s->cells,6,6),"İstanbul")) goto failed;
+        dx_lock(&a->worker.mutex); bool no_work=inspector_jobs==a->worker.jobs_started && inspector_queries==a->worker.sql_executed; dx_unlock(&a->worker.mutex);
+        if (!no_work) goto failed;
+        smoke_snapshot("build/tests/results/workspace-layout/region-selection-150.png");
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
+    }
+    case 947: workspace_job(a,JOB_LOAD,"build/tests/generated/region-selection-demo.dxls"); break;
+    case 948:
+        if (a->book.dirty || strcmp(cells_get(&s->cells,20000,25),"Offscreen extent") ||
+            !(format_at(&s->formats,20004,26).flags&FORMAT_BOLD)) goto failed;
+        grid_select_cell(&a->grid,1,1,false); layout_select_key=KEY_A; layout_select_modifiers=DX_MOD_SUPER; break;
+    case 949:
+        if (!smoke_selected(a,1,1,1,4,1,4) || a->book.dirty) goto failed;
+        puts("PASS: native deterministic sparse containing regions, original finite selection seeds, separate diagonal islands, blank interiors, offscreen used bounds without format-only cells, reversed active-cell retention and zero edit/history/query effects at 100/150 percent and reopen"); break;
+
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: workspace layout smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : "");
@@ -14930,7 +15000,7 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911") || !strcmp(layout_from,"921"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911") || !strcmp(layout_from,"921") || !strcmp(layout_from,"936"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
     if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); }
@@ -15552,7 +15622,7 @@ bool app_frame(AppSession *session) {
     }
     if (options->layout_smoke) {
         if (layout_range_queued) { ui_note_pointer_gesture(layout_range_gesture); layout_range_queued=false; }
-        if (layout_select_key) { ui_note_key_press(layout_select_key,0); layout_select_key=0; }
+        if (layout_select_key) { ui_note_key_press(layout_select_key,layout_select_modifiers); layout_select_key=0; layout_select_modifiers=0; }
         if (layout_select_click.width>0 && layout_select_click.height>0) {
             Rectangle target=layout_select_click; layout_select_click=(Rectangle){0};
             float x=target.x+target.width*.5f,y=target.y+target.height*.5f;

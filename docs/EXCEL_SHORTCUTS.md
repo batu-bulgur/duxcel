@@ -78,7 +78,7 @@ Each row has a stable ID. Identical command labels share a feature; similar comm
 | F025 | Workbook from template | REVIEW | Unverified | Placement decision pending | — | Inspect feature behavior and input mapping |
 | F026 | Save As | PARTIAL | Unverified | File > Save As | — | Native; F12 conflicts with diagnostics |
 | F027 | Help | REVIEW | Unverified | Placement decision pending | — | Inspect feature behavior and input mapping |
-| F028 | Select All | PARTIAL | Unverified | Edit > Select All / Grid | — | Containing-region ladder; not all Excel contexts accepted |
+| F028 | Select All | PARTIAL | Unverified | Edit > Select All / Grid | — | W03 four-neighbor finite-selection regions; Table/Pivot ladder; human acceptance pending |
 | F029 | Toggle filter | PARTIAL | Unverified | Data > Filter > Toggle | — | Filter infrastructure exists; Cmd+Shift+F conflicts with Focus |
 | F030 | Ribbon display | PARTIAL | Unverified | View > Ribbon display | — | Ctrl+F1 menu; Excel Mac Cmd+Option+R binding is separate |
 | F031 | Open file | PARTIAL | Unverified | File > Open | — | Native workbook; browser workbook Open unavailable; source import separate |

@@ -314,6 +314,11 @@ build/tests/test_source_scope: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
 build/tests/test_source_scope-debug: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm $(SANFLAGS)
 SELECTION_LADDER_SRC = src/grid/selection_ladder.c tests/test_selection_ladder.c
+CELL_REGIONS_SRC = src/common.c src/workbook/cells.c tests/test_cell_regions.c
+build/tests/test_cell_regions: $(CELL_REGIONS_SRC) $(HEADERS) | build/tests
+	$(CC) -Isrc -O2 -g $(WARN) $(CELL_REGIONS_SRC) -o $@ -lm
+build/tests/test_cell_regions-debug: $(CELL_REGIONS_SRC) $(HEADERS) | build/tests
+	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(CELL_REGIONS_SRC) -o $@ -lm $(SANFLAGS)
 build/tests/test_selection_ladder: $(SELECTION_LADDER_SRC) $(HEADERS) | build/tests
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) $(SELECTION_LADDER_SRC) -o $@
 build/tests/test_selection_ladder-debug: $(SELECTION_LADDER_SRC) $(HEADERS) | build/tests

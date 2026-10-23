@@ -16,7 +16,7 @@ import time
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged)
 FAST_MODULES = (
-    "cellreadout", "filterlabel", "grid", "selection_ladder", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
+    "cellreadout", "filterlabel", "grid", "selection_ladder", "cell_regions", "source_scope", "workbook_codec", "workbook_codec_read", "objects", "brand", "format", "chartview", "chartencoding",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
     "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "sortview_input", "sortview_input_review", "fontmetrics", "ui_font_fallback",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
@@ -60,11 +60,12 @@ LAYOUT_PROFILES = {
     "inspector-sql": (882, 911, "PASS: native SQL inspector keyboard scrolling"),
     "range-move": (911, 921, "PASS: native Option interior and border range moves"),
     "range-replace": (921, 936, "PASS: native explicit manual Replace/Cancel"),
+    "containing-regions": (936, 950, "PASS: native deterministic sparse containing regions"),
 }
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 936, 25000, "PASS: native explicit manual Replace/Cancel"),
+    ("layout", 950, 25000, "PASS: native deterministic sparse containing regions"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),

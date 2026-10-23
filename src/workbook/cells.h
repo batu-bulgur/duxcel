@@ -30,5 +30,13 @@ bool cells_rows(CellStore *store,uint64_t row,uint64_t count,bool insert,char **
 bool cells_history(CellStore *store,bool redo);
 void cells_trim_history(CellStore *store,bool redo,size_t keep);
 void cells_region(const CellStore *store,uint64_t row,size_t col,uint64_t *r0,uint64_t *r1,size_t *c0,size_t *c1,bool whole);
+/* Expand a finite selection using four-neighbor manual components. Only the
+   components with stored nonempty cells inside the ORIGINAL selection seed
+   expansion; bounds introduced by this command never seed further components.
+   A blank selection may use the smallest enclosing component bounds (holes).
+   Diagonals, missing/empty cells and formatting do not connect components.
+   Returns a strict superset, or false with bounds untouched. Canonical sorted
+   input is borrowed; O(n log n) work/O(n) temporary memory, no dense traversal. */
+bool cells_containing_region(const CellStore *store,uint64_t *r0,uint64_t *r1,size_t *c0,size_t *c1);
 char *cells_tsv(const CellStore *store,uint64_t r0,uint64_t r1,size_t c0,size_t c1,char **error);
 #endif

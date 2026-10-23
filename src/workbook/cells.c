@@ -189,19 +189,64 @@ void cells_trim_history(CellStore *s,bool redo,size_t keep) {
     size_t drop=*count-keep; for (size_t i=0;i<drop;i++) snapshot_free(&stack[i]);
     memmove(stack,stack+drop,keep*sizeof(*stack)); memset(stack+keep,0,drop*sizeof(*stack)); *count=keep;
 }
+typedef struct { uint64_t r0,r1; size_t c0,c1; } CellRegion;
+static void region_add(CellRegion *to,CellRegion from) {
+    if (from.r0<to->r0) to->r0=from.r0; if (from.r1>to->r1) to->r1=from.r1;
+    if (from.c0<to->c0) to->c0=from.c0; if (from.c1>to->c1) to->c1=from.c1;
+}
+static bool region_contains(CellRegion outer,CellRegion inner) {
+    return outer.r0<=inner.r0 && outer.r1>=inner.r1 && outer.c0<=inner.c0 && outer.c1>=inner.c1;
+}
+static bool region_equal(CellRegion a,CellRegion b) { return a.r0==b.r0 && a.r1==b.r1 && a.c0==b.c0 && a.c1==b.c1; }
+static bool region_before(CellRegion a,CellRegion b) {
+    uint64_t aa=(a.r1-a.r0+1)*(uint64_t)(a.c1-a.c0+1),bb=(b.r1-b.r0+1)*(uint64_t)(b.c1-b.c0+1);
+    if (aa!=bb) return aa<bb;
+    if (a.r0!=b.r0) return a.r0<b.r0; if (a.c0!=b.c0) return a.c0<b.c0;
+    if (a.r1!=b.r1) return a.r1<b.r1; return a.c1<b.c1;
+}
+static void region_neighbor(const CellStore *s,uint64_t row,size_t col,bool *seen,size_t *queue,size_t *count) {
+    size_t i=locate(s,row,col);
+    if (i<s->count && !seen[i] && s->cells[i].row==row && s->cells[i].col==col && s->cells[i].text && *s->cells[i].text) {
+        seen[i]=true; queue[(*count)++]=i;
+    }
+}
+bool cells_containing_region(const CellStore *s,uint64_t *r0,uint64_t *r1,size_t *c0,size_t *c1) {
+    if (!s || !r0 || !r1 || !c0 || !c1 || *r0>*r1 || *c0>*c1 || *r1>=DX_SHEET_ROWS || *c1>=16384 ||
+        !s->count || s->count>DX_MAX_EDIT_CELLS || !s->cells) return false;
+    CellRegion current={*r0,*r1,*c0,*c1},expanded=current,enclosing={0}; bool seeded=false,has_enclosing=false;
+    bool *seen=dx_alloc(s->count*sizeof(*seen)); size_t *queue=dx_alloc(s->count*sizeof(*queue));
+    for (size_t i=0;i<s->count;i++) {
+        if (seen[i] || !s->cells[i].text || !*s->cells[i].text) continue;
+        size_t count=1; queue[0]=i; seen[i]=true; bool touches=false;
+        CellRegion bounds={s->cells[i].row,s->cells[i].row,s->cells[i].col,s->cells[i].col};
+        for (size_t next=0;next<count;next++) {
+            const SheetCell *cell=s->cells+queue[next];
+            region_add(&bounds,(CellRegion){cell->row,cell->row,cell->col,cell->col});
+            touches|=inside(cell,current.r0,current.r1,current.c0,current.c1);
+            if (cell->row) region_neighbor(s,cell->row-1,cell->col,seen,queue,&count);
+            if (cell->row+1<DX_SHEET_ROWS) region_neighbor(s,cell->row+1,cell->col,seen,queue,&count);
+            if (cell->col) region_neighbor(s,cell->row,cell->col-1,seen,queue,&count);
+            if (cell->col+1<16384) region_neighbor(s,cell->row,cell->col+1,seen,queue,&count);
+        }
+        if (touches) { seeded=true; region_add(&expanded,bounds); }
+        if (region_contains(bounds,current) && !region_equal(bounds,current) && (!has_enclosing || region_before(bounds,enclosing))) {
+            enclosing=bounds; has_enclosing=true;
+        }
+    }
+    free(seen); free(queue);
+    CellRegion result=seeded ? expanded : enclosing;
+    if ((!seeded && !has_enclosing) || region_equal(result,current)) return false;
+    *r0=result.r0; *r1=result.r1; *c0=result.c0; *c1=result.c1; return true;
+}
 void cells_region(const CellStore *s,uint64_t row,size_t col,uint64_t *r0,uint64_t *r1,size_t *c0,size_t *c1,bool whole) {
     *r0=*r1=row; *c0=*c1=col;
-    if (whole && s->count) { *r0=*r1=s->cells[0].row; *c0=*c1=s->cells[0].col; }
-    bool changed;
-    do {
-        changed=false;
-        for (int direction=0;direction<2;direction++) for (size_t step=0;step<s->count;step++) {
-            const SheetCell *c=&s->cells[direction ? s->count-step-1 : step];
-            if (!whole && ((c->row<*r0 && *r0-c->row>1) || (c->row>*r1 && c->row-*r1>1) || (c->col<*c0 && *c0-c->col>1) || (c->col>*c1 && c->col-*c1>1))) continue;
-            if (c->row<*r0) { *r0=c->row; changed=true; } if (c->row>*r1) { *r1=c->row; changed=true; }
-            if (c->col<*c0) { *c0=c->col; changed=true; } if (c->col>*c1) { *c1=c->col; changed=true; }
-        }
-    } while (changed && !whole);
+    if (!whole) { cells_containing_region(s,r0,r1,c0,c1); return; }
+    bool populated=false; CellRegion bounds={row,row,col,col};
+    for (size_t i=0;i<s->count;i++) if (s->cells[i].text && *s->cells[i].text) {
+        CellRegion cell={s->cells[i].row,s->cells[i].row,s->cells[i].col,s->cells[i].col};
+        if (!populated) bounds=cell; else region_add(&bounds,cell); populated=true;
+    }
+    *r0=bounds.r0; *r1=bounds.r1; *c0=bounds.c0; *c1=bounds.c1;
 }
 char *cells_tsv(const CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,char **error) {
     if (r1<r0 || c1<c0 || c1-c0>=20000 || r1-r0>=20000 || (r1-r0+1)>20000/(c1-c0+1)) { fail(error,"Copy up to 20,000 cells."); return NULL; }
