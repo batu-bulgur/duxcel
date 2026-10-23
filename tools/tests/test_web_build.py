@@ -30,7 +30,7 @@ class WebBuildMetadataTests(unittest.TestCase):
             with self.subTest(target=target):
                 sources = build_web.make_metadata(target).splitlines()
                 self.assertTrue(sources)
-                self.assertFalse(set(sources) & {"src/workbook/journal.c", "src/workbook/journal_queue.c", "src/workbook/journal_session.c"})
+                self.assertFalse(set(sources) & {"src/platform/file_lease.c", "src/workbook/journal.c", "src/workbook/journal_queue.c", "src/workbook/journal_session.c"})
                 self.assertEqual(len(sources), len(set(sources)))
                 self.assertTrue(all(name.endswith('.c') and
                                     (build_web.ROOT / name).is_file() for name in sources))

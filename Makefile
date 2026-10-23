@@ -26,7 +26,7 @@ endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/cell_command.c src/workbook/save_fence.c src/workbook/history.c src/workbook/lifecycle.c src/workbook/identity.c src/workbook/workbook_codec.c src/data/worker.c
-NATIVE_PERSISTENCE = src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c
+NATIVE_PERSISTENCE = src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c
 SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m src/platform/macos_about.m
@@ -816,7 +816,7 @@ PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
 	build/tests/test_workbook_lifecycle build/tests/test_workbook_lifecycle-debug build/tests/test_workbook_lifecycle-gui \
-	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui build/tests/test_journal_performance build/tests/test_journal_performance-debug build/tests/test_workbook_save build/tests/test_workbook_save-debug build/tests/test_worker_save build/tests/test_worker_save-debug build/tests/test_workbook_save-gui \
+	build/tests/test_workbook_journal build/tests/test_workbook_journal-debug build/tests/test_journal_queue build/tests/test_journal_queue-debug build/tests/test_journal_session build/tests/test_journal_session-debug build/tests/test_journal_session-gui build/tests/test_journal_performance build/tests/test_journal_performance-debug build/tests/test_workbook_save build/tests/test_workbook_save-debug build/tests/test_worker_save build/tests/test_worker_save-debug build/tests/test_workbook_save-gui build/tests/test_file_lease build/tests/test_file_lease-debug \
 	build/tests/test_cell_command build/tests/test_cell_command-debug build/tests/test_cell_command-native \
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
@@ -1202,8 +1202,8 @@ build/tests/test_journal_queue-debug: $(JOURNAL_QUEUE_TEST_SAN_OBJECTS) | build/
 	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_QUEUE_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_QUEUE_TEST_OBJECTS:.o=.d) $(JOURNAL_QUEUE_TEST_SAN_OBJECTS:.o=.d)
 
-JOURNAL_SESSION_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/src/workbook/journal.o build/obj/release/app/src/workbook/journal_queue.o build/obj/release/app/src/workbook/journal_session.o build/obj/release/app/tests/test_journal_session.o
-JOURNAL_SESSION_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/sanitize/app/src/workbook/journal.o build/obj/sanitize/app/src/workbook/journal_queue.o build/obj/sanitize/app/src/workbook/journal_session.o build/obj/sanitize/app/tests/test_journal_session.o
+JOURNAL_SESSION_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE) $(NATIVE_PERSISTENCE)))) build/obj/release/app/tests/test_journal_session.o
+JOURNAL_SESSION_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE) $(NATIVE_PERSISTENCE)))) build/obj/sanitize/app/tests/test_journal_session.o
 build/tests/test_journal_session: $(JOURNAL_SESSION_OBJECTS) | build/tests
 	$(call link_binary,$(CFLAGS) $(JOURNAL_SESSION_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
 build/tests/test_journal_session-debug: $(JOURNAL_SESSION_SAN_OBJECTS) | build/tests
@@ -1255,3 +1255,11 @@ WORKBOOK_SAVE_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/
 build/tests/test_workbook_save-gui: tests/test_workbook_save_gui.c $(WORKBOOK_SAVE_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_workbook_save_gui.c $(WORKBOOK_SAVE_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include build/obj/feature-workbook-save/app.d
+
+FILE_LEASE_OBJECTS = build/obj/release/app/src/common.o build/obj/release/app/src/platform/file_lease.o build/obj/release/app/tests/test_file_lease.o
+FILE_LEASE_SAN_OBJECTS = build/obj/sanitize/app/src/common.o build/obj/sanitize/app/src/platform/file_lease.o build/obj/sanitize/app/tests/test_file_lease.o
+build/tests/test_file_lease: $(FILE_LEASE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(FILE_LEASE_OBJECTS),)
+build/tests/test_file_lease-debug: $(FILE_LEASE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(FILE_LEASE_SAN_OBJECTS),$(SANFLAGS))
+-include $(FILE_LEASE_OBJECTS:.o=.d) $(FILE_LEASE_SAN_OBJECTS:.o=.d)

@@ -477,3 +477,13 @@ parent/generation identity before opening the write lane on native macOS.
 Missing/conflicting origin or engine failure retains pending records for exact
 retry; no failed metadata binding can acknowledge an edit. Startup discovery and
 process ownership remain W10b/W10c.
+
+`src/platform/file_lease.c` owns native OS-backed generation leases. The producer
+claims the fixed private zero-byte `lease.lock` before starting its writer and
+releases it only after joining. Kept generations retain the inode for a later
+exclusive recovery claim; acquisition/release never truncate/unlink it. Explicit
+discard removes known owned artifacts while still holding the lease. POSIX uses
+nonblocking flock with close-on-exec/no-follow; Windows has an exclusive native
+handle boundary. Only macOS execution is validated. Recovery discovery must
+claim a generation before inspecting/adopting it and skip active leases. The
+module is excluded from the shared-C browser source inventory.

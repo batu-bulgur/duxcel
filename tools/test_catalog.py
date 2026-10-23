@@ -58,6 +58,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-owner": Feature((), "journal-session",
+        ("python3 tools/test.py feature --feature journal-session", "python3 tools/test.py feature --feature journal-faults"),
+        ("src/platform/file_lease.c", "src/platform/file_lease.h", "src/workbook/journal_session.c: generation ownership"), ("file_lease", "journal_session")),
     "save-ui": Feature((), "workbook-save",
         ("python3 tools/test.py feature --feature workbook-save", "python3 tools/test.py feature --feature journal-session"),
         ("src/app/app.c: Save progress and completion", "tests/support/workbook_save_app.inc")),

@@ -154,3 +154,12 @@ verifying four v2 origin write/fsync failure modes with exact two-record retry
 and fresh-process metadata/content checks. That named matrix remains deferred
 from ordinary App/UI edits. Streaming fingerprint integration is macOS-only;
 portable journal v2 accepts explicit caller-provided origin bytes on native C.
+
+`make test-feature FEATURE=recovery-owner` runs the standalone actual-header/module
+`test_file_lease.c`, session variants and the existing 18-stage checkpoint App.
+A private forked child owns a lease; the test kills only that child and verifies
+OS release. Separate handles/processes cannot claim an active generation, and
+symlink/hardlink/nonzero content remains intact. Session tests verify active
+ownership and claimability after keep-close; fixed lease files are known private
+artifacts, not a fixture dataset or build-operation lock. The finite performance
+helper also cleans that artifact. Test output stays under ignored `build/tests/`.

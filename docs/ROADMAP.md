@@ -144,7 +144,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10a1 · P0 · Complete | Immutable journal origin codec; W09. | v2 generation/parent IDs, baseline byte length/SHA-256 and original locator bind atomically before the first edit. Exact retry is idempotent; conflicts/malformed metadata reject; legacy tails cannot infer a baseline. |
 | W10a2 · P0 · Complete | Checkpoint fingerprint and writer origin admission; W10a1. | Real prepared checkpoint bytes bind to the queued generation before acknowledgement; rotation records the parent. Preparation/binding retry retains payloads and exact origin. |
 | W10b · P0 · In progress | Bounded recovery discovery and candidate replay; W10a. | Validate known private artifacts, baseline and contiguous tail into an isolated candidate with progress/cancel. Equal clocks do not order branches; preserve all candidates on failure. |
-| W10b1 · P0 · Next | Exclusive generation ownership and read-only journal access; W10a. | Another live process/instance cannot claim an active generation. Recovery inspection never creates or appends a journal; process death releases ownership. |
+| W10b1 · P0 · In progress | Exclusive generation ownership and read-only journal access; W10a. | Another live process/instance cannot claim an active generation. Recovery inspection never creates or appends a journal; process death releases ownership. |
+| W10b1a · P0 · Complete | OS-backed private generation lease; W10a. | Hold ownership from allocation through joined cleanup; another handle/process sees busy, and process death releases it. Acquisition/release never replaces the lock file; rejected paths/content stay intact. |
+| W10b1b · P0 · Next | Read-only journal inspection and interrupted v2 tail proof; W10b1a. | No create/bind/append through inspection; real pre/post-COMMIT kills retain a readable old/new complete state and immutable origin without checkpointing recovery material. |
 | W10b2 · P0 · Queued | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
 | W10c · P0 · Queued | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
@@ -309,6 +311,19 @@ cases: 20 cases/84 checks per configuration now pass (19.330s total). The optimi
 performance refresh passes in 4.451s: warm producer/durable p95 0.005/1.532ms,
 256 edits/two commits in 42.675ms, full 20,000-cell checkpoint in 2,111.586ms;
 56 tool contracts pass. W10b first adds live-instance leases before discovery.
+
+W10b1a complete: private recovery generations hold a native OS lease from
+allocation through writer join/release. A second handle/process cannot claim
+one; SIGKILL releases ownership. Acquisition rejects symlinks, hardlinks and
+nonzero/nonregular files without truncating or replacing them. Kept generations
+retain a fixed zero-byte lease file; discard removes only owned artifacts while
+still holding ownership. The native-only module stays excluded from Wasm.
+The `recovery-owner` gate passes 26 lease and 143 session assertions per optimized/
+sanitizer variant, then 18 hidden App stages/28 checks (6.747s GUI, 16.041s total).
+The updated maximum-paste/checkpoint workload passes optimized in 4.613s; 56 tool
+contracts pass, including explicit browser source exclusion. macOS is validated;
+other native implementation paths are not an execution claim. Read-only crashed
+journal inspection is W10b1b; no startup recovery UI is active yet.
 
 ### Owned data, refresh and complete analytical results
 

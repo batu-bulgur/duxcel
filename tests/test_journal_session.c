@@ -4,6 +4,7 @@
 #include "workbook/lifecycle.h"
 #include "platform/platform.h"
 #include "data/source_digest.h"
+#include "platform/file_lease.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +33,7 @@ static JournalSessionState ready(WorkbookJournalSession *s,Workbook *b) {
     }
 }
 static char *parent(const char *path) { char *directory=dx_strdup(path),*slash=strrchr(directory,'/'); CHECK(slash); *slash=0; return directory; }
-static void cleanup_generation(const char *checkpoint,const char *journal) { char *directory=parent(checkpoint); CHECK(!unlink(checkpoint)); CHECK(!unlink(journal)); CHECK(!rmdir(directory)); free(directory); }
+static void cleanup_generation(const char *checkpoint,const char *journal) { char *directory=parent(checkpoint),*lease=dx_printf("%s/lease.lock",directory); CHECK(!unlink(lease)); free(lease); CHECK(!unlink(checkpoint)); CHECK(!unlink(journal)); CHECK(!rmdir(directory)); free(directory); }
 typedef struct { Workbook *book; } Replay;
 static bool replay(void *context,const JournalCellEdit *e,char **error) {
     Replay *r=context; Workbook *b=r->book; CHECK(e->previous_revision==b->command_revision);
@@ -74,7 +75,10 @@ static void initial_checkpoint(const char *root) {
     CHECK(workbook_journal_session_owns_path(s,checkpoint) && workbook_journal_session_owns_path(s,journal));
     char *directory=parent(checkpoint),*inside=dx_printf("%s/new-workbook.dxls",directory); free(directory);
     CHECK(workbook_journal_session_owns_path(s,inside) && !workbook_journal_session_owns_path(s,"build/tests/generated/named.dxls")); free(inside);
+    char *lease_directory=parent(checkpoint),*lease_path=dx_printf("%s/lease.lock",lease_directory); free(lease_directory); DxFileLease *lease=NULL;
+    CHECK(dx_file_lease_acquire(lease_path,false,&lease,&error)==DX_FILE_LEASE_BUSY && !lease && !error);
     CHECK(workbook_journal_session_close(s,false,&error)); CHECK(!error);
+    CHECK(dx_file_lease_acquire(lease_path,false,&lease,&error)==DX_FILE_LEASE_ACQUIRED && lease && !error); dx_file_lease_release(lease); free(lease_path);
     CHECK(workbook_load(&loaded,checkpoint,&error)); CHECK(loaded.command_revision==0 && !*cells_get(&loaded.sheets[0].cells,3,2));
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,0,0),"9007199254740993.0123456789"));
     recover(checkpoint,journal,&loaded,2,b.path);

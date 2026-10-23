@@ -1,6 +1,7 @@
 #include "journal_session.h"
 #include "../platform/platform.h"
 #include "../data/source_digest.h"
+#include "../platform/file_lease.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,8 @@ typedef struct {
     char *directory,*checkpoint,*journal;
     size_t format_bytes;
     JournalOrigin origin;
+    DxFileLease *lease;
+    char *lease_path;
 } Checkpoint;
 typedef struct { WorkbookJournalQueue *queue; Checkpoint *checkpoint; } Generation;
 struct WorkbookJournalSession {
@@ -64,6 +67,7 @@ static bool matches(const ContentFence *f,const Workbook *b) {
 static void checkpoint_release(void *context) {
     Checkpoint *c=context;
     if (c->snapshot) { workbook_free(c->snapshot); free(c->snapshot); }
+    dx_file_lease_release(c->lease); free(c->lease_path);
     free((void *)c->origin.original_path); free(c->directory); free(c->checkpoint); free(c->journal); free(c);
 }
 static bool checkpoint_prepare(void *context,char **error) {
@@ -88,7 +92,7 @@ static const JournalOrigin *checkpoint_origin(void *context) { return &((Checkpo
 static void remove_owned(const Checkpoint *c) {
     /* Fixed private filenames only. Never recursively remove an unrecognized
        file or touch an external source/named workbook. */
-    remove(c->checkpoint); remove(c->journal);
+    remove(c->checkpoint); remove(c->journal); if (c->lease_path) remove(c->lease_path);
     char *wal=dx_printf("%s.wal",c->journal); remove(wal); free(wal);
     dx_remove_temp_directory(c->directory);
 }
@@ -141,6 +145,8 @@ static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **
     c->directory=dx_private_directory(s->root);
     if (!c->directory) { checkpoint_release(c); return fail(error,"Cannot create a private local backup. Your draft is kept."); }
     c->checkpoint=dx_printf("%s/checkpoint.dxls",c->directory); c->journal=dx_printf("%s/journal.duckdb",c->directory);
+    c->lease_path=dx_printf("%s/lease.lock",c->directory);
+    if (dx_file_lease_acquire(c->lease_path,true,&c->lease,error)!=DX_FILE_LEASE_ACQUIRED) { remove_owned(c); checkpoint_release(c); return false; }
     c->snapshot=workbook_snapshot(b);
     if (!c->snapshot) { remove_owned(c); checkpoint_release(c); return fail(error,"Cannot prepare this workbook for local backup. Your draft is kept."); }
     JournalQueueOptions options=s->options; options.setup=(JournalQueueSetup){checkpoint_prepare,checkpoint_release,c};

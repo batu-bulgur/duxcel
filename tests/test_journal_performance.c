@@ -98,6 +98,7 @@ int main(int argc,char **argv) {
         if (a->row!=v->row || a->col!=v->col || strcmp(a->text,v->text)) equal=false; } CHECK(equal);
     workbook_journal_close(j); workbook_free(&loaded); workbook_free(&b); dx_cond_destroy(&counter.changed); dx_mutex_destroy(&counter.mutex);
     CHECK(!unlink(checkpoint) && !unlink(journal)); char *slash=strrchr(checkpoint,'/'); CHECK(slash); *slash=0;
+    char *lease=dx_printf("%s/lease.lock",checkpoint); CHECK(!unlink(lease)); free(lease);
     CHECK(!rmdir(checkpoint) && !rmdir(directory)); free(checkpoint); free(journal);
     struct rusage usage; CHECK(!getrusage(RUSAGE_SELF,&usage));
 #ifdef __APPLE__
