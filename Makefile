@@ -25,7 +25,7 @@ THREAD_LIBS =
 endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/cell_command.c src/workbook/save_fence.c src/workbook/history.c src/workbook/lifecycle.c src/workbook/identity.c src/workbook/workbook_codec.c src/data/worker.c
+CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/cell_command.c src/workbook/save_fence.c src/workbook/history.c src/workbook/lifecycle.c src/workbook/identity.c src/workbook/workbook_codec.c src/workbook/schema.c src/data/worker.c
 NATIVE_PERSISTENCE = src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
 SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
@@ -519,10 +519,15 @@ test-workbook-codec: build/tests/test_workbook_codec build/tests/test_workbook_c
 	./build/tests/test_workbook_codec
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook_codec-debug
 .PHONY: test-workbook-codec
-build/tests/test_workbook: $(CORE) tests/test_workbook.c tests/support/legacy_workbook.h $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-build/tests/test_workbook-debug: $(CORE) tests/test_workbook.c tests/support/legacy_workbook.h $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_workbook.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+CORE_TEST_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE))))
+CORE_TEST_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE))))
+WORKBOOK_TEST_OBJECTS = $(CORE_TEST_OBJECTS) build/obj/release/app/tests/test_workbook.o
+WORKBOOK_TEST_SAN_OBJECTS = $(CORE_TEST_SAN_OBJECTS) build/obj/sanitize/app/tests/test_workbook.o
+build/tests/test_workbook: $(WORKBOOK_TEST_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(WORKBOOK_TEST_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_workbook-debug: $(WORKBOOK_TEST_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(WORKBOOK_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(WORKBOOK_TEST_OBJECTS:.o=.d) $(WORKBOOK_TEST_SAN_OBJECTS:.o=.d)
 test-analysis-journal: build/tests/test_workbook build/tests/test_workbook-debug
 	./build/tests/test_workbook --journal-only
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook-debug --journal-only
@@ -531,10 +536,13 @@ test-format-budget: build/tests/test_workbook build/tests/test_workbook-debug
 	./build/tests/test_workbook --format-budget-only
 	ASAN_OPTIONS=halt_on_error=1 ./build/tests/test_workbook-debug --format-budget-only
 .PHONY: test-format-budget
-build/tests/test_core: $(CORE) tests/test_core.c $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
-build/tests/test_core-debug: $(CORE) tests/test_core.c $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(CORE) tests/test_core.c -o $@ $(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS)
+CORE_ENGINE_TEST_OBJECTS = $(CORE_TEST_OBJECTS) build/obj/release/app/tests/test_core.o
+CORE_ENGINE_TEST_SAN_OBJECTS = $(CORE_TEST_SAN_OBJECTS) build/obj/sanitize/app/tests/test_core.o
+build/tests/test_core: $(CORE_ENGINE_TEST_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(CORE_ENGINE_TEST_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_core-debug: $(CORE_ENGINE_TEST_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(CORE_ENGINE_TEST_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(CORE_ENGINE_TEST_OBJECTS:.o=.d) $(CORE_ENGINE_TEST_SAN_OBJECTS:.o=.d)
 SHADOWVIEW_SRC = src/ui/shadowview.c tests/test_shadowview.c
 # The frozen pixel oracle remains a test fixture; it never enters App sources.
 build/tests/test_shadowview: $(SHADOWVIEW_SRC) tests/fixtures/rendering/shadow_reference.h tests/fixtures/rendering/shadow_corner_reference.h $(HEADERS) | build/tests
@@ -812,7 +820,7 @@ distclean:
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
 PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug \
-	build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
+	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
 	build/tests/test_workbook_lifecycle build/tests/test_workbook_lifecycle-debug build/tests/test_workbook_lifecycle-gui \
@@ -1316,3 +1324,11 @@ RECOVERY_PROCESS_SAN_LINK = $(filter-out build/obj/sanitize/app/src/app/app.o bu
 build/tests/test_recovery_process-debug: tests/test_recovery_gui.c $(RECOVERY_PROCESS_SAN_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_SANITIZE_FLAGS) tests/test_recovery_gui.c $(RECOVERY_PROCESS_SAN_LINK),$(LDFLAGS) $(LDLIBS) $(SANFLAGS))
 -include $(RECOVERY_PROCESS_SAN_OBJECT:.o=.d)
+
+SCHEMA_TEST_OBJECTS = build/obj/release/app/src/workbook/schema.o build/obj/release/app/src/workbook/workbook_codec.o build/obj/release/app/tests/test_workbook_schema.o
+SCHEMA_TEST_SAN_OBJECTS = build/obj/sanitize/app/src/workbook/schema.o build/obj/sanitize/app/src/workbook/workbook_codec.o build/obj/sanitize/app/tests/test_workbook_schema.o
+build/tests/test_workbook_schema: $(SCHEMA_TEST_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(SCHEMA_TEST_OBJECTS),)
+build/tests/test_workbook_schema-debug: $(SCHEMA_TEST_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(SCHEMA_TEST_SAN_OBJECTS),$(SANFLAGS))
+-include $(SCHEMA_TEST_OBJECTS:.o=.d) $(SCHEMA_TEST_SAN_OBJECTS:.o=.d)

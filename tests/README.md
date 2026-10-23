@@ -220,3 +220,19 @@ metadata together. `test_keytips.c` validates every entry, unique IDs and invali
 actions. `make test-feature FEATURE=recovery-menu` additionally runs the real
 19-stage recovery menu/document workflow in ASan/UBSan, preventing a direct
 controller call from hiding a menu-paint or metadata indexing regression.
+
+`test_workbook_schema.c` consumes the immutable current-package descriptors via
+`src/workbook/schema.c`. It checks complete/reordered/ASCII-folded proofs and
+missing, duplicate, unknown, view, type, NULL and embedded-NUL/oversized spans,
+without an engine/window. The registered `workbook-schema` gate adds the existing
+real Save workflow; `workbook-archive` retains the full native malformed-file
+matrix. Runtime legacy-copy assertions use the existing native legacy helper,
+verify non-writing v14 Open and v15 upgrade/identity, then remove their private
+copy. They are codec assertions, not a standalone synthetic fixture generator.
+Core/workbook test objects have actual `.d` dependencies and share native engine
+objects; generated inputs and core-before-workbook execution ordering are intact.
+
+`test_workbook --metadata-types-only` verifies actual C-API JSON/VARCHAR metadata
+compatibility, exact stored text and byte-preserved constrained-write failure.
+The pure proof's type mapping and real-engine alias check are separate; alias
+support does not relax numeric signedness or row-value validation.

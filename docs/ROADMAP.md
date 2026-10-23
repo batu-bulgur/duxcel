@@ -39,7 +39,7 @@ numbered workbook dependencies. W05a/W05b implement the admitted single-cell com
 - [ ] Improve orchestration through its existing Python boundary with equivalent timeout, locking, failure/recovery and browser/platform coverage; no blanket language rewrite.
 - [ ] Extract native scenarios from App into a test-only build boundary without losing assertions. Split cohesive App controllers only when directly needed.
 - [x] Default incremental native App/review/helper builds to eight parallel compilation jobs, with one icon-generation owner and separate configuration/temp outputs. Keep mutable engine/desktop execution serialized. Recursive Python test builds now preserve the inherited Make jobserver, including its explicit BUILD_JOBS limit; Make inspection modes do not launch tests.
-- [ ] Extend compatible per-file compilation to legacy module-test builds, preserving renderer-stub/configuration boundaries before admitting their graph to parallel builds.
+- [ ] Extend compatible per-file compilation to remaining legacy module-test builds, preserving renderer-stub/configuration boundaries before admitting their graph to parallel builds. Core/workbook engine suites now share native per-file objects and actual header dependencies; fixture execution remains serial and core-before-workbook.
 - [ ] Split the large browser integration driver by workflow behind one shared CDP/lifecycle layer; remove duplicated helpers instead of writing a second engine.
 
 ## Persistence and source identity
@@ -156,6 +156,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10c2a · P0 · Complete | Explicit recovery disposition and inherited branch; W10c1. | A checkpoint copy never retires its deferred tail; full recovery cleanup requires explicit Save/discard and unchanged known artifacts. New edits keep the recovered parent/original locator without an implicit Save target. |
 | W10c2b · P0 · Complete | Startup/manual choice, guarded App adoption and compact UI; W10c2a. | Connect the independent reader to startup and File actions, preserve dirty/current documents and late results, and validate narrow/scaled hidden input. |
 | W10c3 · P0 · In progress | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
+| W10c3a · P0 · Complete | Archive compatibility and bounded schema proof; W10c2. | Preserve strict v15 and genuine legacy upgrades, byte-for-byte failed-overwrite protection and exact typed metadata; batch catalog proof without relaxing row validation. Focused schema/Save gate plus explicit archive matrix. |
+| W10c3b · P0 · In progress | Final foundation integration and native lifecycle/Open; W10c3a. | Finish the registered full native milestone on current source, verify owned crash/restart, lifecycle/Finder entry and hidden TEST boundaries, and record actual limits before W11. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W11a · P1 · Queued | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
 | W11b · P1 · Queued | Immutable named-state payloads and transactional tag operation; W11a. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
@@ -439,13 +441,43 @@ W10c3 integration review corrected File metadata ownership: adding recovery had
 left independent eight-entry icon/review arrays. One checked File registry now
 owns labels, keys, icons and semantic IDs; Quit remains last. The recovery
 scenario enters through the actual painted File menu, with explicit first-paint
-waits before dirty-guard clicks. `recovery-ui` passes 19 stages/33 checks in
+waits before dirty-guard clicks. `recovery-ui` passes 19 stages/35 checks in
 4.195s (13.195s gate); the named `recovery-menu` ASan/UBSan App gate passes the
 same 19 stages in 9.210s (42.984s including 32.896s compilation). Its registry
 passes 2,753 optimized/sanitizer checks, and 54 tool contracts pass. The earlier
 full run was intentionally interrupted before continuing with this correction;
 no success is claimed for that interrupted receipt. Current milestone regression
 and the shared review interaction still need completion.
+
+W10c3a complete: compatibility tests now distinguish the strict 28-table v15
+package from genuine legacy packages, verify non-writing v14 Open followed by
+v15 identity persistence, and preserve malformed targets byte-for-byte. Legacy
+mark/measure defaults require legacy headers; the rollback fixture reaches its
+actual CHECK failure. Core/workbook tests share native per-file objects and
+actual dependencies, with unchanged serial core-before-workbook execution.
+A profile identified repeated catalog shape queries. The pure bounded schema
+controller consumes borrowed exact byte spans, accepts reordered/ASCII-folded
+column identifiers, rejects duplicate/unknown/view/type/NUL-prefix metadata and
+poisons invalid proofs. Native complete-package validation now uses one bounded
+catalog query; required NULL/text and owner-row checks remain separate. No format
+version or persistence semantics changed. The same 18,522 archive assertions pass
+optimized (27.081s versus 48.573s before batching) and ASan/UBSan (233.811s;
+the prior monolith exceeded 300s). The integrated gate passes 2,528 pure proof
+checks and 1,751 core checks per configuration plus 18 Save App stages (6.060s;
+283.686s including the explicitly broadened archive matrix). All 89 incremental
+build checks and 54 runner/catalog/web-inventory contracts pass. These are local
+measurements, not frame/SLA promises.
+A subsequent physical-type parity probe preserves DuckDB JSON's existing
+C-API VARCHAR compatibility and its constrained-write rollback (19 checks in
+each build); the proof module now has 2,530 assertions. The final short local
+gate passes in 8.923s (5.687s GUI). The optimized journal workload also passes in
+3.669s: warm producer/durable p95 0.005/1.262ms, two burst commits and the complete
+20,000-cell checkpoint at 1,952.913ms, with exact replay/provenance retained.
+The ordinary `workbook-schema` gate now selects only the proof module and narrow
+Save App workflow. `workbook-archive` keeps the expensive complete matrix as a
+named interaction/full-milestone check; the existing object-archive CLI provides
+a smaller edit-time path. Final full native/lifecycle/Open acceptance remains
+W10c3b; the shared-C/official-Worker controls boundary has passed in 59.001s.
 
 ### Owned data, refresh and complete analytical results
 

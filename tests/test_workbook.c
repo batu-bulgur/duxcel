@@ -16,6 +16,24 @@ static void sql_file(const char *path,const char *sql) {
     if (duckdb_query(c,sql,&r)!=DuckDBSuccess) { fprintf(stderr,"%s\n",duckdb_result_error(&r)); exit(1); }
     duckdb_destroy_result(&r); duckdb_disconnect(&c); duckdb_close(&db);
 }
+static void corrupt_archive_kept(const Workbook *book,const char *path);
+static void test_metadata_type_aliases(void) {
+    Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); char *error=NULL;
+    const char *path="build/tests/generated/metadata-type-alias.dxls"; remove(path);
+    CHECK(workbook_add(&book,"Alias compatibility",&(Analysis){0},&error));
+    CHECK(cells_set(&book.sheets[0].cells,0,0,"\"keep\"",&error) && workbook_save(&book,path,&error));
+    sql_file(path,"ALTER TABLE _duxcel_workspace.cells ALTER text TYPE JSON");
+    duckdb_database db=NULL; duckdb_connection c=NULL; duckdb_prepared_statement statement=NULL;
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
+    CHECK(duckdb_prepare(c,"SELECT text FROM _duxcel_workspace.cells LIMIT 0",&statement)==DuckDBSuccess);
+    CHECK(duckdb_prepared_statement_column_type(statement,0)==DUCKDB_TYPE_VARCHAR); /* Existing physical-type contract. */
+    duckdb_destroy_prepare(&statement); duckdb_disconnect(&c); duckdb_close(&db);
+    CHECK(workbook_load(&loaded,path,&error) && !strcmp(cells_get(&loaded.sheets[0].cells,0,0),"\"keep\""));
+    CHECK(workbook_save(&book,path,&error) && !error);
+    CHECK(cells_set(&book.sheets[0].cells,0,0,"not JSON",&error)); corrupt_archive_kept(&book,path);
+    CHECK(workbook_load(&loaded,path,&error) && !strcmp(cells_get(&loaded.sheets[0].cells,0,0),"\"keep\""));
+    workbook_free(&book); workbook_free(&loaded); free(error);
+}
 static void test_cells(void) {
     CellStore s={0},copy={0}; char *error=NULL;
     CHECK(cells_set(&copy,5,2,"İstanbul",&error)); CHECK(cells_set(&copy,5,2,cells_get(&copy,5,2)+2,&error)); CHECK(!strcmp(cells_get(&copy,5,2),"stanbul"));
@@ -99,7 +117,7 @@ static void test_objects(void) {
     region=objects_region(s,cells,5,6,2,2,true); CHECK(region.r0==0 && region.r1==20 && region.c0==0 && region.c1==15);
     Workbook *copy=workbook_snapshot(&b); CHECK(copy->sheets[0].objects.count==2 && !copy->sheets[0].objects.undo_count);
     pivot_remove(&p,PIVOT_ROWS,0); CHECK(objects_update(s,0,&p,&error)); CHECK(copy->sheets[0].objects.items[0].pivot.counts[PIVOT_ROWS]==1);
-    CHECK(workbook_save(copy,"build/tests/generated/pivot-workspace.dxls",&error));
+    remove("build/tests/generated/pivot-workspace.dxls"); CHECK(workbook_save(copy,"build/tests/generated/pivot-workspace.dxls",&error));
     CHECK(workbook_load(&loaded,"build/tests/generated/pivot-workspace.dxls",&error));
     CHECK(loaded.sheets[0].objects.count==2 && loaded.sheets[0].objects.items[1].col==12);
     CHECK(!strcmp(loaded.sheets[0].objects.items[0].pivot.fields[PIVOT_ROWS][0].name,"City"));
@@ -133,7 +151,7 @@ static void test_objects(void) {
     CHECK(s->items[2].revision==revision && s->items[2].id==identity && s->items[2].mark==MARK_LINE);
     CHECK(analysis_filter_set(&b.sheets[0].analysis,"City",FILTER_EQUAL,"İstanbul",&error));
     CHECK(analysis_filter_set(&b.sheets[0].analysis,"Amount",FILTER_GREATER,"10",&error));
-    CHECK(workbook_save(&b,"build/tests/generated/chart-workspace.dxls",&error));
+    remove("build/tests/generated/chart-workspace.dxls"); CHECK(workbook_save(&b,"build/tests/generated/chart-workspace.dxls",&error));
     CHECK(workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error));
     CHECK(loaded.sheets[0].objects.count==3 && loaded.sheets[0].objects.items[2].kind==OBJECT_CHART);
     CHECK(loaded.sheets[0].objects.items[2].mark==MARK_LINE);
@@ -145,6 +163,8 @@ static void test_objects(void) {
     sql_file("build/tests/generated/chart-workspace.dxls","UPDATE _duxcel_workspace.objects SET mark=NULL WHERE kind=1");
     CHECK(!workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_LINE); free(error); error=NULL;
     sql_file("build/tests/generated/chart-workspace.dxls","ALTER TABLE _duxcel_workspace.objects DROP COLUMN mark");
+    CHECK(!workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error) && error); free(error); error=NULL;
+    CHECK(test_legacy_downgrade("build/tests/generated/chart-workspace.dxls",12));
     CHECK(workbook_load(&loaded,"build/tests/generated/chart-workspace.dxls",&error) && loaded.sheets[0].objects.items[2].mark==MARK_BAR);
     pivot_free(&p); workbook_free(copy); free(copy); workbook_free(&b); workbook_free(&loaded); free(error);
 }
@@ -170,7 +190,7 @@ static void test_chart_measure(void) {
     CHECK(s->items[0].chart_measure==0 && p.fields[PIVOT_VALUES][0].aggregate==AGG_COUNT);
     CHECK(objects_chart_measure(s,0,1,&error)); p.fields[PIVOT_VALUES][1].aggregate=AGG_AVG;
     CHECK(objects_update(s,0,&p,&error) && s->items[0].chart_measure==1);
-    CHECK(workbook_save(&b,"build/tests/generated/chart-measure.dxls",&error));
+    remove("build/tests/generated/chart-measure.dxls"); CHECK(workbook_save(&b,"build/tests/generated/chart-measure.dxls",&error));
     CHECK(workbook_load(&loaded,"build/tests/generated/chart-measure.dxls",&error) && loaded.sheets[0].objects.items[0].chart_measure==1);
     const char *invalid[]={"NULL","-1","8","2"};
     for (size_t i=0;i<4;i++) {
@@ -178,6 +198,8 @@ static void test_chart_measure(void) {
         CHECK(!workbook_load(&loaded,"build/tests/generated/chart-measure.dxls",&error) && loaded.sheets[0].objects.items[0].chart_measure==1); free(error); error=NULL;
     }
     sql_file("build/tests/generated/chart-measure.dxls","ALTER TABLE _duxcel_workspace.objects DROP COLUMN chart_measure");
+    CHECK(!workbook_load(&loaded,"build/tests/generated/chart-measure.dxls",&error) && error); free(error); error=NULL;
+    CHECK(test_legacy_downgrade("build/tests/generated/chart-measure.dxls",12));
     CHECK(workbook_load(&loaded,"build/tests/generated/chart-measure.dxls",&error) && !loaded.sheets[0].objects.items[0].chart_measure);
     pivot_remove(&p,PIVOT_VALUES,1); CHECK(objects_update(s,0,&p,&error) && !s->items[0].chart_measure);
     CHECK(objects_valid(s,&error));
@@ -289,7 +311,7 @@ static void test_worksheet_columns(void) {
     CHECK(worksheet_column(s,2,false,0,&error)); CHECK(s->objects.items[0].col==4 && !strcmp(cells_get(&s->cells,0,4),"Note"));
     range_history(s,false); CHECK(s->objects.items[0].col==5); range_history(s,true); CHECK(s->objects.items[0].col==4);
     CHECK(worksheet_column(s,4,true,0,&error) && s->objects.items[0].col==5); /* At the left edge moves the whole object. */
-    CHECK(workbook_save(&b,"build/tests/generated/column-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/column-shifts.dxls",&error));
+    remove("build/tests/generated/column-shifts.dxls"); CHECK(workbook_save(&b,"build/tests/generated/column-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/column-shifts.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].col==5 && !strcmp(cells_get(&loaded.sheets[0].cells,0,5),"Note"));
     CHECK(cells_set(&s->cells,0,16383,"Edge",&error)); worksheet_record(s,EDIT_CELLS); actions=s->undo_actions_count;
     CHECK(!worksheet_column(s,2,true,0,&error)); free(error); error=NULL;
@@ -327,7 +349,7 @@ static void test_worksheet_rows(void) {
     CHECK(worksheet_row(s,10,true,5,&error) && s->objects.items[0].row==11 && s->undo_actions[s->undo_actions_count-1]==EDIT_OBJECTS);
     actions=s->undo_actions_count; revision=s->cells.revision;
     CHECK(worksheet_row(s,100,true,5,&error) && s->undo_actions_count==actions && s->cells.revision==revision);
-    CHECK(workbook_save(&b,"build/tests/generated/row-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/row-shifts.dxls",&error));
+    remove("build/tests/generated/row-shifts.dxls"); CHECK(workbook_save(&b,"build/tests/generated/row-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/row-shifts.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].row==11 && loaded.sheets[0].objects.items[1].row==31);
     CHECK(cells_set(&s->cells,DX_SHEET_ROWS-1,8,"Edge",&error)); worksheet_record(s,EDIT_CELLS); actions=s->undo_actions_count;
     CHECK(!worksheet_row(s,2,true,0,&error)); free(error); error=NULL;
@@ -361,7 +383,7 @@ static void test_chart_resize(void) {
     CHECK(!objects_resize_chart(&s->objects,0,22,7,&s->cells,5,6,&error)); free(error); error=NULL;
     CHECK(!objects_resize_chart(&s->objects,0,14,7,&s->cells,20,9,&error)); free(error); error=NULL;
     CHECK(s->objects.undo_count==actions && s->objects.items[0].name==name && s->objects.items[0].rows==14 && !strcmp(cells_get(&s->cells,25,15),"Keep me"));
-    CHECK(workbook_save(&b,"build/tests/generated/chart-size.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/chart-size.dxls",&error));
+    remove("build/tests/generated/chart-size.dxls"); CHECK(workbook_save(&b,"build/tests/generated/chart-size.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/chart-size.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].rows==14 && loaded.sheets[0].objects.items[0].columns==7 && loaded.sheets[0].objects.items[1].row==30);
     CHECK(objects_move(&s->objects,0,DX_SHEET_ROWS-14,16377,&s->cells,0,0,&error)); worksheet_record(s,EDIT_OBJECTS);
     CHECK(!objects_resize_chart(&s->objects,0,15,7,&s->cells,0,0,&error)); free(error); error=NULL;
@@ -389,7 +411,7 @@ static void test_object_names(void) {
     CHECK(!objects_rename(&s->objects,1,oversized,&error)); free(error); error=NULL;
     CHECK(s->objects.undo_count==actions && s->objects.title_revision==titles && s->objects.items[1].name==name);
     CHECK(objects_rename(&s->objects,1,name+2,&error)); worksheet_record(s,EDIT_OBJECTS); CHECK(!strcmp(s->objects.items[1].name,"stanbul analizi"));
-    CHECK(workbook_save(&b,"build/tests/generated/object-names.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/object-names.dxls",&error));
+    remove("build/tests/generated/object-names.dxls"); CHECK(workbook_save(&b,"build/tests/generated/object-names.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/object-names.dxls",&error));
     CHECK(!strcmp(loaded.sheets[0].objects.items[1].name,"stanbul analizi") && loaded.sheets[0].objects.items[1].id==id);
     titles=s->objects.title_revision; uint64_t next=s->objects.next_id;
     objects_copy(&s->objects,&s->objects);
@@ -420,7 +442,7 @@ static void test_multiple_rows(void) {
     CHECK(!worksheet_rows(s,8,UINT64_MAX,true,7,&error)); free(error); error=NULL;
     CHECK(s->undo_actions_count==actions && s->cells.cells[0].text==owned && s->objects.items[0].row==20);
     CHECK(worksheet_rows(s,20,3,true,7,&error) && s->objects.items[0].row==23 && s->objects.items[1].row==43);
-    CHECK(workbook_save(&b,"build/tests/generated/multiple-rows.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/multiple-rows.dxls",&error));
+    remove("build/tests/generated/multiple-rows.dxls"); CHECK(workbook_save(&b,"build/tests/generated/multiple-rows.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/multiple-rows.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].row==23 && loaded.sheets[0].objects.items[1].row==43 && !strcmp(cells_get(&loaded.sheets[0].cells,9,8),"C"));
     CHECK(cells_set(&s->cells,DX_SHEET_ROWS-2,8,"Edge",&error)); worksheet_record(s,EDIT_CELLS); actions=s->undo_actions_count;
     CHECK(!worksheet_rows(s,8,3,true,7,&error)); free(error); error=NULL;
@@ -578,10 +600,10 @@ static void test_sort_workspace(void) {
     analysis_free(&book.sheets[0].analysis); book.sheets[0].analysis=analysis_copy(&source);
     const char *invalid[]={"UPDATE _duxcel_workspace.sorts SET position=6 WHERE position=0", "UPDATE _duxcel_workspace.sorts SET sheet_id=99", "UPDATE _duxcel_workspace.sorts SET name='city' WHERE position=0", "UPDATE _duxcel_workspace.sorts SET descending=NULL WHERE position=0", "UPDATE _duxcel_workspace.sorts SET name=repeat('x',33000) WHERE position=0"};
     for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
-        CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]); CHECK(!workbook_load(&loaded,path,&error)); CHECK(analysis_sorts_equal(&loaded.sheets[0].analysis,&source)); free(error); error=NULL;
+        remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]); CHECK(!workbook_load(&loaded,path,&error)); CHECK(analysis_sorts_equal(&loaded.sheets[0].analysis,&source)); free(error); error=NULL; corrupt_archive_kept(&book,path);
     }
-    CHECK(workbook_save(&book,path,&error));
-    sql_file(path,"DROP TABLE _duxcel_workspace.sorts; UPDATE _duxcel_workspace.meta SET version=4");
+    remove(path); CHECK(workbook_save(&book,path,&error));
+    CHECK(test_legacy_downgrade(path,4)); sql_file(path,"DROP TABLE _duxcel_workspace.sorts");
     CHECK(workbook_load(&loaded,path,&error)); CHECK(!loaded.sheets[0].analysis.sort_count && !strcmp(loaded.sheets[0].analysis.sort_column,"City"));
     CHECK(workbook_save(&book,path,&error)); CHECK(workbook_load(&loaded,path,&error)); CHECK(analysis_sorts_equal(&loaded.sheets[0].analysis,&source));
     analysis_free(&source); workbook_free(&book); workbook_free(&loaded); free(error);
@@ -668,11 +690,11 @@ static void test_query_workspace(void) {
     CHECK(database_fetch_table(&db,&loaded.sheets[0].objects.items[0].source,0,-1,&page,&error) && page.total==3); page_free(&page); database_close(&db);
     const char *invalid[]={"UPDATE _duxcel_workspace.queries SET object_id=999 WHERE object_id<>0", "UPDATE _duxcel_workspace.queries SET sheet_id=-1", "UPDATE _duxcel_workspace.queries SET query=NULL", "UPDATE _duxcel_workspace.queries SET query=repeat('x',65537)", "UPDATE _duxcel_workspace.queries SET query=' '", "UPDATE _duxcel_workspace.queries SET query='SELECT 1'||chr(0)||'malformed'", "CREATE OR REPLACE TABLE _duxcel_workspace.queries AS SELECT sheet_id,object_id::VARCHAR AS object_id,query FROM _duxcel_workspace.queries", "DROP TABLE _duxcel_workspace.queries"};
     for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
-        CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]);
-        CHECK(!workbook_load(&loaded,path,&error) && loaded.count==1 && !strcmp(loaded.sheets[0].analysis.query,source.query)); free(error); error=NULL;
+        remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]);
+        CHECK(!workbook_load(&loaded,path,&error) && loaded.count==1 && !strcmp(loaded.sheets[0].analysis.query,source.query)); free(error); error=NULL; corrupt_archive_kept(&book,path);
     }
-    CHECK(workbook_save(&book,path,&error));
-    sql_file(path,"UPDATE _duxcel_workspace.meta SET version=6; DROP TABLE _duxcel_workspace.queries");
+    remove(path); CHECK(workbook_save(&book,path,&error));
+    CHECK(test_legacy_downgrade(path,6)); sql_file(path,"DROP TABLE _duxcel_workspace.queries");
     CHECK(workbook_load(&loaded,path,&error) && !loaded.sheets[0].analysis.query && !loaded.sheets[0].objects.items[0].source.query);
     CHECK(workbook_save(&loaded,path,&error));
     analysis_free(&source); analysis_free(&changed); workbook_free(&book); workbook_free(&loaded); free(error);
@@ -717,7 +739,7 @@ static void test_unique_workspace(void) {
         CHECK(!workbook_load(&loaded,path,&error) && loaded.count==1 && loaded.sheets[0].analysis.unique_rows && loaded.sheets[0].objects.items[0].source.unique_rows); free(error); error=NULL;
     }
     remove(path); CHECK(workbook_save(&book,path,&error));
-    sql_file(path,"UPDATE _duxcel_workspace.meta SET version=7; DROP TABLE _duxcel_workspace.source_options");
+    CHECK(test_legacy_downgrade(path,7)); sql_file(path,"DROP TABLE _duxcel_workspace.source_options");
     CHECK(workbook_load(&loaded,path,&error) && !loaded.sheets[0].analysis.unique_rows && !loaded.sheets[0].objects.items[0].source.unique_rows && loaded.sheets[0].analysis.query);
     CHECK(workbook_save(&loaded,path,&error)); CHECK(workbook_load(&loaded,path,&error));
     CHECK(!loaded.sheets[0].analysis.unique_rows && !loaded.sheets[0].objects.items[0].source.unique_rows);
@@ -765,7 +787,7 @@ static void test_pivot_grain_workspace(void) {
     }
     /* A genuine version-8 file has raw fields and no grain column. */
     pivot_free(&pivot); CHECK(pivot_assign(&pivot,PIVOT_COLUMNS,"Date",AGG_SUM,&error)); CHECK(pivot_assign(&pivot,PIVOT_VALUES,"Amount",AGG_SUM,&error)); CHECK(objects_update(store,0,&pivot,&error));
-    remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,"UPDATE _duxcel_workspace.meta SET version=8; ALTER TABLE _duxcel_workspace.pivot_fields DROP COLUMN grain");
+    remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(test_legacy_downgrade(path,8)); sql_file(path,"ALTER TABLE _duxcel_workspace.pivot_fields DROP COLUMN grain");
     CHECK(workbook_load(&loaded,path,&error) && loaded.sheets[0].objects.items[0].pivot.fields[PIVOT_COLUMNS][0].grain==PIVOT_DATE_EXACT);
     CHECK(workbook_save(&loaded,path,&error)); sql_file(path,"SELECT CASE WHEN version=15 THEN true ELSE error('wrong version') END FROM _duxcel_workspace.meta; SELECT CASE WHEN bool_and(grain=0) THEN true ELSE error('raw date grain') END FROM _duxcel_workspace.pivot_fields");
     pivot_free(&pivot); analysis_free(&source); workbook_free(&book); workbook_free(&loaded);
@@ -813,7 +835,7 @@ static void test_format_workspace(void) {
     for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
         remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]); CHECK(!workbook_load(&loaded,path,&error) && loaded.count==2 && format_at(&loaded.sheets[0].formats,14,14).color==2); free(error); error=NULL;
     }
-    remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,"UPDATE _duxcel_workspace.meta SET version=9; DROP TABLE _duxcel_workspace.formats"); CHECK(workbook_load(&loaded,path,&error) && !loaded.sheets[0].formats.count); CHECK(workbook_save(&loaded,path,&error));
+    remove(path); CHECK(workbook_save(&book,path,&error)); CHECK(test_legacy_downgrade(path,9)); sql_file(path,"DROP TABLE _duxcel_workspace.formats"); CHECK(workbook_load(&loaded,path,&error) && !loaded.sheets[0].formats.count); CHECK(workbook_save(&loaded,path,&error));
     /* Chronological pruning remains aligned across the independent histories. */
     for (unsigned i=0;i<70;i++) {
         f.flags=(unsigned char)(i%2 ? FORMAT_BOLD : FORMAT_ITALIC); CHECK(format_apply(&sheet->formats,(FormatRange){40,40,25,25},FORMAT_BOLD|FORMAT_ITALIC,f,&error)); worksheet_record(sheet,EDIT_FORMAT);
@@ -859,6 +881,13 @@ static unsigned char *workspace_bytes(const char *path,size_t *bytes) {
     CHECK(length>0 && fseek(file,0,SEEK_SET)==0); *bytes=(size_t)length;
     unsigned char *data=dx_alloc(*bytes); CHECK(fread(data,1,*bytes,file)==*bytes && fgetc(file)==EOF && !fclose(file)); return data;
 }
+static void corrupt_archive_kept(const Workbook *book,const char *path) {
+    char *error=NULL; size_t before_bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&before_bytes);
+    CHECK(!workbook_save(book,path,&error) && error && *error); free(error);
+    unsigned char *after=workspace_bytes(path,&after_bytes);
+    CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(before); free(after);
+}
+
 static void test_extended_format_metadata_guard(void) {
     Workbook book,loaded; workbook_init(&book); workbook_init(&loaded); Analysis blank={0}; char *error=NULL;
     CHECK(workbook_add(&book,"Supported workspace",&blank,&error));
@@ -993,7 +1022,7 @@ static void test_combined_filter_workspace(void) {
     CHECK(loaded.sheets[0].objects.items[1].pivot.fields[PIVOT_FILTERS][0].filter==FILTER_COMPOSITE && !strcmp(loaded.sheets[0].objects.items[1].pivot.fields[PIVOT_FILTERS][0].value,payload));
     const char *invalid[]={"UPDATE _duxcel_workspace.sheets SET filter_value='[]'", "UPDATE _duxcel_workspace.pivot_fields SET value='[]' WHERE role=3", "UPDATE _duxcel_workspace.table_sources SET filter_value='[]'"};
     for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
-        CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]); CHECK(!workbook_load(&loaded,path,&error)); CHECK(analysis_same_result(&source,&loaded.sheets[0].analysis)); free(error); error=NULL;
+        remove(path); CHECK(workbook_save(&book,path,&error)); sql_file(path,invalid[i]); CHECK(!workbook_load(&loaded,path,&error)); CHECK(analysis_same_result(&source,&loaded.sheets[0].analysis)); free(error); error=NULL; corrupt_archive_kept(&book,path);
     }
     pivot_free(&pivot); analysis_free(&source); free(payload); workbook_free(&book); workbook_free(&loaded); free(error);
 }
@@ -1222,14 +1251,28 @@ static void source_format_reject(const char *path,const Workbook *replacement,Wo
     CHECK(!memcmp(&replacement_before,replacement,sizeof(replacement_before)) && !memcmp(&replacement_sheet,replacement->sheets,sizeof(replacement_sheet)));
     unsigned char *after=workspace_bytes(path,&after_bytes); CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(before); free(after);
 }
+static void source_format_legacy_upgrade(const Workbook *book,const char *path,Workbook *loaded) {
+    char *error=NULL; remove(path);
+    CHECK(test_legacy_save(book,path,&error) && !error); require_workspace_version(path,14);
+    sql_file(path,"SELECT CASE WHEN count(*)=26 AND count(*) FILTER(WHERE table_name IN ('workbook_identity','sheet_identity'))=0 THEN true ELSE error('Invalid legacy v14 inventory') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'");
+    size_t before_bytes=0,after_bytes=0; unsigned char *before=workspace_bytes(path,&before_bytes);
+    CHECK(workbook_load(loaded,path,&error) && !error); unsigned char *after=workspace_bytes(path,&after_bytes);
+    CHECK(before_bytes==after_bytes && !memcmp(before,after,before_bytes)); free(before); free(after);
+    WorkbookId assigned=loaded->id;
+    CHECK(workbook_save(loaded,path,&error) && !error); require_workspace_version(path,15);
+    sql_file(path,"SELECT CASE WHEN count(*)=28 AND count(*) FILTER(WHERE table_name IN ('workbook_identity','sheet_identity'))=2 THEN true ELSE error('Invalid upgraded v15 inventory') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'");
+    CHECK(workbook_load(loaded,path,&error) && !error && loaded->id.high==assigned.high && loaded->id.low==assigned.low);
+    CHECK(!remove(path)); free(error);
+}
 static void test_source_format_workspace(void) {
     Workbook book,loaded,plain; workbook_init(&book); workbook_init(&loaded); workbook_init(&plain); char *error=NULL; Analysis blank={0};
     const char *path="build/tests/generated/source-format-v14.dxls",*second="build/tests/generated/source-format-other.dxls"; remove(path); remove(second); source_format_fixture(&book);
     CHECK(workbook_save(&book,path,&error)); require_workspace_version(path,15); CHECK(workbook_load(&loaded,path,&error)); source_format_check(&loaded,&book);
-    sql_file(path,"SELECT CASE WHEN count(*)=26 THEN true ELSE error('v14 package incomplete') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=5 AND sum(CASE WHEN version=0 THEN 1 ELSE 0 END)=3 THEN true ELSE error('bindings are not complete') END FROM _duxcel_workspace.source_bindings");
+    sql_file(path,"SELECT CASE WHEN count(*)=28 THEN true ELSE error('v15 source package incomplete') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=5 AND sum(CASE WHEN version=0 THEN 1 ELSE 0 END)=3 THEN true ELSE error('bindings are not complete') END FROM _duxcel_workspace.source_bindings");
     CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error)); source_format_check(&loaded,&book);
+    source_format_legacy_upgrade(&book,"build/tests/generated/source-format-legacy-v14.dxls",&loaded); source_format_check(&loaded,&book);
     const char *reordered="build/tests/generated/source-format-reordered.dxls"; remove(reordered); CHECK(workbook_save(&book,reordered,&error));
-    sql_file(reordered,"CREATE TABLE _duxcel_workspace.reordered_sheets AS SELECT canvas_zoom,selection,fraction,horizontal,top_row,end_col,end_row,anchor_col,anchor_row,active_col,active_row,descending,sort_column,aggregate,measure_column,group_column,filter_op,filter_value,filter_column,source_table,source_schema,path,kind,name,id FROM _duxcel_workspace.sheets; DROP TABLE _duxcel_workspace.sheets; ALTER TABLE _duxcel_workspace.reordered_sheets RENAME TO sheets; CREATE TABLE _duxcel_workspace.reordered_versions AS SELECT definition,encoding,source_reference,source_kind,owner,version,sheet_id FROM _duxcel_workspace.source_versions; DROP TABLE _duxcel_workspace.source_versions; ALTER TABLE _duxcel_workspace.reordered_versions RENAME TO source_versions");
+    sql_file(reordered,"CREATE TABLE _duxcel_workspace.reordered_sheets AS SELECT canvas_zoom,selection,fraction,horizontal,top_row,end_col,end_row,anchor_col,anchor_row,active_col,active_row,descending,sort_column,aggregate,measure_column,group_column,filter_op,filter_value,filter_column,source_table,source_schema,path,kind,name,id FROM _duxcel_workspace.sheets; DROP TABLE _duxcel_workspace.sheets; ALTER TABLE _duxcel_workspace.reordered_sheets RENAME TO sheets; CREATE TABLE _duxcel_workspace.reordered_versions AS SELECT definition AS DEFINITION,encoding AS ENCODING,source_reference AS SOURCE_REFERENCE,source_kind AS SOURCE_KIND,owner AS OWNER,version AS VERSION,sheet_id AS SHEET_ID FROM _duxcel_workspace.source_versions; DROP TABLE _duxcel_workspace.source_versions; ALTER TABLE _duxcel_workspace.reordered_versions RENAME TO source_versions");
     CHECK(workbook_load(&loaded,reordered,&error)); source_format_check(&loaded,&book);
     CHECK(workbook_save(&book,reordered,&error) && workbook_load(&loaded,reordered,&error)); source_format_check(&loaded,&book);
     const char *nullable[]={NULL,"","NULL"}; SourcePacket previous={0}; remove("build/tests/generated/source-format-null-empty-literal.dxls");
@@ -1432,7 +1475,8 @@ static void test_guarded_format_workspace(void) {
     const char *path="build/tests/generated/guarded-format-v14.dxls",*second="build/tests/generated/guarded-format-copy.dxls"; remove(path); remove(second); guarded_format_fixture(&book,3);
     CHECK(book.sheets[0].formats.items[1].guard_ids[0]==0 && book.sheets[0].formats.items[1].guard_ids[1]==3 && book.sheets[0].formats.items[1].guard_ids[2]==4);
     CHECK(workbook_save(&book,path,&error)); require_workspace_version(path,15); CHECK(workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,3);
-    sql_file(path,"SELECT CASE WHEN count(*)=26 THEN true ELSE error('Guarded v14 schema changed') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=3 AND min(guard_position)=0 AND max(guard_position)=2 THEN true ELSE error('Guard vector lost') END FROM _duxcel_workspace.format_guards WHERE position=1");
+    sql_file(path,"SELECT CASE WHEN count(*)=28 THEN true ELSE error('Guarded v15 schema changed') END FROM information_schema.tables WHERE table_schema='_duxcel_workspace'; SELECT CASE WHEN count(*)=3 AND min(guard_position)=0 AND max(guard_position)=2 THEN true ELSE error('Guard vector lost') END FROM _duxcel_workspace.format_guards WHERE position=1");
+    source_format_legacy_upgrade(&book,"build/tests/generated/guarded-format-legacy-v14.dxls",&loaded); guarded_format_check(&loaded,&book,3);
     remove("build/tests/generated/guarded-format-proof.csv"); CHECK(workbook_load(&loaded,path,&error)); guarded_format_check(&loaded,&book,3);
     CHECK(workbook_save(&loaded,second,&error) && workbook_load(&loaded,second,&error)); guarded_format_check(&loaded,&book,3);
     /* Current bindings may be unbound/pending/different without erasing valid
@@ -2208,6 +2252,13 @@ static void test_manual_format_retained_sources(void) {
     analysis_free(&source); workbook_free(&book); free(error);
 }
 int main(int argc,char **argv) {
+    if (argc==2 && !strcmp(argv[1],"--metadata-types-only")) {
+        test_metadata_type_aliases(); printf("PASS: %u metadata physical-type compatibility checks\n",checks); return 0;
+    }
+    if (argc==2 && !strcmp(argv[1],"--object-archives-only")) {
+        test_objects(); test_chart_measure(); test_chart_optional_errors();
+        printf("PASS: %u focused object archive checks (strict current schemas, legacy mark/measure defaults and exact definitions)\n",checks); return 0;
+    }
     if (argc==2 && !strcmp(argv[1],"--manual-format-history-only")) {
         test_manual_format_history(); test_manual_format_retained_sources();
         printf("PASS: %u focused pre-import manual-format history checks (blank primary/template owners across both aligned journals, retained source rejection, bounded models and unchanged ownership)\n",checks); return 0;
@@ -2247,7 +2298,7 @@ int main(int argc,char **argv) {
         printf("PASS: %u focused workspace formatting checks (format round-trip, validation, scoped-save rejection and original-file preservation)\n",checks);
         return 0;
     }
-    if (argc!=1) { fprintf(stderr,"Usage: %s [--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only|--legacy-format-history-only|--manual-format-history-only]\n",argv[0]); return 2; }
+    if (argc!=1) { fprintf(stderr,"Usage: %s [--metadata-types-only|--object-archives-only|--formats-only|--owners-only|--source-versions-only|--source-formats-only|--journal-only|--format-budget-only|--guarded-formats-only|--legacy-format-history-only|--manual-format-history-only]\n",argv[0]); return 2; }
     test_manual_format_history(); test_manual_format_retained_sources();
     test_legacy_format_history();
     test_guarded_format_workspace(); test_guarded_format_rejection();
@@ -2256,7 +2307,7 @@ int main(int argc,char **argv) {
     test_source_version_model(); test_source_version_save_guard();
     test_source_format_workspace(); test_invalid_source_format_package(); test_source_format_budget();
     test_owner_counter_workspace(); test_invalid_owner_package();
-    test_chart_optional_errors();
+    test_chart_optional_errors(); test_metadata_type_aliases();
     test_marks_workspace();
     test_combined_filter_workspace();
     test_pivot_grain_workspace();
@@ -2310,8 +2361,8 @@ int main(int argc,char **argv) {
     /* A failed INSERT must roll back earlier deletes/inserts in the same save. */
     sql_file(path,"ALTER TABLE _duxcel_workspace.columns RENAME TO columns_old;"
         "CREATE TABLE _duxcel_workspace.columns(sheet_id INTEGER,column_id INTEGER,name VARCHAR,width DOUBLE CHECK(width<250),PRIMARY KEY(sheet_id,column_id));"
-        "INSERT INTO _duxcel_workspace.columns SELECT * FROM _duxcel_workspace.columns_old;");
-    b.sheets[0].view.widths[0]=400; CHECK(!workbook_save(&b,path,&error)); free(error); error=NULL;
+        "INSERT INTO _duxcel_workspace.columns SELECT * FROM _duxcel_workspace.columns_old; DROP TABLE _duxcel_workspace.columns_old;");
+    b.sheets[0].view.widths[0]=400; CHECK(!workbook_save(&b,path,&error) && error && strstr(error,"CHECK constraint")); free(error); error=NULL;
     CHECK(workbook_load(&loaded,path,&error)); CHECK(loaded.sheets[0].view.widths[0]==200);
     const char *unrelated="build/tests/generated/user-data.duckdb"; remove(unrelated); sql_file(unrelated,"CREATE TABLE important_data AS SELECT 42 AS value");
     CHECK(!workbook_save(&b,unrelated,&error)); CHECK(strstr(error,"not a dxls workbook")!=NULL); free(error); error=NULL;

@@ -162,6 +162,17 @@ release runs only after joining. Nonblocking stop allows the producer to retire
 an old generation without waiting inside ordinary frames. No browser journal
 adapter is implemented.
 
+`src/workbook/schema.c` owns the allocation-free current-package column proof.
+It consumes bounded borrowed table/kind/column/type byte spans, with exact table
+inventory and ASCII-folded column identity independent of physical order. Known JSON text aliases retain
+the previous C-API VARCHAR compatibility. Invalid
+or duplicate fields poison the proof. Native complete-package validation obtains
+those fields in one bounded catalog snapshot, preserving embedded NUL and
+rejecting oversized names/types. Required row NULL/text checks and owner/ledger
+validation stay separate. Historical lenient column/default behavior remains in
+the legacy reader; current v15 stays strict. The proof adds no runtime dependency
+and compiles with the shared C model.
+
 `src/workbook/journal_session.c` connects native one-cell admission to complete
 checkpoint lineage. It creates a private generation only for a valid changed
 command, snapshots current owned state, reserves immutable before/after bytes,
@@ -185,13 +196,14 @@ checkpoint format bytes join the App's existing additional-format budget.
 Native production generations live under the platform user-data Recovery root
 (macOS Application Support/Duxcel/Recovery); automated runners override a private
 root under their ignored run directory. Cryptographic directory/operation IDs
-separate instances and generations. Normal Open/Save/source entry points reject active managed working paths and
+separate instances and generations. Normal Open/Save/source entry points reject the private recovery root, active working paths and
 aliases, protecting named artifacts from later cleanup. Only fixed files in
 current-session owned directories are discarded, never an external source/named workbook or unknown
 recovery material. Explicit Don't Save discards the current session; a successful current-state Save
 and clean file replacement/close dispose covered working copies. Unexpected dirty shutdown
-retains committed files. The catalog/candidate backend is implemented; startup choice/adoption is W10c, and
-session history is not persisted until W12. Linked-source availability remains
+retains committed files. Catalog/candidate preparation and guarded startup/File
+adoption are implemented; broad foundation acceptance remains W10c3, and session
+history is not persisted until W12. Linked-source availability remains
 the existing file-mode policy.
 
 `src/platform/file_lease.c` owns native OS-backed generation leases. The producer

@@ -64,6 +64,12 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "workbook-schema": Feature(("workbook_schema",), "workbook-save",
+        ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-ui", "python3 tools/test.py feature --feature workbook-identity"),
+        ("src/workbook/schema.c", "src/workbook/schema.h", "src/workbook/workbook.c: bounded catalog proof")),
+    "workbook-archive": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-identity", "python3 tools/test.py feature --feature recovery-ui"),
+        ("tests/test_workbook.c: source/guarded archive upgrades", "Makefile: per-file workbook engine test"), ("core", "workbook")),
     "recovery-menu": Feature(("keytips",), "recovery-menu",
         ("python3 tools/test.py feature --feature recovery-ui", "python3 tools/test_web_app.py --review --review-controls-only --source tests/fixtures/transactions.csv"),
         ("src/ui/keytips.c: File command registry", "src/app/app.c: File menu paint", "src/dev/review_app.inc: File target metadata")),

@@ -6,6 +6,7 @@
 #ifndef DUXCEL_BROWSER_HOST
 #include <duckdb.h>
 #include "save.h"
+#include "schema.h"
 #endif
 #include <math.h>
 #include <stdlib.h>
@@ -743,11 +744,29 @@ static bool codec_package_shape(duckdb_connection c,const char *name,char **erro
     return package_shape(c,table->table,table->columns,types,count,error);
 }
 static bool source_package_shape(duckdb_connection c,unsigned package,char **error) {
-    if (!source_package_inventory(c,package,true,error)) return false;
-    for (size_t i=0;i<workbook_codec_table_count(package);i++) {
-        const WorkbookCodecTable *table=workbook_codec_table_at(package,i);
-        if (!codec_package_shape(c,table->table,error)) return false;
+    WorkbookSchemaProof proof;
+    if (!workbook_schema_begin(&proof,package)) return range_fail(error,"Unsupported workbook metadata package.");
+    /* One bounded catalog snapshot replaces per-table count/prepare queries.
+       Encoding preserves embedded NUL; oversized names/types become invalid
+       NULL fields rather than escaping as unbounded result strings. */
+    char *sql=dx_printf("SELECT encode(CASE WHEN length(t.table_name)<=64 THEN t.table_name END),encode(t.table_type),"
+        "encode(CASE WHEN length(c.column_name)<=64 THEN c.column_name END),encode(CASE WHEN length(c.data_type)<=64 THEN c.data_type END) "
+        "FROM information_schema.tables t LEFT JOIN information_schema.columns c ON t.table_catalog=c.table_catalog AND t.table_schema=c.table_schema AND t.table_name=c.table_name "
+        "WHERE t.table_schema='_duxcel_workspace' LIMIT %zu",proof.expected_rows+1);
+    duckdb_result result={0}; bool ok=duckdb_query(c,sql,&result)==DuckDBSuccess; free(sql);
+    if (!ok) { error_set(error,duckdb_result_error(&result)); duckdb_destroy_result(&result); return false; }
+    ok=duckdb_column_count(&result)==4;
+    for (idx_t i=0;ok && i<4;i++) ok=duckdb_column_type(&result,i)==DUCKDB_TYPE_BLOB;
+    for (idx_t row=0;ok && row<duckdb_row_count(&result);row++) {
+        duckdb_blob fields[4]={0};
+        for (idx_t i=0;i<4;i++) if (!duckdb_value_is_null(&result,i,row)) fields[i]=duckdb_value_blob(&result,i,row);
+        ok=workbook_schema_offer(&proof,(WorkbookSchemaText){fields[0].data,fields[0].size},(WorkbookSchemaText){fields[1].data,fields[1].size},
+            (WorkbookSchemaText){fields[2].data,fields[2].size},(WorkbookSchemaText){fields[3].data,fields[3].size});
+        for (idx_t i=0;i<4;i++) duckdb_free(fields[i].data);
     }
+    duckdb_destroy_result(&result);
+    if (!ok || !workbook_schema_complete(&proof)) return range_fail(error,proof.error==WORKBOOK_SCHEMA_COLUMN_TYPES ?
+        "Workbook metadata has incompatible column types. Save to a new .dxls file." : "Workspace requires its complete known base metadata tables and columns; unknown or view metadata cannot be preserved.");
     return source_package_required(c,package,error) && owner_package_rows_supported(c,error);
 }
 static bool format_metadata_supported(duckdb_connection c,int workspace_version,char **error) {

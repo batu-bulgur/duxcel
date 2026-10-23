@@ -204,3 +204,18 @@ only its writer after durable acknowledgement, and restores the same document/
 revision without changing recovery artifact hashes. Owned processes stop before
 their temporary directory is removed. This process gate is also in the full
 native milestone inventory; ordinary feature gates do not run it implicitly.
+
+`workbook-schema` is the short schema edit loop: a pure C bounded proof module
+in optimized/ASan/UBSan plus the narrow controlled-Save App workflow. The named
+`workbook-archive` interaction runs core before workbook in each configuration,
+preserving all large malformed-package/migration cases. It belongs at a changed
+archive boundary or milestone. `test_workbook --object-archives-only` supports
+the smaller strict/current versus legacy mark/measure edit check. The full
+workbook suite remains available and is not trimmed for iteration speed.
+
+Core/workbook engine binaries reuse the same native per-file objects as the
+product and depend on actual compiler-generated headers. The isolated build
+contract proves that unrelated UI headers trigger no rebuild, a local workbook
+assertion edit rebuilds only its test TU, and real shared headers invalidate both
+consumers. Mutable fixture execution remains serial; compiler parallelism does
+not change the core-before-workbook contract.

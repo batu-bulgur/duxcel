@@ -244,6 +244,27 @@ sys.exit(result)
         check(len(compiled)==8 and links==0,"Python recursive builds complete their object inventory")
         check(json.loads((tree / "compiler-state.json").read_text())["peak"]==2,
               "Python runner passes the parent two-slot jobserver without serial fallback or oversubscription")
+        # The workbook archive suite shares native engine objects, with only
+        # actual headers in its dependency closure rather than every UI header.
+        build()
+        (tree / "tests/test_workbook.c").write_text('#include "common.h"\nint main(void) { return answer()!=17; }\n')
+        compiled,links=build("build/tests/test_workbook")
+        check(compiled==["tests/test_workbook.c"] and links==1,"workbook test reuses warm native engine objects")
+        edit(tree / "src/unrelated.h","#define UNRELATED_UI_VALUE 1\n")
+        check(build("build/tests/test_workbook")==([],0),"unrelated UI headers do not rebuild workbook tests")
+        edit(tree / "tests/test_workbook.c",'#include "common.h"\nint main(void) { return answer()!=17; }\n/* local assertion edit */\n')
+        compiled,links=build("build/tests/test_workbook")
+        check(compiled==["tests/test_workbook.c"] and links==1,"workbook assertion changes rebuild only their test translation unit")
+        edit(tree / "src/common.h","int answer(void);\n/* actual shared dependency */\n")
+        compiled,links=build("build/tests/test_workbook")
+        check(set(compiled)=={"src/first.c","tests/test_workbook.c"} and links==1,"real workbook dependencies still invalidate both consumers")
+        subprocess.run([str(tree / "build/tests/test_workbook")],cwd=tree,check=True)
+        (tree / "tests/test_core.c").write_text('#include "common.h"\nint main(void) { return answer()!=17; }\n')
+        compiled,links=build("build/tests/test_core")
+        check(compiled==["tests/test_core.c"] and links==1,"core fixture/assertion suite also reuses warm native engine objects")
+        edit(tree / "src/unrelated.h","#define UNRELATED_UI_VALUE 2\n")
+        check(build("build/tests/test_core")==([],0),"unrelated UI headers do not rebuild core engine tests")
+        subprocess.run([str(tree / "build/tests/test_core")],cwd=tree,check=True)
     print(f"PASS: {checks} incremental build checks in {time.monotonic()-started:.3f}s")
 
 
