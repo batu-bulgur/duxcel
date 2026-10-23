@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "workbook-save": ("build/tests/test_workbook_save-gui", "PASS: native controlled Save workflow",
+                      r"^PASS: native controlled Save workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
                         r"^PASS: native checkpoint journal workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "workbook-lifecycle": ("build/tests/test_workbook_lifecycle-gui", "PASS: native workbook lifecycle workflow",
@@ -56,12 +58,15 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "save-ui": Feature((), "workbook-save",
+        ("python3 tools/test.py feature --feature workbook-save", "python3 tools/test.py feature --feature journal-session"),
+        ("src/app/app.c: Save progress and completion", "tests/support/workbook_save_app.inc")),
     "save-worker": Feature((), "journal-session",
         ("python3 tools/test.py feature --feature workbook-save", "python3 tools/test.py native --scenario background document --config sanitize"),
         ("src/data/worker.c: ordered native Save lane", "src/data/worker.h"), ("worker_save",)),
-    "workbook-save": Feature((), "journal-session",
+    "workbook-save": Feature((), "workbook-save",
         ("python3 tools/test.py feature --feature journal-session", "python3 tools/test.py native --scenario document --config sanitize", "python3 tools/test.py formats --config both"),
-        ("src/workbook/save.h", "src/workbook/workbook.c: controlled transactional Save"), ("workbook_save",)),
+        ("src/workbook/save.h", "src/workbook/save_fence.c", "src/workbook/workbook.c: controlled transactional Save", "src/data/worker.c: Save receipt", "src/app/app.c: progress UI"), ("workbook_save", "worker_save")),
     "journal-performance": Feature((), "",
         ("python3 tools/test.py feature --feature journal-session", "python3 tools/test.py feature --feature journal-faults"),
         ("src/workbook/journal_session.c: measured admission", "tests/test_journal_performance.c", "tools/benchmark_journal.py"),

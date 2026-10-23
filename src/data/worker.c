@@ -216,7 +216,10 @@ static void *worker_main(void *ptr) {
         else if (j->include_chart_other && (j->kind!=JOB_PIVOT || j->is_table)) r->error=dx_strdup("Chart Other readouts require an analytical Pivot job.");
         else if (j->kind==JOB_VERIFY_SOURCE) verify_source(w,j,r);
         else if (j->kind==JOB_COLLECT_RECORDS && !record_selection_payload_valid(j,r)) r->error=dx_strdup("Record collection requires one bounded raw-source range and its captured native identity without analytical payloads.");
-        else if (j->kind==JOB_SAVE) r->save_result=workbook_save_controlled(j->workbook,r->path,(WorkbookSaveControl){save_update,w},&r->error);
+        else if (j->kind==JOB_SAVE) {
+            r->save_result=workbook_save_controlled(j->workbook,r->path,(WorkbookSaveControl){save_update,w},&r->error);
+            r->workbook=j->workbook; j->workbook=NULL; /* Retain R for UI content fencing; reply_free owns it. */
+        }
         else if (j->kind==JOB_LOAD) {
             r->workbook=dx_alloc(sizeof(*r->workbook)); workbook_init(r->workbook);
             workbook_load(r->workbook,r->path,&r->error);

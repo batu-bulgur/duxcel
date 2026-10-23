@@ -5,7 +5,7 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 | Capability | Current behavior and limits |
 | --- | --- |
 | Sparse workbook/grid | Manual text, single-outline selections, deterministic four-neighbor Select All regions, border/Option-interior range moves, explicit Replace/Cancel for occupied manual destinations, atomic value/style and workbook-chronological session Undo/Redo, structural edits, per-sheet viewport, independent sheet zoom/UI scale and fixed header chrome. General formulas/typed editing/import overlays remain open. |
-| Native files | Native macOS panels for sources and `.dxls` Save/Open; Finder/LaunchServices workbook Open on startup and in a running instance; compact dirty guard for Close versus Quit; explicit application menu with Command-Q; real versioned DuckDB workbook state and history. External sources remain references. Standalone packaging is incomplete. |
+| Native files | Native macOS panels for sources and `.dxls` Save/Open; Finder/LaunchServices workbook Open on startup and in a running instance; compact dirty guard for Close versus Quit; explicit application menu with Command-Q; real versioned DuckDB workbook state. External sources remain references. Standalone packaging is incomplete. |
 | Analysis | Real DuckDB source/filter/sort/query/available-value/date operations, same-sheet Tables/PIVOT/charts and exact typed statistics. No mock calculation engine. Unsupported Marks grain/lineage remain bounded. |
 | NULL and precision | SQL NULL, empty text and literal `NULL` remain distinct; exact integer/DECIMAL text survives supported operations. Sparse missing cells use the distinct NULL mark. |
 | Record formats | Verified native primary/Table and supported archived RESULT/GUARDED subsets exist. Broader history/owner migration, new RESULT commands and browser activation remain incomplete. |
@@ -239,3 +239,14 @@ strict signature verification. Concise source/binary receipts live under ignored
 regression is implied. The earlier shared-C Wasm
 UI/Worker checks established their layout boundary before this change; they do
 not close the recovered format-tag workflow.
+
+W09 completes native controlled Save publication. A compact progress panel offers
+Escape/Cancel until publication starts; actual completed work drives progress.
+The grid scrolls outside the panel while structure/data edits remain IO-guarded.
+Latest-wins reads/cancellation cannot drop the Save receipt. Exact current values,
+definitions/view state and registered mutation clocks/action order fence R against
+R+1, preserving newer dirty state and its pending close guard. Failed/cancelled
+Save preserves the previous file/path and local recovery material. Focused
+optimized/sanitizer writer and worker checks plus 18 hidden real-App stages pass,
+including pointer Cancel at 150%, native pan, R+1 and failed Save. Startup recovery
+remains W10; retained durable Undo and full analytical outputs remain later slices.

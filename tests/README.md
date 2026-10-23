@@ -128,3 +128,14 @@ sanitized, then the narrow checkpoint GUI. Private worker objects alone expose
 saving-thread barriers. The test holds validation/write/publication/completion
 while attempting explicit/generic cancellation and read replacement; committed
 receipts must remain pollable, and failed/cancelled saves preserve old contents.
+
+W09b2's complete local gate is `make test-feature FEATURE=workbook-save`:
+controlled writer and ordered worker variants, then `test_workbook_save_gui.c`.
+The `save-ui` plan runs only that GUI for UI iterations. Its private App/worker
+objects hold actual writes at test barriers; production excludes those symbols.
+The 18-stage workflow uses real Enter/Escape and pointer input, native pan input
+through the real grid, 100%/narrow 150% geometry, complete versus cancelled
+publication, failure preservation and Save R/R+1 with a pending Quit. The R+1
+producer is the actual C cell command while physical editing stays IO-guarded.
+`save_fence.c` also catches view/column width, definition, format and exact sparse
+value changes that are not represented by the admitted command clock alone.

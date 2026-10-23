@@ -1,6 +1,7 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "workbook/save.h"
+#include "workbook/save_fence.h"
 #include <duckdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,6 +52,16 @@ int main(void) {
     view->columns=dx_alloc(sizeof(*view->columns)); view->columns[0]=dx_strdup("Field");
     view->widths=dx_alloc(sizeof(*view->widths)); view->widths[0]=120;
     book.command_revision=7; book.dirty=true;
+    Workbook *snapshot=workbook_snapshot(&book); CHECK(snapshot && workbook_save_matches(&book,snapshot));
+    view->widths[0]=121; CHECK(!workbook_save_matches(&book,snapshot)); view->widths[0]=120;
+    book.sheets[0].view.row=3; CHECK(!workbook_save_matches(&book,snapshot)); book.sheets[0].view.row=0;
+    book.user_scale=1.5f; CHECK(!workbook_save_matches(&book,snapshot)); book.user_scale=1;
+    CHECK(cells_set(&book.sheets[0].cells,1,0,"same length changed!",&error)); CHECK(!workbook_save_matches(&book,snapshot));
+    CHECK(cells_set(&book.sheets[0].cells,1,0,"İstanbul\tline\ntwo",&error)); CHECK(workbook_save_matches(&book,snapshot));
+    book.sheets[0].formats.revision++; CHECK(!workbook_save_matches(&book,snapshot)); book.sheets[0].formats.revision--;
+    book.sheets[0].objects.title_revision++; CHECK(!workbook_save_matches(&book,snapshot)); book.sheets[0].objects.title_revision--;
+    book.sheets[0].analysis.query=dx_strdup("SELECT 1"); CHECK(!workbook_save_matches(&book,snapshot)); free(book.sheets[0].analysis.query); book.sheets[0].analysis.query=NULL;
+    CHECK(workbook_save_matches(&book,snapshot)); workbook_free(snapshot); free(snapshot);
     CHECK(workbook_save(&book,path,&error)); sql(path,"CREATE TABLE unrelated AS SELECT 482 AS value",false);
     CHECK(cells_set(&book.sheets[0].cells,0,0,"replacement",&error)); book.command_revision=8;
     struct { WorkbookSavePhase phase; uint64_t at; } cancellations[]={

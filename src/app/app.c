@@ -3,6 +3,7 @@
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include "../workbook/journal_session.h"
+#include "../workbook/save_fence.h"
 #endif
 #include "selection.h"
 #include "app.h"
@@ -163,6 +164,7 @@ typedef struct {
     WorkbookJournalSession *journal;
     WorkbookId save_document;
     uint64_t save_revision,save_history;
+    Rectangle save_panel,save_cancel;
 #endif
     bool discard_journal,discard_journal_on_load;
 #ifdef DUXCEL_BROWSER_HOST
@@ -1318,7 +1320,7 @@ static void workspace_job(App *a,JobKind kind,const char *path) {
         a->save_document=a->book.id; a->save_revision=a->book.command_revision; a->save_history=workbook_history_stamp(&a->book);
 #endif
     }
-    a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=false; a->grid.resizing=-1;
+    a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=a->grid.dragging=false; a->grid.scrollbar=0; a->grid.resizing=-1;
     a->pending_kind=kind; a->busy=a->io_busy=true; a->modal=MODAL_NONE;
     app_worker_submit(a,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
 }
@@ -1966,6 +1968,12 @@ static void poll_query(App *a) {
     }
     if (r->kind==JOB_SAVE || r->kind==JOB_LOAD) {
         a->io_busy=false;
+#ifndef DUXCEL_BROWSER_HOST
+        if (r->kind==JOB_SAVE && r->save_result==WORKBOOK_SAVE_CANCELLED) {
+            cancel_document_action(a); a->modal=MODAL_NONE; status(a,"Save cancelled. Changes still need saving.");
+        }
+        else
+#endif
         if (r->error) { cancel_document_action(a); status(a,r->error); a->modal=MODAL_ERROR; }
         else if (r->kind==JOB_LOAD) {
 #ifdef DUXCEL_DEV_REVIEW
@@ -1979,7 +1987,8 @@ static void poll_query(App *a) {
         } else {
             free(a->book.path); a->book.path=r->path; r->path=NULL;
 #ifndef DUXCEL_BROWSER_HOST
-            bool same=a->book.id.high==a->save_document.high && a->book.id.low==a->save_document.low && a->book.command_revision==a->save_revision && workbook_history_stamp(&a->book)==a->save_history;
+            capture_sheet(a);
+            bool same=workbook_save_matches(&a->book,r->workbook) && a->book.id.high==a->save_document.high && a->book.id.low==a->save_document.low && a->book.command_revision==a->save_revision && workbook_history_stamp(&a->book)==a->save_history;
             a->book.dirty=!same; if (same) close_journal(a,true); status(a,same ? "Workspace saved." : "An earlier state was saved. New changes still need saving.");
 #else
             a->book.dirty=false; status(a,"Workspace saved.");
@@ -7170,6 +7179,11 @@ static DxCommand fallback_global_command(const App *a) {
     return DX_COMMAND_NONE;
 }
 static void shortcuts(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->io_busy && a->pending_kind==JOB_SAVE && ui_pressed(KEY_ESCAPE)) {
+        worker_save_cancel(&a->worker); a->consume_grid_input=true; return;
+    }
+#endif
     DxCommand command=dx_take_command();
     if (command==DX_COMMAND_CLOSE
 #ifndef DUXCEL_BROWSER_HOST
@@ -8001,7 +8015,41 @@ static void draw_file_menu(App *a) {
     }
     u->pointer_blocked=pointer;
 }
+#ifndef DUXCEL_BROWSER_HOST
+static void layout_save_progress(App *a) {
+    a->save_panel=a->save_cancel=(Rectangle){0};
+    if (!a->io_busy || a->pending_kind!=JOB_SAVE) return;
+    float s=a->ui.scale;
+    float w=fminf(360*s,GetScreenWidth()-32*s),h=136*s,x=(GetScreenWidth()-w)/2,y=(GetScreenHeight()-h)/2;
+    a->save_panel=box(x,y,w,h); a->save_cancel=box(x+w-108*s,y+h-44*s,92*s,28*s);
+}
+static void draw_save_progress(App *a) {
+    if (!a->save_panel.width) return;
+    WorkerSaveState state=worker_save_state(&a->worker); UIContext *u=&a->ui; float s=u->scale;
+    float x=a->save_panel.x,y=a->save_panel.y,w=a->save_panel.width;
+    DrawRectangleRounded(box(x+2*s,y+4*s,w,a->save_panel.height),.05f,4,(Color){20,32,45,28});
+    DrawRectangleRounded(a->save_panel,.05f,4,UI_BG); DrawRectangleRoundedLinesEx(a->save_panel,.05f,4,s,UI_BORDER);
+    const char *label=state.cancel_requested ? "Cancelling…" : state.progress.phase>=SAVE_PHASE_PUBLISH ? "Finishing save…" : "Saving workbook…";
+    ui_label(u,label,box(x+16*s,y+14*s,w-32*s,20*s),14,UI_TEXT,false,UI_MEDIUM);
+    bool publishing=state.progress.phase>=SAVE_PHASE_PUBLISH;
+    const char *detail=state.cancel_requested ? "Waiting for the current write to stop." : publishing ? "Publishing the complete workbook." : "You can keep scrolling while saving.";
+    ui_label(u,detail,box(x+16*s,y+40*s,w-32*s,18*s),12,UI_MUTED,false,UI_REGULAR);
+    Rectangle track=box(x+16*s,y+70*s,w-32*s,6*s); DrawRectangleRounded(track,.5f,4,UI_BORDER);
+    float fraction=state.progress.total ? (float)state.progress.completed/state.progress.total : 0;
+    /* Reserve the final segment for actual publication, never show 100% early. */
+    if (!publishing && fraction>.95f) fraction=.95f;
+    if (fraction>0) DrawRectangleRounded(box(track.x,track.y,track.width*fraction,track.height),.5f,4,UI_ACCENT);
+    bool available=state.active && state.cancellable && !state.cancel_requested;
+    bool blocked=u->pointer_blocked; u->pointer_blocked=false;
+    if (ui_button(u,a->save_cancel,state.cancel_requested ? "Cancelling…" : "Cancel",false,available) || (available && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE)))) worker_save_cancel(&a->worker);
+    u->pointer_blocked=blocked;
+    if (available) ui_focus_border(a->save_cancel,a->save_panel,s);
+}
+#endif
 static void draw_app(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    layout_save_progress(a);
+#endif
     UIContext *u=&a->ui; float s=u->scale; bool enabled=a->modal==MODAL_NONE && !a->file_menu && !a->io_busy && !a->left_drawer && !(a->busy && a->pending_kind==JOB_EXPORT);
     bool frame_pointer_blocked=u->pointer_blocked;
     u->paint_time=GetTime(); u->reduced_motion=a->reduced_motion;
@@ -8301,6 +8349,12 @@ static void draw_app(App *a) {
     }
     u->scale=s*a->grid.zoom;
     a->grid.block_pointer=over_inspector || a->left_drawer || u->pointer_blocked;
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->save_panel.width) {
+        Vector2 pointer=u->native_pan_valid && u->native_pan.event ? (Vector2){u->native_pan.pointer_x,u->native_pan.pointer_y} : ui_mouse_position();
+        a->grid.block_pointer|=CheckCollisionPointRec(pointer,a->save_panel) || ui_gesture_starts_in(a->save_panel);
+    }
+#endif
     uint64_t width_revision=a->grid.width_revision; int resizing=a->grid.resizing;
     a->grid.formats=sheet ? &sheet->formats : NULL; a->grid.format_row=0; a->grid.format_col=0;
     a->grid.format_result_token=a->grid.format_record_token=imported_format_token(a);
@@ -8385,6 +8439,9 @@ static void draw_app(App *a) {
         DrawRectangleRec(tip,UI_TEXT); ui_text_clip(u,a->ribbon_hover,tip,12,WHITE,false);
     }
     draw_modal_presence(a); draw_toast(a); draw_file_menu(a); REVIEW_FILE_MENU(a);
+#ifndef DUXCEL_BROWSER_HOST
+    draw_save_progress(a);
+#endif
 }
 #define LAYOUT_SMOKE_STAGES 950
 static unsigned inspector_pan_evidence;
@@ -15038,6 +15095,9 @@ static void record_frame(App *a,double started) {
 #endif
 /* A frame may return to a host scheduler without losing owned App state.
    The native runner uses the same start/frame/finish contract as future hosts. */
+#ifdef DUXCEL_FEATURE_WORKBOOK_SAVE
+static void workbook_save_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_JOURNAL_SESSION
 static void journal_session_test_frame(AppSession *session);
 #endif
@@ -15845,6 +15905,9 @@ bool app_frame(AppSession *session) {
         }
     }
 #endif /* native scenario input */
+#ifdef DUXCEL_FEATURE_WORKBOOK_SAVE
+    workbook_save_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_JOURNAL_SESSION
     journal_session_test_frame(session);
 #endif
@@ -16088,4 +16151,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_JOURNAL_SESSION
 #include "../../tests/support/journal_session_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_WORKBOOK_SAVE
+#include "../../tests/support/workbook_save_app.inc"
 #endif

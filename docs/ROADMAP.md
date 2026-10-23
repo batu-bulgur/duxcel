@@ -134,12 +134,15 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W08c · P0 · Complete | Fault/performance integration and batching policy; W08b. | Actual write/disk-full/kill/close failures, measured per-edit tail latency, large-paste/checkpoint throughput and bounded backpressure. Legacy paste remains outside the one-cell journal admission until a resolved range command is added. Preserve all-or-nothing state and retry after uncertain commit; finalize W08 acceptance before W09. |
 | W08c1 · P0 · Complete | Filesystem failure/retry matrix; W08b. | Real write-limit errors and targeted ENOSPC/EIO/short-write/fsync/close faults preserve complete states and receipts. A failed first creation removes only its newly created incomplete journal; queue records survive repair/retry. |
 | W08c2 · P0 · Complete | Measured native admission/commit/checkpoint throughput; W08c1. | Pin runtime engine/library provenance; measure bootstrap, warm single edits, burst/backpressure and a finite 20,000-cell legacy paste followed by checkpoint. Set batching policy from evidence; no per-row journal claim for legacy paste. |
-| W09 · P0 · In progress | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
+| W09 · P0 · Complete | Revision-fenced Save publication and proportional progress/cancel; W08. | Save R while R+1 arrives; report R only after its complete checkpoint is published, retain R+1 unsaved/recoverable. Failed/cancelled Save preserves old file and dirty state. UX05/RE03; A13/A15/A28. |
 | W09a · P0 · Complete | Controlled transactional Save primitive; W08. | Cooperative cancellation before COMMIT, proportional completed work and explicit publication boundary; existing destination remains intact on rejection/cancel/failure. Native optimized/sanitizer module gate; no UI completion claim. |
-| W09b · P0 · In progress | Worker/UI Save progress, cancellation and complete revision fence; W09a. | Hidden real-App Save/cancel/progress and R/R+1 tests; pending document actions cannot close over unsaved newer edits. Keep post-publication completion distinct from cancellable preparation. |
+| W09b · P0 · Complete | Worker/UI Save progress, cancellation and complete revision fence; W09a. | Hidden real-App Save/cancel/progress and R/R+1 tests; pending document actions cannot close over unsaved newer edits. Keep post-publication completion distinct from cancellable preparation. |
 | W09b1 · P0 · Complete | Preserve ordered worker Save receipts; W09a. | Latest-wins read replacement/cancel cannot erase an admitted Save or its unpublished reply. Progress and cooperative cancellation are mutex-owned; publication closes cancellation atomically. |
-| W09b2 · P0 · Next | Compact Save progress/cancel UI and complete admission fence; W09b1. | Real keyboard/pointer cancellation and publication races, narrow/scaled panel, newer content remains dirty and pending close stays guarded. |
-| W10 · P0 · Queued | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. Persist generation/parent identity and baseline/journal linkage; two states sharing an admitted clock cannot be ordered by mtime alone. RE02; A14. |
+| W09b2 · P0 · Complete | Compact Save progress/cancel UI and complete admission fence; W09b1. | Real keyboard/pointer cancellation and publication races, narrow/scaled panel, newer content remains dirty and pending close stays guarded. |
+| W10 · P0 · In progress | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. Persist generation/parent identity and baseline/journal linkage; two states sharing an admitted clock cannot be ordered by mtime alone. RE02; A14. |
+| W10a · P0 · Next | Durable checkpoint/journal origin binding; W09. | Persist generation/parent identity and baseline digest, reject cross-paired journals even with matching document/revision; legacy unbound tails stay conservative. |
+| W10b · P0 · Queued | Bounded recovery discovery and candidate replay; W10a. | Validate known private artifacts, baseline and contiguous tail into an isolated candidate with progress/cancel. Equal clocks do not order branches; preserve all candidates on failure. |
+| W10c · P0 · Queued | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
@@ -260,6 +263,21 @@ under the same mutex. Five deterministic barrier cases pass optimized/sanitizer
 newer live data and late cancellation. The existing hidden 18-stage Save workflow
 passes in 6.583s (22.283s focused gate); 56 tool contracts pass. Test barriers are
 compiled only into private worker objects. App progress/cancel remains W09b2.
+
+W09b2/W09 complete: native Save has a compact 360×136 logical-unit progress
+panel, Escape/button cancellation and a non-cancellable publishing phase.
+Pointer ownership protects the panel while real grid pan remains live outside
+it; structural/data editing stays IO-guarded. The reply retains R until exact
+sparse-value/definition/view and registered format/source/object fences plus
+action order are checked. R+1 remains dirty/recoverable and blocks a pending
+Quit. Failed/cancelled Save preserves the prior file/path and recovery state.
+The `workbook-save` gate passes 425 controlled-writer assertions per optimized/
+sanitizer variant, ordered-worker barriers and 18 real App stages/27 checks
+(5.581s GUI, 25.167s total). It includes native pan, Escape, pointer Cancel at
+640×640/150%, late cancellation, real C R+1 admission, guarded Quit, reopen and
+failed Save. The related original 18-stage checkpoint workflow passes in 6.784s;
+56 runner/catalog/benchmark/web-inventory contracts pass. `save-ui` is the GUI-only
+iteration plan. Captures/receipts stay ignored; no human acceptance is claimed.
 
 ### Owned data, refresh and complete analytical results
 

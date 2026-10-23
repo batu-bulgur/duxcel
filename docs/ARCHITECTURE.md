@@ -451,4 +451,13 @@ empty control. Native Save now reserves the worker lane through reply polling; r
 read jobs are rejected and generic cancellation cooperatively requests Save
 cancellation without changing its request ID. Mutex-owned progress closes the
 cancellation gate before COMMIT, preserving its completion even if a later read
-or cancellation arrives. App progress/cancel UI remains W09b2.
+or cancellation arrives. The App renders a 360×136 logical-unit progress panel with Escape/button
+cancellation and a non-cancellable publication phase. The panel owns its pointer
+area; the grid retains scrolling outside it with structural edits locked.
+The Save reply retains its immutable snapshot until UI publication, included in
+the existing IO staging reservation. `save_fence.c` compares current registered
+content, exact sparse values, source/format/object clocks, definitions and view
+state with that snapshot, in addition to chronological action order. Failed or
+cancelled Save does not adopt a path or clear dirty/recovery state; an older
+successful Save cannot close a newer dirty document. Snapshot ownership ends
+in `reply_free`; no App pointers cross the worker boundary.
