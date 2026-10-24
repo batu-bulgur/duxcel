@@ -9,6 +9,8 @@ import {createHash} from 'node:crypto';
 import {createCDP} from './cdp.mjs';
 import {cdpKeyEvent} from './cdp_keyboard.mjs';
 import {paneRailExpandedReference,inspectorScrollReference,inspectorSQLReference} from './support/ui_contracts.mjs';
+// Shared C File registry, including visible browser-unavailable native actions.
+const FILE_MENU_COMMANDS=10;
 let url=process.argv[2]??'http://127.0.0.1:8767';
 const output=path.resolve(process.argv[3]??'build/web/browser-qa/cdp');
 const metadataStreamProbe=process.argv.includes('--metadata-stream-probe');
@@ -905,7 +907,7 @@ function browserPicker(state,{pending=false,row=0,column=0,source=state}={}){
 }
 async function tableImportChooser(source){
  await send('Page.setInterceptFileChooserDialog',{enabled:true});await key('Alt','AltLeft',18);await key('f','KeyF',70);const file=await platformSnapshot();
- check(file.file_menu==='1'&&file.file_visible==='8','Actual File menu omitted its eight-command Import/Export extensions');
+ check(file.file_menu==='1'&&Number(file.file_visible)===FILE_MENU_COMMANDS,'Actual File menu omitted its complete shared Import/Export registry');
  await key('i','KeyI',73);await frames();const document=await send('DOM.getDocument'),input=await send('DOM.querySelector',{nodeId:document.root.nodeId,selector:'#duxcel-file-input'});
  check(input.nodeId,'Alt F I did not invoke the actual browser Import Table chooser');
  await evaluate(`(()=>{const input=document.querySelector('#duxcel-file-input');globalThis.duxcelFileInputEvents=[];for(const name of ['input','change','cancel'])input.addEventListener(name,event=>globalThis.duxcelFileInputEvents.push({type:event.type,trusted:event.isTrusted,files:input.files?.length??0}));return true;})()`);
@@ -1236,7 +1238,7 @@ async function browserFocus(){
  // their actual captured paint rectangles. No Fields geometry is guessed.
  const help={x:Number(pane.logical.split(',')[0])-18*Number(pane.ui_scale),y:42*Number(pane.ui_scale)};await click(help.x,help.y);const first=guideState(await platformSnapshot());cellModelRetained(pane,first.state,'Pointer Help from pane focus changed source/model ownership');check(starts().length===jobs,'Pane-focus Help activation submitted database work');await capture('focus-pane-help');
  const [x,y,w,h]=first.bounds.close;await click(x+w/2,y+h/2);const closed=await platformSnapshot();check(closed.modal==='0','Actual measured Guide Close did not dismiss Help');cellModelRetained(pane,closed,'Guide Close changed source/model ownership');
- await click(40*Number(closed.ui_scale),14*Number(closed.ui_scale));const file=await platformSnapshot();check(file.file_menu==='1'&&file.modal==='0'&&file.file_visible==='8','Actual brand control did not open the eight-command File menu');const [fx,fy,fw,fh]=file.file_panel.split(',').map(Number);check(!(help.x>=fx&&help.x<fx+fw&&help.y>=fy&&help.y<fy+fh),'Help regression point is not outside the actual File menu');
+ await click(40*Number(closed.ui_scale),14*Number(closed.ui_scale));const file=await platformSnapshot();check(file.file_menu==='1'&&file.modal==='0'&&Number(file.file_visible)===FILE_MENU_COMMANDS,'Actual brand control did not open the complete shared File menu');const [fx,fy,fw,fh]=file.file_panel.split(',').map(Number);check(!(help.x>=fx&&help.x<fx+fw&&help.y>=fy&&help.y<fy+fh),'Help regression point is not outside the actual File menu');
  await click(help.x,help.y);const dismissed=await platformSnapshot();check(dismissed.file_menu==='0'&&dismissed.modal==='0'&&dismissed.author_kind!=='guide','First outside File click activated Help instead of only dismissing File');cellModelRetained(pane,dismissed,'First File outside click changed the source/model');check(starts().length===jobs,'File outside dismissal submitted database work');await capture('focus-file-dismissed');
  await click(help.x,help.y);const second=guideState(await platformSnapshot());cellModelRetained(pane,second.state,'Second Help activation lost source/model ownership');check(second.scroll===0&&second.focus===0&&second.state.file_menu==='0','Second actual Help click did not open a fresh Guide after File dismissal');await capture('focus-file-second-help');await key('Escape','Escape',27);const escaped=await platformSnapshot();check(escaped.modal==='0'&&escaped.file_menu==='0','Normal Guide Escape left a modal or File menu open');cellModelRetained(pane,escaped,'Normal Guide Escape changed source/model ownership');
  await pause(250);await frames(3);const final=await platformSnapshot();cellModelRetained(pane,final,'Idle focused source changed ownership');check(final.modal==='0'&&final.request===pane.request&&starts().length===jobs,'Focus/Help/File/idle flow submitted additional SQL');check(consoleText('Browser review prepared: ').length===0&&(await pendingReports()).length===0,'Focus regression staged a saved report');const queue=await(await fetch(new URL('/__review/queue',url))).json();check(queue.reports.length===0,'Focus regression wrote into the persistent queue');
@@ -1910,7 +1912,7 @@ async function exportCanvasHome(){
  const selected=await platformSnapshot();check(selected.modal==='0'&&selected.active==='0,0'&&selected.extent==='0,0'&&selected.selected_object==='-1','Actual export source canvas did not retain a single A1 selection');return selected;
 }
 async function exportAction({fileMenu=false}={}){
- if(fileMenu){await key('Alt','AltLeft',18);await key('f','KeyF',70);const state=await platformSnapshot();check(state.file_menu==='1'&&state.file_visible==='8','Actual export File menu omitted its eight real commands');await key('e','KeyE',69);}
+ if(fileMenu){await key('Alt','AltLeft',18);await key('f','KeyF',70);const state=await platformSnapshot();check(state.file_menu==='1'&&Number(state.file_visible)===FILE_MENU_COMMANDS,'Actual export File menu omitted its complete shared command registry');await key('e','KeyE',69);}
  else{
   await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16,{modifiers:2}));
   try{await key('e','KeyE',69,'',10);}finally{await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Shift','ShiftLeft',16,{modifiers:2}));await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));}
@@ -2107,7 +2109,7 @@ async function browserSourceBindings(){
  async function steps(){const state=await platformSnapshot();await focusTransformations(!state.feedback_pipeline_preview_rect);await pause(220);return platformSnapshot();}
  async function position(row,column){await exportCanvasHome();for(let i=0;i<row;i++)await key('ArrowDown','ArrowDown',40);for(let i=0;i<column;i++)await key('ArrowRight','ArrowRight',39);const state=await platformSnapshot();check(state.active===row+','+column&&state.extent===state.active,'Binding fixture did not reach its actual grid destination');return state;}
  async function importAt(file,row,column){
-  const anchor=await position(row,column);await send('Page.setInterceptFileChooserDialog',{enabled:true});await key('Alt','AltLeft',18);await key('f','KeyF',70);const menu=await platformSnapshot();check(menu.file_menu==='1'&&menu.file_visible==='8','Real File menu omitted Import Table');await key('i','KeyI',73);
+  const anchor=await position(row,column);await send('Page.setInterceptFileChooserDialog',{enabled:true});await key('Alt','AltLeft',18);await key('f','KeyF',70);const menu=await platformSnapshot();check(menu.file_menu==='1'&&Number(menu.file_visible)===FILE_MENU_COMMANDS,'Real File menu omitted Import Table');await key('i','KeyI',73);
   const doc=await send('DOM.getDocument'),input=await send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:'#duxcel-file-input'});check(input.nodeId,'Real Import Table did not create its chooser');const pending=await platformSnapshot();browserPicker(pending,{pending:true,row,column,source:anchor});
   await evaluate(`(()=>{const input=document.querySelector('#duxcel-file-input');globalThis.duxcelFileInputEvents=[];for(const name of ['input','change','cancel'])input.addEventListener(name,event=>globalThis.duxcelFileInputEvents.push({type:event.type,trusted:event.isTrusted,files:input.files?.length??0}));return true;})()`);
   const previous=replies().filter(reply=>reply.kind===5).at(-1)?.id??null,delivery=await completeTableChooser({node:input.nodeId},[file]),reply=await waitPivot(previous),state=await settled();return{anchor,pending,delivery,reply,state};
@@ -2692,15 +2694,19 @@ async function accessKeys(){
  check(copied.last_command==='0'&&bold.last_command==='5'&&Number(copied.keytips)===0&&copied.modal==='0','Same-frame Alt H C C lost its repeated prefix or failed actual Copy dispatch');
  check(copied.manual_cells===seeded.manual_cells&&copied.active===seeded.active&&copied.extent===seeded.extent,'Copy keytips mutated worksheet cells or selection');
  await click(40,14);const menu=await platformSnapshot();
- check(menu.file_menu==='1'&&menu.file_visible==='8','Pointer File menu did not expose all eight commands');
+ check(menu.file_menu==='1'&&Number(menu.file_visible)===FILE_MENU_COMMANDS,'Pointer File menu did not expose all shared commands');
  const [menuX,menuY,menuWidth]=menu.file_panel.split(',').map(Number),menuScale=Number(menu.ui_scale),filePicks=[];
- for(const [id,x,y]of [['file.background',menuX+2*menuScale,menuY+2*menuScale],['file.heading',menuX+40*menuScale,menuY+20*menuScale],['file.action.save',menuX+menuWidth/2,menuY+(35+2*28+14)*menuScale]])filePicks.push(await pickAndCancel(id,x,y,{captureName:id==='file.action.save'?'file-disabled-save':null}));
+ for(const [id,x,y]of [['file.background',menuX+2*menuScale,menuY+2*menuScale],['file.heading',menuX+40*menuScale,menuY+20*menuScale],['file.action.save',menuX+menuWidth/2,menuY+(35+2*28+14)*menuScale],['file.action.recover',menuX+menuWidth/2,menuY+(35+7*28+14)*menuScale],['file.action.versions',menuX+menuWidth/2,menuY+(35+8*28+14)*menuScale]])filePicks.push(await pickAndCancel(id,x,y,{captureName:id==='file.action.save'?'file-disabled-save':null}));
  const filePickRestored=await platformSnapshot();
  check(filePickRestored.file_menu==='1'&&filePickRestored.file_focus===menu.file_focus&&filePickRestored.file_scroll===menu.file_scroll&&filePickRestored.active===menu.active&&filePickRestored.manual_cells===seeded.manual_cells&&filePickRestored.active_format_flags===bold.active_format_flags&&filePickRestored.dirty===menu.dirty,'Cancelling File target reports mutated the open menu or workbook');
+ for(const row of [7,8]){
+  await click(menuX+menuWidth/2,menuY+(35+row*28+14)*menuScale);const unavailable=await platformSnapshot();
+  check(unavailable.file_menu==='1'&&unavailable.modal==='0'&&unavailable.io_busy==='0'&&unavailable.request===menu.request&&unavailable.manual_cells===seeded.manual_cells,'Browser-unavailable native File command started work or changed the workbook');
+ }
  await key('Delete','Delete',46);const protectedCell=await platformSnapshot();
  check(protectedCell.file_menu==='1'&&protectedCell.manual_cells===seeded.manual_cells&&protectedCell.active_format_flags===bold.active_format_flags&&protectedCell.modal==='0','Delete leaked through the pointer File menu into worksheet editing');
  // This new manual-only sheet has no exportable source: Import remains the
- // last enabled row, while Export/Quit still occupy honest disabled rows.
+ // last enabled row; Export, Recover, Versions and Quit remain visible/disabled.
  check(seeded.page==='0/0'&&seeded.object_count==='0','File navigation fixture unexpectedly has an exportable source/object');
  const fileNavigation=[];
  for(const [name,code,virtual,expected] of [['End','End',35,5],['Home','Home',36,0],['ArrowUp','ArrowUp',38,5],['ArrowDown','ArrowDown',40,0],['Tab','Tab',9,1],['Tab','Tab',9,4]]){
@@ -2714,7 +2720,7 @@ async function accessKeys(){
  await send('Emulation.setDeviceMetricsOverride',{width:1280,height:180,deviceScaleFactor:dpr,mobile:false});await frames(5);
  await key('End','End',35);const shortFile=await platformSnapshot();
  const [fileX,fileY,fileWidth,fileHeight]=shortFile.file_panel.split(',').map(Number);
- check(shortFile.file_menu==='1'&&shortFile.file_focus==='5'&&Number(shortFile.file_visible)>0&&Number(shortFile.file_visible)<8&&Number(shortFile.file_scroll)>0,'Short-window File menu lost its rows or failed to reveal the focused command');
+ check(shortFile.file_menu==='1'&&shortFile.file_focus==='5'&&Number(shortFile.file_visible)>0&&Number(shortFile.file_visible)<FILE_MENU_COMMANDS&&Number(shortFile.file_scroll)>0,'Short-window File menu lost its rows or failed to reveal the focused command');
  check(fileX>=0&&fileY>=0&&fileX+fileWidth<=1280&&fileY+fileHeight<=180,'Short-window File menu escaped the canvas');
  await capture('file-menu-short');
  await click(fileX+20,fileY+15);const headingFile=await platformSnapshot();
@@ -2724,7 +2730,7 @@ async function accessKeys(){
  await send('Input.dispatchMouseEvent',{type:'mouseMoved',...filePointer});
  await send('Input.dispatchMouseEvent',{type:'mouseWheel',...filePointer,deltaX:0,deltaY:80});await frames(4);
  const scrolledFile=await platformSnapshot();check(Number(scrolledFile.file_scroll)>0&&scrolledFile.manual_cells===seeded.manual_cells&&scrolledFile.active===seeded.active,'File wheel failed to scroll or leaked to worksheet selection');
- const [scrollX,scrollY,scrollWidth]=scrolledFile.file_panel.split(',').map(Number),visible=Number(scrolledFile.file_visible),trackHeight=visible*28*menuScale,thumbHeight=Math.min(trackHeight,Math.max(26*menuScale,trackHeight*visible/8)),thumbY=scrollY+35*menuScale+(trackHeight-thumbHeight)*Number(scrolledFile.file_scroll)/(8-visible);
+ const [scrollX,scrollY,scrollWidth]=scrolledFile.file_panel.split(',').map(Number),visible=Number(scrolledFile.file_visible),trackHeight=visible*28*menuScale,thumbHeight=Math.min(trackHeight,Math.max(26*menuScale,trackHeight*visible/FILE_MENU_COMMANDS)),thumbY=scrollY+35*menuScale+(trackHeight-thumbHeight)*Number(scrolledFile.file_scroll)/(FILE_MENU_COMMANDS-visible);
  const thumbPick=await pickAndCancel('file.scrollbar.thumb',scrollX+scrollWidth-9*menuScale,thumbY+thumbHeight-4*menuScale,{moveBar:true,captureName:'file-short-thumb'}),thumbRestored=await platformSnapshot();
  check(thumbRestored.file_menu==='1'&&thumbRestored.file_focus===scrolledFile.file_focus&&thumbRestored.file_scroll===scrolledFile.file_scroll&&thumbRestored.active===scrolledFile.active&&thumbRestored.manual_cells===seeded.manual_cells,'Moved reporting bar or thumb pick changed the frozen File scroll/workbook');
  await key('End','End',35);await key('ArrowUp','ArrowUp',38);const closeFocus=await platformSnapshot();check(closeFocus.file_focus==='4','Reverse navigation from Import did not retain the focused Close action');await key(' ','Space',32,' ');const spaceClose=await platformSnapshot();
