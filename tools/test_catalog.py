@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "core-payload": Feature((), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-disposition"),
+        ("src/workbook/core_payload.c", "src/workbook/core_payload.h", "tests/test_core_payload.c"),
+        ("core_payload", "file_lease")),
     "payload-paths": Feature((), "workbook-save",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-disposition"),
         ("src/workbook/workbook.c: relocatable core payload", "src/workbook/save.h", "tests/test_workbook_payload.c"),

@@ -85,8 +85,12 @@ The native adapter must retain and verify complete assets before publication.
 `workbook_save_core_payload` writes a relocatable v15 core leaf through the
 existing controlled transaction, storing already-resolved primary/Table/ledger
 locators absolutely. It does not read external data, retain results or publish
-an index. Ordinary Save keeps relative references. Sealed payload ownership,
-archive closure and App adoption remain W11a2/W11a3; native files remain v15.
+an index. Ordinary Save keeps relative references. `core_payload.c` owns the closed leaf, private child and exclusive lease. Its
+fixed64 KiB SDK hash binds exact bytes/file identity; it rechecks inventory and
+identity before consumption/disposal. Unknown or changed artifacts are kept.
+The core info is deliberately distinct from a complete version-root descriptor;
+exact-byte hashing alone does not prove semantic equality of separate captures.
+Archive closure and App adoption remain W11a2/W11a3; native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

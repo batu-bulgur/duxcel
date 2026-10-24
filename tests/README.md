@@ -252,3 +252,10 @@ offline paths, identities/exact manual text, preflight preservation and
 controlled cancellation in optimized/ASan/UBSan builds. The `payload-paths`
 gate also runs controlled/worker Save modules and the18-stage hidden Save GUI.
 Full archive/recovery interactions remain named deferred checks.
+
+`test_core_payload.c` exercises native core ownership without launching App:
+private capture, closed read-only access, offline locators, exact SDK digest,
+exclusive lease, write/hash cancellation, independent captures and working edits,
+repeat verification, fixed-file cleanup and changed/aliased/unknown-file retention.
+The `core-payload` gate runs this module and real file-lease tests in optimized
+and ASan/UBSan configurations. App Save/archive/recovery adoption stays deferred.
