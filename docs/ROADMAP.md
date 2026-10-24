@@ -1709,3 +1709,12 @@ native-test-only location of the App result-readiness helper. The helper now
 lives in shared production App code and also requires matching result/object ID;
 no Page from another object can supply a matrix extent. The scoped gate above
 includes explicit representation Undo/Redo and stale-result owner rejection.
+
+
+Layout packaging boundary: corrected product source1661b37 produces the signed
+native bundle in6.683s and the normal shared-C Wasm application in23.692s wall
+time. Strict signature, compiled commit provenance and private feature/review
+symbol exclusions pass. Receipts: ignored `w12c3-object-layout-bundle.log`,
+`w12c3-object-layout-package.json` and `w12c3-object-layout-web.log`. No user App
+was launched/closed. Compile/link acceptance does not imply browser runtime or
+browser workbook Open/Save, durable history or full regression acceptance.
