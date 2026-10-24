@@ -16,15 +16,6 @@ static bool utf8(const unsigned char *s,size_t n) {
     }
     return true;
 }
-size_t definition_wire_filter_scratch(FilterOp op,size_t n,bool present) {
-    if (!present || (op!=FILTER_BETWEEN && op!=FILTER_COMPOSITE)) return 0;
-    if (n>DX_DEFINITION_OWNED_BYTES) return SIZE_MAX;
-    /* Same logical parser bound as workbook_codec_read: old2048+new4096
-       pointer arrays, input/copy scratch, then nonrecursive composite children. */
-    size_t bytes=2*n+4098u+6144u*sizeof(char *);
-    if (op==FILTER_COMPOSITE) bytes+=n+4u+16u*sizeof(char *);
-    return bytes;
-}
 bool definition_wire_text_measure(const char *s,DefinitionWireMeasure *m,size_t limit,size_t *length) {
     *length=0;
     if (m->owned>limit || m->bytes>SIZE_MAX-4) return false;

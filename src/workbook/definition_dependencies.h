@@ -8,6 +8,13 @@ typedef enum {
     DEFINITION_DEPENDENCIES_OK,DEFINITION_DEPENDENCIES_INVALID,DEFINITION_DEPENDENCIES_MISSING,
     DEFINITION_DEPENDENCIES_CONFLICT,DEFINITION_DEPENDENCIES_LIMIT,DEFINITION_DEPENDENCIES_UNSUPPORTED
 } DefinitionDependenciesStatus;
+typedef struct { bool rows[DX_SOURCE_VERSIONS]; size_t unbound_sources; } DefinitionDependencySelection;
+/* Bounded selection without any source-row/path/packet ownership copies. Use
+   the SAME unchanged immutable ledger for the later union/capture. Full canonical
+   definition semantics and source activation remain separate as below. Failure
+   preserves out. Selection permits pending metadata but never invents identity. */
+DefinitionDependenciesStatus definition_dependencies_select(uint64_t sheet,DefinitionDependencyView before,DefinitionDependencyView after,
+    const SourceVersions *ledger,uint64_t object_high_water,DefinitionDependencySelection *out);
 /* Close primary/Table version bindings across both definition states. A changed
    constituent is supplied as a complete pair; NULL/NULL omits it, while one NULL
    rejects. Trusted prevalidated graphs only: bounded model measure is repeated,

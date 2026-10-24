@@ -18,8 +18,4 @@ uint64_t definition_wire_get(DefinitionWireReader *reader,unsigned bytes);
    first pass uses NULL and performs no allocation. false+ok means a NULL span;
    false+!ok is invalid framing/text/budget. Owned totals include terminators. */
 bool definition_wire_text_read(DefinitionWireReader *reader,char **out,size_t *length);
-/* Existing nonrecursive BETWEEN/COMPOSITE parser's conservative logical peak,
-   excluding allocator/RSS/errors. n is bounded by the definition owned limit;
-   SIZE_MAX rejects a larger input. Call before any grammar parsing/allocation. */
-size_t definition_wire_filter_scratch(FilterOp op,size_t bytes,bool present);
 #endif

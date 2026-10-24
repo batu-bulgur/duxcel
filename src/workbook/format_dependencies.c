@@ -38,15 +38,22 @@ void format_dependencies_free(FormatDependencies *out) {
     if (!out) return;
     source_versions_asset_free(&out->sources); *out=(FormatDependencies){0};
 }
+FormatDependenciesStatus format_dependencies_select(uint64_t sheet,FormatSnapshotView before,FormatSnapshotView after,
+    const SourceVersions *ledger,uint64_t owners,FormatDependencySelection *out) {
+    if (!sheet || !out || !source_versions_valid(ledger,owners,NULL) || !valid(before) || !valid(after)) return FORMAT_DEPENDENCIES_INVALID;
+    FormatDependencySelection next={0};
+    FormatDependenciesStatus status=collect(before,ledger,next.rows,&next.legacy_scopes);
+    if (status==FORMAT_DEPENDENCIES_OK) status=collect(after,ledger,next.rows,&next.legacy_scopes);
+    if (status==FORMAT_DEPENDENCIES_OK) *out=next; return status;
+}
 FormatDependenciesStatus format_dependencies_build(uint64_t sheet,FormatSnapshotView before,FormatSnapshotView after,
     const SourceVersions *ledger,uint64_t owners,size_t reserved,FormatDependencies *out) {
-    if (!sheet || !out || ledger==&out->sources.versions || !source_versions_valid(ledger,owners,NULL) || !valid(before) || !valid(after)) return FORMAT_DEPENDENCIES_INVALID;
-    bool needed[DX_SOURCE_VERSIONS]={0}; size_t legacy=0;
-    FormatDependenciesStatus status=collect(before,ledger,needed,&legacy);
-    if (status==FORMAT_DEPENDENCIES_OK) status=collect(after,ledger,needed,&legacy);
+    if (!out || ledger==&out->sources.versions) return FORMAT_DEPENDENCIES_INVALID;
+    FormatDependencySelection selected={0};
+    FormatDependenciesStatus status=format_dependencies_select(sheet,before,after,ledger,owners,&selected);
     if (status!=FORMAT_DEPENDENCIES_OK) return status;
-    FormatDependencies next={.legacy_scopes=legacy};
-    SourceVersionsCodecStatus copied=source_versions_asset_select(sheet,ledger,owners,needed,ledger->count,reserved,&next.sources);
+    FormatDependencies next={.legacy_scopes=selected.legacy_scopes};
+    SourceVersionsCodecStatus copied=source_versions_asset_select(sheet,ledger,owners,selected.rows,ledger->count,reserved,&next.sources);
     if (copied!=SOURCE_VERSIONS_CODEC_OK) return copied==SOURCE_VERSIONS_CODEC_LIMIT ? FORMAT_DEPENDENCIES_LIMIT : FORMAT_DEPENDENCIES_INVALID;
     format_dependencies_free(out); *out=next; return FORMAT_DEPENDENCIES_OK;
 }

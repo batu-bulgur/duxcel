@@ -377,6 +377,16 @@ bool analysis_parse_values(const char *s,char ***values,size_t *count) {
     free(buffer); for (size_t i=0;i<*count;i++) free((*values)[i]); free(*values); *values=NULL; *count=0; return false;
 }
 static void values_free(char **values,size_t count) { for (size_t i=0;i<count;i++) free(values[i]); free(values); }
+size_t analysis_filter_validation_scratch(FilterOp op,size_t n,bool present) {
+    if (!present || (op!=FILTER_BETWEEN && op!=FILTER_COMPOSITE)) return 0;
+    if (n>8u*1024u*1024u) return SIZE_MAX;
+    /* analysis_parse_values retains input/copy buffers and old2048+new4096
+       pointer arrays during growth. Composite keeps four outer strings and16
+       pointers while one nonrecursive list/BETWEEN child parser runs. */
+    size_t bytes=2u*n+4098u+6144u*sizeof(char *);
+    if (op==FILTER_COMPOSITE) bytes+=n+4u+16u*sizeof(char *);
+    return bytes;
+}
 bool analysis_filter_value_valid(FilterOp op,const char *value) {
     if ((unsigned)op>FILTER_OP_MAX) return false;
     if (op==FILTER_COMPOSITE) {

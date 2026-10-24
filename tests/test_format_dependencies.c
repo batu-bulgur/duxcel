@@ -35,6 +35,10 @@ int main(void) {
     value.flags=FORMAT_UNDERLINE; CHECK(format_apply_records(&after,&raw2,ids,2,fields,2,FORMAT_UNDERLINE,value,NULL));
     FormatSnapshotView bv=format_delta_store_view(&before),av=format_delta_store_view(&after); FormatDependencies out={0};
     CHECK(format_dependencies_build(99,bv,av,&v,10,DX_SOURCE_VERSIONS_BYTES,&out)==FORMAT_DEPENDENCIES_OK);
+    FormatDependencySelection selected={0};
+    CHECK(format_dependencies_select(99,bv,av,&v,10,&selected)==FORMAT_DEPENDENCIES_OK && selected.rows[0] && selected.rows[1] && !selected.rows[2] && !selected.legacy_scopes);
+    FormatDependencySelection original_selection=selected;
+    CHECK(format_dependencies_select(0,bv,av,&v,10,&selected)==FORMAT_DEPENDENCIES_INVALID && !memcmp(&selected,&original_selection,sizeof(selected)));
     CHECK(out.sources.sheet==99 && out.sources.versions.high_water==20 && out.sources.versions.count==2 && !out.legacy_scopes && out.sources.versions.items[0].version==1 && out.sources.versions.items[1].version==2);
     CHECK(out.sources.versions.items[0].path!=v.items[0].path && out.sources.versions.items[1].raw.data!=v.items[1].raw.data && source_versions_valid(&out.sources.versions,10,NULL));
     rejected(bv,av,&v,out.sources.versions.bytes-1,&out,FORMAT_DEPENDENCIES_LIMIT);

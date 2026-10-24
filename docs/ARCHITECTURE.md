@@ -938,3 +938,15 @@ of fresh output. Default schema/table completion also occurs without a user acti
 (App worker publication and objects_resolve_source). Its source identity remains
 strict: the baseline/resolution owner must close that enrichment against retained
 origins/replay before activation, not silently weaken source-name comparison.
+
+
+Format and definition closure expose atomic index selections against the SAME
+unchanged immutable source ledger. Compound owners can union them and encode
+selected canonical metadata directly; ordinary owned-subset builders use those
+same selectors. Format history reservations now avoid the intermediate ledger
+clone. Analysis owns the shared nonrecursive grammar-scratch measurement used by
+definition codecs and metadata-read admission. Existing source-scope RESULT
+validation may parse bounded filter grammar, so its worst-case scratch plus the
+scope marker/format validation allowance must also be admitted before compound
+preparation. None of these helpers activate scopes or replace owner/revision
+fences, complete definition validation or global App resource accounting.

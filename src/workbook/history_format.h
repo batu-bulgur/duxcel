@@ -25,8 +25,9 @@ typedef struct {
    Cancel on failure/no-op/stale; callbacks consume one ticket and perform no IO.
    This format-only adapter rejects analysis/object/range/lifecycle composites;
    those require complete constituent admission, never a partial format event.
-   Temporary closure plus validation scratch is bounded separately (<=1 MiB plus
-   one scope marker and format validation scratch); final assets share the stream
+   Source rows/locators/packets encode directly without an intermediate ledger
+   clone. Bounded source-scope grammar/format-validation scratch and one scope
+   marker are reserved separately; final assets share the stream
    bound with cell events. No App activation or durable file receipt is implied. */
 WorkbookHistoryFormatRecorder workbook_history_stream_format_recorder(WorkbookHistoryStream *stream);
 #endif

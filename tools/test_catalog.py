@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "compound-preparation": Feature(("definition_dependencies", "format_dependencies", "history_format", "workbook_codec_read"), "",
+        ("python3 tools/test.py feature --feature definition-preflight", "python3 tools/test.py feature --feature source-versions-codec", "python3 tools/test.py feature --feature format-command", "python3 tools/test.py feature --feature source-result-format"),
+        ("src/transforms/analysis.c: shared filter validation scratch", "src/workbook/workbook_codec_read.c: parser budget adapter", "src/workbook/definition_dependencies.c: selection without source clones", "src/workbook/format_dependencies.c: selection without source clones", "src/workbook/source_versions_codec.c: direct selected-row encoding", "src/workbook/history_format.c", "Makefile: cached metadata reader objects/actual dependencies")),
     "definition-state": Feature(("definition_state",), "",
         ("python3 tools/test.py feature --feature objects-asset", "python3 tools/test.py native --scenario pivot chart table --config sanitize"),
         ("src/workbook/definition_state.c", "src/workbook/definition_state.h", "tests/test_definition_state.c")),

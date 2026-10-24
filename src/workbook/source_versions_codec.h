@@ -31,6 +31,15 @@ SourceVersionsCodecStatus source_versions_asset_encode(uint64_t sheet,const Sour
    No IO, live-ledger adoption, version issuance, replay or activation proof. */
 SourceVersionsCodecStatus source_versions_asset_decode(const void *data,size_t bytes,uint64_t object_high_water,
     size_t reserved,SourceVersionsAsset *out);
+typedef struct { size_t bytes,owned,count; } SourceVersionsSelectionMeasure;
+/* Exact allocation-free selected-row wire/owned measure, and direct canonical
+   encoding without an intermediate owned ledger clone. The input ledger and
+   selection remain immutable through measure/encode. selection_count is exactly
+   ledger.count. Encoding failure preserves the disjoint arena and written. */
+SourceVersionsCodecStatus source_versions_selection_measure(uint64_t sheet,const SourceVersions *ledger,uint64_t object_high_water,
+    const bool *selection,size_t selection_count,SourceVersionsSelectionMeasure *out);
+SourceVersionsCodecStatus source_versions_selection_encode(uint64_t sheet,const SourceVersions *ledger,uint64_t object_high_water,
+    const bool *selection,size_t selection_count,void *arena,size_t capacity,size_t *written);
 /* Capture exactly the selected immutable ledger rows in original version order.
    selection_count equals ledger.count (NULL selection is allowed only for0).
    Pending rows are preserved; typed consumers must prove which rows must be

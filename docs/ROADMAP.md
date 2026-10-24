@@ -240,7 +240,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.1 · P1 · Complete | Primary/Table source-version closure; W12c.3b. | Pin exact owner/kind/locator rows across both definition states, preserving pending/complete distinction, explicit unbound observations and captured allocator bounds. Share immutable subset ownership with format closure; never infer source identity or execute queries. |
 | W12c.3c.2 · P1 · In progress | Canonical definition/composite event ownership; W12c.3c.1. | Capture exact before/after Analysis/object/format constituents and their union of source dependencies before mutation; one event owns all assets under explicit staging/scratch budgets. No partial composite publication. |
 | W12c.3c.2a · P1 · Complete | Authored definition/preimage projection; W12c.3c.1. | Compare exact persisted definitions/order without derived NumberType/query epochs. Ignore computed Pivot/Table extents, retain authored Chart dimensions, and keep schema/table identity strict until an explicit resolution owner closes baseline enrichment. |
-| W12c.3c.2b · P1 · Queued | Owned canonical compound event; W12c.3c.2a. | Capture complete changed constituent pairs plus one union of source dependencies under explicit staging/scratch admission; immutable ownership precedes any model mutation. |
+| W12c.3c.2b · P1 · In progress | Owned canonical compound event; W12c.3c.2a. | Capture complete changed constituent pairs plus one union of source dependencies under explicit staging/scratch admission; immutable ownership precedes any model mutation. |
+| W12c.3c.2b.1 · P1 · Complete | Bounded compound preparation without metadata clones; W12c.3c.2a. | Share parser-scratch accounting, select dependency indices atomically against one immutable ledger and encode their canonical union directly. Preserve format-event bytes; keep metadata-reader tests cached by actual dependencies. |
+| W12c.3c.2b.2 · P1 · Queued | Closed compound packet and event handoff; W12c.3c.2b.1. | Budget all required constituent graphs/validation before allocation, capture their complete before/after payloads and source union, reject mismatched effects/no-op/owner bindings and hand off one immutable event before mutation. |
 | W12c.3c.3 · P1 · Queued | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
 | W12c.3c.3a · P1 · Queued | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
 | W12c.3c.3b · P1 · Queued | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
@@ -1324,3 +1326,16 @@ in2.317s. Receipt: ignored `w12c3-definition-state*.log/json`. Inspection found
 worker default schema/table completion also occurs without user actions; equality
 keeps that identity strict and W12c.3c.3a must close its baseline/replay ownership
 before activation. No unsafe source-name waiver or App behavior change is made.
+
+W12c.3c.2b.1 complete: source-row selections no longer require temporary ledger
+clones. Format reservations encode selected metadata directly, byte-identical to
+owned-subset encoding. Shared Analysis grammar-scratch measurement now serves
+canonical definitions and the metadata reader; source-scope grammar scratch is
+explicitly documented in compound admission. Dependency selection failures are
+atomic. Three registered gates preserve the four-module catalog limit: compound
+preparation2.527s, named definition preflight2.742s and source codec1.091s, all
+optimized/ASan/UBSan;50 tool contracts pass in2.345s. The metadata reader now uses
+cached strict per-file objects/actual .d dependencies with eight compile slots.
+An unrelated HEADERS override leaves all24 watched objects/binaries unchanged
+in0.870s. Receipts: ignored `w12c3-compound-*.log/json` and
+`w12c3-metadata-read-cache*.log/json`. No App/GUI/profile activation changed.

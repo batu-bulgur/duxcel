@@ -756,21 +756,8 @@ static bool table_raw_add(size_t raw[DX_MAX_SHEETS],size_t sheet,const WorkbookC
     raw[sheet]+=bytes; return true;
 }
 static bool table_filter_scratch(FilterOp op,const char *text,size_t *out,char **error) {
-    *out=0;
-    if (!text || (op!=FILTER_BETWEEN && op!=FILTER_COMPOSITE)) return true;
-    size_t n=strlen(text),pointers=6144u*sizeof(char *);
-    /* analysis_parse_values: input scratchN+1, copied/temporary strings<=N+4097,
-       and old2048+new4096 pointer arrays during growth. Composite retains only
-       four outer strings<=N+4 plus16 pointers while one nested parser runs;
-       its condition grammar permits BETWEEN, never recursive COMPOSITE.
-       This is logical buffer admission, excluding allocator/RSS/diagnostics. */
-    if (pointers>SIZE_MAX-4098u || n>(SIZE_MAX-4098u-pointers)/2u) return fail(error,"Table filter validation scratch overflow.");
-    size_t bytes=2u*n+4098u+pointers;
-    if (op==FILTER_COMPOSITE) {
-        size_t extra=4u+16u*sizeof(char *);
-        if (n>SIZE_MAX-extra || bytes>SIZE_MAX-n-extra) return fail(error,"Table composite validation scratch overflow.");
-        bytes+=n+extra;
-    }
+    size_t bytes=analysis_filter_validation_scratch(op,text ? strlen(text) : 0,text!=NULL);
+    if (bytes==SIZE_MAX) return fail(error,"Table filter validation scratch overflow.");
     *out=bytes; return true;
 }
 static bool primary_filter_scratch(const Analysis *a,size_t *maximum,char **error) {

@@ -12,15 +12,26 @@ SourceVersionsCodecStatus source_versions_asset_size(uint64_t sheet,const Source
     if (total>DX_SOURCE_VERSIONS_MAX_BYTES) return SOURCE_VERSIONS_CODEC_INVALID;
     if (bytes) *bytes=total; return SOURCE_VERSIONS_CODEC_OK;
 }
+SourceVersionsCodecStatus source_versions_selection_measure(uint64_t sheet,const SourceVersions *ledger,uint64_t owners,
+    const bool *selected,size_t selection_count,SourceVersionsSelectionMeasure *out) {
+    if (!sheet || !out || !source_versions_valid(ledger,owners,NULL) || selection_count!=ledger->count || (selection_count && !selected)) return SOURCE_VERSIONS_CODEC_INVALID;
+    SourceVersionsSelectionMeasure m={.bytes=DX_SOURCE_VERSIONS_HEADER_BYTES};
+    for (size_t i=0;i<ledger->count;i++) if (selected[i]) {
+        const SourceVersion *row=ledger->items+i; size_t n=strlen(row->path);
+        if (!kind_tag(row->kind)) return SOURCE_VERSIONS_CODEC_INVALID;
+        m.count++; m.bytes+=DX_SOURCE_VERSION_ROW_BYTES+n+row->raw.bytes; m.owned+=sizeof(SourceVersion)+n+1+row->raw.bytes;
+    }
+    if (m.bytes>DX_SOURCE_VERSIONS_MAX_BYTES) return SOURCE_VERSIONS_CODEC_INVALID;
+    *out=m; return SOURCE_VERSIONS_CODEC_OK;
+}
 SourceVersionsCodecStatus source_versions_asset_select(uint64_t sheet,const SourceVersions *ledger,uint64_t owners,
     const bool *selected,size_t selection_count,size_t reserved,SourceVersionsAsset *out) {
-    if (!sheet || !out || ledger==&out->versions || !source_versions_valid(ledger,owners,NULL) ||
-        selection_count!=ledger->count || (selection_count && !selected)) return SOURCE_VERSIONS_CODEC_INVALID;
-    size_t count=0,bytes=0;
-    for (size_t i=0;i<ledger->count;i++) if (selected[i]) { count++; bytes+=sizeof(SourceVersion)+strlen(ledger->items[i].path)+1+ledger->items[i].raw.bytes; }
-    if (bytes>reserved) return SOURCE_VERSIONS_CODEC_LIMIT;
-    SourceVersionsAsset next={.sheet=sheet,.versions={.high_water=ledger->high_water,.count=count,.capacity=count,.bytes=bytes}};
-    if (count) next.versions.items=dx_alloc(count*sizeof(SourceVersion));
+    if (!out || ledger==&out->versions) return SOURCE_VERSIONS_CODEC_INVALID;
+    SourceVersionsSelectionMeasure m={0}; SourceVersionsCodecStatus status=source_versions_selection_measure(sheet,ledger,owners,selected,selection_count,&m);
+    if (status!=SOURCE_VERSIONS_CODEC_OK) return status;
+    if (m.owned>reserved) return SOURCE_VERSIONS_CODEC_LIMIT;
+    SourceVersionsAsset next={.sheet=sheet,.versions={.high_water=ledger->high_water,.count=m.count,.capacity=m.count,.bytes=m.owned}};
+    if (m.count) next.versions.items=dx_alloc(m.count*sizeof(SourceVersion));
     size_t at=0;
     for (size_t i=0;i<ledger->count;i++) if (selected[i]) {
         const SourceVersion *from=ledger->items+i; SourceVersion *to=next.versions.items+at++; *to=*from; to->path=dx_strdup(from->path);
@@ -45,6 +56,21 @@ SourceVersionsCodecStatus source_versions_asset_encode(uint64_t sheet,const Sour
         if (e->raw.bytes) { memcpy(w.p,e->raw.data,e->raw.bytes); w.p+=e->raw.bytes; }
     }
     *written=bytes; return SOURCE_VERSIONS_CODEC_OK;
+}
+SourceVersionsCodecStatus source_versions_selection_encode(uint64_t sheet,const SourceVersions *ledger,uint64_t owners,
+    const bool *selected,size_t selection_count,void *arena,size_t capacity,size_t *written) {
+    if (!arena || !written) return SOURCE_VERSIONS_CODEC_INVALID;
+    SourceVersionsSelectionMeasure m={0}; SourceVersionsCodecStatus status=source_versions_selection_measure(sheet,ledger,owners,selected,selection_count,&m);
+    if (status!=SOURCE_VERSIONS_CODEC_OK) return status;
+    if (m.bytes>capacity) return SOURCE_VERSIONS_CODEC_LIMIT;
+    Writer w={arena}; memcpy(w.p,"DXSV",4); w.p+=4; put(&w,DX_SOURCE_VERSIONS_ENCODING,2); put(&w,0,2);
+    put(&w,sheet,8); put(&w,ledger->high_water,8); put(&w,m.count,2); put(&w,0,2); put(&w,0,4);
+    for (size_t i=0;i<ledger->count;i++) if (selected[i]) {
+        const SourceVersion *e=ledger->items+i; size_t n=strlen(e->path);
+        put(&w,e->version,8); put(&w,e->owner,8); put(&w,kind_tag(e->kind),1); put(&w,0,1); put(&w,0,2); put(&w,n,4); put(&w,e->raw.bytes,4);
+        memcpy(w.p,e->path,n); w.p+=n; if (e->raw.bytes) { memcpy(w.p,e->raw.data,e->raw.bytes); w.p+=e->raw.bytes; }
+    }
+    *written=m.bytes; return SOURCE_VERSIONS_CODEC_OK;
 }
 typedef struct { const unsigned char *data; size_t bytes,at; bool ok; } Reader;
 static const unsigned char *span(Reader *r,size_t bytes) {

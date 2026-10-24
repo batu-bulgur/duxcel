@@ -28,6 +28,14 @@ static void subsets(void) {
     CHECK(source_versions_asset_select(99,&v,10,selected,4,DX_SOURCE_VERSIONS_BYTES,&out)==SOURCE_VERSIONS_CODEC_OK);
     CHECK(out.versions.count==2 && out.versions.capacity==2 && out.versions.high_water==UINT64_MAX && !out.versions.items[1].raw.data && !out.versions.items[1].raw.bytes);
     CHECK(out.versions.items[0].raw.data!=v.items[0].raw.data && out.versions.items[1].path!=v.items[1].path && source_versions_valid(&out.versions,10,NULL));
+    SourceVersionsSelectionMeasure measured={0};
+    CHECK(source_versions_selection_measure(99,&v,10,selected,4,&measured)==SOURCE_VERSIONS_CODEC_OK && measured.count==2 && measured.owned==out.versions.bytes);
+    unsigned char *direct=dx_alloc(measured.bytes),*owned=dx_alloc(measured.bytes); size_t written=77,encoded=0;
+    memset(direct,0xa5,measured.bytes);
+    CHECK(source_versions_selection_encode(99,&v,10,selected,4,direct,measured.bytes-1,&written)==SOURCE_VERSIONS_CODEC_LIMIT && written==77 && direct[0]==0xa5);
+    CHECK(source_versions_selection_encode(99,&v,10,selected,4,direct,measured.bytes,&written)==SOURCE_VERSIONS_CODEC_OK && written==measured.bytes);
+    CHECK(source_versions_asset_encode(99,&out.versions,10,owned,measured.bytes,&encoded)==SOURCE_VERSIONS_CODEC_OK && encoded==written && !memcmp(direct,owned,written));
+    free(direct); free(owned);
     SourceVersionsAsset prior=out;
     CHECK(source_versions_asset_select(99,&v,10,selected,4,out.versions.bytes-1,&out)==SOURCE_VERSIONS_CODEC_LIMIT && !memcmp(&prior,&out,sizeof(prior)));
     CHECK(source_versions_asset_select(99,&v,10,selected,2,SIZE_MAX,&out)==SOURCE_VERSIONS_CODEC_INVALID && !memcmp(&prior,&out,sizeof(prior)));
@@ -49,6 +57,11 @@ static void definitions(void) {
     CHECK(out.sources.versions.count==2 && out.sources.versions.high_water==UINT64_MAX && !out.unbound_sources &&
         out.sources.versions.items[0].version==1 && out.sources.versions.items[1].version==2 && !out.sources.versions.items[1].raw.bytes);
     CHECK(!memcmp(out.sources.versions.items[0].raw.data,v.items[0].raw.data,v.items[0].raw.bytes));
+    DefinitionDependencySelection selected={0};
+    CHECK(definition_dependencies_select(99,before,after,&v,10,&selected)==DEFINITION_DEPENDENCIES_OK && selected.rows[0] && selected.rows[1] && !selected.rows[2] && !selected.rows[3] && !selected.unbound_sources);
+    DefinitionDependencySelection original_selection=selected; b.source_version=5;
+    CHECK(definition_dependencies_select(99,before,after,&v,10,&selected)==DEFINITION_DEPENDENCIES_MISSING && !memcmp(&selected,&original_selection,sizeof(selected))); b.source_version=1;
+
     reject(before,after,&v,out.sources.versions.bytes-1,&out,DEFINITION_DEPENDENCIES_LIMIT);
     b.source_version=5; reject(before,after,&v,SIZE_MAX,&out,DEFINITION_DEPENDENCIES_MISSING); b.source_version=1;
     b.path="/moved.csv"; reject(before,after,&v,SIZE_MAX,&out,DEFINITION_DEPENDENCIES_CONFLICT); b.path="/one.csv";

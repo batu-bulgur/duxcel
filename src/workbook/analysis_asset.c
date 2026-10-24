@@ -12,7 +12,7 @@ AnalysisAssetStatus analysis_asset_measure(uint64_t sheet,uint64_t owner,const A
     const char *texts[]={a->path,a->schema,a->table,a->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
     for (size_t i=0;i<9;i++) {
         size_t n=0; if (!definition_wire_text_measure(texts[i],&m,DX_ANALYSIS_ASSET_OWNED_BYTES,&n)) return ANALYSIS_ASSET_INVALID;
-        if (i==5 && a->filter_column) m.validation_scratch=definition_wire_filter_scratch(a->filter_op,n,texts[i]!=NULL);
+        if (i==5 && a->filter_column) m.validation_scratch=analysis_filter_validation_scratch(a->filter_op,n,texts[i]!=NULL);
     }
     for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) {
         const AnalysisFilter *f=a->filters+i;
@@ -20,7 +20,7 @@ AnalysisAssetStatus analysis_asset_measure(uint64_t sheet,uint64_t owner,const A
         if ((unsigned)f->op>FILTER_OP_MAX) return ANALYSIS_ASSET_INVALID;
         m.bytes+=4; size_t n=0;
         if (!definition_wire_text_measure(f->column,&m,DX_ANALYSIS_ASSET_OWNED_BYTES,&n) || !definition_wire_text_measure(f->value,&m,DX_ANALYSIS_ASSET_OWNED_BYTES,&n)) return ANALYSIS_ASSET_INVALID;
-        size_t next=definition_wire_filter_scratch(f->op,n,f->value!=NULL); if (next>m.validation_scratch) m.validation_scratch=next;
+        size_t next=analysis_filter_validation_scratch(f->op,n,f->value!=NULL); if (next>m.validation_scratch) m.validation_scratch=next;
     }
     for (size_t i=0;i<DX_ANALYSIS_SORTS-1;i++) {
         if (i>=a->sort_count) { if (a->sorts[i].column || a->sorts[i].descending) return ANALYSIS_ASSET_INVALID; continue; }
@@ -59,7 +59,7 @@ static bool body(DefinitionWireReader *r,Analysis *out) {
     for (size_t i=0;i<9;i++) {
         size_t n=0; bool present=definition_wire_text_read(r,slots[i],&n);
         if (i==4) primary=present;
-        if (i==5 && primary) r->scratch=definition_wire_filter_scratch((FilterOp)op,n,present);
+        if (i==5 && primary) r->scratch=analysis_filter_validation_scratch((FilterOp)op,n,present);
     }
     for (size_t i=0;i<filters && r->ok;i++) {
         op=(unsigned)definition_wire_get(r,1); reserved=(unsigned)definition_wire_get(r,3);
@@ -67,7 +67,7 @@ static bool body(DefinitionWireReader *r,Analysis *out) {
         if (out) out->filters[i].op=(FilterOp)op;
         size_t n=0; definition_wire_text_read(r,out ? &out->filters[i].column : NULL,&n);
         bool present=definition_wire_text_read(r,out ? &out->filters[i].value : NULL,&n);
-        size_t next=definition_wire_filter_scratch((FilterOp)op,n,present); if (next>r->scratch) r->scratch=next;
+        size_t next=analysis_filter_validation_scratch((FilterOp)op,n,present); if (next>r->scratch) r->scratch=next;
     }
     for (size_t i=0;i<sorts && r->ok;i++) {
         flags=(unsigned)definition_wire_get(r,1); reserved=(unsigned)definition_wire_get(r,3);

@@ -24,16 +24,23 @@ static DefinitionDependenciesStatus collect(DefinitionDependencyView view,const 
     return status;
 }
 void definition_dependencies_free(DefinitionDependencies *out) { if (out) { source_versions_asset_free(&out->sources); *out=(DefinitionDependencies){0}; } }
+DefinitionDependenciesStatus definition_dependencies_select(uint64_t sheet,DefinitionDependencyView before,DefinitionDependencyView after,
+    const SourceVersions *ledger,uint64_t owners,DefinitionDependencySelection *out) {
+    if (!sheet || !out || (!!before.primary!=!!after.primary) || (!!before.objects!=!!after.objects) ||
+        !source_versions_valid(ledger,owners,NULL) || !shape(sheet,before,owners) || !shape(sheet,after,owners)) return DEFINITION_DEPENDENCIES_INVALID;
+    DefinitionDependencySelection next={0};
+    DefinitionDependenciesStatus status=collect(before,ledger,next.rows,&next.unbound_sources);
+    if (status==DEFINITION_DEPENDENCIES_OK) status=collect(after,ledger,next.rows,&next.unbound_sources);
+    if (status==DEFINITION_DEPENDENCIES_OK) *out=next; return status;
+}
 DefinitionDependenciesStatus definition_dependencies_build(uint64_t sheet,DefinitionDependencyView before,DefinitionDependencyView after,
     const SourceVersions *ledger,uint64_t owners,size_t reserved,DefinitionDependencies *out) {
-    if (!sheet || !out || ledger==&out->sources.versions || (!!before.primary!=!!after.primary) || (!!before.objects!=!!after.objects) ||
-        !source_versions_valid(ledger,owners,NULL) || !shape(sheet,before,owners) || !shape(sheet,after,owners)) return DEFINITION_DEPENDENCIES_INVALID;
-    bool needed[DX_SOURCE_VERSIONS]={0}; size_t unbound=0;
-    DefinitionDependenciesStatus status=collect(before,ledger,needed,&unbound);
-    if (status==DEFINITION_DEPENDENCIES_OK) status=collect(after,ledger,needed,&unbound);
+    if (!out || ledger==&out->sources.versions) return DEFINITION_DEPENDENCIES_INVALID;
+    DefinitionDependencySelection selected={0};
+    DefinitionDependenciesStatus status=definition_dependencies_select(sheet,before,after,ledger,owners,&selected);
     if (status!=DEFINITION_DEPENDENCIES_OK) return status;
-    DefinitionDependencies next={.unbound_sources=unbound};
-    SourceVersionsCodecStatus copied=source_versions_asset_select(sheet,ledger,owners,needed,ledger->count,reserved,&next.sources);
+    DefinitionDependencies next={.unbound_sources=selected.unbound_sources};
+    SourceVersionsCodecStatus copied=source_versions_asset_select(sheet,ledger,owners,selected.rows,ledger->count,reserved,&next.sources);
     if (copied!=SOURCE_VERSIONS_CODEC_OK) return copied==SOURCE_VERSIONS_CODEC_LIMIT ? DEFINITION_DEPENDENCIES_LIMIT : DEFINITION_DEPENDENCIES_INVALID;
     definition_dependencies_free(out); *out=next; return DEFINITION_DEPENDENCIES_OK;
 }

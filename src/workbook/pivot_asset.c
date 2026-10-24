@@ -14,7 +14,7 @@ PivotAssetStatus pivot_asset_measure(uint64_t sheet,uint64_t owner,const PivotDe
             m.bytes+=4; size_t n=0;
             if (!definition_wire_text_measure(f->name,&m,DX_DEFINITION_OWNED_BYTES,&n) || !n || n>4096 ||
                 !definition_wire_text_measure(f->value,&m,DX_DEFINITION_OWNED_BYTES,&n)) return PIVOT_ASSET_INVALID;
-            size_t scratch=definition_wire_filter_scratch(f->filter,n,f->value!=NULL); if (scratch>m.validation_scratch) m.validation_scratch=scratch;
+            size_t scratch=analysis_filter_validation_scratch(f->filter,n,f->value!=NULL); if (scratch>m.validation_scratch) m.validation_scratch=scratch;
         }
     }
     *out=m; return PIVOT_ASSET_OK;
@@ -49,7 +49,7 @@ static bool body(DefinitionWireReader *r,PivotDefinition *out) {
         size_t n=0;
         if (!definition_wire_text_read(r,f ? &f->name : NULL,&n) || !n || n>4096) return false;
         bool present=definition_wire_text_read(r,f ? &f->value : NULL,&n);
-        size_t scratch=definition_wire_filter_scratch((FilterOp)filter,n,present); if (scratch>r->scratch) r->scratch=scratch;
+        size_t scratch=analysis_filter_validation_scratch((FilterOp)filter,n,present); if (scratch>r->scratch) r->scratch=scratch;
     }
     return r->ok && r->at==r->bytes;
 }

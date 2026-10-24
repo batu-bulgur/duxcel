@@ -92,6 +92,9 @@ static void definitions_and_ownership(void) {
 static void grammar_budgets_and_limits(void) {
     Analysis a={.kind=SOURCE_CSV,.path="/source",.filter_column="Amount",.filter_value="[\"1.0001\",\"99999999999999999999999999.0002\"]",.filter_op=FILTER_BETWEEN};
     AnalysisAssetMeasure m={0}; size_t bytes=0; unsigned char *data=encode(&a,&bytes,&m),*other=dx_alloc(bytes);
+    CHECK(m.validation_scratch==analysis_filter_validation_scratch(FILTER_BETWEEN,strlen(a.filter_value),true));
+    CHECK(!analysis_filter_validation_scratch(FILTER_EQUAL,42,true) && !analysis_filter_validation_scratch(FILTER_COMPOSITE,42,false));
+    CHECK(analysis_filter_validation_scratch(FILTER_COMPOSITE,DX_ANALYSIS_ASSET_OWNED_BYTES+1u,true)==SIZE_MAX);
     CHECK(m.validation_scratch>0); memset(other,0xa5,bytes); size_t written=77;
     CHECK(analysis_asset_encode(1,0,&a,0,m.validation_scratch-1,other,bytes,&written)==ANALYSIS_ASSET_LIMIT && written==77 && other[0]==0xa5 && other[bytes-1]==0xa5);
     CHECK(analysis_asset_encode(1,0,&a,0,m.validation_scratch,other,bytes-1,&written)==ANALYSIS_ASSET_LIMIT && written==77 && other[0]==0xa5);

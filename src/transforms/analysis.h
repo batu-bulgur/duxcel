@@ -73,6 +73,11 @@ bool analysis_parse_values(const char *json, char ***values, size_t *count);
    List and condition remain encoded strings so history/workbook ownership stays unchanged. */
 char *analysis_filter_pack(FilterOp list_op,const char *list,FilterOp condition_op,const char *condition);
 bool analysis_filter_unpack(const char *payload,FilterOp *list_op,char **list,FilterOp *condition_op,char **condition);
+/* Conservative logical parser peak for bounded BETWEEN/COMPOSITE validation,
+   excluding input/output ownership, allocator/RSS and optional diagnostics.
+   Non-parsing predicates/absent values use0. Grammar text above8 MiB returns
+   SIZE_MAX. This measures scratch only; it does not validate filter semantics. */
+size_t analysis_filter_validation_scratch(FilterOp op,size_t bytes,bool present);
 bool analysis_filter_value_valid(FilterOp op,const char *value);
 bool analysis_value_checked(char *const *values, size_t count, bool all, bool dates, const char *key, bool *mixed);
 bool analysis_toggle_value(char ***values, size_t *count, bool all, bool dates, const char *key);
