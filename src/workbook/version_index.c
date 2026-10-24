@@ -41,6 +41,7 @@ static bool label_valid(WorkbookVersionText text) {
     }
     return visible;
 }
+WorkbookVersionStatus workbook_version_label_check(WorkbookVersionText label) { return label_valid(label) ? VERSION_OK : VERSION_INVALID_LABEL; }
 static bool label_equal(WorkbookVersionText a,WorkbookVersionText b) {
     return a.bytes==b.bytes && !memcmp(a.data,b.data,a.bytes);
 }

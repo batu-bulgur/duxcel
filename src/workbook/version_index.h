@@ -58,6 +58,8 @@ typedef struct {
    Root order is immaterial. Tag labels and creation generations are unique.
    A published nonempty index always has a resolvable Latest Saved reference. */
 WorkbookVersionStatus workbook_version_index_check(const WorkbookVersionIndex *index);
+/* Shared exact UTF-8 label policy; borrowed byte span, no allocation. */
+WorkbookVersionStatus workbook_version_label_check(WorkbookVersionText label);
 /* Produce an owned value plan without changing index/out on failure. User Save
    takes an independently verified complete root descriptor. Repeated identical
    Save reuses its root and generation. Checkpoint/export require root=NULL and

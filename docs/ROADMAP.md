@@ -190,6 +190,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a3.4a · P1 · Complete | Version-preserving journal checkpoint admission; W11a3.3. | Background private v16 checkpoints retain complete older Saved roots without advancing them; root ownership survives rotation and caller release. Legacy callers remain compatible until App/recovery integration. |
 | W11a3.4b · P1 · Complete | Full-store recovery and App checkpoint binding; W11a3.4a. | Recover head/tail plus independent Saved closure, transfer runtime ownership and update R+1 backup after named Save. Narrow journal/recovery UI gates. |
 | W11b · P1 · In progress | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
+| W11b.1 · P1 · Complete | Pure owned Create Tag planning; W11a3. | Validate exact UTF-8 labels/duplicates/capacity, retain an owned plan and fence the atomic Saved-plus-tag generation without IO. |
+| W11b.2 · P1 · In progress | Atomic native tagged-state capture/publication; W11b.1. | Full-core reuse, complete roots, transactional unique labels and failed/cancelled artifact preservation. No App/Tag UI claim yet. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -819,3 +821,12 @@ in28.838s (7.533s GUI). Recovery-worker cancellation/late-reply tests pass in6.7
 `build/tests/results/w11a34b` prefix. This completes current core-profile Save/
 recovery integration; Tag UI, durable Undo and retained analytical assets remain
 separate roadmap work. W11b follows with atomic named-state retention.
+
+W11b.1 complete: the pure `version_tag` controller owns its validated UTF-8 label
+and plans one atomic Saved-plus-tag publication, including when unchanged Saved
+content reuses its existing root. Canonical owner/index checks reject stale or
+modified plans; duplicate/invalid labels, historical owners, capacity and counter
+exhaustion preserve input/output. This follows TRD8.2's default that Create Tag
+also updates the named workbook. The registered `version-tag-plan` gate passes
+48 new checks plus229 existing index checks per optimized/ASan/UBSan configuration
+in3.545s. Native IO and visible controls remain W11b.2/W11c.

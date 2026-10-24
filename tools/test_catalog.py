@@ -64,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-tag-plan": Feature(("version_tag", "version_index"), "",
+        ("python3 tools/test.py feature --feature version-save", "python3 tools/test.py feature --feature save-ui"),
+        ("src/workbook/version_tag.c", "src/workbook/version_tag.h", "src/workbook/version_index.c: shared label validation", "tests/test_version_tag.c")),
     "recovery-versions": Feature((), "recovery",
         ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py feature --feature recovery-worker"),
         ("src/workbook/recovery.c: full version admission", "src/workbook/recovery.h", "src/app/versionstate.c", "src/app/recovery.inc", "src/app/app.c: journal version binding", "tests/test_version_checkpoint.c", "tests/test_recovery_gui.c", "tests/support/recovery_app.inc"),
