@@ -2006,3 +2006,15 @@ fixture generation/icon checks remain inside their build invocation's lease;
 the private recovery process driver conservatively retains its OS-service lock.
 Neither restriction serializes whole ordinary feature workflows. Isolation is
 stopped; the three active product lanes are listed above.
+
+
+Integrated milestone package: clean source `3eb1944` builds the cumulative native
+`build/Duxcel.app`; strict deep signature verification passes. Compiled provenance
+has the exact revision, clean source and empty TEST/lane fields for the normal
+bundle. The binary has no review symbols/markers; private receipt
+`build/tests/results/roadmap-integrated-package.json` records SHA256
+`1a17d44f5b13f0ac254afc0a55aeb2e802ae41d800c6e54d83da47df87084b43`.
+No user App was launched or closed. The same shared-C normal Wasm target builds
+in 29.428s; this is compile/package portability evidence, not browser runtime or
+workbook-IO acceptance. Fourteen feature-catalog contracts pass in 0.009s after
+correcting W13's deferred worker gate name (`991fe74`); product runtime is unchanged.
