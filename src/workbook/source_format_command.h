@@ -37,6 +37,10 @@ typedef struct { SourceFormatCommandStatus status; uint64_t before_revision,afte
    verification, origin completion and all transient budgets stay with the App. */
 bool workbook_prepare_source_format(SourceFormatCommandContext *context,size_t sheet,uint64_t object,
     SourceFormatCommandTarget *out,char **error);
+/* Identity/readiness fence only, with no grammar or model publication. The
+   producer separately admits legacy baseline vs new user-format policy. */
+SourceFormatCommandResult workbook_check_source_format_owner(SourceFormatCommandContext *context,
+    const SourceFormatCommandTarget *target,char **error);
 /* Independently owned complete plans from existing source/format/definition
    planners. A plan appends exactly one complete version at highwater+1, binds
    exactly its previously unbound owner, and changes formatting using that RAW

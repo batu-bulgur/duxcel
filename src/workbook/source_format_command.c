@@ -102,7 +102,7 @@ static DefinitionEventView view(const Worksheet *s,const SourceFormatCommandCont
     else { v.before.primary=c->primary; v.after.primary=&p->primary; }
     return v;
 }
-static SourceFormatCommandResult fence(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,char **error) {
+SourceFormatCommandResult workbook_check_source_format_owner(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,char **error) {
     SourceFormatCommandResult r={.status=SOURCE_FORMAT_COMMAND_INVALID};
     if (!c || !c->primary || !c->request_epoch || !t || !workbook_identity_valid(c->book) || !t->owner.document || !t->owner.sheet || t->owner.row || t->owner.column) {
         fail(error,"Invalid composite source formatting command."); return r;
@@ -119,13 +119,13 @@ static SourceFormatCommandResult fence(SourceFormatCommandContext *c,const Sourc
     }
     r.status=SOURCE_FORMAT_COMMAND_PROTECTED;
     if (!c->ready || c->read_only || !eligible(owner_source(s,c->primary,t->object))) { fail(error,"The source formatting owner is unavailable."); return r; }
-    if (!history_safe(&s->formats)) { fail(error,"Legacy finite formatting requires its verified baseline before source binding."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_READY; return r;
 }
 static SourceFormatCommandResult check(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,SourceFormatCommandPlan *p,char **error) {
     if (!p) { fail(error,"Prepare complete source formatting plans."); return (SourceFormatCommandResult){.status=SOURCE_FORMAT_COMMAND_INVALID}; }
-    SourceFormatCommandResult r=fence(c,t,error); if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
+    SourceFormatCommandResult r=workbook_check_source_format_owner(c,t,error); if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id);
+    if (!history_safe(&s->formats)) { r.status=SOURCE_FORMAT_COMMAND_PROTECTED; fail(error,"Legacy finite formatting requires its verified baseline before source binding."); return r; }
     if (owner_source(s,c->primary,t->object)->source_version) { r.status=SOURCE_FORMAT_COMMAND_PROTECTED; fail(error,"First binding requires an unbound source."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_LIMIT;
     if (b->command_revision==UINT64_MAX || s->formats.revision==UINT64_MAX || s->source_versions.high_water==UINT64_MAX || s->source_versions.count==DX_SOURCE_VERSIONS || !worksheet_history_order_available()) { fail(error,"Source formatting revision space is exhausted."); return r; }
@@ -216,9 +216,10 @@ void source_format_command_plan_free(SourceFormatCommandPlan *p) {
 }
 static SourceFormatCommandResult bound_check(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,FormatSnapshot *p,char **error) {
     if (!p) { fail(error,"Prepare an independent source format plan."); return (SourceFormatCommandResult){.status=SOURCE_FORMAT_COMMAND_INVALID}; }
-    SourceFormatCommandResult r=fence(c,t,error); if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
+    SourceFormatCommandResult r=workbook_check_source_format_owner(c,t,error); if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id); const Analysis *a=owner_source(s,c->primary,t->object);
     r.status=SOURCE_FORMAT_COMMAND_PROTECTED;
+    if (!history_safe(&s->formats)) { fail(error,"Legacy finite formatting requires its verified baseline before source formatting."); return r; }
     if (!a->source_version) { fail(error,"Source formatting needs its complete first-binding owner."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_INVALID;
     SourceFormatCommandPlan candidate={.formats=*p}; size_t validation=0;
