@@ -99,6 +99,12 @@ proof supports later reuse; it does not certify assets/results outside the codec
 uint64 byte extent defines exact64 KiB ordered BLOB spans and a positive final
 remainder. Invalid/missing/duplicate/trailing observations fail closed; hashing,
 SQL transactions, full model admission and asset closure remain adapter work.
+`version_stage.c` is a native encoder under a borrowed exclusive connection and
+caller-owned explicit transaction. It rejects autocommit/existing reserved schema,
+checks root-to-leaf identity/hash/size and total reserved bytes, then writes
+codec-v1 `_duxcel_versions` metadata/roots/tags and64 KiB BLOB chunks. Leaves are
+verified before/after consumption. READY does not commit; failure requires caller
+rollback. Strict decode/closure and whole-file compatibility remain separate.
 Archive closure and App adoption remain W11a2/W11a3; native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each

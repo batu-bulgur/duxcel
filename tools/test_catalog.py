@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-stage": Feature(("version_index", "version_chunks"), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature workbook-archive"),
+        ("src/workbook/version_stage.c", "src/workbook/version_stage.h", "tests/test_version_stage.c"),
+        ("version_stage",)),
     "version-chunks": Feature(("version_chunks",), "",
         ("python3 tools/test.py feature --feature workbook-archive",),
         ("src/workbook/version_chunks.c", "src/workbook/version_chunks.h", "tests/test_version_chunks.c")),

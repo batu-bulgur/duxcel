@@ -168,7 +168,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.3a · P1 · Complete | Complete admitted core equality proof; W11a2.2. | Compare all current typed codec rows/columns with read-only IO and pre/post integrity, cancellation and bounded memory. No reuse based only on clocks, SQL or byte count. |
 | W11a2.3b · P1 · In progress | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
 | W11a2.3b1 · P1 · Complete | Pure bounded chunk framing; W11a2.3a. | Reserved uint64 byte bounds, exact64 KiB framing, gap/duplicate/NULL/trailing/truncation rejection without allocation or IO. Shared optimized/sanitizer module gate. |
-| W11a2.3b2 · P1 · Queued | Transactional native chunk encoding; W11a2.3b1. | Stream verified core leaves into bounded SQL BLOB chunks with typed roots/index and rollback on cancellation/failure; keep App publication separate. |
+| W11a2.3b2 · P1 · Complete | Transactional native chunk encoding; W11a2.3b1. | Stage verified core leaves as bounded SQL BLOB chunks and typed roots/index inside a caller-owned explicit transaction/fresh schema. Reject autocommit/overwrite; caller rollback on cancellation/failure. Keep App publication separate. |
 | W11a2.3b3 · P1 · Queued | Staged native chunk decoding and payload closure; W11a2.3b2. | Validate complete index/references/types/bytes/hash/core identity before returning owned leaves; no live-model replacement on failure. |
 | W11a2.3c · P1 · Queued | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
 | W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
@@ -243,6 +243,17 @@ uint64 boundary/offset overflow cases, without allocation or IO. The registered
 `version-chunks` optimized/ASan/UBSan gate passes in1.674s with no App launch.
 Framing is not a hash/asset proof; the native encoder/decoder must still verify
 bytes, model identity and complete index closure before publication.
+
+W11a2.3b2 complete: native `version_stage` streams verified leaves and bounded
+index/tag metadata into a fresh reserved SQL schema, with an explicit aggregate
+storage reservation and64 KiB chunks. Two stable transaction-ID observations
+reject autocommit before mutation. The borrowed transaction/connection remains
+caller-owned: READY is uncommitted; every failure/cancel requires caller rollback.
+The scoped `version-stage` gate passes in4.352s including pure index/framing and
+optimized/ASan/UBSan SQL tests. Exact chunk bytes, shared tag leaves, Unicode
+labels, private visibility, multi-root cancellation, rollback, empty index and
+existing-schema protection pass. This encoder neither changes native fileversion
+nor publishes a user pointer; strict decoding/closure follows W11a2.3b3.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

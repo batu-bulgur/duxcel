@@ -273,3 +273,11 @@ multiple-block lengths, explicit reservations, UINT64_MAX offsets, poisoned
 NULL/gap/duplicate/trailing/oversized observations and incomplete completion.
 Its `version-chunks` gate links only the actual module/header, without engine or
 App IO. Native SQL/hash/closure remains a named deferred archive interaction.
+
+`test_version_stage.c` runs the native chunk encoder against a private DuckDB
+transaction with an independent observer connection. It verifies exact source
+bytes, shared tags/Unicode labels, uint64 metadata, explicit storage reservation,
+autocommit refusal, pre/post verification, cancellation before/between/after
+chunks, caller rollback, no helper COMMIT, empty index and reserved-schema safety.
+The `version-stage` gate includes pure index/chunk modules and native optimized/
+ASan/UBSan runs; whole-file Open/Save remains a named deferred interaction.
