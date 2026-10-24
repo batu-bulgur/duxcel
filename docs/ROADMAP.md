@@ -1771,3 +1771,11 @@ avoid the unrelated core/million-row suite and preserve exact DECIMAL text.
 Receipts: ignored `w12c3-table-replacement*.log` and run summaries. No broad
 regression, retained App writer or dataset retention is claimed. Primary relink
 and analytical source_id admission remain W12c.3c.3b.4d.2–4d.3.
+
+
+Table replacement packaging: source 821acc1 produces the signed native bundle
+in 1.975s and normal shared-C Wasm build in 33.430s wall time. Strict signature,
+compiled commit provenance and private feature/review exclusions pass. Receipts:
+ignored `w12c3-table-replacement-bundle.log`, `w12c3-table-replacement-package.json`
+and `w12c3-table-replacement-web.log`. No user App was launched/closed; browser
+runtime/Open/Save, durable history and broad regression remain separate gates.
