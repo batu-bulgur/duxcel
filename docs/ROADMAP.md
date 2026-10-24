@@ -1882,3 +1882,33 @@ exclusions pass; ignored `w12c3-object-move-package.json` records the binary has
 No user App was launched/closed. User-requested pause begins after this verified
 slice; W12c.3c.3b.4e.3 remains queued. Resume there, with origin/default-relation
 completion and source-format composite boundaries still explicit.
+
+
+## Active parallel roadmap execution
+
+The user authorizes four GPT-6.1 medium-effort subagent lanes, superseding the
+usual two-lane default for this run. Base: `55ad3f6`. The coordinator owns main,
+active docs, shared App/build/catalog reconciliation and linear integration.
+The current agent service permits root plus three running subagents; isolation
+bootstrap hands off its slot to historical Save As after its first milestone.
+Four worktrees are registered; do not confuse a ready checkout with a running
+agent or a module result with integrated product acceptance.
+
+| Lane / managed worktree | Dependency-ready scope | Reconciliation boundary |
+| --- | --- | --- |
+| `roadmap-isolation` | Shared operation lock, checkout identity, compiled provenance and TEST lane markers | Bootstrap first; distribute its verified infrastructure commit before lane builds |
+| `roadmap-object-create` | W12c.3c.3b.4e.3 object creation admission | Complete graph/allocator/geometry, source-origin and manual-format constituent closure; root integrates App adapter |
+| `roadmap-source-format` | Independent W12c.3c.3b.4f transaction prerequisites | Ledger/binding/format all-or-nothing ownership; final App adoption waits on creation/origin prerequisites |
+| `roadmap-history-save-as` | W13 current-state-only historical export; W11 complete | Independent export identity, closure and Working Head preservation; W14 waits for W12 |
+
+Every checkout keeps private `build/` fixtures/binaries/receipts. Compilation and
+mutable suites share a single repo-wide operation lease, with native compilation
+using eight jobs inside that lease. Existing OS-global desktop ownership remains
+mandatory; hidden automated launches use TEST plus lane identity. No live user
+App is controlled or terminated, and no sibling binary is overwritten. Source
+preparation may proceed concurrently. The coordinator integrates verified commits
+at dependency milestones, runs only the affected combined feature/interaction
+gates and records product completion here. Unresolved dependencies stay explicit;
+no lane activates retained App history before complete producer/publication
+coverage. Disposable scheduling details live in ignored
+`build/locks/roadmap-lanes.json`.

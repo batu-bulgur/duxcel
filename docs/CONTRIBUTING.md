@@ -35,6 +35,11 @@ Use at most two implementation lanes, only when actual simultaneous work needs
 separate files/builds. Agree on owned files, base commit, acceptance and the
 integration owner first. App/shared interfaces/Makefile have one owner. A lane
 that needs the same interfaces queues its integration instead of racing them.
+An explicit user-requested larger team may override the two-lane default. Record
+its ownership/dependency map in ROADMAP before execution. Keep compilation and
+mutable suites serialized across that team's worktrees, retain the global desktop
+lock, and label every automated instance with its lane/checkout. The coordinator
+alone integrates shared App/build/catalog/docs changes at verified milestones.
 Read-only review needs neither a new branch nor a worktree.
 
 For a manual parallel checkout, `git worktree add --detach <path> main` is enough.
