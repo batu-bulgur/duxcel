@@ -1,5 +1,6 @@
 #include "object_presentation_command.h"
 #include "history.h"
+#include "definition_state.h"
 #include <stdlib.h>
 #include <string.h>
 static bool fail(char **error,const char *message) { if (error) { free(*error); *error=dx_strdup(message); } return false; }
@@ -12,6 +13,7 @@ static ObjectPresentationStatus project(const ObjectStore *s,uint64_t id,ObjectP
     size_t at=object_index(s,id);
     if (at==s->count) { fail(error,"The presentation object is missing."); return OBJECT_PRESENTATION_INVALID; }
     const SheetObject *o=s->items+at;
+    if (command.operation!=OBJECT_PRESENTATION_BINDINGS && command.marks) { fail(error,"Unexpected Marks binding proposal."); return OBJECT_PRESENTATION_INVALID; }
     if (command.operation==OBJECT_PRESENTATION_MARK) {
         if (o->kind!=OBJECT_CHART || command.value>MARK_SCATTER) { fail(error,"Choose a valid chart mark."); return OBJECT_PRESENTATION_INVALID; }
         if (o->mark==command.value) return OBJECT_PRESENTATION_NOOP;
@@ -19,10 +21,18 @@ static ObjectPresentationStatus project(const ObjectStore *s,uint64_t id,ObjectP
         if (o->kind==OBJECT_TABLE || command.value>=o->pivot.counts[PIVOT_VALUES]) { fail(error,"Choose an available analytical measure."); return OBJECT_PRESENTATION_INVALID; }
         if (o->chart_measure==command.value) return OBJECT_PRESENTATION_NOOP;
         if (s->title_revision==UINT64_MAX) { fail(error,"Object title revision space is exhausted."); return OBJECT_PRESENTATION_LIMIT; }
+    } else if (command.operation==OBJECT_PRESENTATION_BINDINGS) {
+        MarksAssetMeasure binding={0};
+        if (o->kind==OBJECT_TABLE || command.value || !command.marks || marks_asset_measure(1,id,command.marks,s->next_id,&binding)!=MARKS_ASSET_OK) {
+            fail(error,"Choose complete valid analytical Marks bindings."); return OBJECT_PRESENTATION_INVALID;
+        }
+        if (definition_marks_equal(&o->marks,command.marks)) return OBJECT_PRESENTATION_NOOP;
+        if (s->marks_revision==UINT64_MAX) { fail(error,"Marks revision space is exhausted."); return OBJECT_PRESENTATION_LIMIT; }
     } else { fail(error,"Unknown object presentation command."); return OBJECT_PRESENTATION_INVALID; }
     memcpy(items,s->items,s->count*sizeof(*items));
     if (command.operation==OBJECT_PRESENTATION_MARK) items[at].mark=(ChartMark)command.value;
-    else items[at].chart_measure=(unsigned char)command.value;
+    else if (command.operation==OBJECT_PRESENTATION_MEASURE) items[at].chart_measure=(unsigned char)command.value;
+    else items[at].marks=*command.marks;
     ObjectSnapshot after={items,s->count};
     if (objects_asset_measure(1,&after,s->next_id,&a)!=OBJECTS_ASSET_OK) { fail(error,"Invalid complete presentation definitions."); return OBJECT_PRESENTATION_INVALID; }
     *out=(ObjectPresentationPlanInfo){a.measure.owned,a.measure.validation_scratch>b.measure.validation_scratch ? a.measure.validation_scratch : b.measure.validation_scratch};
@@ -67,7 +77,9 @@ ObjectPresentationResult workbook_apply_object_presentation_recorded(ObjectComma
         r=check(c,t,error); if (r.status!=OBJECT_PRESENTATION_READY) goto cancelled;
         s=resolve(b,t->owner.sheet_id);
     }
-    objects_adopt_definition(&s->objects,&after); if (command.operation==OBJECT_PRESENTATION_MEASURE) s->objects.title_revision++; worksheet_record(s,EDIT_OBJECTS);
+    objects_adopt_definition(&s->objects,&after); if (command.operation==OBJECT_PRESENTATION_MEASURE) s->objects.title_revision++;
+    if (command.operation==OBJECT_PRESENTATION_BINDINGS) s->objects.marks_revision++;
+    worksheet_record(s,EDIT_OBJECTS);
     b->command_revision++; b->dirty=true; workbook_history_note_edit(b); r.status=OBJECT_PRESENTATION_APPLIED; r.after_revision=b->command_revision;
     if (recorder) recorder->publish(recorder->context,ticket);
     return r;

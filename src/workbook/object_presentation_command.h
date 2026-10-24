@@ -2,8 +2,8 @@
 #define DUXCEL_OBJECT_PRESENTATION_COMMAND_H
 #include "object_fence.h"
 #include "history_definition.h"
-typedef enum { OBJECT_PRESENTATION_MARK,OBJECT_PRESENTATION_MEASURE } ObjectPresentationOperation;
-typedef struct { ObjectPresentationOperation operation; size_t value; } ObjectPresentationCommand;
+typedef enum { OBJECT_PRESENTATION_MARK,OBJECT_PRESENTATION_MEASURE,OBJECT_PRESENTATION_BINDINGS } ObjectPresentationOperation;
+typedef struct { ObjectPresentationOperation operation; size_t value; const MarkDefinition *marks; } ObjectPresentationCommand;
 typedef struct { size_t owned,validation_scratch; } ObjectPresentationPlanInfo;
 typedef enum { OBJECT_PRESENTATION_APPLIED,OBJECT_PRESENTATION_NOOP,OBJECT_PRESENTATION_READY,OBJECT_PRESENTATION_STALE,
     OBJECT_PRESENTATION_INVALID,OBJECT_PRESENTATION_PROTECTED,OBJECT_PRESENTATION_LIMIT } ObjectPresentationStatus;
@@ -15,8 +15,9 @@ ObjectPresentationStatus objects_presentation_measure(const ObjectStore *store,u
 /* Borrowed command and full runtime fence; one owned after-graph, one action.
    Reserve the optional immutable event before eviction and recheck after reserve.
    plan_reserved covers after-graph + max before/after parser scratch. Live model,
-   history and event validation reservations are separate. No query/Marks/source/
-   allocator/layout changes. Measure changes alone advance the title counter.
+   history and event validation reservations are separate. No query/source/
+   allocator/layout changes. Measure changes alone advance the title counter; bindings advance Marks.
+   Binding text stays borrowed and is deep-copied once in the after-graph.
    No IO or retained-history App activation; App owns availability and caches. */
 ObjectPresentationResult workbook_apply_object_presentation_recorded(ObjectCommandContext *context,const ObjectCommandTarget *target,
     ObjectPresentationCommand command,const WorkbookHistoryDefinitionRecorder *recorder,char **error);

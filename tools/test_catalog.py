@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-marks-command": ("build/tests/test_object_marks_command-gui", "PASS: native object Marks workflow",
+                             r"^PASS: native object Marks workflow \(15 stages, [1-9]\d* checks\)$", 15),
     "object-presentation-command": ("build/tests/test_object_presentation_command-gui", "PASS: native object presentation workflow",
                                     r"^PASS: native object presentation workflow \(15 stages, [1-9]\d* checks\)$", 15),
     "object-name-command": ("build/tests/test_object_name_command-gui", "PASS: native object name workflow",
@@ -86,6 +88,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-marks-command": Feature(("object_marks_command", "object_presentation_command", "history_definition", "marks_asset"), "object-marks-command",
+        ("python3 tools/test.py feature --feature object-presentation-command", "python3 tools/test.py native --scenario chart"),
+        ("src/workbook/object_presentation_command.c: complete authored Marks binding admission", "src/app/app.c: set_marks adapter", "tests/test_object_marks_command.c", "tests/support/object_marks_command_app.inc")),
     "object-presentation-command": Feature(("object_presentation_command", "history_definition", "objects"), "object-presentation-command",
         ("python3 tools/test.py feature --feature object-name-command", "python3 tools/test.py native --scenario chart"),
         ("src/workbook/object_presentation_command.c", "src/workbook/object_presentation_command.h", "src/app/app.c: mark/measure admission and scatter availability", "tests/test_object_presentation_command.c", "tests/support/object_presentation_command_app.inc")),

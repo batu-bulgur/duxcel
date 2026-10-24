@@ -3344,7 +3344,7 @@ static bool set_object_presentation(App *a,ObjectPresentationCommand command,con
     if (planned!=OBJECT_PRESENTATION_READY && planned!=OBJECT_PRESENTATION_NOOP) goto done;
     if (info.owned>SIZE_MAX-info.validation_scratch) { error=dx_strdup("Presentation planning reservation overflow."); goto done; }
 #ifndef DUXCEL_BROWSER_HOST
-    if (planned==OBJECT_PRESENTATION_READY && source_format_budget_status(a,NULL,info.owned,info.validation_scratch,0,0,0)) goto done;
+    if (planned==OBJECT_PRESENTATION_READY && source_format_budget_status(a,NULL,info.owned,info.validation_scratch,command.marks ? sizeof(*command.marks)+marks_text_bytes(command.marks) : 0,0,0)) goto done;
 #endif
     ObjectCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
         .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)};
@@ -3359,10 +3359,10 @@ done:
 }
 static void set_chart_mark(App *a,ChartMark mark) {
     SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART || (mark==MARK_SCATTER && !scatter_available(a,o))) return;
-    set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MARK,(size_t)mark},"Chart marks updated.");
+    set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MARK,(size_t)mark,NULL},"Chart marks updated.");
 }
 static bool set_chart_measure(App *a,size_t measure) {
-    return set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MEASURE,measure},"Chart measure updated.");
+    return set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MEASURE,measure,NULL},"Chart measure updated.");
 }
 static void remove_pivot(App *a) {
     if (a->selected_object<0) return;
@@ -3609,11 +3609,7 @@ static void begin_assign_field(App *a,PivotRole role,Rectangle anchor) {
     a->consume_grid_input=true;
 }
 static bool set_marks(App *a,const MarkDefinition *marks) {
-    SheetObject *o=selected_pivot(a); if (!o) return false; ObjectStore *store=&active_sheet(a)->objects;
-    uint64_t revision=store->marks_revision; char *error=NULL;
-    bool ok=objects_marks(store,(size_t)a->selected_object,marks,&error);
-    if (ok && revision!=store->marks_revision) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; status(a,"Marks assignments updated."); }
-    if (!ok) status(a,error); free(error); return ok;
+    return set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_BINDINGS,0,marks},"Marks assignments updated.");
 }
 static bool assign_mark_field(App *a,MarkRole role,const MarkField *field) {
     SheetObject *o=selected_pivot(a); if (!o) return false;
@@ -15602,6 +15598,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
 static void table_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_MARKS_COMMAND
+static void object_marks_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
 static void object_presentation_command_test_frame(AppSession *session);
 #endif
@@ -16468,6 +16467,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
     table_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_MARKS_COMMAND
+    object_marks_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
     object_presentation_command_test_frame(session);
 #endif
@@ -16762,4 +16764,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
 #include "../../tests/support/object_presentation_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_MARKS_COMMAND
+#include "../../tests/support/object_marks_command_app.inc"
 #endif

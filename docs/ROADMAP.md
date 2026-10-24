@@ -271,7 +271,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4b.2a · P1 · Complete | Admitted object name producer; W12c.3c.3b.4b.1. | Preserve exact rename draft identity/prior name, rebase unrelated background completion, reserve/recheck a complete object event and publish one title/action/document revision without source queries. |
 | W12c.3c.3b.4b.2b · P1 · Complete | Rename editor App integration; W12c.3c.3b.4b.2a. | Keep stale/invalid drafts, preserve Table/Pivot/Chart Pages and bind actual editor/Undo/Redo/Save/Open to the admitted producer. |
 | W12c.3c.3b.4b.3 · P1 · Complete | Chart mark/measure presentation commands; W12c.3c.3b.4b.2. | Prepare complete object plans for mark and selected-measure changes, reserve before mutation and preserve query epochs/Pages. Retain App scatter/schema availability checks, no-op Redo and exact title counters. |
-| W12c.3c.3b.4b.4 · P1 · Queued | Marks binding definition commands; W12c.3c.3b.4b.3. | Retain all authored role/aggregate/grain/measure bindings as one event, preserve source/query boundaries and bounded unsupported behavior, and verify cache/invalidation plus Undo/Redo/Save/Open. |
+| W12c.3c.3b.4b.4 · P1 · Complete | Marks binding definition commands; W12c.3c.3b.4b.3. | Retain all authored role/aggregate/grain/measure bindings as one event, preserve source/query boundaries and bounded unsupported behavior, and verify cache/invalidation plus Undo/Redo/Save/Open. |
 | W12c.3c.3b.4b.5 · P1 · Queued | Matrix/chart representation and sizing commands; W12c.3c.3b.4b.4. | Recheck placement/manual/source overlap and complete dimensions before admission; preserve compatible cached results and explicit invalidation when representation semantics require it. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1649,3 +1649,21 @@ lazily loaded offscreen results. Combined gate16.979s (GUI8.207s);14 feature cat
 contracts pass. Receipts: ignored `w12c3-object-presentation-app.log`,
 `w12c3-object-presentation-tools.log` and run summary. No broad regression or
 retained-history App activation is claimed. Next: W12c.3c.3b.4b.4 Marks bindings.
+
+
+W12c.3c.3b.4b.4 complete: the presentation controller now admits complete
+borrowed Marks binding proposals, deep-clones them in the owned after-graph,
+reserves the same complete event before eviction and advances only the Marks
+counter. Canonical authored equality retains latent dimension aggregate/grain
+state; malformed/UTF-8/noncanonical proposals and exhausted counters fail before
+mutation, while no-op preserves Redo. App native admission also charges caller
+binding staging. Unsupported encoding/grain/lineage behavior and query/source/
+layout/allocator state remain bounded and unchanged. The212-case binding,
+244-case presentation,290-case recorder and310-case Marks asset modules pass
+optimized/ASan/UBSan;50 tool contracts pass2.425s. The hidden TEST App passes15
+stages/50 checks: real Color/Size menus, keyboard clear, Cmd-Z/Redo, aliased no-op
+Redo, complete six-role binding publication, three Page/job/request caches,
+150% layout and v16 Save/Open. Combined gate18.731s (GUI8.461s). Receipts: ignored
+`w12c3-object-marks-app.log`, `w12c3-object-marks-tools.log` and run summary.
+No broad regression or retained App event writing is claimed. Next:
+W12c.3c.3b.4b.5 representation/sizing command admission.
