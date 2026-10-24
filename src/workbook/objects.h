@@ -65,6 +65,9 @@ void objects_adopt_definition(ObjectStore *store,ObjectSnapshot *owned);
    empty). Preserve allocator/title/Marks counters; reserve/recheck before this
    nonfallible transfer and record/publish the matching action exactly once. */
 void objects_adopt_removal(ObjectStore *store,ObjectSnapshot *owned);
+/* Admitted independent graph with exactly one appended monotonic identity.
+   Reserve/recheck before transfer. High-water advances here and survives Undo. */
+void objects_adopt_creation(ObjectStore *store,ObjectSnapshot *owned);
 void objects_snapshot_free(ObjectSnapshot *owned);
 /* Conservative source-binding reservation, not exact allocator measurement:
    a non-NULL array reserves DX_MAX_OBJECTS* sizeof(SheetObject), including when

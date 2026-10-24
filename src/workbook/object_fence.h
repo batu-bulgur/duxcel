@@ -25,4 +25,8 @@ typedef struct { ObjectFenceStatus status; uint64_t owner,revision; } ObjectFenc
    Source/execution readiness and semantic ownership belong to each command. */
 bool workbook_prepare_object_fence(ObjectCommandContext *context,size_t sheet,uint64_t object,ObjectCommandTarget *out,char **error);
 ObjectFenceResult workbook_check_object_fence(ObjectCommandContext *context,const ObjectCommandTarget *target,char **error);
+/* Explicit sheet owner for insertion, including an empty object store. These
+   APIs require object0; ordinary edit fences continue requiring a live object. */
+bool workbook_prepare_object_creation_fence(ObjectCommandContext *context,size_t sheet,ObjectCommandTarget *out,char **error);
+ObjectFenceResult workbook_check_object_creation_fence(ObjectCommandContext *context,const ObjectCommandTarget *target,char **error);
 #endif

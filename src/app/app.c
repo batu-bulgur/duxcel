@@ -8,6 +8,7 @@
 #include "../workbook/object_pivot_command.h"
 #include "../workbook/object_binding_command.h"
 #include "../workbook/object_delete_command.h"
+#include "../workbook/object_create_command.h"
 #include "../workbook/object_move_command.h"
 #include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
@@ -793,6 +794,8 @@ static bool source_format_manual_import_ready(App *a);
 static void source_format_manual_adopt(App *a,bool advance_revision);
 static void source_format_reset(App *a);
 static void source_format_page(App *a);
+static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookFormatReplacement *replacement,
+    size_t adopted,size_t captured_extra,size_t reply_owned,size_t new_jobs,size_t incoming_retained);
 static void source_format_tick(App *a);
 static void source_format_schedule(App *a);
 static void source_format_request(App *a);
@@ -1063,6 +1066,26 @@ static bool choose_table_relation(App *a,size_t relation) {
     a->selected_object=(int)index; a->modal=MODAL_NONE; a->consume_grid_input=true;
     status(a,same ? "Table selection unchanged." : "Source table changed. Its filters and sort were cleared."); return true;
 }
+/* Immediate creation adapter; source-format composites retain their own owner. */
+static int admit_object_creation(App *a,ObjectCreateCommand command,char **error) {
+    Worksheet *s=active_sheet(a); ObjectCreatePlanInfo info={0};
+    if (!s || objects_create_measure(&s->objects,command,&a->analysis,&s->cells,source_rows(a),a->page.column_count,&info,error)!=OBJECT_CREATE_READY) return -1;
+    if (info.owned>SIZE_MAX-info.validation_scratch || info.primary_owned>SIZE_MAX-info.validation_scratch) {
+        if (error) *error=dx_strdup("Creation planning reservation overflow."); return -1;
+    }
+#ifndef DUXCEL_BROWSER_HOST
+    if (source_format_budget_status(a,NULL,info.owned,info.validation_scratch+info.primary_owned,info.proposal_owned,0,0)) {
+        if (error) *error=dx_strdup(a->message ? a->message : "Creation exceeds the current memory budget."); return -1;
+    }
+#endif
+    ObjectCreateContext context={.command={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)},
+        .primary=&a->analysis,.primary_epoch=&a->analysis_revision,.source_rows=&a->page.total,.source_columns=&a->page.column_count,.source_count_pending=&a->page.count_pending};
+    ObjectCreateTarget target;
+    if (!workbook_prepare_object_create(&context,a->book.active,&target,error)) return -1;
+    ObjectCreateResult result=workbook_apply_object_create_recorded(&context,&target,command,NULL,error);
+    return result.status==OBJECT_CREATE_APPLIED ? (int)s->objects.count-1 : -1;
+}
 static bool import_table(App *a,const char *path) {
     if (a->io_busy || a->busy || !active_sheet(a)) return false;
     SourceKind kind=source_kind(path); char *absolute=workbook_is_path(path) ? NULL :
@@ -1078,12 +1101,17 @@ static bool import_table(App *a,const char *path) {
 #ifndef DUXCEL_BROWSER_HOST
     bool manual_formats=source_format_manual_import_ready(a);
 #endif
-    int index=objects_add_table(&sheet->objects,a->grid.row,a->grid.col,name,&source,&error); analysis_free(&source);
+    bool admitted=kind!=SOURCE_DATABASE;
+#ifndef DUXCEL_BROWSER_HOST
+    admitted=admitted && !manual_formats;
+#endif
+    int index=admitted ? admit_object_creation(a,(ObjectCreateCommand){.kind=OBJECT_TABLE,.row=a->grid.row,.column=a->grid.col,.name=name,.source=&source},&error) :
+        objects_add_table(&sheet->objects,a->grid.row,a->grid.col,name,&source,&error); analysis_free(&source);
     if (index<0) { status(a,error); free(error); return false; }
 #ifndef DUXCEL_BROWSER_HOST
     if (manual_formats) source_format_manual_adopt(a,true);
 #endif
-    worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
+    if (!admitted) worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;
 }
 /* Presentation names are session-owned; executable Analysis paths never change. */
@@ -1187,10 +1215,8 @@ static void create_pivot(App *a) {
         } else { status(a,error); free(error); return; }
     }
     char name[64]; snprintf(name,sizeof(name),"Pivot %" PRIu64,s->objects.next_id+1);
-    int index=objects_add(&s->objects,row,col,name,&error);
+    int index=admit_object_creation(a,(ObjectCreateCommand){.kind=OBJECT_PIVOT,.row=row,.column=col,.name=name,.source_id=binding},&error);
     if (index<0) { status(a,error); free(error); return; }
-    s->objects.items[index].source_id=binding;
-    worksheet_record(s,EDIT_OBJECTS);
     a->selected_object=index; a->pivot_role=PIVOT_ROWS; a->pivot_focus=1; a->pivot_field=0; a->pivot_value=0;
     a->pivot_reveal_object=true; grid_ensure_columns(&a->grid,col+4); grid_select_cell(&a->grid,row,col,false);
     a->grid.anchor_row=row; a->grid.end_row=row+4; a->grid.anchor_col=col; a->grid.end_col=col+3;
@@ -1213,10 +1239,8 @@ static void create_chart(App *a) {
         if (!objects_fits(&sheet->objects,-1,row,col,12,6,&sheet->cells,source_rows(a),a->page.column_count,&error)) { status(a,error); free(error); pivot_free(&definition); return; }
     }
     char name[64]; snprintf(name,sizeof(name),"Chart %" PRIu64,sheet->objects.next_id+1);
-    int index=objects_add_chart(&sheet->objects,row,col,name,&definition,&error); pivot_free(&definition);
+    int index=admit_object_creation(a,(ObjectCreateCommand){.kind=OBJECT_CHART,.row=row,.column=col,.name=name,.pivot=&definition,.source_id=binding},&error); pivot_free(&definition);
     if (index<0) { status(a,error); free(error); return; }
-    sheet->objects.items[index].source_id=binding;
-    worksheet_record(sheet,EDIT_OBJECTS);
     a->selected_object=index; a->pivot_focus=0; a->pivot_reveal_object=true;
     grid_ensure_columns(&a->grid,col+6); grid_select_cell(&a->grid,row,col,false);
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Chart inserted. Its field shelves edit an independent definition.");
@@ -15807,6 +15831,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
+static void object_create_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
 static void object_delete_command_test_frame(AppSession *session);
 #endif
@@ -16697,6 +16724,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
+    object_create_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
     object_delete_command_test_frame(session);
 #endif
@@ -17044,4 +17074,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 #include "../../tests/support/object_move_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
+#include "../../tests/support/object_create_command_app.inc"
 #endif

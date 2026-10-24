@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-create-command": ("build/tests/test_object_create_command-gui", "PASS: native object create workflow",
+                              r"^PASS: native object create workflow \(14 stages, [1-9]\d* checks\)$", 14),
     "object-move-command": ("build/tests/test_object_move_command-gui", "PASS: native object move workflow",
                             r"^PASS: native object move workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "object-delete-command": ("build/tests/test_object_delete_command-gui", "PASS: native object delete workflow",
@@ -102,6 +104,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-create-command": Feature(("object_create_command", "objects", "history_definition", "definition_dependencies"), "object-create-command",
+        ("python3 tools/test.py feature --feature object-binding-command", "python3 tools/test.py feature --feature source-result-format"),
+        ("src/workbook/object_create_command.c", "src/workbook/object_create_command.h", "src/workbook/object_fence.c: sheet creation fence", "src/workbook/objects.c: admitted creation transfer", "src/app/app.c: resolved non-composite creation", "tests/test_object_create_command.c", "tests/support/object_create_command_app.inc")),
     "object-move-command": Feature(("object_move_command", "format", "history_definition", "definition_dependencies"), "object-move-command",
         ("python3 tools/test.py feature --feature object-layout-command", "python3 tools/test.py feature --feature range-move"),
         ("src/workbook/object_move_command.c", "src/workbook/object_move_command.h", "src/app/app.c: exact object range move and prospective admission", "tests/test_object_move_command.c", "tests/support/object_move_command_app.inc")),

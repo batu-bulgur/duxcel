@@ -10,13 +10,13 @@ static Worksheet *resolve(Workbook *b,uint64_t id) {
 static size_t object_index(const ObjectStore *s,uint64_t id) {
     size_t i=0; while (i<s->count && s->items[i].id!=id) i++; return i;
 }
-bool workbook_prepare_object_fence(ObjectCommandContext *c,size_t index,uint64_t object,ObjectCommandTarget *out,char **error) {
-    if (!c || !c->request_epoch || !out || !object || !workbook_identity_valid(c->book) || index>=c->book->count)
+static bool prepare(ObjectCommandContext *c,size_t index,uint64_t object,bool creation,ObjectCommandTarget *out,char **error) {
+    if (!c || !c->request_epoch || !out || (!creation && !object) || !workbook_identity_valid(c->book) || index>=c->book->count)
         return fail(error,"Choose a valid object before editing it.");
     Worksheet *s=c->book->sheets+index;
     if (s->objects.count>DX_MAX_OBJECTS || (s->objects.count && !s->objects.items) || s->source_versions.count>DX_SOURCE_VERSIONS ||
         (s->source_versions.count && !s->source_versions.items)) return fail(error,"Invalid bounded object ownership.");
-    if (object_index(&s->objects,object)==s->objects.count) return fail(error,"The object is missing.");
+    if (!creation && object_index(&s->objects,object)==s->objects.count) return fail(error,"The object is missing.");
     if (!c->ready || c->read_only) return fail(error,"This object is currently read-only or unavailable.");
     CellEditTarget owner={0}; if (!workbook_prepare_cell_edit(c->book,index,0,0,&owner,error)) return false;
     memset(out,0,sizeof(*out)); out->owner=owner; out->object=object; out->request_epoch=*c->request_epoch;
@@ -26,9 +26,9 @@ bool workbook_prepare_object_fence(ObjectCommandContext *c,size_t index,uint64_t
     if (s->source_versions.count) memcpy(out->versions,s->source_versions.items,s->source_versions.count*sizeof(*out->versions));
     return true;
 }
-ObjectFenceResult workbook_check_object_fence(ObjectCommandContext *c,const ObjectCommandTarget *t,char **error) {
+static ObjectFenceResult check(ObjectCommandContext *c,const ObjectCommandTarget *t,bool creation,char **error) {
     ObjectFenceResult r={.status=OBJECT_FENCE_INVALID};
-    if (!c || !c->request_epoch || !t || !t->object || !t->owner.document || !t->owner.sheet || t->owner.row || t->owner.column || !workbook_identity_valid(c->book)) {
+    if (!c || !c->request_epoch || !t || (creation ? t->object!=0 : !t->object) || !t->owner.document || !t->owner.sheet || t->owner.row || t->owner.column || !workbook_identity_valid(c->book)) {
         fail(error,"Invalid object command."); return r;
     }
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id); r.owner=t->object; r.revision=b->command_revision; r.status=OBJECT_FENCE_STALE;
@@ -43,7 +43,12 @@ ObjectFenceResult workbook_check_object_fence(ObjectCommandContext *c,const Obje
         (s->source_versions.count && (!s->source_versions.items || memcmp(s->source_versions.items,t->versions,s->source_versions.count*sizeof(*t->versions))))) {
         fail(error,"Object layout, definitions or source metadata changed; prepare again."); return r;
     }
-    if (object_index(&s->objects,t->object)==s->objects.count) { fail(error,"The object changed."); return r; }
+    if (!creation && object_index(&s->objects,t->object)==s->objects.count) { fail(error,"The object changed."); return r; }
     if (!c->ready || c->read_only) { r.status=OBJECT_FENCE_PROTECTED; fail(error,"This object is currently read-only or unavailable."); return r; }
     r.status=OBJECT_FENCE_READY; return r;
 }
+
+bool workbook_prepare_object_fence(ObjectCommandContext *c,size_t sheet,uint64_t object,ObjectCommandTarget *out,char **error) { return prepare(c,sheet,object,false,out,error); }
+ObjectFenceResult workbook_check_object_fence(ObjectCommandContext *c,const ObjectCommandTarget *t,char **error) { return check(c,t,false,error); }
+bool workbook_prepare_object_creation_fence(ObjectCommandContext *c,size_t sheet,ObjectCommandTarget *out,char **error) { return prepare(c,sheet,0,true,out,error); }
+ObjectFenceResult workbook_check_object_creation_fence(ObjectCommandContext *c,const ObjectCommandTarget *t,char **error) { return check(c,t,true,error); }
