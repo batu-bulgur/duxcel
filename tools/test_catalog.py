@@ -64,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "stats-budget": Feature(("statsview_input",), "stats-budget",
+        ("python3 tools/test.py native --scenario layout --config sanitize",),
+        ("src/app/app.c: Statistics to format-budget interaction",)),
     "foundation-layout-end": Feature((), "foundation-layout-end",
         ("python3 tools/test.py native --scenario layout --config sanitize",),
         ("src/app/app.c: inspector and manual range milestone workflow",)),

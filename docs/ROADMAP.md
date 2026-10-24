@@ -504,8 +504,10 @@ Legacy fixture mutations record aligned command histories; budget preparation
 follows workbook-wide Undo and opens actual cell drafts. Save checks wait for
 dependent results and first viewport paint, preserving the R/R+1 fence.
 The final Table73/Query47/Unique32 workflows pass in37.402s/24.664s/15.634s;
-all49 runner/catalog contracts pass. Shared-C/Wasm compilation passes. The final
-combined layout run and macOS lifecycle/Finder Open gates remain open; browser
+all49 runner/catalog contracts pass. Shared-C/Wasm compilation passes. The first combined layout reached874 and exposed a missing test readiness
+barrier while a source count was pending. Budget preparation now waits for its
+published Page; the joined21-stage Statistics/budget workflow passes in26.431s.
+The final combined layout and macOS lifecycle/Finder Open gates remain open; browser
 persistence and physical input are not claimed. Receipts/source/binary hashes
 remain under ignored build/tests/results/.
 

@@ -9466,7 +9466,11 @@ static bool smoke_budget_book(const char *path,const char *source,char **error) 
     workbook_free(&book); return ok;
 }
 static bool smoke_budget_pressure(App *a,char **error) {
-    if (a->book.count!=SMOKE_BUDGET_SHEETS || a->book.active || !source_format_origin_valid(a)) return false;
+    if (a->book.count!=SMOKE_BUDGET_SHEETS || a->book.active || !source_format_origin_valid(a)) {
+        fprintf(stderr,"Budget fixture origin: sheets=%zu active=%zu valid=%d aware=%d version=%" PRIu64 "\n",
+            a->book.count,a->book.active,source_format_origin_valid(a),active_sheet(a)->formats.source_aware,a->analysis.source_version);
+        return false;
+    }
     a->modal=MODAL_GUIDE;
     /* Seed the active sheet last: workbook-chronological Undo must place
        its history on Redo, leaving the padding sheets' retained history intact. */
@@ -9491,7 +9495,11 @@ static bool smoke_budget_pressure(App *a,char **error) {
         usage.current!=SMOKE_BUDGET_SHEETS*DX_FORMAT_PATCHES*sizeof(FormatPatch) ||
         usage.retained!=usage.current*(DX_FORMAT_HISTORY+1) ||
         s->formats.undo_count || s->formats.redo_count!=DX_FORMAT_HISTORY ||
-        s->undo_actions_count || s->redo_actions_count!=DX_FORMAT_HISTORY || !source_format_origin_valid(a)) return false;
+        s->undo_actions_count || s->redo_actions_count!=DX_FORMAT_HISTORY || !source_format_origin_valid(a)) {
+        fprintf(stderr,"Budget fixture pressure: current=%zu retained=%zu format=%zu/%zu actions=%zu/%zu origin=%d\n",
+            usage.current,usage.retained,s->formats.undo_count,s->formats.redo_count,s->undo_actions_count,s->redo_actions_count,source_format_origin_valid(a));
+        return false;
+    }
     a->book.dirty=true; grid_select_cell(&a->grid,0,0,false);
     a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()-1000; a->modal=MODAL_NONE; return true;
 }
@@ -13310,6 +13318,7 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
         workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
     case 868:
+        if (a->waiting_count_page || a->page_stale || !a->page.column_count) return;
         if (!smoke_budget_pressure(a,&error) || !smoke_budget_snapshot(a,&budget_state)) goto failed;
         source_format_schedule(a);
         if (!a->source_format.active || !a->source_format.baseline || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed; break;
@@ -13354,9 +13363,16 @@ static void layout_smoke_step(App *a,int *step) {
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
         workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
     case 874:
+        if (a->waiting_count_page || a->page_stale || !a->page.column_count) return;
         if (!smoke_budget_pressure(a,&error) || !smoke_budget_snapshot(a,&budget_state)) goto failed;
         source_format_schedule(a);
-        if (!a->source_format.active || !a->source_format.baseline || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed; break;
+        if (!a->source_format.active || !a->source_format.baseline || a->pending_kind!=JOB_VERIFY_SOURCE) {
+            fprintf(stderr,"Budget verification admission: busy=%d io=%d count=%" PRIu64 "/%" PRIu64 " stale=%d waiting=%d origin=%d cached=%d modal=%d deferred=%d\n",
+                a->busy,a->io_busy,a->count_request_id,a->request_id,a->page_stale,a->waiting_count_page,
+                source_format_origin_valid(a),grid_cached(&a->grid,&a->page),a->modal,a->source_format_attempt.deferred);
+            goto failed;
+        }
+        break;
     case 875:
         if (!smoke_budget_denied(a,&budget_state)) goto failed;
         budget_state.request=a->request_id; break;
@@ -13393,6 +13409,7 @@ static void layout_smoke_step(App *a,int *step) {
         a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
         workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
     case 880:
+        if (a->waiting_count_page || a->page_stale || !a->page.column_count) return;
         if (!source_format_origin_valid(a) || s->formats.source_aware || a->analysis.source_version) goto failed;
         s->formats.revision=UINT64_MAX; a->viewport_changed=dx_millis()-1000;
         if (!smoke_budget_snapshot(a,&budget_state)) goto failed;
