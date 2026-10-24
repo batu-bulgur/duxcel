@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "core-compare": Feature((), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature workbook-archive"),
+        ("src/workbook/core_compare.c", "src/workbook/core_compare.h", "tests/test_core_compare.c"),
+        ("core_compare",)),
     "core-payload": Feature((), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-disposition"),
         ("src/workbook/core_payload.c", "src/workbook/core_payload.h", "tests/test_core_payload.c"),

@@ -259,3 +259,11 @@ exclusive lease, write/hash cancellation, independent captures and working edits
 repeat verification, fixed-file cleanup and changed/aliased/unknown-file retention.
 The `core-payload` gate runs this module and real file-lease tests in optimized
 and ASan/UBSan configurations. App Save/archive/recovery adoption stays deferred.
+
+`test_core_compare.c` observes all28 v15 table descriptors and both file checks,
+then compares independently captured equal/changed cores. Cases include exact
+text, NULL/empty/literal NULL metadata, formats, widths, primary/Table SQL,
+pivot names/fields, ledger/command counters, display scale, document IDs and
+changed/retired files. Cancellation exercises hash, pending SQL and final recheck
+without publishing the output bit. The `core-compare` gate is native module-only;
+Save/archive adoption remains a named deferred interaction.

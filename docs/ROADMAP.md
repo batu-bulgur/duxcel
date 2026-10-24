@@ -164,7 +164,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2 · P1 · In progress | Immutable supported-state payload closure and native version codec; W11a1. | Archive every advertised root independently of the editable head, without recursive history copies. Reject missing/invalid payloads and preserve non-writing legacy Open/safe upgrade. Scoped archive gate; no tag UI claim. |
 | W11a2.1 · P1 · Complete | Relocatable core snapshot references; W11a1. | Preserve resolved primary/Table/ledger locators across private payload relocation, including offline sources. Reject unresolved inputs before modifying a destination; retain controlled cancellation and ordinary Save behavior. Native payload/Save modules plus narrow Save GUI. |
 | W11a2.2 · P1 · Complete | Sealed immutable payload ownership and content proof; W11a2.1. | Closed private core bytes, explicit lease/lifetime, bounded hashing and cancel/failure cleanup; no user publication or recursive history payloads. |
-| W11a2.3 · P1 · Queued | Native version root/payload archive codec; W11a2.2. | Complete root closure, chunk integrity, non-writing legacy Open and safe upgrade/overwrite. No advertised unresolved roots; scoped archive gate. |
+| W11a2.3 · P1 · In progress | Native version root/payload archive codec; W11a2.2. | Complete root closure, chunk integrity, non-writing legacy Open and safe upgrade/overwrite. No advertised unresolved roots; scoped archive gate. |
+| W11a2.3a · P1 · Complete | Complete admitted core equality proof; W11a2.2. | Compare all current typed codec rows/columns with read-only IO and pre/post integrity, cancellation and bounded memory. No reuse based only on clocks, SQL or byte count. |
+| W11a2.3b · P1 · Queued | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
+| W11a2.3c · P1 · Queued | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
 | W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
@@ -218,6 +221,17 @@ The `core-payload` gate passes145 checks per optimized/ASan/UBSan configuration,
 plus real lease tests, in4.263s with no App launch.54 runner/catalog/web inventory
 contracts pass; native sealing stays outside Wasm. This is exact-byte core proof,
 not semantic deduplication or a complete retained-data/result root.
+
+W11a2.3a complete: native `core_compare` proves equality across all28 typed
+v15 metadata tables using bidirectional EXCEPT ALL, read-only handles,64 MB
+engine memory/private spill, pending-task cancellation and pre/post byte proof.
+External query strings remain metadata. Changed text, NULL/empty/literal NULL,
+styles, widths, definitions, names and counters differ even with unchanged
+command/query/style clocks. Separate identical captures compare equal; file
+mutation/cancel never publishes an equality bit. The `core-compare` gate passes
+in16.390s (3.269s optimized/12.023s ASan/UBSan; no App launch), with full descriptor
+coverage and targeted cancellation. Callback-dependent assertion counts are not
+a stable inventory. Chunk archive IO/native file adoption remain next.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

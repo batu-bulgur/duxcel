@@ -90,6 +90,11 @@ fixed64 KiB SDK hash binds exact bytes/file identity; it rechecks inventory and
 identity before consumption/disposal. Unknown or changed artifacts are kept.
 The core info is deliberately distinct from a complete version-root descriptor;
 exact-byte hashing alone does not prove semantic equality of separate captures.
+`core_compare.c` compares every persisted v15 descriptor table in both directions
+as typed SQL multisets under64 MB/one-thread engine limits, with private spill,
+pending-task cancellation and pre/post sealed-byte verification. It compares
+source query text as data and never queries external sources. This full core
+proof supports later reuse; it does not certify assets/results outside the codec.
 Archive closure and App adoption remain W11a2/W11a3; native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
