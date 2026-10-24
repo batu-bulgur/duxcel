@@ -19,6 +19,7 @@ SPEC.loader.exec_module(runner)
 class RunnerTests(unittest.TestCase):
     def test_timed_out_build_drains_ignoring_child_and_grandchild_before_unlock(self):
         import subprocess
+        import time
         import workspace
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory); (root / "Makefile").write_text("")
@@ -34,7 +35,29 @@ class RunnerTests(unittest.TestCase):
             args = runner.parser().parse_args(["fast", "--modules", "build_info"])
             args.timeout = .6
             instance = runner.Runner(args, root)
-            with mock.patch.dict(os.environ, {"PATH": str(root) + os.pathsep + os.environ["PATH"]}), contextlib.redirect_stdout(io.StringIO()):
+            real_popen = runner.subprocess.Popen
+            def launch(*arguments, **keywords):
+                process = real_popen(*arguments, **keywords)
+                if arguments[0][0] != "make":
+                    return process
+                wait = process.wait
+                first = True
+                def wait_for_ready_tree(*wait_args, **wait_keywords):
+                    nonlocal first
+                    if first:
+                        first = False
+                        deadline = time.monotonic() + 15
+                        path = root / "descendant-pids"
+                        while not path.exists() or len(path.read_text().splitlines()) != 3:
+                            self.assertLess(time.monotonic(), deadline, "Fake compiler tree did not become ready")
+                            time.sleep(.01)
+                    return wait(*wait_args, **wait_keywords)
+                process.wait = wait_for_ready_tree
+                return process
+            # Test timeout cleanup only after all three fixture processes exist;
+            # Python startup under concurrent builds is not the tested contract.
+            with mock.patch.dict(os.environ, {"PATH": str(root) + os.pathsep + os.environ["PATH"]}), \
+                 mock.patch.object(runner.subprocess, "Popen", side_effect=launch), contextlib.redirect_stdout(io.StringIO()):
                 with self.assertRaisesRegex(RuntimeError, "timed out"):
                     instance.build(["0"])
             pids = (root / "descendant-pids").read_text().splitlines()
