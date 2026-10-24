@@ -45,20 +45,16 @@ int main(void) {
     CHECK(book.sheet_high_water==UINT64_MAX && book.sheets[1].id==ids[0] && book.sheets[2].id==UINT64_MAX);
     CHECK(!workbook_add(&book,"Exhausted",&blank,&error)); free(error); error=NULL;
     CHECK(workbook_save(&book,other,&error));
-    /* Product-generated checkpoint mutations exercise the old reader contracts,
-       not a second fixture serializer or a source-data generator. */
-    for (unsigned version=1;version<=14;version++) {
+    /* Unsupported discriminators fail before changing either the caller or file. */
+    const unsigned unsupported[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,16,17,999};
+    for (size_t i=0;i<sizeof(unsupported)/sizeof(*unsupported);i++) {
         unlink(path); CHECK(workbook_save(&book,path,&error));
-        char *change=dx_printf("DROP TABLE _duxcel_workspace.workbook_identity; DROP TABLE _duxcel_workspace.sheet_identity; UPDATE _duxcel_workspace.meta SET version=%u",version); sql(path,change); free(change);
-        if (version<14) sql(path,"DROP TABLE _duxcel_workspace.format_state; DROP TABLE _duxcel_workspace.source_version_counters; DROP TABLE _duxcel_workspace.source_versions; DROP TABLE _duxcel_workspace.source_bindings; DROP TABLE _duxcel_workspace.format_records; DROP TABLE _duxcel_workspace.format_fields");
-        if (version<13) sql(path,"DROP TABLE _duxcel_workspace.object_counters; DROP TABLE _duxcel_workspace.format_scopes; DROP TABLE _duxcel_workspace.format_selectors; DROP TABLE _duxcel_workspace.format_guards; ALTER TABLE _duxcel_workspace.sheets DROP COLUMN canvas_zoom");
-        size_t bytes; unsigned char *before=image(path,&bytes);
-        CHECK(workbook_load(&loaded,path,&error)); unchanged(path,before,bytes); free(before);
-        CHECK(workbook_identity_valid(&loaded) && !loaded.dirty && !same_id(loaded.id,book.id));
-        CHECK(loaded.command_revision==0 && loaded.count==3 && loaded.sheet_high_water==3 && loaded.sheets[0].id==1 && loaded.sheets[2].id==3);
-        WorkbookId migrated=loaded.id; CHECK(workbook_save(&loaded,path,&error)); CHECK(workbook_load(&loaded,path,&error));
-        CHECK(same_id(loaded.id,migrated) && loaded.sheet_high_water==3);
-        CHECK(!strcmp(cells_get(&loaded.sheets[1].cells,0,0),"9007199254740993.0123456789"));
+        char *change=dx_printf("UPDATE _duxcel_workspace.meta SET version=%u",unsupported[i]); sql(path,change); free(change);
+        size_t bytes; unsigned char *before=image(path,&bytes); Workbook live=loaded;
+        CHECK(!workbook_load(&loaded,path,&error) && error && !memcmp(&live,&loaded,sizeof(live))); free(error); error=NULL;
+        unchanged(path,before,bytes);
+        CHECK(!workbook_save(&loaded,path,&error) && error); free(error); error=NULL;
+        unchanged(path,before,bytes); free(before);
     }
     const char *bad[]={
         "UPDATE _duxcel_workspace.sheet_identity SET stable_id=0 WHERE sheet_id=0",
@@ -85,5 +81,5 @@ int main(void) {
         CHECK(!workbook_save(&loaded,path,&error)); CHECK(error); free(error); error=NULL; unchanged(path,before,bytes); free(before);
     }
     workbook_free(&book); workbook_free(&loaded); free(error); unlink(path); unlink(other); CHECK(!rmdir(directory)); free(path); free(other);
-    printf("PASS: %u native workbook identity/migration checks\n",checks); return 0;
+    printf("PASS: %u native current workbook identity checks\n",checks); return 0;
 }
