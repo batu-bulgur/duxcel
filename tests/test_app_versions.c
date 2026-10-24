@@ -44,6 +44,14 @@ int main(void) {
     r=run(&state,&worker,5,JOB_LOAD,NULL,path,parent);
     CHECK(app_versions_loaded(&state,&worker,r,&error) && state.owner.session!=original.session);
     CHECK(workbook_version_core_set_index(state.store)->root_count==3); reply_free(r);
+    QueryJob *tag_job=dx_alloc(sizeof(*tag_job)); tag_job->id=6; tag_job->kind=JOB_SAVE; tag_job->path=dx_strdup(path); tag_job->workbook=workbook_snapshot(&book);
+    CHECK(app_versions_tag_job(&state,&worker,tag_job,(WorkbookVersionText){"App tag",7},parent,&error));
+    worker_submit(&worker,tag_job); double deadline=dx_millis()+20000;
+    while (!(r=worker_poll(&worker))) { CHECK(dx_millis()<deadline); dx_sleep_ms(1); }
+    CHECK(!r->error && worker_archive_tag_plan(r) && app_versions_saved(&state,&worker,&book,r,&error)==APP_VERSION_APPLIED);
+    CHECK(workbook_version_core_set_index(state.store)->root_count==3 && workbook_version_core_set_index(state.store)->tag_count==1);
+    CHECK(!strcmp(workbook_version_core_set_index(state.store)->tags[0].label.data,"App tag"));
+    CHECK(app_versions_saved(&state,&worker,&book,r,&error)==APP_VERSION_STALE); reply_free(r);
     uint64_t loaded_owner=state.owner.session;
     CHECK(app_versions_recovered(&state,&worker,&book,state.store,&error));
     CHECK(state.store && state.owner.session!=loaded_owner && !state.identity_valid);

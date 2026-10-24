@@ -97,13 +97,25 @@ int main(void) {
     CHECK(!r->error && r->workbook->command_revision==9 && worker_archive_identity(r));
     CHECK(!strcmp(cells_get(&r->workbook->sheets[0].cells,0,0),"working R+1"));
     WorkbookVersionCoreSet *loaded=worker_archive_take_versions(r); CHECK(loaded && workbook_version_core_set_index(loaded)->root_count==2);
-    worker_stop(&worker); reply_free(r); saved_value(loaded,"working R+1");
+    reply_free(r); char label[]="Worker tag"; arm(7,true);
+    j=job(7,JOB_SAVE,&book,path); CHECK(worker_archive_tag_job(&worker,j,loaded,owner,(WorkbookVersionText){label,strlen(label)},store,reserved,&error));
+    memset(label,'x',strlen(label)); worker_submit(&worker,j); wait_gate();
+    CHECK(!worker_save_state(&worker).cancellable && !worker_save_cancel(&worker)); release_gate(); r=reply(&worker);
+    CHECK(!r->error && r->save_result==WORKBOOK_SAVE_COMPLETE && !worker_archive_plan(r));
+    const WorkbookVersionTagPlan *tag=worker_archive_tag_plan(r); CHECK(tag && !strcmp(tag->label,"Worker tag"));
+    CHECK(workbook_version_tag_can_publish(workbook_version_core_set_index(loaded),owner,tag));
+    next=worker_archive_take_versions(r); worker_archive_release_versions(&worker,&loaded); loaded=next; reply_free(r);
+    CHECK(workbook_version_core_set_index(loaded)->tag_count==1 && workbook_version_core_set_index(loaded)->root_count==3); saved_value(loaded,"working R+2");
+    j=job(8,JOB_LOAD,NULL,path); CHECK(worker_archive_load_job(&worker,j,store,reserved,&error)); worker_submit(&worker,j); r=reply(&worker);
+    CHECK(!r->error && workbook_version_core_set_index(worker_archive_versions(r))->tag_count==1);
+    next=worker_archive_take_versions(r); worker_archive_release_versions(&worker,&loaded); loaded=next;
+    worker_stop(&worker); reply_free(r); saved_value(loaded,"working R+2");
     worker_archive_release_versions(&worker,&base); worker_archive_release_versions(&worker,&loaded); CHECK(!base && !loaded);
     CHECK(!unlink(path));
 #else
     worker_job_free(j); worker_stop(&worker);
 #endif
-    CHECK(!worker_archive_is_reply(NULL) && !worker_archive_plan(NULL) && !worker_archive_versions(NULL) && !worker_archive_identity(NULL) && !worker_archive_take_versions(NULL));
+    CHECK(!worker_archive_is_reply(NULL) && !worker_archive_plan(NULL) && !worker_archive_tag_plan(NULL) && !worker_archive_versions(NULL) && !worker_archive_identity(NULL) && !worker_archive_take_versions(NULL));
     worker_archive_release_versions(NULL,NULL);
     dx_cond_destroy(&gate.condition); dx_mutex_destroy(&gate.mutex); workbook_free(&book);
     CHECK(!error && !unlink(legacy));

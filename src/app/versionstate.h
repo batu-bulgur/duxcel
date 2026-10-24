@@ -16,6 +16,7 @@ typedef enum { APP_VERSION_APPLIED,APP_VERSION_STALE,APP_VERSION_INVALID } AppVe
    path, dirty, history, focus and document-action ownership. */
 void app_versions_reset(AppVersionState *state,QueryWorker *worker);
 bool app_versions_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,const char *parent,char **error);
+bool app_versions_tag_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,WorkbookVersionText label,const char *parent,char **error);
 /* Call after successful IO validation, before non-fallible model replacement.
    Failure preserves state/reply ownership. A new runtime owner is prepared
    before taking any store, even when durable doc IDs match the previous file. */

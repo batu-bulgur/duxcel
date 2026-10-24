@@ -193,6 +193,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11b.1 · P1 · Complete | Pure owned Create Tag planning; W11a3. | Validate exact UTF-8 labels/duplicates/capacity, retain an owned plan and fence the atomic Saved-plus-tag generation without IO. |
 | W11b.2 · P1 · Complete | Atomic native tagged-state capture/publication; W11b.1. | Full-core reuse, complete roots, transactional unique labels and failed/cancelled artifact preservation. No App/Tag UI claim yet. |
 | W11c · P1 · In progress | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
+| W11c.1 · P1 · Complete | Owned Tag worker/App publication boundary; W11b. | Copy UI label before ordered Save work, distinguish Tag receipts and fence full generation/label/root publication. |
+| W11c.2 · P1 · In progress | Compact version list and Create Tag flow; W11c.1. | File entry, unique-label feedback, first destination, one Latest Saved plus explicit tags, narrow physical input/Save/reopen gate. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
@@ -842,3 +844,13 @@ planning checks,72 native tagged-state round-trip/reuse/offscreen/cancel/budget 
 and existing Save-controller coverage per optimized/ASan/UBSan configuration in50.192s.
 Evidence: ignored `build/tests/results/w11b2-tag-save.log`. UI/worker Tag command
 binding remains W11c; no visible Tag/preview or retained analytical-output claim.
+
+W11c.1 complete: Tag jobs use the ordered Save lane with an owned validated UTF-8
+label and retained input store. Worker replies distinguish complete Tag plans from
+ordinary Save plans. The App controller verifies the owner/index, generation,
+root/tag counts and appended label/root before adoption; repeated or stale receipts
+cannot republish. The `tag-worker` gate passes real versioned worker and App-owner
+modules under optimized/ASan/UBSan in31.209s, including copied-label lifetime,
+named PUBLISH cancellation boundary, Tag reopen and fresh-owner/repeated-receipt
+checks. Visible controls remain W11c.2. Evidence: ignored
+`build/tests/results/w11c1-tag-worker.log`.

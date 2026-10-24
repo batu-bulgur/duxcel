@@ -5,7 +5,8 @@
 struct WorkbookNativeIO {
     QueryWorker *worker;
     JobKind kind;
-    char *parent;
+    char *parent,*label;
+    size_t label_bytes;
     uint64_t reserved;
     WorkbookVersionOwner owner;
     WorkbookVersionPurpose purpose;
@@ -19,7 +20,7 @@ static bool fail(char **error,const char *message) { if (error) { free(*error); 
 static void destroy(WorkbookNativeIO *c) {
     workbook_version_receipt_free(c->saved); workbook_archive_candidate_free(c->loaded);
     workbook_version_core_set_free(c->base); workbook_version_core_set_free(c->seed);
-    free(c->parent); free(c);
+    free(c->label); free(c->parent); free(c);
 }
 static void retire(WorkbookNativeIO *c) { if (!worker_retire_native(c->worker,&c->retirement)) destroy(c); }
 static bool cancelled(WorkbookNativeIO *c,WorkerSavePreparation phase,size_t root,uint64_t bytes) {
@@ -73,7 +74,7 @@ static WorkbookSaveResult execute(WorkbookNativeIO *c,JobKind kind,const Workboo
         WorkbookVersionSaveRequest request={.head=snapshot,.base=c->base,.owner=c->owner,.purpose=c->purpose,.path=path,.parent=c->parent,.reserved_bytes=c->reserved};
         WorkbookVersionSaveControl controls={.capture=capture,.compare={compare_cancel,c},.archive={
             .core={publish_update,c},.inspect={inspect_cancel,c},.stage={stage_cancel,c},.prepare={prepare_cancel,c}}};
-        return workbook_version_save(request,controls,&c->saved,error);
+        return c->label ? workbook_version_tag_save(request,(WorkbookVersionText){c->label,c->label_bytes},controls,&c->saved,error) : workbook_version_save(request,controls,&c->saved,error);
     }
     WorkbookArchiveReadResult read=workbook_archive_read(path,c->parent,c->reserved,(WorkbookArchiveReadControl){load_cancel,c},&c->loaded,error);
     if (read!=ARCHIVE_READ_READY) return read==ARCHIVE_READ_CANCELLED ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;
@@ -88,6 +89,7 @@ static WorkbookNativeIO *context(const QueryReply *r) {
 }
 bool worker_archive_is_reply(const QueryReply *r) { return context(r)!=NULL; }
 const WorkbookVersionPlan *worker_archive_plan(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c ? workbook_version_receipt_plan(c->saved) : NULL; }
+const WorkbookVersionTagPlan *worker_archive_tag_plan(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c ? workbook_version_receipt_tag(c->saved) : NULL; }
 const WorkbookVersionCoreSet *worker_archive_versions(const QueryReply *r) {
     WorkbookNativeIO *c=context(r); if (!c) return NULL;
     return c->saved ? workbook_archive_receipt_versions(workbook_version_receipt_archive(c->saved)) : c->seed ? c->seed : workbook_archive_versions(c->loaded);
@@ -116,6 +118,16 @@ static bool attach(QueryWorker *w,QueryJob *job,const WorkbookVersionCoreSet *ba
 bool worker_archive_save_job(QueryWorker *w,QueryJob *job,const WorkbookVersionCoreSet *base,WorkbookVersionOwner owner,
     WorkbookVersionPurpose purpose,const char *parent,uint64_t reserved,char **error) {
     return (job && job->kind==JOB_SAVE) ? attach(w,job,base,owner,purpose,parent,reserved,error) : fail(error,"Capture a Save job before attaching its native context.");
+}
+bool worker_archive_tag_job(QueryWorker *w,QueryJob *job,const WorkbookVersionCoreSet *base,WorkbookVersionOwner owner,
+    WorkbookVersionText label,const char *parent,uint64_t reserved,char **error) {
+    if (!job || job->kind!=JOB_SAVE || !job->workbook || owner.mode!=VERSION_WORKING_HEAD) return fail(error,"Capture a working-head Save job before creating a named version.");
+    WorkbookVersionIndex empty={.document_high=job->workbook->id.high,.document_low=job->workbook->id.low};
+    WorkbookVersionStatus status=workbook_version_tag_label_check(base ? workbook_version_core_set_index(base) : &empty,label);
+    if (status) return fail(error,workbook_version_message(status));
+    char *owned=dx_alloc(label.bytes+1); memcpy(owned,label.data,label.bytes); owned[label.bytes]=0;
+    if (!attach(w,job,base,owner,VERSION_USER_SAVE,parent,reserved,error)) { free(owned); return false; }
+    WorkbookNativeIO *c=job->native_file.context; c->label=owned; c->label_bytes=label.bytes; return true;
 }
 bool worker_archive_load_job(QueryWorker *w,QueryJob *job,const char *parent,uint64_t reserved,char **error) {
     return (job && job->kind==JOB_LOAD) ? attach(w,job,NULL,(WorkbookVersionOwner){0},VERSION_STATE_EXPORT,parent,reserved,error) : fail(error,"Choose a Load job before attaching its native context.");

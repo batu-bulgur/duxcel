@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "tag-worker": Feature((), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-versions"),
+        ("src/data/worker_archive.c: owned Tag jobs/replies", "src/data/worker_archive.h", "src/app/versionstate.c: complete tag publication fence", "tests/test_worker_archive.c", "tests/test_app_versions.c"),
+        ("worker_archive", "app_versions")),
     "version-tag": Feature(("version_tag",), "",
         ("python3 tools/test.py feature --feature app-versions", "python3 tools/test.py feature --feature recovery-versions"),
         ("src/workbook/version_save.c: atomic tag publication and retained-root reuse", "src/workbook/version_save.h", "src/workbook/version_tag.c: label preflight", "tests/test_version_tag_save.c"),
