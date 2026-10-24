@@ -898,3 +898,17 @@ A composed object owner can admit its complete graph budget before allocating an
 nested definition. Each ordinary decoder reuses that same inspection boundary.
 Preflight is not semantic/grammar/source admission: full decode remains required,
 and a well-framed but invalid filter can pass inspection while decode rejects it.
+
+
+`workbook/objects_asset.c` composes ordered object metadata and exact canonical
+Analysis/Pivot/Marks assets. It requires same-sheet/exact-object nested headers,
+bounded geometry and local Table source links. Complete count-sized array/text
+ownership plus peak grammar scratch is inspected before any constituent copy.
+Capture replaces an owned packet only after complete encoding; decode replaces
+an independent graph only after full nested and object/source semantics. Runtime
+query/title/Marks epochs are excluded and decoded query revisions start unset;
+the adopter must invalidate/rebind fresh runtime owners before installing them.
+Captured object high-water is a monotonic obligation, not an Undo assignment.
+Source-version ledger closure, verified typed execution, cached analytical output
+and retained event/file publication remain separate owners. App conservative
+array-slack/global/job reservation policy is not replaced by codec graph accounting.

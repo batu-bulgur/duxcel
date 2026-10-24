@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "objects-asset": Feature(("objects_asset", "analysis_asset", "pivot_asset", "marks_asset"), "",
+        ("python3 tools/test.py feature --feature history-format", "python3 tools/test.py native --scenario pivot chart table --config sanitize"),
+        ("src/workbook/objects_asset.c", "src/workbook/objects_asset.h", "tests/test_objects_asset.c")),
     "definition-preflight": Feature(("analysis_asset", "pivot_asset", "marks_asset"), "",
         ("python3 tools/test.py feature --feature history-format", "python3 tools/test.py native --scenario pivot chart --config sanitize"),
         ("src/workbook/definition_wire.h: nested definition ownership preflight", "src/workbook/analysis_asset.c", "src/workbook/pivot_asset.c", "src/workbook/marks_asset.c")),

@@ -230,12 +230,12 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.2c.3b.2 · P1 · Queued | Source-bound composite format producer; W12c.2c.3b.1, W12c.3. | Admit source ledger plus primary/Table bindings and format assets together, preserving immutable baseline normalization and all source/readiness/revision fences. No partial constituent publication or early retained-history activation. |
 | W12c.3 · P1 · In progress | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.3a · P1 · Complete | Closed primary/Table Analysis definition asset; W12c.1. | Preserve stable sheet/owner/source-version IDs, exact nullable texts, query/unique/group/aggregate, ordered filters/sorts and finite enum tags. Preflight owned memory and grammar scratch before copying; exclude derived schema caches and require verified rebinding before execution. |
-| W12c.3b · P1 · In progress | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
+| W12c.3b · P1 · Complete | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
 | W12c.3b.1 · P1 · Complete | Closed Pivot/Chart query-definition asset; W12c.3a. | Preserve ordered role fields, exact names/filter values, aggregation and date-grain tags; enforce shelf/duplicate/grammar rules after bounded scratch admission. Share checked definition-wire primitives with Analysis; derived schema caches require rebinding. |
 | W12c.3b.2 · P1 · Complete | Closed Marks bindings; W12c.3b.1. | Preserve all six ordered role bindings, measure/dimension distinction, aggregation and date grain with strict role limits. |
-| W12c.3b.3 · P1 · In progress | Closed object snapshot/envelope; W12c.3a–W12c.3b.2. | Preserve stable IDs, geometry, names, source links, chart representation/measure and complete nested definitions under one owned bound. Captured allocator obligations cannot rewind live counters or runtime query epochs. |
+| W12c.3b.3 · P1 · Complete | Closed object snapshot/envelope; W12c.3a–W12c.3b.2. | Preserve stable IDs, geometry, names, source links, chart representation/measure and complete nested definitions under one owned bound. Captured allocator obligations cannot rewind live counters or runtime query epochs. |
 | W12c.3b.3a · P1 · Complete | Allocation-free nested definition preflight; W12c.3a–W12c.3b.2. | Inspect exact header owner, framing/text and owned/scratch requirements before allocating any constituent of an object graph. Full decode remains mandatory for semantic/grammar admission. |
-| W12c.3b.3b · P1 · Queued | Bounded complete object asset capture/decode; W12c.3b.3a. | Compose geometry/source links and all nested definitions, prove exact sheet/owner associations and source/Table graph closure, and preflight the complete owned graph before allocation/adoption. |
+| W12c.3b.3b · P1 · Complete | Bounded complete object asset capture/decode; W12c.3b.3a. | Compose geometry/source links and all nested definitions, prove exact sheet/owner associations and source/Table graph closure, and preflight the complete owned graph before allocation/adoption. |
 | W12c.3c · P1 · Queued | Analysis/object producer and composite event admission; W12c.3a–W12c.3b. | Reserve every changed definition/dependency before adoption, recheck source/request/workbook state and publish once; coordinate source-bound formats and preserve allocator high-water. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1281,3 +1281,16 @@ that distinction). The432 Analysis/383 Pivot/310 Marks optimized/ASan/UBSan gate
 passes in4.815s;50 runner/catalog contracts pass in2.333s. Receipts: ignored
 `w12c3-definition-preflight*.log/json`. The complete object graph can now be
 budgeted before any constituent allocation; object envelope/capture is next.
+
+W12c.3b.3b complete: one closed object asset owns ordered IDs/geometry/names,
+source/Table links, chart representation/measure and all nested definitions.
+Complete graph preflight precedes any array/string copy; capture preserves the
+old packet until all constituents encode, and decode preserves the old graph
+until full nested/local source-graph semantics pass. Captured allocator maxima
+cannot rewind live counters; runtime query epochs and schema caches need fresh
+owner rebinding before adoption. The1,034-case object plus definition codec gate
+passes optimized/ASan/UBSan in3.474s;50 runner/catalog contracts pass in2.313s.
+Coverage includes exact nested owner associations, unsupported/corrupt children,
+late semantic rejection, independent ownership, byte-identical recapture despite
+runtime-epoch reset, all32 objects and8 MiB owned boundaries. Receipts: ignored
+`w12c3-objects-asset*.log/json`. No retained App/file publication or cached outputs.
