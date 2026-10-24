@@ -220,7 +220,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.2 · P1 · In progress | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
 | W12c.2a · P1 · Complete | Cancellable spatial/result format planning; W12c.1. | Prepare independent owned candidates and detect semantic no-op before reservation. Cancel/failure preserves live styles, mode, Undo/Redo and revision; ordinary apply uses the same planner. Narrow actual input/Save/Open workflow. |
 | W12c.2b · P1 · Complete | Closed scoped-format payload encoding; W12c.2a. | Capture stored style properties, snapshot mode, exact opaque scopes, guard indices and record/original-field membership in canonical before/after bytes. Strict bounded owned decoding; derived rendering state and native structs are absent. |
-| W12c.2c · P1 · Queued | Format event admission and source dependency closure; W12c.2b. | Reserve copied assets before commit, fence workbook/sheet/format/source revisions and preserve all referenced immutable source versions without rewinding high-water or display defaults. Reject partial composite bindings; coordinate range/analysis/lifecycle consumers in their own slices. |
+| W12c.2c · P1 · In progress | Format event admission and source dependency closure; W12c.2b. | Reserve copied assets before commit, fence workbook/sheet/format/source revisions and preserve all referenced immutable source versions without rewinding high-water or display defaults. Reject partial composite bindings; coordinate range/analysis/lifecycle consumers in their own slices. |
+| W12c.2c.1 · P1 · Complete | Closed source-version metadata assets; W12c.2b. | Preserve exact ordered version/owner/kind/locator/RAW provenance rows, pending/completed distinction and captured allocator bound in owned canonical assets. Decode is not live adoption and cannot justify counter/completion rollback or source materialization. |
+| W12c.2c.2 · P1 · Queued | Format-to-source dependency closure; W12c.2c.1. | Pin referenced immutable rows across before/after selectors, prove owner/version/RAW/schema bindings, classify inactive opaque legacy scopes explicitly and reject missing/conflicting record dependencies without mutation. |
+| W12c.2c.3 · P1 · Queued | Atomic format admission and event ownership; W12c.2c.2. | Capture format plus source dependencies before commit, reject stale owner/revision/budget, preserve monotonic source metadata and bind source/analysis/object composite constituents explicitly. App activation remains ordered publication work after all families. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1173,3 +1176,16 @@ The format/source-scope/format-codec optimized/sanitized gate passes in5.794s;
 objects/binaries unchanged in0.643s. Evidence: ignored `w12-codec-cache*.log/json`.
 No product behavior or assertion coverage changed; wider GUI/milestone work is
 still deferred. Other legacy module build conversions remain separate.
+
+W12c.2c.1 complete: source-version metadata encoding1 preserves exact ordered
+IDs, owner, explicit CSV/Parquet tags, locators, pending/complete RAW provenance
+and captured high-water. It stores no dataset bytes, resolves no path and performs
+no IO. Decode preflights owned memory and validates ledger/packet identity before
+replacing an independent asset; unused allocation slots are not serialized.
+The271-case asset and13,894-case source-scope optimized/sanitized gate passes
+in2.783s;55 tools pass in12.430s. Cases include a byte oracle, corruption/truncation,
+UTF-8/wildcards, packet mismatch, exact budgets, maximum ledger/locator, large IDs,
+UINT64_MAX and input-independent copied packets. Receipts: ignored
+`w12c2-source-versions*.log`. Historical metadata cannot be assigned over a newer
+live allocator/known completion; final projection/closure remains owner work.
+Source bytes and retained file-history publication remain separate roadmap work.

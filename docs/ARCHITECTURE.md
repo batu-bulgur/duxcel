@@ -815,3 +815,12 @@ and replaces the owned result only on success. It does not prove source-version
 closure or activate scopes. The producer must capture after any required guarded
 baseline, pin immutable source-version dependencies without rewinding high-water,
 and preserve source/import/lifecycle composites before retained-history activation.
+
+`workbook/source_versions_codec.c` encodes closed source-version metadata assets,
+including stable sheet/owner/version IDs, exact locators and RAW provenance/schema
+packets or explicit pending absence. Captured high-water is a monotonic ownership
+obligation, not an Undo value. Decoding produces independent owned metadata after
+framing/memory and full packet/ledger checks; it does not read source files,
+materialize datasets, adopt a live ledger or prove a currently displayed Page.
+Final history projection must preserve known immutable completions, maximum
+allocator bounds and every referenced dependency through source/lifecycle changes.

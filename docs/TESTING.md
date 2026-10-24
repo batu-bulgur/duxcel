@@ -330,3 +330,12 @@ targets; unrelated added headers cannot rebuild them. Mutable engine/desktop
 execution remains serialized. A local unrelated-HEADERS probe records watched
 object/binary mtimes under ignored build/tests/results; it is build-cache evidence,
 not extra product acceptance or a reason to run all fast modules.
+
+`source-versions-codec` selects271 asset cases and the13,894-case source-scope
+module in optimized/sanitized builds. It checks canonical explicit kind tags,
+pending/complete identity, unused-capacity normalization, ordered IDs, exact
+memory limits, all finite-oracle truncations, incomplete RAW packets, owner/kind/
+version mismatch, malformed locators, maximum ledger/locator, UINT64_MAX and
+large file/version values without IO. Paths/packets remain owned after input
+release. This does not establish file materialization, live Page verification or
+historical-ledger adoption; final owner/format closure is separately scheduled.
