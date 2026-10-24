@@ -138,7 +138,7 @@ class RunnerTests(unittest.TestCase):
                         with self.assertRaises(RuntimeError):
                             with runner.FileLock(path, "competing clipboard"):
                                 pass
-                for layout in ((867,882), (882,911), (921,936), (936,950)):
+                for layout in ((861,867), (882,911), (921,936), (936,950)):
                     with runner.native_resource_guard(layout=layout), runner.FileLock(path, "independent hidden GUI"):
                         pass
                 for scenario in ("clipboard", "pivot", "sort", "table", "layout"):
@@ -211,7 +211,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_inventory(self):
         self.assertEqual(len(runner.NATIVE), 18)
-        self.assertEqual(sum(row[1] for row in runner.NATIVE), 1390)
+        self.assertEqual(sum(runner.layout_stage_count(0, row[1]) if row[0] == "layout" else row[1] for row in runner.NATIVE), 1353)
         self.assertEqual(len({row[0] for row in runner.NATIVE}), 18)
         self.assertNotIn("core", runner.FAST_MODULES)
         self.assertNotIn("workbook", runner.FAST_MODULES)
@@ -239,17 +239,23 @@ class RunnerTests(unittest.TestCase):
             geometry.write_text('{"width":280}')
             self.assertNotEqual(second, runner.source_metadata(root)["source_sha256"])
 
+    def test_retired_layout_cases_do_not_count_as_executed(self):
+        for start, end, expected in ((0,950,913), (800,824,24), (730,950,183),
+                                     (846,861,15), (861,867,6), (882,950,68)):
+            with self.subTest(start=start, end=end):
+                self.assertEqual(runner.layout_stage_count(start,end),expected)
+
     def test_focus_ranges_have_supported_bootstraps_and_terminal_assertions(self):
         source = (runner.ROOT / "src/app/app.c").read_text()
         for name, (start, end, marker) in runner.LAYOUT_PROFILES.items():
             with self.subTest(feature=name):
                 self.assertGreater(end, start)
                 self.assertLessEqual(end, 950)
-                self.assertIn(marker, source)
-                if start in (687, 730, 734, 764, 800, 824, 846, 861, 867, 882):
+                self.assertTrue(marker in source, f"Missing terminal marker for {name}: {marker}")
+                if start in (687, 730, 734, 764, 800, 846, 861, 882):
                     self.assertIn(f'!strcmp(layout_from,"{start}")', source)
-                    self.assertIn('if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882))', source)
-                    self.assertIn('session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882 ? layout_start : 250) : 0;', source)
+                    self.assertIn('if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==846 || layout_start==861 || layout_start==882))', source)
+                    self.assertIn('session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==846 || layout_start==861 || layout_start==882 ? layout_start : 250) : 0;', source)
                 elif start == 216:
                     self.assertIn('if (focused_layout && layout_start==216) session->layout_smoke=216;', source)
                     self.assertIn('case 216:\n        if (!object_ready(a,0)) return;', source)
@@ -343,6 +349,7 @@ class RunnerTests(unittest.TestCase):
             stages = next(row[1] for row in runner.NATIVE if row[0] == "layout")
             self.assertEqual(command.call_args_list[0].kwargs["completion_pattern"], runner.layout_completion_pattern(0, stages))
             self.assertIsNone(command.call_args_list[1].kwargs["completion_pattern"])
+            self.assertEqual(command.call_args_list[0].kwargs["stages"], 913)
 
     def test_base_uses_actual_existing_state_instead_of_invented_pass(self):
         output = "Final relation rows=4 columns=2 cache offset=0\nDuxcel frames=240 mean=17.0 ms smoke=6\n"
@@ -800,7 +807,7 @@ class RunnerTests(unittest.TestCase):
         with mock.patch.object(runner, "Runner") as constructor:
             with contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(runner.main(["--list"]), 0)
-            self.assertIn("1390 application stages", output.getvalue())
+            self.assertIn("1353 application stages", output.getvalue())
             self.assertIn("Records: record_sql, record_pages", output.getvalue())
             self.assertIn("Formats: workbook --formats-only", output.getvalue())
             constructor.assert_not_called()

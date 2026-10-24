@@ -2130,3 +2130,22 @@ modules in optimized/ASan/UBSan plus 23 hidden native stages/50 checks in39.095s
 Columns still require their complete width/ColumnEdit effect; paste and mixed
 source/object axes retain their existing complete paths. Parent W12c.4 remains
 in progress; retained App writer and durable Undo remain inactive.
+
+
+Current fixture cutover integrated: `522046c` removes the legacy identity SQL/mode
+and generates finite exact core15/container16 transaction inputs with deterministic
+identity, complete 28-table metadata, absolute final source locators, SHA-256 and
+64KiB root chunks. Native acceptance owns extracted roots independently, runs
+real PIVOT, saves through version Save and reopens the current archive. Combined
+`current-fixture` passes optimized/ASan/UBSan in34.963s, zero App stages; receipt
+`build/tests/results/runs/20261024T150203-feature-91410/summary.json`.
+The separate narrow workbook-save GUI remains scheduled behind the existing
+SOURCE → OBJECT desktop handoff; no broad regression or browser Open/Save claim.
+
+Runner inventory reconciliation removes compatibility-only budget bootstraps and
+counts the 37 retired layout cases separately from stable terminal stage IDs.
+Statistics keyboard/job/document assertions remain the six-stage local profile;
+full/cross-hole inventories no longer report deleted cases as executed.
+The 63 focused runner/catalog/fixture tool contracts pass in6.929s; output
+`build/tests/results/current-tool-contracts.txt`. No broad native layout run was
+performed for this metadata-only reconciliation.

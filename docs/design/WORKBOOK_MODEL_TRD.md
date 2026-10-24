@@ -616,7 +616,7 @@ The first command slice should wrap an existing manual-edit path end to end befo
 ### 14.2 File and identity migration
 
 1. Introduce stable document/sheet identities and a workbook revision independently from `analysis_revision`, request IDs and sheet indices. Legacy files receive identities in a validated candidate; persist the mapping only through a successful new-format Save. Preserve existing object/source high-water marks.
-2. Migrate existing objects to an explicit legacy aligned, non-overlapping placement mode. Preserve current source-header/address behavior and verified format owners. New overlapping/free states require a schema version that older writers cannot silently flatten or discard.
+2. Represent existing objects with explicit aligned, non-overlapping placement. Preserve current source-header/address behavior and verified format owners. New overlapping/free states require an exact current schema; unsupported writers must refuse them. Prerelease file migration is out of scope.
 3. Add metadata families through the shared C codec inventory, admission budgets, validation, writer and native/browser adapters. A native-only new format must fail clearly in unsupported browser readers while existing supported files retain their current component behavior.
 4. Keep candidate loading and atomic App publication. Validate duplicate IDs, dangling owners/references, malformed journals/manifests, unsupported command versions, oversized payloads and asset integrity before activation. Archive extraction must reject path traversal and excessive expansion if a package is selected.
 5. Save As serializes the inspected state and optional selected history with its full required dependency closure. Use a new independent recovery identity by default, retaining origin provenance. Do not bind recovery to pathname alone or merge histories merely because two file copies share a name.
@@ -697,7 +697,7 @@ Every scenario needs the relevant model, analytical, persistence and real-input 
 | A16 | Remove/replace linked bytes, then restore a version; repeat with retained source assets. | Linked dependencies fail explicitly; retained version remains exact; no positional reattachment. |
 | A17 | Send stale, duplicate, unauthorized and oversized automation requests, including UI/agent contention. | Predictable errors and bounded admission; one ordered authority; no hidden filesystem/SQL privileges. |
 | A18 | Use the same operation through UI, IPC and headless core. | Equivalent typed document state and analytical results; no window for core-only execution. |
-| A19 | Load legacy supported files and new features through native/shared-codec/browser paths. | Correct migration or explicit unsupported result; old candidate preserved; no weakened current format-identity coverage. |
+| A19 | Admit the exact current format through native/shared-codec paths; reject unsupported formats. | Current identity/closure and refusal preserve the live candidate and original bytes. Browser component checks do not imply browser Open/Save. |
 | A20 | Reopen a checkpoint with pivot cells outside the last viewport and a million-row connected browse query. | Full pivot/aggregate/chart output retained; connected browse result need not be embedded; no Page-only snapshot presented as full analytical output. |
 | A21 | Reference a pivot through A1 from another sheet, move it, then Undo/Redo. | Same local value remains bound; displayed A1 references update in the move transaction, including absolute references; no stale-position fallback. |
 | A22 | Place two grid analytical footprints in conflict, including an occupied attempted anchor. | Visible spill/anchor error and retained calculated result; no overwritten cells; reachable recovery handle; valid retry restores visualization. |
@@ -767,7 +767,7 @@ Implementation parameters to settle in the relevant slice:
 
 - Choose and measure the journal's maximum pending interval, flush contract, queue bounds and shutdown behavior on the pinned native/browser engines.
 - Fix the formula grammar's identifier case/reserved-name rules, local header/title origin, range syntax and concrete typed error labels while preserving the accepted reference kinds.
-- Choose bounded Page/result streaming, checkpoint/history staging, resource-denial behavior and legacy/shared-codec migration details with existing ownership guarantees.
+- Choose bounded Page/result streaming, checkpoint/history staging, resource-denial behavior and shared-codec admission details with existing ownership guarantees.
 - Define the Refresh scope descriptor and reset plan so affected datasets/views change atomically while unrelated cells/objects remain intact. This is address/ownership validation, not record matching.
 - Validate compact dialogs, local header clipping, snap geometry and Master View interaction through the real native workflow.
 

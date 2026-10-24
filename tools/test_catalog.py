@@ -390,7 +390,7 @@ FEATURES = {
         ("src/workbook/version_index.c", "src/workbook/version_index.h", "tests/test_version_index.c")),
     "stats-budget": Feature(("statsview_input",), "stats-budget",
         ("python3 tools/test.py native --scenario layout --config sanitize",),
-        ("src/app/app.c: Statistics to format-budget interaction",)),
+        ("src/app/app.c: Statistics keyboard input and unchanged document/job state",)),
     "foundation-layout-end": Feature((), "foundation-layout-end",
         ("python3 tools/test.py native --scenario layout --config sanitize",),
         ("src/app/app.c: inspector and manual range milestone workflow",)),

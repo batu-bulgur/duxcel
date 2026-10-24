@@ -114,19 +114,19 @@ separate from chunk/hash/embedded-model closure; no live model is adopted.
 leased child, checks exact bytes/hash, admits the embedded model through
 `workbook_load_core_payload`, then rechecks integrity. The strict reader requires
 v15, original absolute source locators and no unrelated tables/nested version
-schema; failures preserve the independent output. Ordinary legacy Open remains
-unchanged. Copy/hash/admission/recheck have explicit cancellation phases.
+schema; failures preserve the independent output. Ordinary Open requires the
+current container and the same exact core. Copy/hash/admission/recheck have explicit cancellation phases.
 `version_restore.c` preflights aggregate chunk extents/NULLs/orphan references,
 then restores and admits every core root independently before returning an owned
 core set. Missing older tagged payloads reject the whole set. Copied metadata and
 leased files outlive the outer SQL connection; failure/cancel releases ordinary
 new staging. This proves codec-v1 core closure, with external sources still
-explicit dependencies. Native `archive_read.c` stages legacy candidates or the explicitly discriminated
-v16 container, whose authored head retains the v15 layout. The v16 candidate
+explicit dependencies. Native `archive_read.c` stages only the explicitly discriminated
+v16 container, whose authored head uses the v15 layout. The v16 candidate
 owns its independent complete core set and validates head/index document identity,
 closed-WAL policy and unchanged native file identity. It preserves an older
-Latest Saved R in an R+1 head. Legacy reads remain non-writing and cannot silently
-ignore a reserved version schema. Borrowed head decoding stays in the existing
+Latest Saved R in an R+1 head. Unsupported formats reject without writing;
+reserved version metadata cannot be silently ignored. Borrowed head decoding stays in the existing
 core reader; candidate adoption belongs to the caller. `archive_write.c` adds v16 through the existing native transaction using an
 internal typed borrowed adapter (`save_native.h`). Inspection validates prior
 core/index closure before mutation; staging preserves unrelated tables and owns
@@ -149,12 +149,9 @@ jobs keep their existing writer/reader without native archive link dependencies.
 Owned contexts move into replies, and an intrusive retirement queue runs disposal
 outside the worker mutex before pending work and stop. Replacement/cancel frees
 also leave the mutex first, allowing safe retirement/scalar observers. Native
-preparation remains cancellable until named-file publication. `version_seed.c` retains an already admitted legacy Saved R in the working store
-before edits begin, without rewriting the source file. Bounded metadata copying
-and atomic adoption of verified owned leaves avoid an extra archive round-trip;
-source identity remains unchanged. This supplies the older Saved R to a first
-private R+1 checkpoint before user-file upgrade. `data/worker_archive.c` owns typed native file contexts, retained input stores,
-prepared receipts/candidates and legacy Saved seeding. Its UI-side constructor
+preparation remains cancellable until named-file publication. `data/worker_archive.c`
+owns typed native file contexts, retained current input stores and prepared
+receipts/candidates. Its UI-side constructor
 only allocates/copies/refcounts; the worker creates working folders and executes
 all native IO. Owned context/store retirement uses the background queue, with
 synchronous fallback only after stop/shutdown. Internal capture publication is
@@ -320,8 +317,8 @@ the previous C-API VARCHAR compatibility. Invalid
 or duplicate fields poison the proof. Native complete-package validation obtains
 those fields in one bounded catalog snapshot, preserving embedded NUL and
 rejecting oversized names/types. Required row NULL/text checks and owner/ledger
-validation stay separate. Historical lenient column/default behavior remains in
-the legacy reader; current v15 stays strict. The proof adds no runtime dependency
+validation stay separate. Only the exact current v15 table/column contract is
+admitted; historical defaults and lenient readers are removed. The proof adds no runtime dependency
 and compiles with the shared C model.
 
 `src/workbook/journal_session.c` connects native one-cell admission to complete

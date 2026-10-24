@@ -36,7 +36,7 @@ LAYOUT_PROFILES = {
     "ribbon": (0, 64, "PASS: measured native ribbon"),
     "format-controls": (0, 148, "PASS: real native Bold/Italic/Underline"),
     "inspector-basics": (216, 250, "PASS: real native historical step preview/Return"),
-    "stats-budget": (861, 882, "PASS: native legacy format budget admission retries"),
+    "stats-budget": (861, 867, "PASS: native Statistics Enter keypad Enter and Space"),
     "foundation-layout-end": (882, 950, "PASS: native deterministic sparse containing regions"),
     "foundation-sources": (730, 950, "PASS: native deterministic sparse containing regions"),
     "source-layout": (474, 522, "PASS: exact source value strip at 100/150 percent"),
@@ -75,6 +75,16 @@ LAYOUT_PROFILES = {
     "range-replace": (921, 936, "PASS: native explicit manual Replace/Cancel"),
     "containing-regions": (936, 950, "PASS: native deterministic sparse containing regions"),
 }
+# Removed compatibility-only cases retain terminal IDs so surviving focused
+# bootstraps do not shift. Count executed cases separately from the terminal ID.
+RETIRED_LAYOUT_RANGES = ((824, 846), (867, 882))
+
+
+def layout_stage_count(start, end):
+    return end-start-sum(max(0, min(end, stop)-max(start, begin))
+                         for begin, stop in RETIRED_LAYOUT_RANGES)
+
+
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
@@ -111,7 +121,7 @@ PRIVATE_LAYOUT_RANGES = {
     (540,555), (555,596), (596,620), (620,638), (638,665),
     (665,675), (675,687), (687,714), (687,716), (687,730),
     (730,734), (730,950), (734,764), (764,800), (800,824),
-    (824,846), (846,861), (861,867), (861,882), (867,882),
+    (846,861), (861,867),
     (882,898), (882,911), (882,950), (911,921), (921,936), (936,950),
 }
 PRIVATE_NATIVE_SCENARIOS = {"base", "workspace", "filter", "export", "count", "navigation", "nyc", "document", "chart", "statistics", "icon", "query", "unique"}
@@ -527,7 +537,7 @@ class Runner:
                         ["./" + self.native_binary(), "--layout-smoke", "--frames", str(max(1200,(end-start+10)*48)),
                          "--screenshot", str(self.log_dir / "final.png")], marker, native=True,
                         env_extra={"DUXCEL_LAYOUT_FROM": str(start), "DUXCEL_LAYOUT_TO": str(end)},
-                        stages=end-start, completion_pattern=layout_completion_pattern(start,end)))
+                        stages=layout_stage_count(start,end), completion_pattern=layout_completion_pattern(start,end)))
             finally:
                 self.args.config = original_config
         print("Deferred interaction checks (not run): " + str(len(plan["deferred_interactions"])), flush=True)
@@ -543,7 +553,7 @@ class Runner:
             self.record(self.command("layout-" + self.args.feature,
                                     ["./" + self.native_binary(), "--layout-smoke", "--frames", str(frames),
                                      "--screenshot", str(self.log_dir / "final.png")], marker, native=True,
-                                    env_extra={"DUXCEL_LAYOUT_FROM": str(start), "DUXCEL_LAYOUT_TO": str(end)}, stages=end-start,
+                                    env_extra={"DUXCEL_LAYOUT_FROM": str(start), "DUXCEL_LAYOUT_TO": str(end)}, stages=layout_stage_count(start,end),
                                     completion_pattern=layout_completion_pattern(start, end)))
             ensure_unchanged(self.summary["binaries"])
 
@@ -635,7 +645,7 @@ class Runner:
                 self.record(self.command("native-" + name,
                                      ["./" + self.native_binary(), flag, "--frames", str(frames),
                                       "--screenshot", str(self.log_dir / (name + ".png"))], marker,
-                                     native=True, base=name == "base", stages=stages,
+                                     native=True, base=name == "base", stages=layout_stage_count(0,stages) if name == "layout" else stages,
                                      completion_pattern=layout_completion_pattern(0, stages) if name == "layout" else None))
             ensure_unchanged(self.summary["binaries"])
 
@@ -736,13 +746,14 @@ def main(argv=None):
         print("Records: " + ", ".join(RECORD_MODULES) + "; sequential native engine checks without GUI or shared fixtures")
         print("Formats: workbook --formats-only; sequential format/save checks without GUI or core fixture regeneration")
         for name, (start, end, _) in LAYOUT_PROFILES.items():
-            print(f"Affected {name}: layout {start}–{end-1} ({end-start} stages)")
+            print(f"Affected {name}: layout {start}–{end-1} ({layout_stage_count(start,end)} stages)")
         for name, stages, frames, _ in NATIVE:
-            print(f"Full {name}: {stages} stages, {frames} frame timeout")
+            print(f"Full {name}: {layout_stage_count(0,stages) if name == 'layout' else stages} stages, {frames} frame timeout")
         for name, (_, _, _, stages) in STANDALONE_GUI.items():
             print(f"Full standalone {name}: {stages} application stages")
-        print(f"Full legacy scenarios: {sum(row[1] for row in NATIVE)} application stages +110 GPU checks; NYC8 optional unless --require-data")
-        print(f"Full total: {sum(row[1] for row in NATIVE)+sum(row[3] for row in STANDALONE_GUI.values())} application stages plus About adapter checks")
+        native_stages = sum(layout_stage_count(0,row[1]) if row[0] == "layout" else row[1] for row in NATIVE)
+        print(f"Full native scenarios: {native_stages} application stages +110 GPU checks; NYC8 optional unless --require-data")
+        print(f"Full total: {native_stages+sum(row[3] for row in STANDALONE_GUI.values())} application stages plus About adapter checks")
         return 0
     if args.tier == "affected" and not args.feature:
         argument_parser.error("affected requires --feature (see --list)")
