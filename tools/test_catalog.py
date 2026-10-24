@@ -70,6 +70,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-path": Feature(("history_path", "history_anchors", "history_window"), "",
+        ("python3 tools/test.py feature --feature app-preview", "python3 tools/test.py feature --feature workbook-history"),
+        ("src/workbook/history_path.c", "src/workbook/history_path.h", "tests/test_history_path.c")),
     "history-viewer": Feature((), "history-preview",
         ("python3 tools/test.py feature --feature history-preview", "python3 tools/test.py feature --feature history-preview-sanitize"),
         ("src/ui/versionpreviewview.c: read-only paint/navigation/layout", "src/app/app.c: test-only historical paint checkpoint", "tests/support/history_preview_app.inc: frame-level geometry and input readiness")),

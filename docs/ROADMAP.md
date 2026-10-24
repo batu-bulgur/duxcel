@@ -206,14 +206,17 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12a · P1 · Complete | Explicit version-boundary retention window; W11. | Select three states/two intervals ending at Saved, coalesce only aliases of the same explicit version boundary, preserve an older cursor plus current Redo/unsaved suffix, and reject required history gaps. Pure planning only; no durable Undo claim. |
 | W12b · P1 · In progress | Durable path/anchor and reversible-event contract; W12a. | Bind tag/Saved boundaries to proved operation positions independently of reused content roots. Validate branch/cursor/origin, contiguous reversible events and complete referenced payload closure; reject malformed/unsupported profiles atomically. |
 | W12b.1 · P1 · Complete | Closed public anchor/index bindings; W12a. | Validate exact document, tag-publication identity, Saved root, anchor high-water and complete public references. Reused content/positions never substitute anchor identity; no event/payload or cross-session Undo claim. |
-| W12b.2 · P1 · Queued | Event/path continuity and durable metadata profile; W12b.1. | Prove current lineage/cursor and retained ranges, classify checkpoint-only legacy history explicitly, and bind each reversible payload family before selecting a file profile. Never fabricate old Undo from saved snapshots. |
-| W12c · P1 · Queued | Persist supported reversible payload families; W12b. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
-| W12c.1 · P1 · Queued | Sparse-cell reversible events and admission; W12b.2. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
+| W12b.2 · P1 · In progress | Event/path continuity and durable metadata profile; W12b.1. | Prove current lineage/cursor and retained ranges, classify checkpoint-only legacy history explicitly, and bind each reversible payload family before selecting a file profile. Never fabricate old Undo from saved snapshots. |
+| W12b.2a · P1 · Complete | Structural event-path and anchor/window join; W12b.1. | Prove ordered lineage ancestry, exact retained transitions, cursor/Redo bounds and monotonic operation IDs. Ancestor prefixes remain on-path; abandoned suffixes stay checkpoints. A forked Saved endpoint cannot silently produce a successful empty window. Payload/file admission remains separate. |
+| W12b.2b · P1 · Queued | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
+| W12b.2c · P1 · Queued | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit legacy files as checkpoint-only history; unsupported/corrupt history cannot replace the live document. |
+| W12c · P1 · Queued | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
+| W12c.1 · P1 · Queued | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
 | W12c.2 · P1 · Queued | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
-| W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
+| W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
 | W12g · P1 · Queued | Retained-range presentation and milestone gate; W12e–W12f. | Show actual retained Undo coverage and limits. V8→V9→V10 plus unsaved suffix survives reopen, older tags remain openable, and failure/branch/pruning checks pass at the explicit major milestone. |
@@ -1044,3 +1047,16 @@ above cover the later reader fixes. Existing v15 compatibility stays separate
 from explicit full v16 readers. Native source/analytical payload retention,
 browser Open/Save and durable Undo are not established by this milestone.
 Concise current receipts remain under ignored `build/tests/results/`.
+
+W12b.2a complete: structural path validation proves contiguous retained transition
+positions, monotonic durable operation/lineage IDs and shared-prefix ownership,
+then joins public anchors to the existing retention planner. Reused content never
+substitutes branch identity. A Saved endpoint on an abandoned suffix explicitly
+requires separate protection; it is not silently excluded or mapped to the draft.
+The49-case path/join plus31-anchor/33-window optimized/sanitized gate passes
+in2.561s, including100,000 transitions and exhausted unsigned clocks. No GUI,
+archive profile, payload decoder, event producer or cross-session Undo changed.
+Payload capture follows the path foundation; final file-profile admission follows
+all payload families, avoiding a circular dependency. Evidence:
+`build/tests/results/w12b2-history-path.log` (ignored).
+The55 runner/catalog/web-build contracts also pass in11.505s.

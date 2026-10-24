@@ -393,6 +393,13 @@ Redo, and an older active cursor must remain reachable. The pure W12a planner
 checks this window but does not persist anchors or make existing session Undo
 durable; adapters must prove actual event/payload continuity before publication.
 
+When an unsaved edit branches after Undo, Latest Saved can remain on the old
+branch beyond the fork. Protect that Saved path's required window independently
+of the current draft's shared prefix/new suffix; do not remap Saved to the draft
+or quietly return an empty window. Once a new Save publishes the draft, replace
+Latest Saved atomically under the usual window rules. Other branch tags remain
+openable checkpoints; shared content does not establish shared operation ancestry.
+
 Implementation constraint: current worksheet and lifecycle rings retain at most
 32 session actions. Saving those rings later cannot recover already evicted
 operations or detached sheet contents. Durable event admission must precede

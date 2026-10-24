@@ -741,6 +741,16 @@ Saved and one exact binding per immutable tag publication. Anchor IDs are global
 unique in this directory and independent of content/operation position. All
 public anchors must have a Saved/tag reference; every reference resolves to the
 matching known root. Physical row order and alias labels do not supply identity.
-Opaque lineage/position values still require the queued event/path proof. This
+Lineage/position values require the separate structural path proof and later
+payload admission. This
 projection is neither a file-format declaration nor permission to drop protected
 assets; existing v16 files contain no durable Undo metadata.
+
+`workbook/history_path.c` validates a borrowed root-to-current ancestry spine and
+its exact retained transition suffix in linear time. Later monotonic lineage IDs
+inherit a prefix at an explicit fork position; operation IDs remain separate from
+positions and process Undo order. Its anchor/window join includes ancestor anchors
+only through their fork, preserving abandoned branches as independent checkpoints.
+A Saved endpoint beyond the draft's fork needs its own retained path/window; the
+single-path helper reports that case without changing the output. This is structural
+planning, not a payload decoder, archive profile, mutation producer, replay or GC.

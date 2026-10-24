@@ -254,3 +254,11 @@ Its private frame checkpoint rejects zero layout/grid geometry immediately after
 sheet switches. Input waits for painted target rectangles. Queued native End,
 visible offscreen text and exact Working viewport/selection retention are checked
 through actual UI rendering, with no broad suite or human acceptance flag.
+
+`history-path` runs the49-case structural path/join proof plus the anchor/window
+modules in optimized/sanitized builds. Coverage includes shared ancestor prefixes,
+abandoned suffixes, forked Saved rejection, complete Redo, prefix gaps, malformed
+operation/lineage/position order, aliases, presentation-only boundaries, empty and
+exhausted clocks,100,000 transitions and unchanged output on rejection. It has no
+GUI/database and does not decode/admit durable event payloads; App history and
+preview interactions remain deferred in the registered feature plan.
