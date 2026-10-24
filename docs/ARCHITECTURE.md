@@ -105,6 +105,12 @@ checks root-to-leaf identity/hash/size and total reserved bytes, then writes
 codec-v1 `_duxcel_versions` metadata/roots/tags and64 KiB BLOB chunks. Leaves are
 verified before/after consumption. READY does not commit; failure requires caller
 rollback. Strict decode/closure and whole-file compatibility remain separate.
+`version_codec.c` shares the four-table/18-column version family inventory.
+Native `version_read.c` first admits its exact physical shape and bounded
+NULL/length/count observations, then copies typed roots/tags into an owned
+immutable metadata handle and validates references/generations/storage bounds.
+Its transaction proof is shared with the encoder. Metadata READY is deliberately
+separate from chunk/hash/embedded-model closure; no live model is adopted.
 Archive closure and App adoption remain W11a2/W11a3; native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each

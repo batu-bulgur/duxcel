@@ -169,7 +169,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.3b · P1 · In progress | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
 | W11a2.3b1 · P1 · Complete | Pure bounded chunk framing; W11a2.3a. | Reserved uint64 byte bounds, exact64 KiB framing, gap/duplicate/NULL/trailing/truncation rejection without allocation or IO. Shared optimized/sanitizer module gate. |
 | W11a2.3b2 · P1 · Complete | Transactional native chunk encoding; W11a2.3b1. | Stage verified core leaves as bounded SQL BLOB chunks and typed roots/index inside a caller-owned explicit transaction/fresh schema. Reject autocommit/overwrite; caller rollback on cancellation/failure. Keep App publication separate. |
-| W11a2.3b3 · P1 · Queued | Staged native chunk decoding and payload closure; W11a2.3b2. | Validate complete index/references/types/bytes/hash/core identity before returning owned leaves; no live-model replacement on failure. |
+| W11a2.3b3 · P1 · In progress | Staged native chunk decoding and payload closure; W11a2.3b2. | Validate complete index/references/types/bytes/hash/core identity before returning owned leaves; no live-model replacement on failure. |
+| W11a2.3b3a · P1 · Complete | Bounded typed version metadata reader; W11a2.3b2. | Validate shared codec inventory, NULLs, bounded labels/roots, positions/references/generations and explicit byte reservation under a borrowed read transaction. No payload/closure admission claim. |
+| W11a2.3b3b · P1 · Queued | Owned chunk extraction and core admission; W11a2.3b3a. | Stream exact complete chunks into private leased leaves; validate hashes, inner v15 model/document association and full core root closure before return. |
 | W11a2.3c · P1 · Queued | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
 | W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
@@ -254,6 +256,16 @@ optimized/ASan/UBSan SQL tests. Exact chunk bytes, shared tag leaves, Unicode
 labels, private visibility, multi-root cancellation, rollback, empty index and
 existing-schema protection pass. This encoder neither changes native fileversion
 nor publishes a user pointer; strict decoding/closure follows W11a2.3b3.
+
+W11a2.3b3a complete: the bounded native metadata reader validates the shared
+four-table/18-column codec inventory before typed row admission. It preflights
+keys/labels/counts, enforces ordered positions, UTF-8 labels, generations,
+references and reserved aggregate bytes, and owns returned arrays independently
+of SQL results. Pure transaction proof is shared with the encoder. The scoped
+`version-metadata` gate passes378 reader checks per optimized/ASan/UBSan build
+plus the adjusted staging module in6.220s; cancellation leaves out unchanged.
+Zero-byte-pattern keys remain valid identities. Metadata READY explicitly does
+not admit chunk contents; extraction/hash/inner-model closure is W11a2.3b3b.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

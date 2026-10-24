@@ -281,3 +281,12 @@ autocommit refusal, pre/post verification, cancellation before/between/after
 chunks, caller rollback, no helper COMMIT, empty index and reserved-schema safety.
 The `version-stage` gate includes pure index/chunk modules and native optimized/
 ASan/UBSan runs; whole-file Open/Save remains a named deferred interaction.
+
+`test_version_read.c` exercises bounded native metadata admission from the real
+staging codec, then transactionally corrupts shape/types/NULLs, positions, key
+lengths/references, tag counts/labels/generations and reserved bytes. It covers
+UINT64_MAX/zero-pattern identities, case-folded/reordered columns, ownership
+beyond SQL result lifetime and cancellation without replacing out. The
+`version-metadata` gate also reruns staging after its shared inventory/transaction
+extraction. Missing chunks remain an explicit later closure gate, never an
+accepted complete workbook/root.

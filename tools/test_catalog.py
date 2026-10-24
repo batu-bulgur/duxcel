@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-metadata": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui"),
+        ("src/workbook/version_read.c", "src/workbook/version_read.h", "src/workbook/version_codec.c", "src/workbook/version_sql.c", "tests/test_version_read.c"),
+        ("version_read", "version_stage")),
     "version-stage": Feature(("version_index", "version_chunks"), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature workbook-archive"),
         ("src/workbook/version_stage.c", "src/workbook/version_stage.h", "tests/test_version_stage.c"),

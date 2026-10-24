@@ -1,5 +1,7 @@
 #include "version_stage.h"
 #include "version_chunks.h"
+#include "version_codec.h"
+#include "version_sql.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,16 +16,8 @@ static bool exec(duckdb_connection c,const char *sql,char **error) {
     duckdb_result result={0}; bool ok=duckdb_query(c,sql,&result)==DuckDBSuccess;
     if (!ok) fail(error,duckdb_result_error(&result)); duckdb_destroy_result(&result); return ok;
 }
-static bool transaction_id(duckdb_connection c,uint64_t *out,char **error) {
-    duckdb_result r={0}; bool ok=duckdb_query(c,"SELECT current_transaction_id()",&r)==DuckDBSuccess;
-    if (!ok) fail(error,duckdb_result_error(&r));
-    else if (duckdb_row_count(&r)!=1 || duckdb_column_count(&r)!=1 || duckdb_column_type(&r,0)!=DUCKDB_TYPE_UBIGINT || duckdb_value_is_null(&r,0,0)) ok=fail(error,"Cannot verify the version transaction owner.");
-    if (ok) *out=duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r); return ok;
-}
 static bool fresh_transaction(duckdb_connection c,char **error) {
-    uint64_t a=0,b=0;
-    if (!transaction_id(c,&a,error) || !transaction_id(c,&b,error)) return false;
-    if (a!=b) return fail(error,"Version staging requires a caller-owned explicit transaction; autocommit was rejected.");
+    if (!workbook_version_sql_transaction(c,error)) return false;
     duckdb_result r={0};
     bool ok=duckdb_query(c,"SELECT count(*) FROM information_schema.schemata WHERE catalog_name=current_database() AND schema_name='_duxcel_versions'",&r)==DuckDBSuccess;
     if (!ok) fail(error,duckdb_result_error(&r));
@@ -62,11 +56,12 @@ WorkbookVersionStageResult workbook_version_stage(duckdb_connection c,const Work
     if (stopped(&stage,0,error)) return VERSION_STAGE_CANCELLED;
     if (!fresh_transaction(c,error)) return VERSION_STAGE_FAILED;
     for (size_t i=0;i<count;i++) { stage.root=i; if (!verify(leaves[i],&stage,error)) return stage.stopped ? VERSION_STAGE_CANCELLED : VERSION_STAGE_FAILED; }
-    if (!exec(c,"CREATE SCHEMA _duxcel_versions;"
-        "CREATE TABLE _duxcel_versions.meta(codec INTEGER,document_high UBIGINT,document_low UBIGINT,generation UBIGINT,saved_generation UBIGINT,saved_present BOOLEAN,saved_key BLOB);"
-        "CREATE TABLE _duxcel_versions.roots(position INTEGER,key BLOB,bytes UBIGINT,encoding INTEGER,PRIMARY KEY(position),UNIQUE(key));"
-        "CREATE TABLE _duxcel_versions.tags(position INTEGER,label VARCHAR,root BLOB,created UBIGINT,PRIMARY KEY(position),UNIQUE(label));"
-        "CREATE TABLE _duxcel_versions.chunks(root BLOB,position UBIGINT,data BLOB,PRIMARY KEY(root,position));",error)) return VERSION_STAGE_FAILED;
+    if (!exec(c,"CREATE SCHEMA _duxcel_versions",error)) return VERSION_STAGE_FAILED;
+    for (size_t i=0;i<DX_VERSION_CODEC_TABLES;i++) {
+        const WorkbookVersionCodecTable *table=workbook_version_codec_table(i);
+        char *create=dx_printf("CREATE TABLE _duxcel_versions.%s(%s)",table->name,table->definition);
+        bool created=exec(c,create,error); free(create); if (!created) return VERSION_STAGE_FAILED;
+    }
     const char *sql[]={"INSERT INTO _duxcel_versions.meta VALUES (1,?,?,?,?,?,?)","INSERT INTO _duxcel_versions.roots VALUES (?,?,?,?)","INSERT INTO _duxcel_versions.tags VALUES (?,?,?,?)","INSERT INTO _duxcel_versions.chunks VALUES (?,?,?)"};
     duckdb_prepared_statement statements[4]={0}; FILE *file=NULL; bool ok=false;
     for (size_t i=0;i<4;i++) if (!prepare(c,sql[i],statements+i,error)) goto done;
