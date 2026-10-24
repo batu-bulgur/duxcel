@@ -248,10 +248,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3 · P1 · In progress | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
 | W12c.3c.3a · P1 · In progress | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
 | W12c.3c.3a.1 · P1 · Complete | Resolved-relation event admission; W12c.3c.2. | Reject retained events containing unresolved DATABASE primary/Table definitions before reservation; preserve legacy/core packet compatibility and distinguish NULL default selection from invalid empty identifiers. |
-| W12c.3c.3a.2 · P1 · In progress | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
+| W12c.3c.3a.2 · P1 · In progress | Origin completion integration; W12c.3c.3a.1. | Establish current loaded/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
 | W12c.3c.3a.2a · P1 · Complete | Immutable working-origin model; W12c.3c.3a.1 and canonical definition/source/format assets. | Exact runtime/request/primary/Table fences admit only default-relation completion while OPEN, then one canonical arena seals ADMITTED. No user action, mutation of Saved roots or App activation. |
-| W12c.3c.3a.2b · P1 · Complete | Origin-owned baseline bridge and precise memory admission; W12c.3c.3a.2a. | Derive open/epoch proof from the actual opaque owner, normalize before sealing, budget all owned assets/parser scratch and retain terminal origin bytes. App reply integration and new-primary publication stay explicit. |
-| W12c.3c.3a.2c · P1 · In progress | Native default-reply and verified baseline adapters; W12c.3c.3a.2b. | Charge every live OPEN/ADMITTED origin, including suspended Working Head ownership, and route primary/loaded-Table completions and legacy baseline through the actual typed owner before sealing. New-primary pending publication remains separate. |
+| W12c.3c.3a.2b · P1 · Complete | Precise origin memory admission; W12c.3c.3a.2a. | Budget all owned assets/parser scratch and retain terminal origin bytes. The former migration baseline bridge is retired by current-only policy. App reply integration and new-primary publication stay explicit. |
+| W12c.3c.3a.2c · P1 · In progress | Native default-reply and origin adapters; W12c.3c.3a.2b. | Charge every live OPEN/ADMITTED origin, including suspended Working Head ownership, and route primary/loaded-Table completions through the actual typed owner before sealing. New-primary pending publication remains separate. |
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
@@ -288,8 +288,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4f · P1 · In progress | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
 | W12c.3c.3b.4f.1 · P1 · Complete | Native first source-format binding; W12c.3c.3b.4e. | Prepare the complete ledger/binding/format after-state, reserve before eviction, recheck current and retained ownership, then publish one action. Preserve no-op/stale/failure behavior for primary and Table. |
 | W12c.3c.3b.4f.2 · P1 · Complete | Already-bound source formatting; W12c.3c.3b.4f.1. | Reuse immutable admitted source versions, reserve/recheck effect8 and exact format history, and preserve Redo/dirty/clocks on no-op without relabeling legacy finite styles. |
-| W12c.3c.3b.4f.3 · P1 · Queued | Verified legacy baseline/origin admission; W12c.3c.3a.2, W12c.3c.3b.4f.2. | Normalize current/Undo/Redo formatting atomically only through an authoritative open working-origin owner. Never rewrite sealed Saved/recovery assets or manufacture a user action. Model precursor remains separate from App activation. |
-| W12c.3c.3b.4f.3a · P1 · Complete | Atomic baseline model prerequisite; W12c.3c.3b.4f.2. | Opaque independent plan owns the full normalized current/Undo/Redo formats, primary binding and immutable ledger; explicit origin epoch/open proof fences adoption without creating an action or altering Saved assets. App authority is still W12c.3c.3a.2. |
+| W12c.3c.3b.4f.3 · Retired | Saved-coordinate compatibility baseline admission. | Removed by current-only prerelease policy; no migration normalization or compatibility App activation remains required. Current origin completion remains W12c.3c.3a.2. |
+| W12c.3c.3b.4f.3a · Retired | Atomic saved-coordinate baseline model. | Compatibility planner, bridge and tests removed; current RAW/RESULT/GUARDED and source-binding commands retain their own coverage. |
 | W12c.4 · P1 · In progress | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.4.1 · P1 · Complete | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
 | W12c.4.2 · P1 · Complete | Manual-only row insertion/deletion; W12c.4.1. | Reuse complete sparse cell/format events and owner fences for bounded row actions. Keep column-width metadata, source/object axes and paste as explicit complete-effect prerequisites. |
@@ -1968,8 +1968,8 @@ before adoption. Main source `8ab4a6a` passes `source-format-bound` in 45.281s:
 ASan/UBSan builds, plus the real primary/Table first/bound workflow (66 hidden
 App stages, 32.102s). Executable and source hashes identify the private lane-tagged
 TEST copy. Receipt: `build/tests/results/runs/20261024T142057-feature-49788/summary.json`.
-Legacy baseline migration, source-origin closure and retained App writer
-activation remain open; this does not mark the parent composite family complete.
+Source-origin closure and retained App writer activation remain open; saved-format
+baseline migration is retired by prerelease policy; this does not mark the parent composite family complete.
 
 
 W13 integrated acceptance: historical preview offers Save As… / Cmd+Shift+S.
@@ -2036,8 +2036,8 @@ format arena. Independent legacy Saved models and user histories stay unchanged;
 sealed bytes survive the live model's disposal. The focused `definition-origin`
 gate passes 240 origin and 24 baseline assertions per optimized/ASan/UBSan build
 in 4.852s, zero App stages. Receipt: `runs/20261024T143049-feature-56008/summary.json`.
-The actual origin-to-baseline bridge, App adapters and new-source publication
-remain dependency work; this does not activate retained-history IO.
+Current origin App adapters and new-source publication remain dependency work;
+the former migration baseline bridge has been retired; this does not activate retained-history IO.
 
 
 W12c.3c.3a.2b integrated: `6e0e634` derives baseline phase/epoch from the actual
