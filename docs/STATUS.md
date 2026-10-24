@@ -13,7 +13,7 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 | UI | Native ribbon/shelves/panes/dialogs/keytips/keyboard history implemented, with remaining clipping/focus/narrow-window/state-matrix work. Current regressions use accepted native contracts, not a live mock. |
 | Typography | Bundled Plex Sans/JetBrains Mono, replacement glyph and failure-safe reload. Broader CJK/emoji and expanded atlas budgets remain open. |
 | Shared-C Wasm | Same C UI with official asynchronous DuckDB-Wasm Worker. Real import/PIVOT/statistics/copy/export and captured session registrations are implemented. A focused sheet-zoom row-label glyph comparison currently fails; build/import/Worker/codec/Guide passes do not close that visual check. Browser/IME/clipboard/WebGL/display matrix remains incomplete. |
-| Browser workbook persistence | Shared C/native/official-Worker metadata components cover definitions, filters, cells/columns, counters, ledger/bindings and base format rows. Whole-candidate validation/migration/writer/admission/recovery remain open; browser workbook Open/Save is unavailable. |
+| Browser workbook persistence | Shared C/native/official-Worker metadata components cover definitions, filters, cells/columns, counters, ledger/bindings and base format rows. Whole-candidate validation/writer/admission/recovery remain open; browser workbook Open/Save is unavailable. |
 | Review/feedback | Native and Wasm use the development-only C semantic registry and persistent external queue. Automatic triage is separate from implementing/verifying a report. All review code/commands/bridges are excluded from production. Services start only on explicit developer commands. |
 | Web publication | GitHub Pages builds the real shared-C Wasm app. Web tests run independently; publication requires build/package/browser smoke. Hosted native CI is manual/paused; no native Linux/Windows execution claim. |
 
@@ -229,7 +229,7 @@ orchestration passes 175 tests (19.62s), final workspace/generator checks pass 1
 The tag reader and JS transport are components, not an integrated official-Worker
 format continuation or browser Open/Save. Format-state transport, real browser/C
 admission/cancellation/retry, scopes/guards/memberships, whole-candidate validation,
-migration, writer/admission/recovery and App publication remain open.
+writer/admission/recovery and App publication remain open. Prerelease file migration is excluded.
 
 A clean optimized + O1 ASan/UBSan native build and signed macOS bundle are produced
 from the combined source. Hidden active-cell acceptance passes 41 stages in

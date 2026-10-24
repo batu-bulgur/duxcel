@@ -243,7 +243,7 @@ FEATURES = {
         ("python3 tools/test.py feature --feature format-delta-codec", "python3 tools/test.py feature --feature history-stream"),
         ("src/workbook/source_versions_codec.c", "src/workbook/source_versions_codec.h", "tests/test_source_versions_codec.c")),
     "current-core-metadata": Feature(("workbook_codec", "workbook_schema", "workbook_codec_read"), "",
-        ("python3 tools/test_web_codec_read.py", "python3 tools/test.py feature --feature current-core"),
+        ("python3 tools/test_web_app.py --codec-read-driver", "python3 tools/test.py feature --feature current-core"),
         ("src/workbook/workbook_codec.c", "src/workbook/schema.c", "src/workbook/workbook_codec_read.c", "tests/test_workbook_codec_native.c"),
         ("workbook_codec_native",)),
     "codec-test-cache": Feature(("format", "source_scope", "format_delta_codec"), "",
