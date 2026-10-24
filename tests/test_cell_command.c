@@ -1,4 +1,5 @@
 #include "workbook/cell_command.h"
+#include "workbook/history.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -128,7 +129,80 @@ static void pure_admission(void) {
     CHECK(workbook_check_cell_edit(&book,&c,manual,&error).status==CELL_EDIT_NOOP && !error);
     workbook_free(&book);
 }
+typedef struct { CellEditRecord record; unsigned char arena[128]; bool live; } RecordedCell;
+typedef struct {
+    Workbook *book;
+    RecordedCell events[48];
+    unsigned attempts,published,cancelled;
+    bool reject,race,empty,invalid_ticket;
+} RecorderTrace;
+static bool trace_reserve(void *context,const CellEditRecord *record,void **ticket,char **error) {
+    RecorderTrace *t=context; t->attempts++;
+    CHECK(!*ticket && record->revision==t->book->command_revision+1 && record->target.workbook.high==t->book->id.high && record->target.workbook.low==t->book->id.low);
+    CHECK(record->delta.sheet==record->target.sheet_id && record->delta.row==record->target.row && record->delta.column==record->target.column);
+    const char *current=cells_get(&t->book->sheets[0].cells,record->delta.row,record->delta.column);
+    CHECK(strlen(current)==record->delta.before_bytes && !memcmp(current,record->delta.before,record->delta.before_bytes));
+    if (t->reject) { if (error) { free(*error); *error=dx_strdup("Recorder capacity is full."); } return false; }
+    if (t->empty) return true; /* Deliberately malformed adapter. */
+    CHECK(t->published<48); RecordedCell *r=t->events+t->published; CHECK(!r->live);
+    r->record=*record; CHECK(cell_delta_capture(record->delta,r->arena,sizeof(r->arena),&r->record.delta)==CELL_DELTA_READY);
+    r->live=true; *ticket=r;
+    if (t->race) t->book->command_revision++; /* Test-only stale-owner injection. */
+    return !t->invalid_ticket;
+}
+static void trace_publish(void *context,void *ticket) {
+    RecorderTrace *t=context; RecordedCell *r=ticket; CHECK(r==t->events+t->published && r->live);
+    CHECK(t->book->command_revision==r->record.revision && t->book->dirty && t->book->sheets[0].undo_actions_count);
+    const char *current=cells_get(&t->book->sheets[0].cells,r->record.delta.row,r->record.delta.column);
+    CHECK(strlen(current)==r->record.delta.after_bytes && !memcmp(current,r->record.delta.after,r->record.delta.after_bytes));
+    r->live=false; t->published++;
+}
+static void trace_cancel(void *context,void *ticket) {
+    RecorderTrace *t=context; RecordedCell *r=ticket; CHECK(r==t->events+t->published && r->live);
+    r->live=false; t->cancelled++;
+}
+static void recorded_admission(void) {
+    Workbook b; workbook_init(&b); char *error=NULL; CHECK(workbook_add(&b,"Recorded",&(Analysis){0},&error)); b.dirty=false;
+    RecorderTrace t={.book=&b}; CellEditRecorder sink={trace_reserve,trace_publish,trace_cancel,&t};
+    CellEditCommand c={CELL_EDIT_COMMAND_VERSION,prepare(&b,0,1,1),"9007199254740993.12",sizeof("9007199254740993.12")-1};
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_APPLIED && !error);
+    CHECK(t.attempts==1 && t.published==1 && !t.cancelled && !t.events[0].record.delta.before_bytes && !memcmp(t.events[0].record.delta.after,c.text,c.bytes));
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_STALE && error); free(error); error=NULL;
+    c.target=prepare(&b,0,1,1);
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_NOOP && !error && t.attempts==1);
+    CHECK(workbook_history_step(&b,false,&error).status==WORKBOOK_HISTORY_APPLIED); b.dirty=false;
+    c.target=prepare(&b,0,1,1); c.text="Next"; c.bytes=4;
+    Workbook before=b; Worksheet sheet=b.sheets[0]; t.reject=true;
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_LIMIT && error && strstr(error,"capacity")); free(error); error=NULL;
+    CHECK(!memcmp(&before,&b,sizeof(b)) && !memcmp(&sheet,b.sheets,sizeof(sheet)) && t.published==1 && !t.cancelled && workbook_history_available(&b,true)); t.reject=false;
+    CellEditRecorder malformed=sink; malformed.publish=NULL; unsigned attempts=t.attempts;
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&malformed,&error).status==CELL_EDIT_INVALID && error); free(error); error=NULL;
+    CHECK(t.attempts==attempts && !memcmp(&before,&b,sizeof(b)) && !memcmp(&sheet,b.sheets,sizeof(sheet)));
+    t.empty=true;
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_INVALID && error); free(error); error=NULL; t.empty=false;
+    CHECK(t.published==1 && !t.cancelled && !memcmp(&before,&b,sizeof(b)));
+    t.invalid_ticket=true;
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_INVALID && error); free(error); error=NULL; t.invalid_ticket=false;
+    CHECK(t.cancelled==1 && t.published==1 && !memcmp(&before,&b,sizeof(b)));
+    t.race=true;
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_STALE && error); free(error); error=NULL; t.race=false;
+    CHECK(t.cancelled==2 && t.published==1 && b.command_revision==before.command_revision+1 && !memcmp(&sheet,b.sheets,sizeof(sheet)) && workbook_history_available(&b,true));
+    workbook_free(&b); workbook_init(&b); CHECK(workbook_add(&b,"Full",&(Analysis){0},&error)); b.dirty=false; t=(RecorderTrace){.book=&b};
+    Worksheet *s=b.sheets; s->cells.cells=dx_alloc(DX_MAX_EDIT_CELLS*sizeof(*s->cells.cells)); s->cells.count=s->cells.capacity=DX_MAX_EDIT_CELLS;
+    for (size_t i=0;i<s->cells.count;i++) s->cells.cells[i]=(SheetCell){i,0,dx_strdup("X")}; s->cells.bytes=2*s->cells.count;
+    c=(CellEditCommand){CELL_EDIT_COMMAND_VERSION,prepare(&b,0,DX_MAX_EDIT_CELLS,0),"New",3}; before=b; sheet=*s;
+    CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_LIMIT && error); free(error); error=NULL;
+    CHECK(t.attempts==1 && t.cancelled==1 && !t.published && !memcmp(&before,&b,sizeof(b)) && !memcmp(&sheet,s,sizeof(sheet)));
+    workbook_free(&b); workbook_init(&b); CHECK(workbook_add(&b,"Beyond rings",&(Analysis){0},&error)); t=(RecorderTrace){.book=&b};
+    for (unsigned i=0;i<40;i++) {
+        char text[32]; int n=snprintf(text,sizeof(text),"Value %u",i); c=(CellEditCommand){CELL_EDIT_COMMAND_VERSION,prepare(&b,0,1,1),text,(size_t)n};
+        CHECK(workbook_apply_cell_edit_recorded(&b,&c,manual,&sink,&error).status==CELL_EDIT_APPLIED && !error); memset(text,'x',(size_t)n);
+    }
+    CHECK(t.attempts==40 && t.published==40 && !t.cancelled && b.sheets[0].undo_actions_count==32 && b.sheets[0].history_floor);
+    CHECK(t.events[0].record.delta.after_bytes==7 && !memcmp(t.events[0].record.delta.after,"Value 0",7) && !memcmp(t.events[39].record.delta.before,"Value 38",8) && !memcmp(t.events[39].record.delta.after,"Value 39",8));
+    workbook_free(&b);
+}
 int main(void) {
-    basic_and_history(); identity_and_validation(); object_and_capacity(); pure_admission();
+    basic_and_history(); identity_and_validation(); object_and_capacity(); pure_admission(); recorded_admission();
     printf("PASS: %u cell command checks\n",checks); return 0;
 }

@@ -63,19 +63,48 @@ CellEditResult workbook_check_cell_edit(const Workbook *book,const CellEditComma
     }
     result.status=CELL_EDIT_READY; return result;
 }
-CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error) {
+static Worksheet *edit_sheet(Workbook *book,uint64_t id) {
+    for (size_t i=0;i<book->count;i++) if (book->sheets[i].id==id) return book->sheets+i;
+    return NULL;
+}
+CellEditResult workbook_apply_cell_edit_recorded(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,const CellEditRecorder *recorder,char **error) {
     CellEditResult result=workbook_check_cell_edit(book,command,policy,error);
     if (result.status!=CELL_EDIT_READY) return result;
-    const CellEditTarget *target=&command->target; Worksheet *sheet=NULL;
-    for (size_t i=0;i<book->count;i++) if (book->sheets[i].id==target->sheet_id) sheet=book->sheets+i;
+    const CellEditTarget *target=&command->target; Worksheet *sheet=edit_sheet(book,target->sheet_id);
+    void *ticket=NULL;
+    if (recorder) {
+        result.status=CELL_EDIT_INVALID;
+        if (!recorder->reserve || !recorder->publish || !recorder->cancel) { fail(error,"Cell recording is incomplete; your draft is kept."); return result; }
+        const char *before=cells_get(&sheet->cells,target->row,target->column);
+        CellEditRecord record={.target=*target,.revision=book->command_revision+1,
+            .delta={target->sheet_id,target->row,target->column,before,command->text,strlen(before),command->bytes}};
+        bool reserved=recorder->reserve(recorder->context,&record,&ticket,error);
+        if (!reserved || !ticket) {
+            bool invalid=reserved || ticket!=NULL;
+            if (ticket) recorder->cancel(recorder->context,ticket);
+            result.status=invalid ? CELL_EDIT_INVALID : CELL_EDIT_LIMIT;
+            if (!error || !*error) fail(error,"Cell recording is busy; your draft is kept.");
+            return result;
+        }
+        result=workbook_check_cell_edit(book,command,policy,error);
+        if (result.status!=CELL_EDIT_READY) { recorder->cancel(recorder->context,ticket); return result; }
+        sheet=edit_sheet(book,target->sheet_id);
+    }
     char *failure=NULL;
     result.status=CELL_EDIT_LIMIT;
     char *owned=dx_alloc(command->bytes+1);
     if (command->bytes) memcpy(owned,command->text,command->bytes);
     owned[command->bytes]=0;
     bool accepted=cells_set(&sheet->cells,target->row,target->column,owned,&failure); free(owned);
-    if (!accepted) { fail(error,failure ? failure : "Cell edit could not be applied."); free(failure); return result; }
+    if (!accepted) {
+        if (recorder) recorder->cancel(recorder->context,ticket);
+        fail(error,failure ? failure : "Cell edit could not be applied."); free(failure); return result;
+    }
     worksheet_record(sheet,EDIT_CELLS); workbook_history_note_edit(book); book->dirty=true; book->command_revision++;
     result.status=CELL_EDIT_APPLIED; result.after_revision=sheet->cells.revision; result.after_document_revision=book->command_revision;
+    if (recorder) recorder->publish(recorder->context,ticket);
     return result;
+}
+CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error) {
+    return workbook_apply_cell_edit_recorded(book,command,policy,NULL,error);
 }

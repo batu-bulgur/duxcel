@@ -1,6 +1,7 @@
 #ifndef DUXCEL_CELL_COMMAND_H
 #define DUXCEL_CELL_COMMAND_H
 #include "workbook.h"
+#include "cell_delta.h"
 
 #define CELL_EDIT_COMMAND_VERSION 2u
 typedef struct {
@@ -48,4 +49,27 @@ bool workbook_prepare_cell_edit(Workbook *book,size_t sheet,uint64_t row,size_t 
 /* Pure admission check; READY still requires apply after any journal reservation. */
 CellEditResult workbook_check_cell_edit(const Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
 CellEditResult workbook_apply_cell_edit(Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
+typedef struct {
+    CellEditTarget target; /* In-process fences, never serialized as a struct. */
+    uint64_t revision; /* Proposed next admitted document revision. */
+    CellDelta delta; /* Borrowed only during reserve; copy before returning. */
+} CellEditRecord;
+typedef struct {
+    /* One mutation owner; callbacks cannot mutate/reenter the workbook. Reserve
+       owns immutable payload bytes BEFORE cell/history mutation. Success gives
+       a non-NULL ticket; failure preserves NULL and may supply an owned error.
+       Publish/cancel consume that ticket exactly once and cannot fail/perform
+       synchronous IO. A writer failure after reservation keeps retry ownership. */
+    bool (*reserve)(void *context,const CellEditRecord *record,void **ticket,char **error);
+    void (*publish)(void *context,void *ticket);
+    void (*cancel)(void *context,void *ticket);
+    void *context;
+} CellEditRecorder;
+/* Shared admitted producer seam for recovery/future retained-event owners.
+   No-op/initial admission rejection never reserves. A changed command reserves exact before/after
+   bytes, rechecks its target, applies once, then publishes; model failure cancels
+   before any history/dirty/revision publication. NULL recorder is the ordinary
+   session-only path. This does not activate a durable history profile. */
+CellEditResult workbook_apply_cell_edit_recorded(Workbook *book,const CellEditCommand *command,
+    CellEditPolicy policy,const CellEditRecorder *recorder,char **error);
 #endif

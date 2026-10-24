@@ -777,3 +777,11 @@ by before/after bytes. Decode borrows the complete immutable asset after strict
 shape/value checks. The outer event/archive adapter must prove document binding,
 operation identity, digest and asset lifetime; this family does not select a
 `.dxls` version or activate durable Undo. No process struct is serialized.
+
+The shared cell command producer exposes `CellEditRecorder` with borrowed typed
+record/fence context and a single owned reservation ticket. No-op/stale input
+never calls it. A changed command reserves copied exact values before mutation,
+rechecks the target, applies one coherent cell/history/revision change, then
+publishes. Failure cancels the ticket; publish/cancel consume ownership once
+without synchronous IO. Native recovery is the first real adapter. Retained event
+identity/path/asset ownership is separate and not activated for partial producers.

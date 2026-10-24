@@ -205,6 +205,18 @@ bool workbook_journal_session_capture_versions(WorkbookJournalSession *s,const W
     if (c && c->versioned && c->versions==v.base && c->binding.owner.session==v.owner.session && !workbook_journal_session_needs_checkpoint(s,b)) return true;
     s->version_gap=true; return begin_generation(s,b,&v,error);
 }
+static bool reserve_cell_record(void *context,const CellEditRecord *record,void **ticket,char **error) {
+    WorkbookJournalSession *s=context; const CellDelta *d=&record->delta;
+    if (record->target.workbook.high!=s->expected.id.high || record->target.workbook.low!=s->expected.id.low)
+        return fail(error,"Cell backup belongs to a different workbook; your draft is kept.");
+    JournalCellEdit edit={.operation=s->operation,.previous_revision=record->target.expected_document_revision,.revision=record->revision,
+        .sheet=d->sheet,.row=d->row,.column=d->column,.before=d->before,.after=d->after,.before_bytes=d->before_bytes,.after_bytes=d->after_bytes};
+    JournalReservation *owned=NULL;
+    if (!workbook_journal_queue_reserve(s->active.queue,&edit,&owned,error)) return false;
+    *ticket=owned; return true;
+}
+static void publish_cell_record(void *context,void *ticket) { (void)context; workbook_journal_queue_publish(ticket); }
+static void cancel_cell_record(void *context,void *ticket) { (void)context; workbook_journal_queue_cancel(ticket); }
 CellEditResult workbook_journal_session_apply(WorkbookJournalSession *s,Workbook *b,const CellEditCommand *command,CellEditPolicy policy,char **error) {
     CellEditResult result=workbook_check_cell_edit(b,command,policy,error);
     if (result.status!=CELL_EDIT_READY) return result;
@@ -217,16 +229,9 @@ CellEditResult workbook_journal_session_apply(WorkbookJournalSession *s,Workbook
         if (!begin_generation(s,b,NULL,error)) return result;
     }
     if (s->operation.high==UINT64_MAX && s->operation.low==UINT64_MAX) { fail(error,"Recovery operation identity space is exhausted."); return result; }
-    const Worksheet *sheet=NULL; for (size_t i=0;i<b->count;i++) if (b->sheets[i].id==command->target.sheet_id) sheet=b->sheets+i;
-    const char *before=cells_get(&sheet->cells,command->target.row,command->target.column);
-    JournalCellEdit edit={.operation=s->operation,.previous_revision=b->command_revision,.revision=b->command_revision+1,.sheet=sheet->id,
-        .row=command->target.row,.column=command->target.column,.before=before,.before_bytes=strlen(before),.after=command->text,.after_bytes=command->bytes};
-    JournalReservation *reservation=NULL;
-    if (!workbook_journal_queue_reserve(s->active.queue,&edit,&reservation,error)) return result;
-    if (!++s->operation.low) s->operation.high++;
-    result=workbook_apply_cell_edit(b,command,policy,error);
-    if (result.status==CELL_EDIT_APPLIED) { workbook_journal_queue_publish(reservation); capture(&s->expected,b); }
-    else workbook_journal_queue_cancel(reservation);
+    CellEditRecorder recorder={reserve_cell_record,publish_cell_record,cancel_cell_record,s};
+    result=workbook_apply_cell_edit_recorded(b,command,policy,&recorder,error);
+    if (result.status==CELL_EDIT_APPLIED) { if (!++s->operation.low) s->operation.high++; capture(&s->expected,b); }
     return result;
 }
 JournalSessionState workbook_journal_session_state(WorkbookJournalSession *s,const Workbook *b) {

@@ -284,3 +284,12 @@ oracle, unsupported encoding, reserved bits, target/length bounds, trailing byte
 embedded NUL, no-op, raw Unicode/clear, maximum two-sided64-KiB values and unchanged
 outputs/arena on rejection. Native journal/App and history interactions stay
 implemented/deferred; this new family has no activated App/archive consumer.
+
+`cell-recorder` selects715 command and43 delta checks in both configurations,
+native journal-session modules and the18-stage hidden App journal workflow.
+The command fixture audits reserve-before-mutation, coherent publish, exact copied
+values, no-op/stale exclusion, backpressure preserving Redo/dirty state, malformed
+adapter cleanup, stale-fence fault injection, model-limit cancellation and40
+captured edits surviving32-entry session eviction. The named workbook-history
+interaction is run when this producer/coordinator boundary changes. Full App,
+filesystem faults and recovery versions remain separately registered coverage.

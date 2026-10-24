@@ -70,6 +70,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "cell-recorder": Feature(("cell_command", "cell_delta"), "journal-session",
+        ("python3 tools/test.py feature --feature workbook-history", "python3 tools/test.py feature --feature journal-faults", "python3 tools/test.py feature --feature recovery-versions"),
+        ("src/workbook/cell_command.c: reserve/recheck/apply/publish/cancel", "src/workbook/cell_command.h: typed record/admission context", "src/workbook/journal_session.c: native recorder adapter", "tests/test_cell_command.c: immutable recorder and pre-eviction admission"),
+        ("journal_session",)),
     "cell-delta-codec": Feature(("cell_delta_codec", "cell_delta"), "",
         ("python3 tools/test.py feature --feature cell-delta", "python3 tools/test.py feature --feature history-path"),
         ("src/workbook/cell_delta_codec.c", "src/workbook/cell_delta_codec.h", "tests/test_cell_delta_codec.c")),
