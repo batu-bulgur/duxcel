@@ -195,10 +195,14 @@ lock lifetime while cleanup removes build-local files. Active owner/conflict and
 replacement-lock cases are tested.
 
 Synthetic fixture production is `tools/create_workbook.py`, using the existing
-DuckDB CLI and the finite v12 `tests/fixtures/workbook/transactions.sql` input.
+DuckDB CLI and finite current core15/container16 SQL inputs under
+`tests/fixtures/workbook/`.
 No C generator, Python DuckDB package or second generic workbook writer is used.
-`tests/test_fixture.c` separately verifies product load/PIVOT/typed values and
-save/reload on canonical/large files (44 checks per optimized/sanitizer run).
+`tests/test_fixture.c` independently verifies current archive/root ownership,
+actual PIVOT, exact typed values, identity and version Save/reopen on canonical
+and large inputs (98 checks per optimized/sanitizer run). The combined focused
+`current-fixture` gate passes in34.963s without GUI; its separate narrow
+workbook-save interaction remains deferred to the desktop handoff.
 
 Incremental native App/review/fixture-test builds default to eight compilation
 jobs (`BUILD_JOBS`), sharing the recursive Make jobserver. A clean optimized
