@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "definition-state": Feature(("definition_state",), "",
+        ("python3 tools/test.py feature --feature objects-asset", "python3 tools/test.py native --scenario pivot chart table --config sanitize"),
+        ("src/workbook/definition_state.c", "src/workbook/definition_state.h", "tests/test_definition_state.c")),
     "definition-dependencies": Feature(("definition_dependencies", "format_dependencies", "source_versions_codec", "source_scope"), "",
         ("python3 tools/test.py feature --feature objects-asset", "python3 tools/test.py feature --feature history-format"),
         ("src/workbook/definition_dependencies.c", "src/workbook/definition_dependencies.h", "src/workbook/source_versions_codec.c: immutable subset ownership", "src/workbook/source_scope.c: ordered borrowed lookup", "src/workbook/format_dependencies.c", "tests/test_definition_dependencies.c")),

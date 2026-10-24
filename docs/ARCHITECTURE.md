@@ -924,3 +924,17 @@ metadata subset pins required versions and allocator obligations without issuing
 queries, retaining datasets or assigning historical high-water over live state.
 Full canonical definition validation, source/schema activation proof and compound
 event/revision admission remain separate owners.
+
+
+`workbook/definition_state.c` owns the pure retained-event intent/preimage
+projection, distinct from SQL-result equivalence and checkpoint byte equality.
+It keeps exact nullable text and visible field/object order, source bindings and
+stored attributes, while excluding schema-derived NumberType/query epochs.
+Pivot/Table extents change on worker count/result publication without user actions;
+those are computed and excluded, while Chart dimensions are authored and strict.
+Checkpoint object assets still preserve captured extents; replay must associate
+or invalidate results explicitly rather than treating those dimensions as proof
+of fresh output. Default schema/table completion also occurs without a user action
+(App worker publication and objects_resolve_source). Its source identity remains
+strict: the baseline/resolution owner must close that enrichment against retained
+origins/replay before activation, not silently weaken source-name comparison.
