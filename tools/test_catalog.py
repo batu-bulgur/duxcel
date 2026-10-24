@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "worker-archive": Feature((), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition"),
+        ("src/data/worker_archive.c", "src/data/worker_archive.h", "tests/test_worker_archive.c"),
+        ("worker_archive", "worker_native", "worker_save")),
     "legacy-version-seed": Feature((), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition"),
         ("src/workbook/version_seed.c", "src/workbook/version_seed.h", "src/workbook/version_restore.c: atomic ownership adoption", "src/workbook/version_read.c: owned metadata copy", "tests/test_version_seed.c"),

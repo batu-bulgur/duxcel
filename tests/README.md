@@ -357,3 +357,11 @@ private R+1 checkpoint still carries Saved R. It also covers exact non-NUL label
 span copying, atomic leaf/metadata ownership transfer, cancellation/reservation
 and changed-source rejection. `legacy-version-seed` runs seeding, metadata and
 closure modules in optimized/ASan/UBSan builds; App adoption remains separate.
+
+`test_worker_archive.c` uses the real native adapter with private capture/named-
+file PUBLISH barriers. It verifies legacy Saved seeding without source writes,
+unchanged root reuse, retained input lifetime after queued App-owner retirement,
+internal cancellation versus final publication, independent R+1 edits, real v16
+reopen and transferred store lifetime after worker shutdown. `worker-archive`
+also runs protocol/ordered Save modules. Hooks exist only in feature-specific
+adapter/test objects; production/native and Wasm inventories exclude them.

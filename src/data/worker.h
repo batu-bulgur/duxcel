@@ -174,6 +174,7 @@ typedef struct {
 } QueryWorker;
 bool worker_start(QueryWorker *w);
 void worker_submit(QueryWorker *w, QueryJob *job); /* Takes job; a native Save in progress rejects replacement jobs without losing its receipt. App owns IO admission. */
+void worker_job_free(QueryJob *job); /* Dispose an unsubmitted owned job, including its native task. */
 QueryReply *worker_poll(QueryWorker *w); /* transfers reply */
 void worker_cancel(QueryWorker *w);
 #ifndef DUXCEL_BROWSER_HOST

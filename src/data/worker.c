@@ -100,6 +100,7 @@ static void job_free(QueryJob *j) {
 #endif
     if (j) { if (j->kind==JOB_VERIFY_SOURCE || j->kind==JOB_COLLECT_RECORDS) source_digest_rejected_analysis(&j->analysis); copy_request_free(j->copy); statistics_request_free(j->statistics); analysis_free(&j->analysis); pivot_free(&j->pivot); if (j->workbook) { workbook_free(j->workbook); free(j->workbook); } free(j->path); free(j->column); free(j->search); free(j->date_start); free(j->date_end); free(j); }
 }
+void worker_job_free(QueryJob *j) { job_free(j); }
 void reply_free(QueryReply *r) {
     if (!r) return;
 #ifndef DUXCEL_BROWSER_HOST

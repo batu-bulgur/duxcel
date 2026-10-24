@@ -154,9 +154,14 @@ preparation remains cancellable until named-file publication. `version_seed.c` r
 before edits begin, without rewriting the source file. Bounded metadata copying
 and atomic adoption of verified owned leaves avoid an extra archive round-trip;
 source identity remains unchanged. This supplies the older Saved R to a first
-private R+1 checkpoint before user-file upgrade. The real versioned IO adapter,
-App publication and recovery adoption remain W11a3.2b2-W11a3.4; normal App files
-still use v1-v15.
+private R+1 checkpoint before user-file upgrade. `data/worker_archive.c` owns typed native file contexts, retained input stores,
+prepared receipts/candidates and legacy Saved seeding. Its UI-side constructor
+only allocates/copies/refcounts; the worker creates working folders and executes
+all native IO. Owned context/store retirement uses the background queue, with
+synchronous fallback only after stop/shutdown. Internal capture publication is
+kept distinct from named-file cancellation, and outputs outlive the worker when
+explicitly transferred. App job construction/publication and recovery adoption
+remain W11a3.3-W11a3.4; normal App files still use v1-v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain
