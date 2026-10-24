@@ -178,7 +178,9 @@ remains dirty. Keep the write owner separate from historical display ownership,
 even when both share a durable document ID. Payload reuse needs full supported
 content evidence; current command clocks alone cannot identify every mutation.
 In particular, a private checkpoint of R+1 may contain an older Latest Saved R:
-its complete supported payload must travel with the checkpoint. A flat current
+its complete supported payload must travel with the checkpoint. State identities
+must also remain unambiguous across independent Save As artifacts that share a
+durable document ID. A flat current
 root plus an old dangling saved ID is insufficient. W11a2 establishes this
 closure before W11a3 publishes user-visible saved metadata.
 
@@ -494,22 +496,18 @@ named interaction/full-milestone check; the existing object-archive CLI provides
 a smaller edit-time path. Final full native/lifecycle/Open acceptance remains
 W10c3b; the shared-C/official-Worker controls boundary has passed in 59.001s.
 
-W10c3b milestone integration is continuing. The complete optimized/sanitizer
-engine matrix, owned crash/restart, fault injection and standalone App workflows
-passed. Broad layout exposed stale generic source-format, active-origin selection
-and inspector geometry assumptions. Generic controls now use manual cells or
-whole-column defaults, while dedicated Verify/Collect/Commit record tests remain.
-Fixture setup explicitly separates Steps and SQL layout preferences. Focused
-sanitizer checks pass148 formatting,34 inspector/preview,43 pane-motion,48 joined
-source-menu/canvas/readout and24 criteria/select stages; the last three GUI runs
-took24.536s,25.283s and19.358s. Registered continuation profiles preserve all950
-layout stages without repeatedly replaying completed prefixes. Remaining layout,
-native scenarios and lifecycle/Open gates are still open. The source-format
-fixture now starts a clean document rather than retaining unrelated legacy sheets
-in its Save closure; all43 sanitizer stages pass in22.924s, preserving the
-all-sheet legacy-format Save guard. All49 runner/catalog contracts pass.
-Current receipts and
-source/binary fingerprints are under ignored build/tests/results/.
+W10c3b milestone integration: the complete optimized/sanitizer engine matrix,
+owned crash/restart and fault checks passed. All950 layout stages have scoped,
+overlapping App coverage, including source-format, memory-denial/retry and manual
+range persistence. All440 other native stages now pass with the real NYC fixture.
+Legacy fixture mutations record aligned command histories; budget preparation
+follows workbook-wide Undo and opens actual cell drafts. Save checks wait for
+dependent results and first viewport paint, preserving the R/R+1 fence.
+The final Table73/Query47/Unique32 workflows pass in37.402s/24.664s/15.634s;
+all49 runner/catalog contracts pass. Shared-C/Wasm compilation passes. The final
+combined layout run and macOS lifecycle/Finder Open gates remain open; browser
+persistence and physical input are not claimed. Receipts/source/binary hashes
+remain under ignored build/tests/results/.
 
 ### Owned data, refresh and complete analytical results
 

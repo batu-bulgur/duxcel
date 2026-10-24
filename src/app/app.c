@@ -9468,7 +9468,10 @@ static bool smoke_budget_book(const char *path,const char *source,char **error) 
 static bool smoke_budget_pressure(App *a,char **error) {
     if (a->book.count!=SMOKE_BUDGET_SHEETS || a->book.active || !source_format_origin_valid(a)) return false;
     a->modal=MODAL_GUIDE;
-    for (size_t sheet=0;sheet<a->book.count;sheet++) {
+    /* Seed the active sheet last: workbook-chronological Undo must place
+       its history on Redo, leaving the padding sheets' retained history intact. */
+    for (size_t remaining=a->book.count;remaining;remaining--) {
+        size_t sheet=remaining-1;
         Worksheet *s=a->book.sheets+sheet; size_t patches=s->formats.count;
         for (size_t i=0;i<DX_FORMAT_PATCHES-patches;i++) {
             CellFormat value=format_default(); value.color=1;
@@ -13321,7 +13324,7 @@ static void layout_smoke_step(App *a,int *step) {
         workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-preserved.dxls");
         if (a->io_busy || a->request_id!=budget_state.request ||
             !smoke_same_fixture("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget-preserved.dxls")) goto failed;
-        grid_select_cell(&a->grid,700,9,false); input_set(&a->input,"Budget released");
+        grid_select_cell(&a->grid,700,9,false); open_modal(a,MODAL_CELL); input_set(&a->input,"Budget released");
         if (!commit_cell(a) || s->cells.revision!=budget_state.cell_revision+1 || s->formats.revision!=budget_state.format_revision ||
             s->redo_actions_count || s->formats.redo_count) goto failed;
         WorkbookFormatUsage usage={0};
@@ -13396,7 +13399,7 @@ static void layout_smoke_step(App *a,int *step) {
         source_format_schedule(a);
         if (!a->source_format_attempt.valid || a->source_format_attempt.deferred || a->source_format.active ||
             a->request_id!=budget_state.request || !smoke_budget_work(a,&budget_state,0) || !a->message || !strstr(a->message,"exhausted format revision")) goto failed;
-        grid_select_cell(&a->grid,700,9,false); input_set(&a->input,"Revision exhausted");
+        grid_select_cell(&a->grid,700,9,false); open_modal(a,MODAL_CELL); input_set(&a->input,"Revision exhausted");
         if (!commit_cell(a) || s->cells.revision!=budget_state.cell_revision+1) goto failed;
         grid_select_cell(&a->grid,0,0,false); a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()-1000;
         source_format_schedule(a); break;
@@ -13792,7 +13795,10 @@ static void navigation_smoke_step(App *a,int *step) {
     if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
     switch (*step) {
     case 0:
-        if (a->page.total!=6 || !cells_set(&s->cells,10,5,"Original note",&error) || objects_add(&s->objects,12,5,"Saved pivot",&error)<0) goto failed;
+        if (a->page.total!=6 || !cells_set(&s->cells,10,5,"Original note",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS);
+        if (objects_add(&s->objects,12,5,"Saved pivot",&error)<0) goto failed;
+        worksheet_record(s,EDIT_OBJECTS);
         grid_set_width(&a->grid,1,188); request=a->request_id; page=a->page.cells;
         if (!workbook_rename(&a->book,0,"Data İ",&error)) goto failed; break;
     case 1:
@@ -13800,7 +13806,9 @@ static void navigation_smoke_step(App *a,int *step) {
         a->sheet_menu_index=0; a->sheet_action=SHEET_ACTION_DUPLICATE; process_sheet_action(a); break;
     case 2:
         if (a->book.count!=2 || a->book.active!=1 || strcmp(s->name,"Data İ (2)") || strcmp(cells_get(&s->cells,10,5),"Original note") || s->objects.count!=1 || fabsf(a->grid.widths[1]-188)>1) goto failed;
-        if (!cells_set(&s->cells,10,5,"Copy note",&error) || !workbook_rename(&a->book,1,"Copy",&error)) goto failed;
+        if (!cells_set(&s->cells,10,5,"Copy note",&error)) goto failed;
+        worksheet_record(s,EDIT_CELLS);
+        if (!workbook_rename(&a->book,1,"Copy",&error)) goto failed;
         request=a->request_id; page=a->page.cells; a->sheet_menu_index=1; a->sheet_action=SHEET_ACTION_UP; process_sheet_action(a); break;
     case 3:
         if (a->book.active || strcmp(s->name,"Copy") || strcmp(cells_get(&a->book.sheets[1].cells,10,5),"Original note") || a->request_id!=request || a->page.cells!=page) goto failed;
@@ -13836,7 +13844,7 @@ static void navigation_smoke_step(App *a,int *step) {
         if (!a->ribbon_layout.valid || !collapsed) goto failed; } break;
     case 12:
         smoke_snapshot("build/tests/results/sheet-navigation/ribbon-overflow-150.png");
-        puts("PASS: native sheet rename, independent duplication, reorder without queries, hide/unhide, version 5 visibility save/reopen and narrow ribbon overflow"); break;
+        puts("PASS: native sheet rename, independent duplication, reorder without queries, hide/unhide, current-format visibility save/reopen and narrow ribbon overflow"); break;
     }
     free(error); (*step)++; return;
 failed: fprintf(stderr,"FAIL: sheet navigation smoke at stage %d: %s (%s)\n",*step,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
@@ -13973,7 +13981,10 @@ static void statistics_smoke_step(App *a,int *step) {
         break;
     case 13: {
         char *error=NULL; Worksheet *sheet=active_sheet(a);
-        if (!cells_set(&sheet->cells,100,20,"NULL",&error) || !cells_set(&sheet->cells,101,20,"42",&error)) { free(error); goto failed; }
+        if (!cells_set(&sheet->cells,100,20,"NULL",&error)) { free(error); goto failed; }
+        worksheet_record(sheet,EDIT_CELLS);
+        if (!cells_set(&sheet->cells,101,20,"42",&error)) { free(error); goto failed; }
+        worksheet_record(sheet,EDIT_CELLS);
         a->statistics_mask=255; grid_select_cell(&a->grid,100,20,false); a->grid.end_row=102; break;
     }
     case 14:
@@ -13983,6 +13994,7 @@ static void statistics_smoke_step(App *a,int *step) {
     case 15: {
         if (a->page.total!=5) goto failed;
         char *error=NULL; if (!cells_set(&active_sheet(a)->cells,5,2,"NULL",&error)) { free(error); goto failed; }
+        worksheet_record(active_sheet(a),EDIT_CELLS);
         grid_select_cell(&a->grid,0,2,false); a->grid.end_row=6; break;
     }
     case 16:
@@ -14354,7 +14366,7 @@ static void document_smoke_step(App *a,int *step) {
         discard_pending=true; return;
     case 8:
         if (a->exit_ready || !a->book.dirty || a->modal!=MODAL_ERROR || a->document_action!=DOCUMENT_NONE || strcmp(cells_get(&active_sheet(a)->cells,0,0),"After")) goto failed;
-        a->modal=MODAL_NONE; input_set(&a->input,"After"); a->book.dirty=false;
+        a->modal=MODAL_NONE; open_modal(a,MODAL_CELL); input_set(&a->input,"After"); a->book.dirty=false;
         if (!commit_cell(a) || a->book.dirty) goto failed;
         a->book.dirty=true; break;
     case 9:
@@ -14376,9 +14388,11 @@ static void table_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=73 || a->busy || a->io_busy || a->values_loading) return;
     if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
     ObjectStore *store=&active_sheet(a)->objects; char *error=NULL;
+    static bool save_capture_ready;
     static Cell *other_table,*other_pivot,*moved_table; static uint64_t table_id,idle_request,restore_jobs,restore_counts;
     switch (*step) {
     case 0:
+        save_capture_ready=false;
         grid_select_cell(&a->grid,2,1,false);
         if (!import_table(a,"tests/fixtures/transactions.csv")) goto failed;
         break;
@@ -14521,7 +14535,13 @@ static void table_smoke_step(App *a,int *step) {
     case 25:
         if (!object_ready(a,0)) return;
         if (a->objects[0].page.total!=5 || a->objects[0].page.columns[1].filtered || store->items[0].source.filter_column || !store->items[0].source.sort_column) goto failed;
-        grid_select_cell(&a->grid,2,store->items[1].col,false); a->selected_object=1; a->pivot_reveal_object=true;
+        if (!save_capture_ready) {
+            grid_select_cell(&a->grid,2,store->items[1].col,false); a->selected_object=1; a->pivot_reveal_object=true;
+            save_capture_ready=true; return;
+        }
+        /* Capture after the dependent Pivot and its first reveal have settled;
+           a later result/layout is correctly treated as R+1 by the Save fence. */
+        if (!object_ready(a,1)) return;
         workspace_job(a,JOB_SAVE,"build/tests/generated/app-tables.dxls"); break;
     case 26:
         if (a->book.dirty || store->count!=6) goto failed;
@@ -14809,8 +14829,10 @@ static void query_smoke_step(App *a,int *step) {
     ObjectStore *store=&active_sheet(a)->objects;
     static Cell *table_cells,*pivot_cells,*other_cells,*primary_cells;
     static size_t undo_count; static uint64_t idle_request;
+    static bool menu_save_started;
     switch (*step) {
     case 0:
+        menu_save_started=false;
         grid_select_cell(&a->grid,2,1,false); if (!import_table(a,"tests/fixtures/transactions.csv")) goto failed; break;
     case 1:
         if (!object_ready(a,0)) return;
@@ -14947,9 +14969,13 @@ static void query_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_SOURCE_QUERY || a->query_object!=3 || a->request_id!=idle_request) goto failed;
         smoke_snapshot("build/tests/results/source-query/database-query-150.png"); submit_source_query(a);
         if (a->modal!=MODAL_NONE || a->request_id!=idle_request || store->items[3].source.query) goto failed;
-        ui_set_scale(&a->ui,1); SetWindowSize(1280,820);
-        remove("build/tests/generated/app-source-menu.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-source-menu.dxls"); break;
+        ui_set_scale(&a->ui,1); SetWindowSize(1280,820); break;
     case 36:
+        /* Allow the resized viewport to paint before capturing Save state. */
+        if (!menu_save_started) {
+            remove("build/tests/generated/app-source-menu.dxls"); workspace_job(a,JOB_SAVE,"build/tests/generated/app-source-menu.dxls");
+            menu_save_started=true; return;
+        }
         if (a->book.dirty) goto failed;
         puts("PASS: bounded 150 percent database table context menu, scrollable last action, End/Up focus reveal and query opening without SQL"); break;
     case 37: {

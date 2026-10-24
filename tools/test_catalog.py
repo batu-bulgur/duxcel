@@ -64,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "foundation-layout-end": Feature((), "foundation-layout-end",
+        ("python3 tools/test.py native --scenario layout --config sanitize",),
+        ("src/app/app.c: inspector and manual range milestone workflow",)),
     "foundation-sources": Feature((), "foundation-sources",
         ("python3 tools/test.py native --scenario layout --config sanitize",),
         ("src/app/app.c: source-format and range milestone workflow",)),
