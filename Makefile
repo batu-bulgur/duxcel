@@ -760,7 +760,8 @@ filter-smoke: build/bin/duxcel-debug
 	mkdir -p build/tests/results/filter-keyboard
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --filter-smoke --frames 6200 --screenshot /tmp/duxcel-filter-smoke.png
 pivot-smoke: build/bin/duxcel-debug
-	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --pivot-smoke --frames 1560 --screenshot /tmp/duxcel-pivot-smoke.png
+	mkdir -p build/tests/results
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --pivot-smoke --frames 4800 --screenshot build/tests/results/pivot-smoke.png
 export-smoke: build/bin/duxcel-debug
 	mkdir -p build/tests/generated
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --export-smoke --frames 840 --screenshot /tmp/duxcel-export-smoke.png

@@ -79,7 +79,7 @@ NATIVE = (
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),
-    ("pivot", 45, 1800, "PASS: categorical Values default to distinct count"),
+    ("pivot", 45, 4800, "PASS: categorical Values default to distinct count"),
     ("export", 20, 1000, "PASS: worker Parquet export"),
     ("count", 12, 900, "PASS: background count"),
     ("clipboard", 13, 900, "PASS: cached source/manual/pivot rectangular copy"),

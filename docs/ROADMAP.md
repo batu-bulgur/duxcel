@@ -991,3 +991,12 @@ therefore insufficient. W12c.1–W12c.5 admit owned reversible events before mut
 and eviction, including composite actions; a late void record hook cannot promise
 durability. Keep the current session behavior until all supported producer families
 and the W12d publication path are ready; do not expose partial cross-session Undo.
+
+W11e broad receipt on `f888e33`: optimized/sanitized engine and metadata matrices,
+standalone GUI workflows, background/GPU, the full950-stage layout in610.147s,
+Base, Workspace and Filter passed. The command then reached Pivot stage31 while
+its real versioned Save was still running and exhausted the old1,800-frame
+budget; no Pivot assertion or sanitizer diagnostic fired. Its failure budget is
+now4,800 frames, with the same45 stages/terminal checks and completion-driven
+exit. Continue with the named Pivot and remaining native workflows rather than
+rerunning the completed broad matrix. No green full-command receipt is claimed.
