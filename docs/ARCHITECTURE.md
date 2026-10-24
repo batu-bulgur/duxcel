@@ -218,8 +218,8 @@ submits the reader job, adopts through that controller and restores Working Head
 before document Close/New/Open/Quit. Frame dispatch fences normal authoring,
 source scheduling, format publication and history synchronization while a reader
 is active; journal queue polling continues. Cancel invalidates the request epoch.
-A historical model has no Save destination; current preview blocks Save/Tag/Save
-As (historical fork is W13). Missing linked rows/analytical output values stay
+A historical model has no live Save destination; ordinary Save/Tag stays blocked.
+Historical Save As creates an independent export (W13). Missing linked rows/analytical output values stay
 explicitly unavailable and stored definitions are never re-executed. Changing the
 preview sheet affects its dedicated viewer only, including inspection of hidden
 sheets. Working Undo/Redo, dirty state, target identities, layout and recovery
@@ -1166,3 +1166,40 @@ exact single-object ranges without hidden manual cells through this producer,
 keeps result Pages/query epochs and adjusts selection/reveal. Mixed ranges keep
 their complete legacy cell/format/object constituent until W12c.4. Retained App
 writer activation and durable Undo remain separate.
+
+
+`object_create_command.c` prepares a complete independent graph with a prospective
+monotonic ID, validates source/geometry/dependency ownership and reserves before
+publishing one worksheet action. First-Table creation can compose the current
+manual-format mode transition without rewriting prior snapshots. The App retains
+job/readiness/governor ownership. `object_import_draft.c` keeps an unresolved
+DuckDB relation outside the authored graph: the private probe reply must match
+its request, sheet, source and destination before creation admission. It does not
+consume an object ID, alter the primary source or insert a placeholder. Cancel,
+stale replies and admission failures dispose the draft. The resolved Table then
+uses the ordinary result query/cache path. This does not activate durable event
+IO or retain external datasets.
+
+
+`source_format_command.c` owns the native first-binding transaction: complete
+immutable source-ledger candidate, primary or Table binding and independent
+format candidate, optional event reservation, full owner recheck and one action.
+Already-bound formatting uses the same source owner fence and existing effect8
+format payload while keeping the source ledger unchanged. The App adapter owns
+proof collection, queries, result readiness and memory-governor admission; it
+reserves retained parser scratch before planning and rechecks the full after-state
+before adoption. Legacy finite-style normalization still requires authoritative
+working-origin admission. These producers do not activate retained-history IO.
+
+
+Historical Save As snapshots the actual inspected workbook, assigns a fresh
+document/runtime export identity and submits `JOB_SAVE` with no inherited
+version index. Export receipts have a distinct intent and are polled before
+ordinary Save adoption. Neither success nor failure publishes the export path,
+version index or recovery owner into the suspended Working Head. The native
+archive transaction rejects an existing destination with the origin document ID.
+Optional `_duxcel_workspace.export_origin` metadata records immediate origin
+identity/root, has strict schema/value admission, survives native Save/Open and
+participates in complete-core equality. Ordinary files omit absent provenance;
+older strict readers reject files containing this extension. Missing external
+rows/results are not fabricated, and selected-history export remains W14.

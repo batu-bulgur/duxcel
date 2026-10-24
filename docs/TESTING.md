@@ -22,7 +22,8 @@ claim that changed filenames reveal every dependency.
 Local selection checks run only cells/ladder/controller logic in optimized and
 ASan/UBSan configurations, then one real release-App GUI slice. They retain
 terminal-stage checks, source/binary fingerprints, animation waits and the
-shared hidden-desktop lock. They omit the broad background-window check and
+shared native-service lock where the scenario accesses OS services. They omit
+the broad background-window check and
 unrelated modules/browser scenarios. Local About checks compile/link only the
 metadata and AppKit adapter plus their test, exercise real scrolling and TEST
 identity restoration, and compile the direct-C source-archive fallback. They do
@@ -167,7 +168,8 @@ Use `python3 -m unittest discover -s tools/tests -t .` for automation contracts,
 Real App automated options (`--frames`/smoke) or `DUXCEL_TEST_INSTANCE=1` apply a
 purple TEST strip to the runtime macOS icon and a TEST Dock badge; authored icon
 assets and the normal bundle icon remain unchanged. Hidden/unfocused behavior
-and desktop locks remain required. The Open/lifecycle runners set the explicit
+and shared-service locks remain required for actual OS interaction. The
+Open/lifecycle runners set the explicit
 role too. The standalone adapter check verifies the badge, different image,
 no key/visible window, repeated panel lifetime and restored original identity.
 
@@ -339,3 +341,25 @@ version mismatch, malformed locators, maximum ledger/locator, UINT64_MAX and
 large file/version values without IO. Paths/packets remain owned after input
 release. This does not establish file materialization, live Page verification or
 historical-ledger adoption; final owner/format closure is separately scheduled.
+
+
+## Parallel lane test execution
+
+Initialize a private checkout identity once with
+`python3 tools/lane.py --checkout "$PWD" --lane NAME --init`. For mixed focused
+build/test work, use
+`python3 tools/lane.py --checkout "$PWD" --lane NAME -- python3 tools/test.py feature --feature ID`.
+The runner takes repository-wide ownership only during each compilation phase;
+it releases that ownership before private tests execute. Direct compilation uses
+`python3 tools/lane.py --checkout "$PWD" --lane NAME --build -- make -j8 TARGET`.
+Do not wrap a complete test workflow in `--build`.
+
+A same-checkout runner lease protects binaries for the complete run. App-bearing
+feature executables are independent copies under
+`build/tests/lanes/<lane>/<run>/`, named with `TEST-<lane>`. Receipts record the
+original and pinned paths, SHA256, checkout and lane; runtime TEST identity and
+hidden windows remain mandatory. These tests do not launch the normal bundle.
+Reviewed process-local GUI input can run independently across worktrees. Actual
+clipboard, native-panel and other shared desktop interactions retain a separate
+OS-service lock; new unreviewed resource profiles default to that lock. Fixture
+files and writable databases stay private to their checkout.

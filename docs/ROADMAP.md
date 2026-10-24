@@ -278,18 +278,24 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4d.1 · P1 · Complete | Resolved Table connection/relation replacement; W12c.3c.3b.4c. | Admit changed file/relation/version bindings through the existing Table transaction, close old/new source metadata before eviction and invalidate only target/dependent results. Preserve no-op Redo, formats, stable IDs and unrelated Pages; worker default completion remains enrichment. |
 | W12c.3c.3b.4d.2 · P1 · Complete | Primary connection/relation replacement; W12c.3c.3b.4d.1. | Bind the live App primary authority, source/readiness/owner fences and complete dependencies before one Analysis action. Support explicit relinking from unavailable prior results, preserve no-op Redo and keep default-relation enrichment separate. |
 | W12c.3c.3b.4d.3 · P1 · Complete | Analytical object source binding; W12c.3c.3b.4d.2. | Admit changed source_id against an existing Table or primary owner, reserve full before/after graph/dependencies before eviction, preserve identity/layout/Marks and invalidate only the rebound object. Source/format composites remain W12c.3c.3b.4f. |
-| W12c.3c.3b.4e · P1 · In progress | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
+| W12c.3c.3b.4e · P1 · Complete | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
 | W12c.3c.3b.4e.1 · P1 · Complete | Admitted object deletion; W12c.3c.3b.4d.3. | Preserve dependent-Table guards and allocator high-water; reserve complete before/after graph/source union before eviction, support empty after-graphs and reject stale/pressure/cancel without mutation. Verify actual delete/Undo/Redo, independent caches and Save/Open. |
 | W12c.3c.3b.4e.2 · P1 · Complete | Single-object placement admission; W12c.3c.3b.4e.1. | Reserve/recheck complete graph, source/manual/object extents and destination; preserve query caches, IDs and no-op Redo. Keep mixed range moves with structural/range composites. |
-| W12c.3c.3b.4e.3 · P1 · Queued | Object creation admission; W12c.3c.3b.4e.2. | Prepare complete graph and monotonic new identity before publication, with resolved source/geometry ownership and one action. Keep worker origin enrichment and source-format composites explicit. |
-| W12c.3c.3b.4f · P1 · Queued | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
+| W12c.3c.3b.4e.3 · P1 · Complete | Object creation admission; W12c.3c.3b.4e.2. | Prepare complete graph and monotonic new identity before publication, with resolved source/geometry ownership and one action. Keep worker origin enrichment and source-format composites explicit. |
+| W12c.3c.3b.4f · P1 · In progress | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
+| W12c.3c.3b.4f.1 · P1 · Complete | Native first source-format binding; W12c.3c.3b.4e. | Prepare the complete ledger/binding/format after-state, reserve before eviction, recheck current and retained ownership, then publish one action. Preserve no-op/stale/failure behavior for primary and Table. |
+| W12c.3c.3b.4f.2 · P1 · Complete | Already-bound source formatting; W12c.3c.3b.4f.1. | Reuse immutable admitted source versions, reserve/recheck effect8 and exact format history, and preserve Redo/dirty/clocks on no-op without relabeling legacy finite styles. |
+| W12c.3c.3b.4f.3 · P1 · Queued | Verified legacy baseline/origin admission; W12c.3c.3a.2, W12c.3c.3b.4f.2. | Normalize current/Undo/Redo formatting atomically only through an authoritative open working-origin owner. Never rewrite sealed Saved/recovery assets or manufacture a user action. Model precursor remains separate from App activation. |
+| W12c.3c.3b.4f.3a · P1 · Complete | Atomic baseline model prerequisite; W12c.3c.3b.4f.2. | Opaque independent plan owns the full normalized current/Undo/Redo formats, primary binding and immutable ledger; explicit origin epoch/open proof fences adoption without creating an action or altering Saved assets. App authority is still W12c.3c.3a.2. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
+| W12c.4.1 · P1 · In progress | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
+| W12c.5.1 · P1 · In progress | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
 | W12g · P1 · Queued | Retained-range presentation and milestone gate; W12e–W12f. | Show actual retained Undo coverage and limits. V8→V9→V10 plus unsaved suffix survives reopen, older tags remain openable, and failure/branch/pruning checks pass at the explicit major milestone. |
-| W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
+| W13 · P1 · Complete | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
 
 W11 integration constraints: distinguish user Save/Tag, private recovery
@@ -1871,17 +1877,17 @@ formats, Table/Chart moves, cached Pages, Undo/Redo/no-op and 150% v16 Save/Open
 The named range-move interaction passes ten stages in 14.277s (GUI 6.456s);
 fifty tool contracts pass in 2.473s. Ignored receipts: `w12c3-object-move*.log`
 and run summaries. Retained App event IO and durable Undo remain separate.
-Next: W12c.3c.3b.4e.3 object creation admission, not started. The user requested
-pausing after this slice and delivery of the cumulative build.
+The subsequent user request resumed execution with four isolated roadmap lanes;
+creation admission is now verified below.
 
 
 Placement delivery/pause: product source d64b3a0 produces the cumulative signed
 native bundle at `build/Duxcel.app` in 2.016s and normal shared-C Wasm build in
 25.195s. Strict signature, compiled provenance and private feature/review
 exclusions pass; ignored `w12c3-object-move-package.json` records the binary hash.
-No user App was launched/closed. User-requested pause begins after this verified
-slice; W12c.3c.3b.4e.3 remains queued. Resume there, with origin/default-relation
-completion and source-format composite boundaries still explicit.
+No user App was launched/closed. That delivery ended the earlier requested pause;
+the user subsequently resumed roadmap execution. Newer source changes require a
+new package before they are present in this previously delivered bundle.
 
 
 ## Active parallel roadmap execution
@@ -1889,17 +1895,18 @@ completion and source-format composite boundaries still explicit.
 The user authorizes four GPT-6.1 medium-effort subagent lanes, superseding the
 usual two-lane default for this run. Base: `55ad3f6`. The coordinator owns main,
 active docs, shared App/build/catalog reconciliation and linear integration.
-The current agent service permits root plus three running subagents; isolation
-bootstrap hands off its slot to historical Save As after its first milestone.
+The current agent service permits root plus three running subagents. The user
+requires those three slots to implement product features. Isolation is stopped
+after its verified infrastructure commits; the coordinator owns runner work.
 Four worktrees are registered; do not confuse a ready checkout with a running
 agent or a module result with integrated product acceptance.
 
 | Lane / managed worktree | Dependency-ready scope | Reconciliation boundary |
 | --- | --- | --- |
-| `roadmap-isolation` | Shared operation lock, checkout identity, compiled provenance and TEST lane markers | Bootstrap first; distribute its verified infrastructure commit before lane builds |
-| `roadmap-object-create` | W12c.3c.3b.4e.3 object creation admission | Complete graph/allocator/geometry, source-origin and manual-format constituent closure; root integrates App adapter |
-| `roadmap-source-format` | Independent W12c.3c.3b.4f transaction prerequisites | Ledger/binding/format all-or-nothing ownership; final App adoption waits on creation/origin prerequisites |
-| `roadmap-history-save-as` | W13 current-state-only historical export; W11 complete | Independent export identity, closure and Working Head preservation; W14 waits for W12 |
+| `roadmap-isolation` · Stopped | Verified build/test isolation infrastructure | No active assignment; leave this agent stopped as requested |
+| `roadmap-object-create` · Active | W12c.4.1 manual-only range event/producer; creation complete | Own range_event/history_range/range_command; family4 reserved; mixed source/object integration waits for closure |
+| `roadmap-source-format` · Active | W12c.3c.3a.2 authoritative working-origin completion | Own source-origin/default relation and verified baseline integration; no retained writer activation |
+| `roadmap-history-save-as` · Active | W12c.5.1 canonical ordered sheet-metadata prerequisite; W13 complete | Own sheet_lifecycle metadata codec; same stable ID set, no topology/App activation; future envelope family5 reserved |
 
 Every checkout keeps private `build/` fixtures/binaries/receipts. The user's
 follow-up supersedes whole-command serialization: take the shared compilation
@@ -1914,8 +1921,8 @@ The coordinator integrates verified commits at dependency milestones, runs only
 the affected combined feature/interaction gates and records product completion
 here. Unresolved dependencies stay explicit; no lane activates retained App
 history before complete producer/publication coverage. Disposable scheduling
-details live in ignored `build/locks/roadmap-lanes.json`. The isolation lane is
-verifying the phase-aware runner before any new lane launches.
+details live in ignored `build/locks/roadmap-lanes.json`. Phase-aware runner
+verification is complete; private feature execution has resumed.
 
 
 
@@ -1933,3 +1940,69 @@ module/sanitizer/hidden-native gate passes in 7.469s. Evidence is under private
 completed bootstrap and handed its active slot to W13, while object-create,
 source-format and historical Save As author/run their scoped gates. No product
 roadmap slice is marked complete by this infrastructure milestone.
+
+
+W12c.3c.3b.4e.3 integrated acceptance: complete Pivot/Chart/Table creation now
+uses one graph/geometry/source owner, reserves before eviction and consumes an
+object ID only at successful adoption. The first Table preserves finite manual
+formats through one Object+Format action. DuckDB imports resolve the relation in
+an independent draft before publication; Escape/stale/failure leaves the primary
+source, allocator and history intact. Main source `8ab4a6a` passes the focused
+`object-create-command` plan in 38.579s: four modules, optimized and ASan/UBSan,
+including 328 creation and 20 import-draft assertions per configuration, plus
+19 hidden native stages/46 checks in 9.866s. The App runs from a lane-tagged
+private TEST copy, not the normal bundle. Source-connections fixtures are private;
+no broad regression, browser or human acceptance is claimed. Receipt:
+`build/tests/results/runs/20261024T142014-feature-47834/summary.json`.
+All three topology/placement producer slices are complete; retained App event IO,
+origin migration and durable Undo remain separate.
+
+
+W12c.3c.3b.4f.1–.2 integrated acceptance: first binding owns complete source
+ledger plus primary/Table binding and formats; already-bound formatting uses the
+same owner fences without changing the ledger. Native planning admits retained
+parser scratch before parsing/cloning and checks actual prospective ownership
+before adoption. Main source `8ab4a6a` passes `source-format-bound` in 45.281s:
+662 command assertions and adjacent format-history checks in optimized and
+ASan/UBSan builds, plus the real primary/Table first/bound workflow (66 hidden
+App stages, 32.102s). Executable and source hashes identify the private lane-tagged
+TEST copy. Receipt: `build/tests/results/runs/20261024T142057-feature-49788/summary.json`.
+Legacy baseline migration, source-origin closure and retained App writer
+activation remain open; this does not mark the parent composite family complete.
+
+
+W13 integrated acceptance: historical preview offers Save As… / Cmd+Shift+S.
+The inspected state exports with a fresh document identity and one Saved root,
+recording immediate origin metadata while preserving the live Working Head,
+Undo/Redo, dirty state and recovery ownership. Export receipts cannot adopt as
+ordinary Save/Open receipts; transactional destination guards protect the origin
+artifact, including aliases. Main source `8ab4a6a` passes `history-save-as` in
+64.092s: app_preview/core_compare/workbook_save optimized and ASan/UBSan plus
+23 hidden GUI stages/154 checks in 6.180s. The GUI uses a private panel-result
+hook, not physical native-panel automation. Receipt:
+`build/tests/results/runs/20261024T142158-feature-50691/summary.json`.
+Current native readers validate the optional provenance table; older strict
+readers reject provenance-bearing exports. Ordinary files retain their previous
+shape. Browser IO and missing retained external rows/results remain unavailable;
+W14 selected-history export stays queued behind W12.
+
+
+Baseline model precursor `ae909ca` passes the focused `source-format-baseline`
+plan in 4.994s: 134 baseline plus 662 source-command checks per optimized and
+ASan/UBSan build, zero App stages. Failure preserves all owned inputs; successful
+non-user enrichment preserves action/order/Redo/document clocks and independent
+Saved snapshots. Receipt: `build/tests/results/runs/20261024T142522-feature-53168/summary.json`.
+This prerequisite is not App baseline/origin activation.
+
+The user's revised lane runner policy is integrated as `1c6256c` and `874add6`:
+compilation phases share one lease; isolated tests execute outside it using
+independent lane-tagged App copies. Actual clipboard/native-service scenarios
+and unknown profiles remain guarded. Recovery process App drivers also receive
+pinned paths. Timeout/interruption drains owned process groups before build
+ownership releases, including compiler grandchildren. Sixty-three focused runner,
+lane/workspace/provenance contracts pass on combined main in 6.813s; the isolation
+lane's actual pinned About feature passes in 4.692s. Make prerequisites such as
+fixture generation/icon checks remain inside their build invocation's lease;
+the private recovery process driver conservatively retains its OS-service lock.
+Neither restriction serializes whole ordinary feature workflows. Isolation is
+stopped; the three active product lanes are listed above.

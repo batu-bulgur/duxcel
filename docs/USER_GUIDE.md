@@ -154,7 +154,11 @@ or Escape returns to the exact current draft, viewport, selection and session
 Undo/Redo. Native grid navigation stays inside the preview; shortcut+End reaches
 the retained authored/object extent. Closing
 or quitting from preview first restores that draft and applies its normal unsaved
-changes prompt. Historical Save As is not yet available. Current snapshots retain
+changes prompt. **Save As…** or **Cmd+Shift+S** exports the inspected state as a
+new independent workbook, preserving the current draft and its recovery state.
+The export contains one Saved state and origin provenance; it does not include
+older tags or session Undo. Cancel or failure leaves the viewer and draft intact.
+Older strict Duxcel readers may reject this provenance-bearing file. Current snapshots retain
 authored cells, formatting, sheet/layout state and analytical definitions. Linked
 source bytes and complete cached analytical outputs are not yet embedded by this
 feature, and session Undo is not made durable by a tag.
