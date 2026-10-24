@@ -2,6 +2,7 @@
 #define DUXCEL_SOURCE_FORMAT_COMMAND_H
 #include "cell_command.h"
 #include "history_definition.h"
+#include "history_format.h"
 typedef struct {
     Workbook *book;
     Analysis *primary; /* Actual authority; an independent App cache is allowed. */
@@ -25,10 +26,10 @@ typedef struct {
     ObjectSnapshot objects; /* Existing Table owner only; otherwise empty. */
     FormatSnapshot formats;
 } SourceFormatCommandPlan;
-typedef enum { SOURCE_FORMAT_COMMAND_APPLIED,SOURCE_FORMAT_COMMAND_READY,SOURCE_FORMAT_COMMAND_STALE,
+typedef enum { SOURCE_FORMAT_COMMAND_APPLIED,SOURCE_FORMAT_COMMAND_NOOP,SOURCE_FORMAT_COMMAND_READY,SOURCE_FORMAT_COMMAND_STALE,
     SOURCE_FORMAT_COMMAND_INVALID,SOURCE_FORMAT_COMMAND_PROTECTED,SOURCE_FORMAT_COMMAND_LIMIT } SourceFormatCommandStatus;
 typedef struct { SourceFormatCommandStatus status; uint64_t before_revision,after_revision; } SourceFormatCommandResult;
-/* First verified native binding only: object0 primary or an existing raw Table.
+/* Verified native raw owner: object0 primary or an existing Table.
    Runtime borrowed fences cover request/document/sheet/cells/formats/history,
    full object descriptors and immutable source rows. Text/packets are trusted
    immutable ownership; these native snapshots never become retained assets.
@@ -57,5 +58,14 @@ bool workbook_source_format_scratch(const Worksheet *sheet,const Analysis *prima
 SourceFormatCommandResult workbook_apply_source_format_recorded(SourceFormatCommandContext *context,
     const SourceFormatCommandTarget *target,SourceFormatCommandPlan *owned,
     const WorkbookHistoryDefinitionRecorder *recorder,char **error);
+/* Already-bound finite source formatting uses the SAME captured owner fences
+   and immutable live ledger. Only formats change: reserve a closed effect8
+   FormatDelta/source union, recheck, then adopt one format/action/clock/branch.
+   NOOP consumes the independent plan with no reserve, clock, dirty or Redo
+   change, including exhausted allocation counters. No new source issuance,
+   pending completion, definition mutation or App retained writer activation. */
+SourceFormatCommandResult workbook_apply_bound_source_format_recorded(SourceFormatCommandContext *context,
+    const SourceFormatCommandTarget *target,FormatSnapshot *owned,
+    const WorkbookHistoryFormatRecorder *recorder,char **error);
 void source_format_command_plan_free(SourceFormatCommandPlan *plan);
 #endif

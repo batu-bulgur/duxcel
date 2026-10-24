@@ -174,6 +174,78 @@ static void stream_handoff(bool table) {
         free(error); CHECK(workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK); source_format_command_plan_free(&p); workbook_free(&b);
     }
 }
+static FormatSnapshot bound_plan(SourceFormatCommandContext *c,bool table,bool change) {
+    Worksheet *s=c->book->sheets; uint64_t object=owner(c,table);
+    if (!change) {
+        FormatStore copy={0}; format_copy(&copy,&s->formats);
+        return (FormatSnapshot){copy.items,copy.count,copy.scopes,copy.scope_count,copy.source_aware};
+    }
+    const Analysis *a=table ? &s->objects.items[0].source : c->primary;
+    const SourceVersion *entry=source_versions_find(&s->source_versions,a->source_version); CHECK(entry);
+    CellFormat style=format_default(); style.flags=change ? FORMAT_ITALIC : FORMAT_BOLD;
+    uint64_t ids[]={1,9007199254740993ULL}; size_t field=0; FormatSnapshot p={0};
+    CHECK(format_plan_records(&s->formats,&(FormatScopeView){object,entry->raw.data,entry->raw.bytes},ids,2,&field,1,change ? FORMAT_ITALIC : FORMAT_BOLD,style,&p,NULL)); return p;
+}
+static void bound(bool table) {
+    Workbook b=book(table); Worksheet *s=b.sheets; uint64_t epoch=1; SourceFormatCommandContext c={&b,&s->analysis,&epoch,SIZE_MAX,true,false};
+    SourceFormatCommandTarget t=target(&c,table); SourceFormatCommandPlan first=plan(&c,table);
+    CHECK(workbook_apply_source_format_recorded(&c,&t,&first,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+    FormatSnapshot alias={s->formats.items,s->formats.count,s->formats.scopes,s->formats.scope_count,s->formats.source_aware};
+    t=target(&c,table); CHECK(workbook_apply_bound_source_format_recorded(&c,&t,&alias,NULL,NULL).status==SOURCE_FORMAT_COMMAND_INVALID && alias.items==s->formats.items);
+    SourceVersions original=s->source_versions; size_t objects_undo=s->objects.undo_count,analysis_undo=s->undo_count; b.dirty=false;
+    FormatSnapshot p=bound_plan(&c,table,true); t=target(&c,table);
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,99,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id,.command_revision=b.command_revision};
+    WorkbookHistoryStream *stream=NULL; CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
+    WorkbookHistoryFormatRecorder recorder=workbook_history_stream_format_recorder(stream);
+    CHECK(workbook_apply_bound_source_format_recorded(&c,&t,&p,&recorder,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && !p.items && b.dirty && b.command_revision==2 &&
+        !memcmp(&original,&s->source_versions,sizeof(original)) && s->undo_actions[s->undo_actions_count-1]==EDIT_FORMAT && s->objects.undo_count==objects_undo && s->undo_count==analysis_undo);
+    WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK);
+    const WorkbookHistoryEventInfo *info=workbook_history_event_info(event); FormatDelta delta={0};
+    CHECK(info->family==DX_HISTORY_FORMAT_FAMILY && info->dependency_bytes && info->revision==2 &&
+        format_delta_decode(workbook_history_event_payload(event),info->bytes,SIZE_MAX,&delta)==FORMAT_DELTA_OK);
+    format_delta_free(&delta); CHECK(workbook_history_stream_complete(stream,&event)==HISTORY_STREAM_OK); CHECK(workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && s->formats.redo_count==1);
+    p=bound_plan(&c,table,false); t=target(&c,table); b.dirty=false; uint64_t revision=b.command_revision;
+    CHECK(workbook_apply_bound_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_NOOP && !p.items && !b.dirty && b.command_revision==revision && s->formats.redo_count==1 && !memcmp(&original,&s->source_versions,sizeof(original)));
+    CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED);
+    /* Exhausted source and document counters still admit a true format no-op. */
+    b.command_revision=UINT64_MAX; s->source_versions.high_water=UINT64_MAX; s->formats.revision=UINT64_MAX;
+    p=bound_plan(&c,table,false); t=target(&c,table); b.dirty=false;
+    CHECK(workbook_apply_bound_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_NOOP && !p.items && !b.dirty && b.command_revision==UINT64_MAX && s->source_versions.high_water==UINT64_MAX);
+    source_format_command_plan_free(&first); workbook_free(&b);
+}
+typedef struct { SourceFormatCommandContext *c; unsigned mode,reserves,publishes,cancels; } BoundProbe;
+static bool bound_reserve(void *context,const WorkbookHistoryFormatRecord *record,void **ticket,char **error) {
+    (void)error; BoundProbe *p=context; p->reserves++; CHECK(record->effects==8 && record->sources==&p->c->book->sheets[0].source_versions && !*ticket);
+    if (p->mode==1) return false;
+    if (p->mode==2) return true;
+    *ticket=dx_alloc(1);
+    if (p->mode==3) (*(uint64_t *)p->c->request_epoch)++;
+    if (p->mode==4) p->c->ready=false;
+    if (p->mode==5) p->c->book->sheets[0].source_versions.high_water++;
+    if (p->mode==6) return false;
+    return true;
+}
+static void bound_publish(void *context,void *ticket) { BoundProbe *p=context; p->publishes++; CHECK(ticket && p->c->book->command_revision==2 && p->c->book->dirty); free(ticket); }
+static void bound_cancel(void *context,void *ticket) { BoundProbe *p=context; p->cancels++; CHECK(ticket); free(ticket); }
+static void bound_callbacks(bool table) {
+    for (unsigned mode=0;mode<=6;mode++) {
+        Workbook b=book(table); uint64_t epoch=1; SourceFormatCommandContext c={&b,&b.sheets[0].analysis,&epoch,SIZE_MAX,true,false};
+        SourceFormatCommandTarget t=target(&c,table); SourceFormatCommandPlan first=plan(&c,table);
+        CHECK(workbook_apply_source_format_recorded(&c,&t,&first,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED); b.dirty=false;
+        FormatSnapshot p=bound_plan(&c,table,true); t=target(&c,table); size_t actions=b.sheets[0].undo_actions_count;
+        BoundProbe probe={&c,mode,0,0,0}; WorkbookHistoryFormatRecorder recorder={bound_reserve,bound_publish,bound_cancel,&probe}; char *error=NULL;
+        SourceFormatCommandResult r=workbook_apply_bound_source_format_recorded(&c,&t,&p,&recorder,&error);
+        CHECK(probe.reserves==1);
+        if (!mode) CHECK(r.status==SOURCE_FORMAT_COMMAND_APPLIED && probe.publishes==1 && !probe.cancels && !p.items && !error);
+        else {
+            CHECK(r.status==(mode==1 ? SOURCE_FORMAT_COMMAND_LIMIT : mode==2 || mode==6 ? SOURCE_FORMAT_COMMAND_INVALID : mode==4 ? SOURCE_FORMAT_COMMAND_PROTECTED : SOURCE_FORMAT_COMMAND_STALE));
+            CHECK(!probe.publishes && probe.cancels==(mode>=3 ? 1u : 0u) && p.items && !b.dirty && b.command_revision==1 && b.sheets[0].undo_actions_count==actions && error);
+            if (mode==1) CHECK(workbook_apply_bound_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+        }
+        free(error); format_snapshot_free(&p); source_format_command_plan_free(&first); workbook_free(&b);
+    }
+}
 static void limits(void) {
     Workbook b=book(false); uint64_t epoch=1; SourceFormatCommandContext c={&b,&b.sheets[0].analysis,&epoch,SIZE_MAX,true,false};
     SourceFormatCommandTarget t=target(&c,false); SourceFormatCommandPlan p=plan(&c,false);
@@ -186,6 +258,6 @@ static void limits(void) {
     source_format_command_plan_free(&p); workbook_free(&b);
 }
 int main(void) {
-    fences(false); fences(true); callbacks(false); callbacks(true); history(false); history(true); retained_sources(false); retained_sources(true); manual_policy(); stream_handoff(false); stream_handoff(true); limits();
+    fences(false); fences(true); callbacks(false); callbacks(true); history(false); history(true); retained_sources(false); retained_sources(true); manual_policy(); stream_handoff(false); stream_handoff(true); bound(false); bound(true); bound_callbacks(false); bound_callbacks(true); limits();
     source_format_command_plan_free(NULL); printf("PASS: %u atomic source format command checks\n",checks); return 0;
 }

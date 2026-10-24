@@ -668,7 +668,7 @@ static bool source_format_reply_apply(App *a,QueryReply *reply) {
            Old live objects remain the authority until the single journal commit. */
         intent->object_reserved=0;
         SourceFormatCommandPlan composite={.sources=versions,.primary=next,.objects=objects,.formats=plan};
-        if (ok && intent->issue) ok=workbook_source_format_scratch(sheet,&a->analysis,&composite,&validation,&error);
+        if (ok) ok=workbook_source_format_scratch(sheet,&a->analysis,&composite,&validation,&error);
         if (ok) ok=source_format_budget(a,&replacement,adopted,validation,reply_bytes,0,incoming);
     }
     if (!ok) {
@@ -688,8 +688,15 @@ static bool source_format_reply_apply(App *a,QueryReply *reply) {
         source_format_command_plan_free(&composite);
         if (!formatted) { if (error) status(a,error); free(error); source_format_cancel(a,NULL); return true; }
     } else {
-        formatted=format_commit(&sheet->formats,&plan);
-        if (formatted) { worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true; }
+        SourceFormatCommandContext context={.book=&a->book,.primary=&a->analysis,.request_epoch=&a->request_id,
+            .validation_reserved=validation,.ready=source_format_fence(a),.read_only=history_locked(a)};
+        SourceFormatCommandTarget target; SourceFormatCommandStatus result=SOURCE_FORMAT_COMMAND_INVALID;
+        if (workbook_prepare_source_format(&context,a->book.active,intent->owner,&target,&error))
+            result=workbook_apply_bound_source_format_recorded(&context,&target,&plan,NULL,&error).status;
+        if (result!=SOURCE_FORMAT_COMMAND_APPLIED && result!=SOURCE_FORMAT_COMMAND_NOOP) {
+            format_snapshot_free(&plan); if (error) status(a,error); free(error); source_format_cancel(a,NULL); return true;
+        }
+        formatted=result==SOURCE_FORMAT_COMMAND_APPLIED;
     }
     uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
     source_format_proof_adopt(a,proof,intent);
