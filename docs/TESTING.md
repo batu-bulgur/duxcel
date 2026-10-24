@@ -227,3 +227,10 @@ placeholders, mutation fences, exact Working Head/grid/editor/Undo/Redo restorat
 Close's dirty guard and a deterministic cancel-at-ready worker barrier. GUI hooks
 are compile/link excluded from production; selected interactions remain separately
 registered in `tools/test_catalog.py`.
+
+The pure `history-window` gate owns optimized/sanitized retention planning cases:
+V8→V9→V10, repeated Save, same-anchor aliases, A→B→A content reuse, older cursor,
+Redo/unsaved suffix, fewer than three states, required-history gaps, arbitrary
+boundary order, maximum named-state count and exhausted unsigned clocks. It
+links only its actual C module/header, without a database or GUI. Durable event,
+archive and cross-session replay acceptance remains separate roadmap work.

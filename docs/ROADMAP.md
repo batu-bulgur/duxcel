@@ -202,7 +202,14 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11d.4 · P1 · Complete | Read-only preview UI and return; W11d.3. | Inspect retained authored sheets/cells/styles/definitions, block all mutation/publication routes and return to the exact Working Head. External results not retained by the current core remain explicitly unavailable. |
 | W11e · P1 · In progress | Version milestone compatibility/regression gate; W11d. | Migrate App-produced-file assertions to explicit full-archive readers while preserving v15 fixture/legacy tests. Run the broad milestone gate once, plus package/shared-browser checks; record actual coverage and limits. No silent head-only legacy fallback. |
 | W11f · P1 · Complete | Same-destination Save conflict protection; W11c, prioritized during W11d. | Refuse implicit Save/Tag against changed file identity or another v16 version index; preserve edits/peer tags. Only explicit accepted Save As can replace a changed destination. |
-| W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
+| W12 · P1 · In progress | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
+| W12a · P1 · Complete | Explicit version-boundary retention window; W11. | Select three states/two intervals ending at Saved, coalesce only aliases of the same explicit version boundary, preserve an older cursor plus current Redo/unsaved suffix, and reject required history gaps. Pure planning only; no durable Undo claim. |
+| W12b · P1 · Queued | Durable path/anchor and reversible-event contract; W12a. | Bind tag/Saved boundaries to proved operation positions independently of reused content roots. Validate branch/cursor/origin, contiguous reversible events and complete referenced payload closure; reject malformed/unsupported profiles atomically. |
+| W12c · P1 · Queued | Persist supported reversible payload families; W12b. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
+| W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
+| W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
+| W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
+| W12g · P1 · Queued | Retained-range presentation and milestone gate; W12e–W12f. | Show actual retained Undo coverage and limits. V8→V9→V10 plus unsaved suffix survives reopen, older tags remain openable, and failure/branch/pruning checks pass at the explicit major milestone. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
 
@@ -951,3 +958,12 @@ passed26 stages in20.988s;54 runner/catalog/web contracts passed in12.702s.
 Evidence: ignored `build/tests/results/w11d4-{history-preview,version-controls,tool-contracts}.log`.
 Historical Save As remains W13; durable Undo/retained data are separate work.
 W11e is now the explicit broad compatibility milestone, not a per-slice gate.
+
+W12a complete: shared pure `history_window` consumes adapter-proved version-boundary identities
+and operation positions, retaining three boundary states/two intervals plus current Redo and the
+unsaved suffix. Labels at one anchor coalesce; A→B→A content reuse cannot erase
+its separate event intervals. Fewer than three states retain the declared origin;
+an already older cursor extends protection, and a missing required prefix reports
+GAP without changing the output. Optimized/sanitized33-case gate passed in2.467s.
+Durable anchors/events, replay, file publication and actual pruning remain W12b–W12g;
+this preparatory controller does not make existing v16 session history durable.

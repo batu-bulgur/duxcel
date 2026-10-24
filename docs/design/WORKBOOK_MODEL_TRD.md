@@ -382,6 +382,17 @@ Deduplicate checkpoint content/manifests, not just revision numbers: two revisio
 
 Build the window from ordered named-version boundaries plus Latest Saved, merging the same boundary when a tag and Latest Saved point to it. Repeated Save replaces the Latest Saved endpoint without creating another named boundary or discarding history from the retained start. With fewer than three version states, retain the available history. Internal recovery checkpoints never consume a visible version slot. Cross-session Undo is part of this default; expose the actual retained range.
 
+An immutable content root is not an Undo boundary: A→B→A can reuse A's payload
+while retaining two separate operation intervals. Bind version boundaries to
+explicit durable version-boundary anchors plus reversible-operation positions on
+a proved path; coalesce labels only when they share that anchor. A presentation
+state can change without an Undo event. Boundary issuance must observe history
+and presentation changes even if a content root is reused; index publication
+generations and root hashes alone cannot serve as the history anchor. Saved at an undone cursor must keep valid current
+Redo, and an older active cursor must remain reachable. The pure W12a planner
+checks this window but does not persist anchors or make existing session Undo
+durable; adapters must prove actual event/payload continuity before publication.
+
 Use an explicit resource policy for unusually large intervals. Byte/age/operation budgets must not silently reduce the accepted window: report a storage limit and offer deliberate pruning/export or reject the operation before protected history is lost. Do not promise all-time fine-grained history.
 
 Prune only after replacement checkpoints and their manifests are durable. Reachability includes named tags, Latest Saved, active head, retained Undo/Redo, recoverable continuations, historical preview and in-flight Save/read snapshots. Enforce storage limits without deleting the only recovery path or silently evicting a named tag. Tag deletion can free data only after all other references retire. Large intervals may exhaust budget even when their count is small.

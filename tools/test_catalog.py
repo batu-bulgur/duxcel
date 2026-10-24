@@ -68,6 +68,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-window": Feature(("history_window",), "",
+        ("python3 tools/test.py feature --feature app-preview",),
+        ("src/workbook/history_window.c", "src/workbook/history_window.h", "tests/test_history_window.c")),
     "history-preview": Feature((), "history-preview",
         ("python3 tools/test.py feature --feature version-controls", "python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-versions"),
         ("src/app/versions.inc: read-only preview orchestration", "src/ui/versionpreviewview.c", "src/ui/versionpreviewview.h", "src/app/app.c: historical capability fences", "tests/support/history_preview_app.inc", "tests/test_history_preview_gui.c"),

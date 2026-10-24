@@ -722,3 +722,15 @@ Proposed initial work: (1) isolate closing-related data loss by build and close 
 These source paths describe the dirty working tree inspected, not HEAD alone. The product source tree contained 135 files; the review examined module interfaces and App/input → model → worker/SQL → Page → render, plus Save/Open/review paths. Generated brand/icon derivatives were not treated as design authority. This section does not establish native visual or physical-keyboard acceptance; the user's application was not controlled.
 
 Focused checks passed for `grid`, `page`, `cellreadout`, `objects` and `selection_ladder` in release and ASan/UBSan configurations (11.933 s including builds). Native workbook `--formats-only` checks passed in release and ASan/UBSan (17.413 s). Both runs executed zero App scenario stages. Results, source/binary hashes and commands were recorded under ignored `build/tests/results/architecture-review/` and `architecture-persistence/`. Cleanup subsequently pruned these disposable payloads; its current acceptance summary is `build/tests/results/cleanup-summary.json`. Test sources and commands remain. These historical checks do not establish new autosave, general formulas or editable Parquet support.
+
+`workbook/history_window.c` is the pure W12 retention planner. Its borrowed input
+contains adapter-proved ordered version-boundary identities, operation positions,
+Saved/named roots, origin/available floor, cursor and tail. It selects at most three distinct anchors,
+not three intervals or three hashes. Distinct presentation states can share an
+operation position. Same-anchor labels coalesce; equal roots at different anchors
+retain their separate spans. Current Redo/unsaved suffix and
+an older active cursor remain protected. Insufficient retained coverage returns a
+gap rather than silently shrinking the contract. It does not prove event continuity,
+serialize history, restore session stacks or authorize root deletion. All named
+checkpoints, reader/recovery pins and payload closure remain separate obligations
+for W12b–W12g.
