@@ -139,7 +139,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W09b · P0 · Complete | Worker/UI Save progress, cancellation and complete revision fence; W09a. | Hidden real-App Save/cancel/progress and R/R+1 tests; pending document actions cannot close over unsaved newer edits. Keep post-publication completion distinct from cancellable preparation. |
 | W09b1 · P0 · Complete | Preserve ordered worker Save receipts; W09a. | Latest-wins read replacement/cancel cannot erase an admitted Save or its unpublished reply. Progress and cooperative cancellation are mutex-owned; publication closes cancellation atomically. |
 | W09b2 · P0 · Complete | Compact Save progress/cancel UI and complete admission fence; W09b1. | Real keyboard/pointer cancellation and publication races, narrow/scaled panel, newer content remains dirty and pending close stays guarded. |
-| W10 · P0 · In progress | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. Persist generation/parent identity and baseline/journal linkage; two states sharing an admitted clock cannot be ordered by mtime alone. RE02; A14. |
+| W10 · P0 · Complete | Interrupted-session recovery candidate and explicit lineage choice; W08–W09. | Recover committed tail or open checkpoint, including unnamed workspaces; progress/cancel/failure preserves recovery material. New edits cannot silently discard a deferred tail. Persist generation/parent identity and baseline/journal linkage; two states sharing an admitted clock cannot be ordered by mtime alone. RE02; A14. |
 | W10a · P0 · Complete | Durable checkpoint/journal origin binding; W09. | Persist generation/parent identity and baseline digest, reject cross-paired journals even with matching document/revision; legacy unbound tails stay conservative. |
 | W10a1 · P0 · Complete | Immutable journal origin codec; W09. | v2 generation/parent IDs, baseline byte length/SHA-256 and original locator bind atomically before the first edit. Exact retry is idempotent; conflicts/malformed metadata reject; legacy tails cannot infer a baseline. |
 | W10a2 · P0 · Complete | Checkpoint fingerprint and writer origin admission; W10a1. | Real prepared checkpoint bytes bind to the queued generation before acknowledgement; rotation records the parent. Preparation/binding retry retains payloads and exact origin. |
@@ -150,14 +150,14 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10b2 · P0 · Complete | Verified isolated recovery candidate and bounded discovery; W10b1. | Stream baseline validation and contiguous exact-before-image replay into a candidate; cancel/failure leaves current model/artifacts intact. Preserve ambiguous branches and legacy/unbound checkpoints explicitly. |
 | W10b2a · P0 · Complete | Isolated verified recovery candidate; W10b1. | Validate closed baseline and exact-before-image bounded tail projection without touching the live model/global draft or history issuers. Hold ownership; failure/cancel preserves all material, checkpoint inspection marks its deferred suffix. |
 | W10b2b · P0 · Complete | Bounded native recovery catalog; W10b2a. | Enumerate known direct generations off the UI thread, skip active owners, expose bound/unbound/incomplete entries and ambiguous branches without pruning or mtime-based lineage inference. |
-| W10c · P0 · In progress | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
+| W10c · P0 · Complete | Explicit startup recovery/lineage choice; W10b. | Recover committed tail or inspect checkpoint, defer safely, protect a deferred tail from subsequent edits and Save As, and preserve the user's other running instance. |
 | W10c1 · P0 · Complete | Background recovery requests and owned page/candidate results; W10b. | Keep filesystem/engine work off App frames, cap row/result ownership, support page continuation and cooperative cancel/join without dropping leases or late results. |
 | W10c2 · P0 · Complete | Startup/manual recovery choice and guarded adoption; W10c1. | Restore the complete candidate or explicitly fork from checkpoint; deferred tails survive cancellation, new edits and Save As. Current dirty documents stay guarded; original locators are not automatic write targets. Narrow/scaled hidden App gate. |
 | W10c2a · P0 · Complete | Explicit recovery disposition and inherited branch; W10c1. | A checkpoint copy never retires its deferred tail; full recovery cleanup requires explicit Save/discard and unchanged known artifacts. New edits keep the recovered parent/original locator without an implicit Save target. |
 | W10c2b · P0 · Complete | Startup/manual choice, guarded App adoption and compact UI; W10c2a. | Connect the independent reader to startup and File actions, preserve dirty/current documents and late results, and validate narrow/scaled hidden input. |
-| W10c3 · P0 · In progress | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
+| W10c3 · P0 · Complete | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W10c3a · P0 · Complete | Archive compatibility and bounded schema proof; W10c2. | Preserve strict v15 and genuine legacy upgrades, byte-for-byte failed-overwrite protection and exact typed metadata; batch catalog proof without relaxing row validation. Focused schema/Save gate plus explicit archive matrix. |
-| W10c3b · P0 · In progress | Final foundation integration and native lifecycle/Open; W10c3a. | Finish the registered full native milestone on current source, verify owned crash/restart, lifecycle/Finder entry and hidden TEST boundaries, and record actual limits before W11. |
+| W10c3b · P0 · Complete | Final foundation integration and native lifecycle/Open; W10c3a. | Exercise the registered native milestone coverage, verify owned crash/restart, lifecycle/Finder entry and hidden TEST boundaries, and record command/runtime limits before W11. |
 | W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W11a · P1 · Queued | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
 | W11a1 · P1 · Queued | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
@@ -422,7 +422,7 @@ The `recovery-disposition` gate passes 172 session and 271 candidate assertions
 per optimized/ASan/UBSan variant plus 18 hidden App stages (6.379s GUI; 31.542s
 total). It covers copied lineage, replay/checkpoint disposition, extra files/WAL,
 lease-held idempotent cleanup and a transferred model surviving retirement.
-Startup/manual UI and crash/restart acceptance remain W10c2b/W10c3.
+Subsequent startup/manual UI and crash/restart acceptance is recorded under W10c2b/W10c3b below.
 
 W10c2b/W10c2 complete: startup and File → Recover session use the independent
 reader, bounded pages and a compact keyboard/pointer panel. Startup only offers
@@ -436,8 +436,8 @@ The `recovery-ui` gate passes 18 hidden real-App stages/32 checks (3.622s GUI;
 11.271s total), including cancelled preparation, dirty-guard Cancel, inherited
 edit parent, both Save/reopen outcomes and 640×640 at 150%. Keytip tests pass
 optimized/sanitizer; 25 tool contracts pass in 7.944s. Test hooks are private;
-crash/restart, active-instance exclusion and broad foundation regression remain
-W10c3. No physical-input or browser-persistence completion is claimed.
+crash/restart, active-instance exclusion and foundation coverage are recorded
+under W10c3b below. No physical-input or browser-persistence completion is claimed.
 
 W10c3 process workflow implemented: a private hidden real-App writer commits
 one editor change, a second hidden observer excludes the live lease, and only
@@ -493,10 +493,10 @@ gate passes in 8.923s (5.687s GUI). The optimized journal workload also passes i
 The ordinary `workbook-schema` gate now selects only the proof module and narrow
 Save App workflow. `workbook-archive` keeps the expensive complete matrix as a
 named interaction/full-milestone check; the existing object-archive CLI provides
-a smaller edit-time path. Final full native/lifecycle/Open acceptance remains
-W10c3b; the shared-C/official-Worker controls boundary has passed in 59.001s.
+a smaller edit-time path. Foundation coverage and command limits are recorded
+under W10c3b; the shared-C/official-Worker controls boundary has passed in 59.001s.
 
-W10c3b milestone integration: optimized/sanitizer engines, owned crash/restart
+W10c3b complete under scoped automated coverage: optimized/sanitizer engines, owned crash/restart
 and fault checks passed. All440 non-layout native stages pass with the real NYC
 fixture. Legacy seeds now record aligned command histories, budget preparation
 uses workbook-wide Undo and real drafts, and Save assertions capture settled
@@ -507,8 +507,10 @@ its old25,000-frame budget. The independent936–950 reset fixture passes all14
 stages in8.444s, completing950-stage coverage across receipts. The failure budget
 now matches the focused runner's46,080 frames; the enlarged single-run command
 has not been rerun, and no green full-command receipt is claimed. All49 runner/
-catalog contracts and shared-C/Wasm compilation pass. macOS lifecycle/Finder
-Open gates remain open. Physical input/browser persistence are separate; current
+catalog contracts and shared-C/Wasm compilation pass. Both native lifecycle
+configurations pass38 checks each; cold/warm Finder Open with the alert guard
+passes in12.811s. The current bundle passes strict signature verification with
+no test/review hooks in its public symbols. Physical input/browser persistence are separate; current
 source/binary receipts are under ignored build/tests/results/.
 
 ### Owned data, refresh and complete analytical results

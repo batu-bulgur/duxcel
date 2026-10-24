@@ -143,8 +143,8 @@ deferred tails after edits and Save As; dismissed candidates never delete files.
 The 19-stage hidden UI gate passes through the real File menu in 4.195s
 optimized/9.210s ASan/UBSan, including 640×640 at 150%.
 Owned real-App crash/restart and active-instance exclusion pass optimized and
-ASan/UBSan. The broader foundation regression remains W10c3; persistent Undo is
-W12. W09 Save publication/progress/cancel is complete. Browser persistence is unchanged and has no native
+ASan/UBSan. Foundation automated coverage is complete with the combined-layout
+frame-budget limit recorded in ROADMAP; persistent Undo is W12. W09 Save publication/progress/cancel is complete. Browser persistence is unchanged and has no native
 journal backend. Receipts and captures remain in ignored `build/tests/results/`.
 
 ## Feature iteration and build identity
@@ -278,6 +278,6 @@ forks preserve deferred tails across new edits and Save As; a complete recovered
 tail can retire only after an explicit resolved Save/discard and unchanged fixed
 artifacts. Cancellation and stale replies preserve recovery material. Scoped
 optimized/sanitizer module, hidden GUI and owned process-crash checks pass;
-remaining foundation milestone checks are tracked in ROADMAP. Durable restored
+foundation evidence and command limits are recorded in ROADMAP. Durable restored
 Undo is W12, and recovery does not retain external source bytes or full analytic
 outputs that the workbook codec does not yet store.
