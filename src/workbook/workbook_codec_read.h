@@ -4,11 +4,10 @@
 
 #define DX_WORKBOOK_CODEC_READ_ROWS 256u
 #define DX_WORKBOOK_CODEC_READ_TEXT 65536u
-/* Component only: this header/cursor cannot open, save or publish a Workbook.
-   It accepts well-formed writer12/13/14 metadata, not all historical native
-   coercions. Native production loading and later family defaults are unchanged.
-   Source binding adoption, formatting and full historical migration remain
-   separate; captured counters alone cannot validate or activate a source. */
+/* Component only: this cursor cannot open, save or publish a Workbook. It
+   accepts exact current core15 metadata, the leaf payload inside native16.
+   Source activation, complete durable identity/model admission and browser Open
+   remain separate owners; captured counters alone do not activate a source. */
 typedef struct WorkbookCodecRead WorkbookCodecRead;
 typedef struct WorkbookCodecHeader WorkbookCodecHeader;
 typedef struct { uint64_t document_epoch,operation_ticket,snapshot_generation; } WorkbookCodecKey;
@@ -16,7 +15,7 @@ typedef enum { WORKBOOK_CODEC_META,WORKBOOK_CODEC_SHEETS,WORKBOOK_CODEC_HEADER_R
     WORKBOOK_CODEC_SORTS,WORKBOOK_CODEC_PREFERENCES,WORKBOOK_CODEC_OBJECTS,WORKBOOK_CODEC_QUERIES,WORKBOOK_CODEC_SOURCE_OPTIONS,
     WORKBOOK_CODEC_TABLE_SOURCES,WORKBOOK_CODEC_TABLE_FILTERS,WORKBOOK_CODEC_TABLE_SORTS,
     WORKBOOK_CODEC_PIVOT_FIELDS,WORKBOOK_CODEC_MARKS,WORKBOOK_CODEC_FILTERS,WORKBOOK_CODEC_COLUMNS,WORKBOOK_CODEC_CELLS,WORKBOOK_CODEC_OBJECT_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,WORKBOOK_CODEC_SOURCE_VERSIONS,WORKBOOK_CODEC_SOURCE_BINDINGS,WORKBOOK_CODEC_FORMAT_ROWS,WORKBOOK_CODEC_FORMAT_STATE,WORKBOOK_CODEC_FORMAT_SELECTORS } WorkbookCodecFamily;
-typedef enum { WORKBOOK_CODEC_SHEETS_24=24,WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
+typedef enum { WORKBOOK_CODEC_SHEETS_25=25 } WorkbookCodecSheetsLayout;
 typedef enum { WORKBOOK_CODEC_NULL,WORKBOOK_CODEC_I32,WORKBOOK_CODEC_U64,WORKBOOK_CODEC_DOUBLE,WORKBOOK_CODEC_BOOLEAN,WORKBOOK_CODEC_TEXT,WORKBOOK_CODEC_BLOB } WorkbookCodecAtomKind;
 typedef struct { const char *data; size_t bytes; } WorkbookCodecText;
 typedef struct { const unsigned char *data; size_t bytes; } WorkbookCodecBlob;
@@ -55,7 +54,7 @@ typedef bool (*WorkbookCodecResolve)(void *context,SourceKind kind,const char *r
 typedef enum { WORKBOOK_CODEC_READ_ERROR=-1,WORKBOOK_CODEC_READ_STALE=0,WORKBOOK_CODEC_READ_ACCEPTED=1 } WorkbookCodecReadStatus;
 typedef struct { bool full_primary_filters; } WorkbookCodecReadOptions;
 /* All three key scalars must be nonzero; only equality is guaranteed, not key
-   issuance or wrap prevention. version is prevalidated12/13/14. The declared
+   issuance or wrap prevention. version must be exactly15. The declared
    layout is the adapter's checked source schema, while all requests project25
    sheets columns in named order. Begin replaces an independent owned reader
    only on success; failures preserve it. Context stays borrowed until free. */
@@ -71,15 +70,13 @@ const WorkbookCodecRequest *workbook_codec_read_request(const WorkbookCodecRead 
 /* Explicit continuation after complete sheets, before finish; the default
    begin/feed/finish path still reads only meta/sheets. Validate primary sort
    definitions only when this continuation is armed. table_present is the
-   adapter's checked inventory: absent12/13 retains primary-only definitions;
-   v14 requires the table. May arm once; failure preserves the prior cursor.
+   adapter's checked inventory: the current core requires the table. May arm once; failure preserves the prior cursor.
    Present data uses one ordered result of at most448 rows plus a449th sentinel,
    fed in batches<=256. This is a component contract, not Worker transport or
    browser Open support. No SQL or source schema is executed/resolved here. */
 bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,char **error);
 /* Once at complete unclaimed Header, independent of other continuations.
-   Absent12/13 defaults ready only after primary validation; v14 requires this
-   table. Caller supplies all retained input/old-output bytes because validating
+   The current core requires this table. Caller supplies all retained input/old-output bytes because validating
    primary JSON can allocate. Admission reserves max native parser scratch
    before any filter validator call. One named5-column ordered result admits
    960 secondary rows plus a961st sentinel, in atomic<=256 batches; names4096,
@@ -88,7 +85,7 @@ bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool table_present,ch
    No source schema/SQL or setter-based deduplication is involved. */
 bool workbook_codec_read_add_filters(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
 /* Independent once-only continuation at complete unclaimed Header. Every writer
-   package12/13/14 requires columns; empty ordered results are valid. One named
+   package15 requires columns; empty ordered results are valid. One named
    INTEGER/INTEGER/VARCHAR/DOUBLE result admits1048576 rows plus one sentinel,
    fed in atomic batches<=256 until explicit end. Each sheet has contiguous
    indices0..16383; names may be empty or duplicate and have no native length
@@ -99,8 +96,7 @@ bool workbook_codec_read_add_filters(WorkbookCodecRead *read,bool table_present,
    Names and view arrays borrow Header ownership; existing name identities
    survive successful array growth. This does not validate full model placement. */
 bool workbook_codec_read_add_columns(WorkbookCodecRead *read,bool table_present,char **error);
-/* Independent once-only complete Header continuation. Absent12/13 defaults
-   ready-empty without a query; v14 requires cells. One named I/U/I/T result
+/* Independent once-only complete Header continuation. The current core requires cells. One named I/U/I/T result
    admits1280000 rows plus a sentinel, in atomic<=256-row feeds until explicit
    end. At most20000 records and4MiB text INCLUDING terminators per sheet;
    row<2^40, column<16384 and text<=65536bytes. Strict(sheet,row,column) ordering
@@ -112,16 +108,15 @@ bool workbook_codec_read_add_columns(WorkbookCodecRead *read,bool table_present,
    object placement/full Workbook validation is constructed here. */
 bool workbook_codec_read_add_cells(WorkbookCodecRead *read,bool table_present,char **error);
 /* Independent optional continuation at HEADER_READY before claim, once. The
-   adapter checks table presence/schema: absent12/13 defaults motion=false and
-   all sheets visible; v14 requires preferences. One C-built named projection
-   ignores unrelated valid keys and admits invalid unrelated v14 NULL/NUL rows
+   adapter checks table presence/schema: the current core requires preferences. One C-built named projection
+   ignores unrelated valid keys and admits invalid unrelated current NULL/NUL rows
    for rejection. Known visibility keys use canonical decimal0..63 only, not
    historical sscanf coercions. At most65 rows plus a66th overflow sentinel.
    Whole-batch POD publication owns no input strings; failure preserves state.
    Completion of this family still does not validate/publish a Workbook. */
 bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_present,char **error);
-/* Optional writer12/13/14 descriptor registry, not complete SheetObjects.
-   Absent12 defaults empty; v13/v14 require this table. One named ordered result
+/* Current core15 descriptor registry, not complete SheetObjects.
+   The current core requires this table. One named ordered result
    admits2048 descriptors plus a2049th sentinel, in atomic batches<=256, with at
    most32 descriptors per sheet. Source references resolve to same-sheet Table
    descriptors only when the family completes. Tables' source definitions,
@@ -129,17 +124,14 @@ bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool table_pres
    unvalidated; no source query or runtime revision is constructed. */
 bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool table_present,char **error);
 /* Once after complete object descriptors, before claim, independent of other
-   completed continuations. v12 forbids a present counter table; absent v12
-   completes without SQL using each sheet's maximum live descriptor ID (or0).
-   v13/v14 require one exact INTEGER/UBIGINT row per sheet, contiguous from0,
+   completed continuations. The current core requires one exact INTEGER/UBIGINT row per sheet, contiguous from0,
    with high_water>=every live descriptor ID. Zero is valid for an empty sheet;
    retired IDs and UINT64_MAX remain exact. One named ordered result admits64
    rows plus a65th sentinel in atomic batches<=256. Fixed Header-owned POD is
    charged by sizeof; even allocation-free feeds admit all retained caller input.
    This preserves allocation state only, not issuance, history or source epochs. */
 bool workbook_codec_read_add_object_counters(WorkbookCodecRead *read,bool table_present,char **error);
-/* Once after complete objects AND object counters, before claim. Versions12/13
-   forbid this table and absent defaults to zero without SQL; v14 requires one
+/* Once after complete objects AND object counters, before claim. The current core requires one
    exact INTEGER/UBIGINT row per worksheet, ordered contiguously from0. One named
    result admits64 rows plus a65th sentinel in atomic<=256-row batches, including
    explicit empty EOF after all data. Fixed Header-owned POD is fully charged;
@@ -147,9 +139,7 @@ bool workbook_codec_read_add_object_counters(WorkbookCodecRead *read,bool table_
    including0/MAX is valid independently of object IDs. Ledger bounds, issuance,
    bindings, formatting and source activation are not validated here. */
 bool workbook_codec_read_add_source_version_counters(WorkbookCodecRead *read,bool table_present,char **error);
-/* Once after objects and both counter families, before claim. Absent12/13
-   defaults empty without SQL; present12/13 is forbidden and v14 requires the
-   table. One ordered named7-column result admits65536 rows plus a sentinel,
+/* Once after objects and both counter families, before claim. The current core requires the table. One ordered named7-column result admits65536 rows plus a sentinel,
    <=1024 per sheet, in atomic<=256 feeds. definition alone is nullable: pending
    is encoding0/SQL NULL, complete is encoding1/canonical RAW strictly<256KiB.
    BLOB atoms borrow exact binary bytes; no hex or second wire parser lives here.
@@ -167,8 +157,7 @@ bool workbook_codec_read_add_source_version_counters(WorkbookCodecRead *read,boo
    ledger issuance, binding/path equality, format or source activation is made. */
 bool workbook_codec_read_add_source_versions(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
 /* Once after complete Table definitions (including queries/options) and source
-   ledger/counters, before claim. Absent12/13 defaults every current owner to0
-   without SQL; present12/13 is forbidden and v14 requires complete coverage.
+   ledger/counters, before claim. The current core requires complete coverage.
    One named I/U/U result has at most2112 rows plus a sentinel, fed atomically
    <=256 at a time: each sheet primary0, then each live Table in owner order.
    Every owner needs an explicit row, including unbound version0. A nonzero
@@ -181,7 +170,7 @@ bool workbook_codec_read_add_source_versions(WorkbookCodecRead *read,bool table_
    bytes even though this continuation allocates no heap or parser scratch. */
 bool workbook_codec_read_add_source_bindings(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
 /* Base format properties only, once at complete unclaimed Header. Formats are
-   mandatory for writer12/13/14; v14 additionally requires complete ledger and
+   mandatory for core15, together with complete ledger and
    binding views. One named13-column ordered result admits32768 rows plus one
    sentinel, <=512 per sheet, in atomic<=256 batches. Positions start0 and stay
    contiguous within each sheet; sheets without patches need no rows. Lossless
@@ -190,15 +179,15 @@ bool workbook_codec_read_add_source_bindings(WorkbookCodecRead *read,bool table_
    migration, renderer or complete-format readiness is inferred/exposed.
    Actual Header geometric capacity and old/new array coexistence are metered
    with all retained caller input. Separately named logical format_native_bytes
-   uses max(sizeof(FormatPatch),96known64-bit) per row. V14 adds that category to
+   uses max(sizeof(FormatPatch),96known64-bit) per row. The current core adds that category to
    BOTH existing ledger archive/restored1MiB-sheet/8MiB-workbook reservations;
-   v12/13 do not acquire the new aggregate cap. These are logical categories,
+   These are logical categories,
    not universal ABI, allocator/RSS or complete-model validity guarantees. */
 bool workbook_codec_read_add_format_rows(WorkbookCodecRead *read,bool table_present,size_t retained_input,char **error);
 typedef struct { bool state_present,selectors_present; } WorkbookCodecFormatTagsPresence;
-/* Once after complete unclaimed base format rows. v12 forbids both tables and
-   completes without SQL with explicit false/SPATIAL defaults. v13 forbids state
-   and requires complete SPATIAL selectors. v14 requires state first: one I/B row
+/* Once after complete unclaimed base format rows. current core forbids both tables and
+   completes without SQL with explicit false/SPATIAL defaults. current core forbids state
+   and requires complete SPATIAL selectors. current core requires state first: one I/B row
    per sheet, including false and empty-format sheets; then one I/I/I selector per
    existing row in exact(sheet,position) order. Requests admit64/32768 rows plus
    sentinels, respectively, in atomic<=256 feeds. Explicit awareness is never
@@ -231,8 +220,7 @@ typedef struct { bool sources,filters,sorts; } WorkbookCodecTableSourcePresence;
 /* One chain after complete descriptors/queries/options:14-column sources,
    6-column secondary filters,5-column secondary sorts, each one ordered result
    in atomic<=256-row feeds. Limits2048/30720/14336 plus one sentinel each.
-   v14 requires all three tables; absent sources in12/13 defaults empty only
-   with no Table descriptors. Present sources always requires both children.
+   The current core requires all three tables, including on sheets without Tables.
    Raw text is bounded8MiB/sheet, independently of owned-buffer admission.
    Completion also checks the known native object-current byte lower bound:
    object/name/Table/query data and actual available locator bytes. Unavailable
@@ -242,9 +230,8 @@ typedef struct { bool sources,filters,sorts; } WorkbookCodecTableSourcePresence;
 bool workbook_codec_read_add_table_sources(WorkbookCodecRead *read,WorkbookCodecTableSourcePresence present,char **error);
 typedef struct { bool fields,marks; } WorkbookCodecPivotMarksPresence;
 /* Once after the complete descriptor/query/options/Table chain, before claim.
-   With an objects table (even empty), writer12/13/14 require both families;
-   absent v12 objects defaults empty and ignores these child tables, as native
-   load_objects does. Named9/8-column results admit65536/98304 rows plus one
+   The current core requires both families, even with no objects.
+   Named9/8-column results admit65536/98304 rows plus one
    sentinel, in atomic<=256 feeds ordered by sheet/owner/role/position. Actual
    Table owners cannot contain either family. This validates definitions and
    presentation arity, not source schema, runtime values or workbook placement. */

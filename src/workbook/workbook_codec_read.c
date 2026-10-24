@@ -16,7 +16,7 @@ struct WorkbookCodecHeader {
     size_t count,active,bytes,source_archive,source_restored,format_native_bytes;
     uint64_t hidden;
     float user_scale;
-    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,object_table_present,pivot_marks_ready,filters_ready,columns_ready,cells_ready,object_counters_ready,source_version_counters_ready,source_versions_ready,source_bindings_ready,format_rows_ready,format_tags_ready;
+    bool sorts_ready,preferences_ready,reduced_motion,objects_ready,queries_ready,source_options_ready,table_sources_ready,pivot_marks_ready,filters_ready,columns_ready,cells_ready,object_counters_ready,source_version_counters_ready,source_versions_ready,source_bindings_ready,format_rows_ready,format_tags_ready;
     PivotDefinition empty_pivot;
     MarkDefinition empty_marks;
     HeaderObject *objects;
@@ -30,8 +30,6 @@ struct WorkbookCodecRead {
     WorkbookCodecResolve resolve;
     void *context;
     size_t limit,bytes;
-    unsigned version;
-    WorkbookCodecSheetsLayout layout;
     uint64_t preference_seen;
     size_t query_sheet;
     uint64_t query_owner;
@@ -49,13 +47,11 @@ struct WorkbookCodecRead {
 };
 static const char meta_sql[]="SELECT version,active_sheet,user_scale FROM _duxcel_workspace.meta LIMIT 2";
 static const char sheets25_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",canvas_zoom AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
-static const char sheets24_sql[]="SELECT " DX_WORKBOOK_SHEET_COLUMNS ",1::DOUBLE AS canvas_zoom FROM _duxcel_workspace.sheets ORDER BY id LIMIT 65";
 static const char columns_sql[]="SELECT sheet_id,column_id,name,width FROM _duxcel_workspace.columns ORDER BY sheet_id,column_id LIMIT 1048577";
 static const char cells_sql[]="SELECT sheet_id,row_id,column_id,text FROM _duxcel_workspace.cells ORDER BY sheet_id,row_id,column_id LIMIT 1280001";
 static const char filters_sql[]="SELECT sheet_id,position,name,op,value FROM _duxcel_workspace.filters ORDER BY sheet_id,position LIMIT 961";
 static const char sorts_sql[]="SELECT sheet_id,position,name,descending FROM _duxcel_workspace.sorts ORDER BY sheet_id,position LIMIT 449";
-static const char preferences_sql[]="SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') ORDER BY name LIMIT 66";
-static const char preferences14_sql[]="SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66";
+static const char preferences_sql[]="SELECT name,value FROM _duxcel_workspace.preferences WHERE name='reduce_motion' OR starts_with(name,'sheet_hidden_') OR name IS NULL OR value IS NULL OR contains(name,chr(0)) ORDER BY name LIMIT 66";
 static const char objects_sql[]="SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049";
 static const char object_counters_sql[]="SELECT sheet_id,high_water FROM _duxcel_workspace.object_counters ORDER BY sheet_id LIMIT 65";
 static const char source_version_counters_sql[]="SELECT sheet_id,high_water FROM _duxcel_workspace.source_version_counters ORDER BY sheet_id LIMIT 65";
@@ -179,11 +175,10 @@ void workbook_codec_read_free(WorkbookCodecRead *read) {
 }
 bool workbook_codec_read_begin_with_options(WorkbookCodecRead **out,WorkbookCodecKey key,unsigned version,
     WorkbookCodecSheetsLayout layout,WorkbookCodecReadOptions options,size_t limit,WorkbookCodecResolve resolve,void *context,char **error) {
-    if (!out || !key_valid(key) || version<12 || version>14 || (layout!=WORKBOOK_CODEC_SHEETS_24 && layout!=WORKBOOK_CODEC_SHEETS_25) ||
-        (version==14 && layout!=WORKBOOK_CODEC_SHEETS_25)) return fail(error,"Invalid metadata operation key, version or sheets layout.");
+    if (!out || !key_valid(key) || version!=DX_WORKSPACE_VERSION || layout!=WORKBOOK_CODEC_SHEETS_25) return fail(error,"Invalid metadata operation key, version or sheets layout.");
     if (!room(sizeof(WorkbookCodecRead),0,sizeof(WorkbookCodecHeader),limit)) return fail(error,"Metadata cursor exceeds its owned-buffer budget.");
     WorkbookCodecRead *next=dx_alloc(sizeof(*next)); next->header=dx_alloc(sizeof(*next->header));
-    next->key=key; next->version=version; next->layout=layout; next->limit=limit; next->resolve=resolve; next->context=context; next->options=options;
+    next->key=key; next->limit=limit; next->resolve=resolve; next->context=context; next->options=options;
     next->bytes=sizeof(*next)+sizeof(*next->header); next->header->bytes=sizeof(*next->header); next->header->key=key; next->header->version=version;
     next->request=(WorkbookCodecRequest){WORKBOOK_CODEC_META,meta_sql,0,3,3,2};
     workbook_codec_read_free(*out); *out=next; return true;
@@ -198,10 +193,7 @@ const WorkbookCodecRequest *workbook_codec_read_request(const WorkbookCodecRead 
 bool workbook_codec_read_add_cells(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->cells_ready)
         return fail(error,"Cell metadata requires a complete unclaimed header and may be armed once.");
-    if (!present) {
-        if (read->version==14) return fail(error,"The v14 workbook requires cell metadata.");
-        read->header->cells_ready=true; return true;
-    }
+    if (!present) return fail(error,"The current core requires cell metadata.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_CELLS,cells_sql,0,4,4,CELL_ROWS+1u}; return true;
 }
 bool workbook_codec_read_add_columns(WorkbookCodecRead *read,bool present,char **error) {
@@ -213,27 +205,23 @@ bool workbook_codec_read_add_columns(WorkbookCodecRead *read,bool present,char *
 bool workbook_codec_read_add_sorts(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->sorts_ready)
         return fail(error,"Sort metadata requires a complete unclaimed header and may be armed once.");
-    if (!present && read->version==14) return fail(error,"The v14 workbook requires sort metadata.");
+    if (!present) return fail(error,"The current core requires sort metadata.");
     for (size_t i=0;i<read->header->count;i++) if (!analysis_sorts_valid(&read->header->sheets[i].analysis,error)) return false;
-    if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SORTS,sorts_sql,0,4,4,SORT_ROWS+1u};
-    else read->header->sorts_ready=true;
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SORTS,sorts_sql,0,4,4,SORT_ROWS+1u};
     return true;
 }
 bool workbook_codec_read_add_preferences(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->preferences_ready)
         return fail(error,"Preferences require a complete unclaimed header and may be armed once.");
-    if (!present && read->version==14) return fail(error,"The v14 workbook requires preferences.");
-    if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_PREFERENCES,read->version==14 ? preferences14_sql : preferences_sql,0,2,2,DX_MAX_SHEETS+2u};
-    else read->header->preferences_ready=true;
+    if (!present) return fail(error,"The current core requires preferences.");
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_PREFERENCES,preferences_sql,0,2,2,DX_MAX_SHEETS+2u};
     return true;
 }
 bool workbook_codec_read_add_objects(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->objects_ready)
         return fail(error,"Object descriptors require a complete unclaimed header and may be armed once.");
-    if (!present && read->version>=13) return fail(error,read->version==13 ? "The v13 workbook requires object descriptors." : "The v14 workbook requires object descriptors.");
-    read->header->object_table_present=present;
-    if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_OBJECTS,objects_sql,0,11,11,OBJECT_ROWS+1u};
-    else read->header->objects_ready=true;
+    if (!present) return fail(error,"The current core requires object descriptors.");
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_OBJECTS,objects_sql,0,11,11,OBJECT_ROWS+1u};
     return true;
 }
 static uint64_t object_max_live(const WorkbookCodecHeader *header,size_t sheet) {
@@ -244,50 +232,36 @@ bool workbook_codec_read_add_object_counters(WorkbookCodecRead *read,bool presen
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY ||
         !read->header->objects_ready || read->header->object_counters_ready)
         return fail(error,"Object counters require complete unclaimed object descriptors and may be armed once.");
-    if (read->version==12) {
-        if (present) return fail(error,"The v12 workbook forbids object counter metadata.");
-        for (size_t i=0;i<read->header->count;i++) read->header->sheets[i].object_high_water=object_max_live(read->header,i);
-        read->header->object_counters_ready=true; return true;
-    }
-    if (!present) return fail(error,read->version==13 ? "The v13 workbook requires object counter metadata." : "The v14 workbook requires object counter metadata.");
+    if (!present) return fail(error,"The current core requires object counter metadata.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_OBJECT_COUNTERS,object_counters_sql,0,2,2,DX_MAX_SHEETS+1u}; return true;
 }
 bool workbook_codec_read_add_source_version_counters(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY ||
         !read->header->objects_ready || !read->header->object_counters_ready || read->header->source_version_counters_ready)
         return fail(error,"Source-version counters require complete unclaimed objects and object counters and may be armed once.");
-    if (read->version<14) {
-        if (present) return fail(error,read->version==12 ? "The v12 workbook forbids source-version counter metadata." : "The v13 workbook forbids source-version counter metadata.");
-        for (size_t i=0;i<read->header->count;i++) read->header->sheets[i].source_version_high_water=0;
-        read->header->source_version_counters_ready=true; return true;
-    }
-    if (!present) return fail(error,"The v14 workbook requires source-version counter metadata.");
+    if (!present) return fail(error,"The current core requires source-version counter metadata.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SOURCE_VERSION_COUNTERS,source_version_counters_sql,0,2,2,DX_MAX_SHEETS+1u}; return true;
 }
 bool workbook_codec_read_add_source_versions(WorkbookCodecRead *read,bool present,size_t retained,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->objects_ready ||
         !read->header->object_counters_ready || !read->header->source_version_counters_ready || read->header->source_versions_ready)
         return fail(error,"Source versions require complete unclaimed objects and both counters and may be armed once.");
-    if (read->version<14 && present) return fail(error,read->version==12 ? "The v12 workbook forbids source-version ledger metadata." : "The v13 workbook forbids source-version ledger metadata.");
-    if (read->version==14 && !present) return fail(error,"The v14 workbook requires source-version ledger metadata.");
+    if (!present) return fail(error,"The current core requires source-version ledger metadata.");
     if (!room(read->bytes,retained,0,read->limit)) return fail(error,"Source-version input exceeds its owned-buffer budget.");
-    if (!present) { read->header->source_versions_ready=true; return true; }
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SOURCE_VERSIONS,source_versions_sql,0,7,7,SOURCE_VERSION_ROWS+1u}; return true;
 }
 bool workbook_codec_read_add_source_bindings(WorkbookCodecRead *read,bool present,size_t retained,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->table_sources_ready ||
         !read->header->source_versions_ready || read->header->source_bindings_ready)
         return fail(error,"Source bindings require complete unclaimed Table definitions and source ledger and may be armed once.");
-    if (read->version<14 && present) return fail(error,read->version==12 ? "The v12 workbook forbids source-binding metadata." : "The v13 workbook forbids source-binding metadata.");
-    if (read->version==14 && !present) return fail(error,"The v14 workbook requires source-binding metadata.");
+    if (!present) return fail(error,"The current core requires source-binding metadata.");
     if (!room(read->bytes,retained,0,read->limit)) return fail(error,"Source-binding input exceeds its owned-buffer budget.");
-    if (!present) { read->header->source_bindings_ready=true; return true; }
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SOURCE_BINDINGS,source_bindings_sql,0,3,3,QUERY_ROWS+1u}; return true;
 }
 bool workbook_codec_read_add_format_rows(WorkbookCodecRead *read,bool present,size_t retained,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->format_rows_ready ||
-        (read->version==14 && (!read->header->source_bindings_ready || !read->header->source_versions_ready)))
-        return fail(error,"Format rows require a complete unclaimed Header, v14 source bindings/ledger and may be armed once.");
+        (!read->header->source_bindings_ready || !read->header->source_versions_ready))
+        return fail(error,"Format rows require a complete unclaimed Header, current source bindings/ledger and may be armed once.");
     if (!present) return fail(error,"The workbook requires base format-row metadata.");
     if (!room(read->bytes,retained,0,read->limit)) return fail(error,"Format-row input exceeds its owned-buffer budget.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_FORMAT_ROWS,format_rows_sql,0,13,13,FORMAT_ROW_LIMIT+1u}; return true;
@@ -295,14 +269,9 @@ bool workbook_codec_read_add_format_rows(WorkbookCodecRead *read,bool present,si
 bool workbook_codec_read_add_format_tags(WorkbookCodecRead *read,WorkbookCodecFormatTagsPresence present,size_t retained,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->format_rows_ready || read->header->format_tags_ready)
         return fail(error,"Format tags require complete unclaimed base format rows and may be armed once.");
-    if (read->version<14 && present.state_present) return fail(error,"Legacy workbook versions forbid explicit format-state metadata.");
-    if (read->version==12 && present.selectors_present) return fail(error,"The v12 workbook forbids format-selector metadata.");
-    if (read->version>=13 && !present.selectors_present) return fail(error,"The workbook requires format-selector metadata.");
-    if (read->version==14 && !present.state_present) return fail(error,"The v14 workbook requires explicit format-state metadata.");
+    if (!present.state_present || !present.selectors_present) return fail(error,"The current core requires explicit format-state and selector metadata.");
     if (!room(read->bytes,retained,0,read->limit)) return fail(error,"Format-tag input exceeds its owned-buffer budget.");
-    if (read->version==12) { read->header->format_tags_ready=true; return true; }
-    read->request=read->version==14 ? (WorkbookCodecRequest){WORKBOOK_CODEC_FORMAT_STATE,format_state_sql,0,2,2,DX_MAX_SHEETS+1u} :
-        (WorkbookCodecRequest){WORKBOOK_CODEC_FORMAT_SELECTORS,format_selectors_sql,0,3,3,FORMAT_ROW_LIMIT+1u}; return true;
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_FORMAT_STATE,format_state_sql,0,2,2,DX_MAX_SHEETS+1u}; return true;
 }
 bool workbook_codec_read_add_queries(WorkbookCodecRead *read,bool present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY ||
@@ -324,20 +293,13 @@ bool workbook_codec_read_add_table_sources(WorkbookCodecRead *read,WorkbookCodec
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->objects_ready ||
         !read->header->queries_ready || !read->header->source_options_ready || read->header->table_sources_ready)
         return fail(error,"Table sources require complete unclaimed descriptors, queries and options and may be armed once.");
-    if (read->version==14 && (!present.sources || !present.filters || !present.sorts)) return fail(error,"The v14 workbook requires the complete Table source package.");
-    if (!present.sources) {
-        for (size_t i=0;i<read->header->object_count;i++) if (read->header->objects[i].value.kind==OBJECT_TABLE)
-            return fail(error,"A Table descriptor requires its source definition.");
-        read->header->table_sources_ready=true; return true;
-    }
-    if (!present.filters || !present.sorts) return fail(error,"Present Table sources require filter and sort metadata tables.");
+    if (!present.sources || !present.filters || !present.sorts) return fail(error,"The current core requires the complete Table source package.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_TABLE_SOURCES,table_sources_sql,0,14,14,OBJECT_ROWS+1u};
     return true;
 }
 bool workbook_codec_read_add_pivot_marks(WorkbookCodecRead *read,WorkbookCodecPivotMarksPresence present,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || !read->header->table_sources_ready || read->header->pivot_marks_ready)
         return fail(error,"Pivot/Marks require the complete unclaimed Table metadata chain and may be armed once.");
-    if (!read->header->object_table_present) { read->header->pivot_marks_ready=true; return true; }
     if (!present.fields || !present.marks) return fail(error,"An objects table requires both Pivot fields and Marks metadata.");
     read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_PIVOT_FIELDS,pivot_fields_sql,0,9,9,PIVOT_ROWS_LIMIT+1u}; return true;
 }
@@ -368,8 +330,7 @@ static bool sheet_row(WorkbookCodecRead *read,const WorkbookCodecAtom *cells,siz
     double horizontal_value=cells[21].value.real,canvas_value=cells[24].value.real;
     double fraction=cells[22].value.real;
     if (!isfinite(horizontal_value) || horizontal_value<0 || horizontal_value>FLT_MAX || !isfinite(fraction) || fraction<0 || fraction>=1 ||
-        cells[23].value.i32<0 || cells[23].value.i32>3 || !isfinite(canvas_value) || canvas_value<.5 || canvas_value>2.5 ||
-        (read->layout==WORKBOOK_CODEC_SHEETS_24 && cells[24].value.real!=1)) return fail(error,"Invalid worksheet viewport or legacy canvas default.");
+        cells[23].value.i32<0 || cells[23].value.i32>3 || !isfinite(canvas_value) || canvas_value<.5 || canvas_value>2.5) return fail(error,"Invalid worksheet viewport or canvas zoom.");
     float horizontal=(float)horizontal_value,canvas=(float)canvas_value;
     Analysis *a=&out->analysis; a->kind=(SourceKind)cells[2].value.i32; a->filter_op=(FilterOp)cells[8].value.i32;
     a->aggregate=(Aggregate)cells[11].value.i32; a->descending=cells[13].value.boolean;
@@ -771,16 +732,15 @@ static bool primary_filter_scratch(const Analysis *a,size_t *maximum,char **erro
 bool workbook_codec_read_add_filters(WorkbookCodecRead *read,bool present,size_t retained,char **error) {
     if (!read || !read->header || read->request.family!=WORKBOOK_CODEC_HEADER_READY || read->header->filters_ready)
         return fail(error,"Filters require a complete unclaimed Header and may be armed once.");
-    if (!present && read->version==14) return fail(error,"The v14 workbook requires secondary filter metadata.");
+    if (!present) return fail(error,"The current core requires secondary filter metadata.");
     size_t scratch=0;
     if (!table_reserve(read,retained,0,0,error)) return false;
     for (size_t i=0;i<read->header->count;i++) if (!primary_filter_scratch(&read->header->sheets[i].analysis,&scratch,error)) return false;
     /* Reserve the maximum across all primaries before the first native parser
-       call, even for the absent12/13 default. There are no new owned buffers. */
+       call. There are no new owned buffers. */
     if (!table_reserve(read,retained,0,scratch,error)) return false;
     for (size_t i=0;i<read->header->count;i++) if (!analysis_filters_valid(&read->header->sheets[i].analysis,error)) return false;
-    if (present) read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_FILTERS,filters_sql,0,5,5,FILTER_ROWS+1u};
-    else read->header->filters_ready=true;
+    read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_FILTERS,filters_sql,0,5,5,FILTER_ROWS+1u};
     return true;
 }
 typedef struct { size_t sheet; AnalysisFilter filter; } PrimaryFilterChange;
@@ -1302,8 +1262,8 @@ static bool format_rows_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *b
         if (counts[i]>SIZE_MAX/DX_WORKBOOK_CODEC_FORMAT_PATCH_BYTES) return fail(error,"Format-row reservation overflows.");
         size_t native=counts[i]*DX_WORKBOOK_CODEC_FORMAT_PATCH_BYTES;
         if (native>DX_FORMAT_CURRENT_BYTES || !source_size_add(&native_total,native,SIZE_MAX)) return fail(error,"Format-row sheet reservation exceeds its bounded current limit.");
-        if (read->version==14 && (header->sheets[i].source_archive>DX_FORMAT_CURRENT_BYTES-native || header->sheets[i].source_restored>DX_FORMAT_CURRENT_BYTES-native))
-            return fail(error,"Combined v14 ledger/format archive or restored sheet reservation exceeds 1 MiB.");
+        if ((header->sheets[i].source_archive>DX_FORMAT_CURRENT_BYTES-native || header->sheets[i].source_restored>DX_FORMAT_CURRENT_BYTES-native))
+            return fail(error,"Combined source ledger/format archive or restored sheet reservation exceeds 1 MiB.");
         size_t old=header->sheets[i].format_capacity;
         if (counts[i]<=old) continue;
         size_t capacity=old ? old : 16u; while (capacity<counts[i]) capacity*=2u;
@@ -1311,8 +1271,8 @@ static bool format_rows_feed(WorkbookCodecRead *read,const WorkbookCodecBatch *b
             !source_size_add(&retired,old*sizeof(FormatPatch),SIZE_MAX)) return fail(error,"Format-row array capacity overflows.");
         capacities[i]=capacity;
     }
-    if (read->version==14 && (native_total>SOURCE_ARCHIVE_BYTES || header->source_archive>SOURCE_ARCHIVE_BYTES-native_total || header->source_restored>SOURCE_ARCHIVE_BYTES-native_total))
-        return fail(error,"Combined v14 ledger/format archive or restored workbook reservation exceeds 8 MiB.");
+    if ((native_total>SOURCE_ARCHIVE_BYTES || header->source_archive>SOURCE_ARCHIVE_BYTES-native_total || header->source_restored>SOURCE_ARCHIVE_BYTES-native_total))
+        return fail(error,"Combined source ledger/format archive or restored workbook reservation exceeds 8 MiB.");
     if (!room(read->bytes,retained,grown,read->limit)) return fail(error,"Format-row geometric staging exceeds its owned-buffer budget.");
     for (size_t i=0;i<header->count;i++) if (capacities[i]) {
         arrays[i]=dx_alloc(capacities[i]*sizeof(FormatPatch));
@@ -1353,9 +1313,9 @@ static bool format_selectors_feed(WorkbookCodecRead *read,const WorkbookCodecBat
             return fail(error,"Format selectors require exact ordered coverage of every base format row.");
         /* Full format_valid also needs future scopes/memberships. Only its enum
            and explicit-awareness prerequisites are meaningful at this stage. */
-        if (kind<FORMAT_SPATIAL || kind>FORMAT_RECORDS || (read->version==13 && kind!=FORMAT_SPATIAL) ||
+        if (kind<FORMAT_SPATIAL || kind>FORMAT_RECORDS ||
             (kind!=FORMAT_SPATIAL && !header->sheets[sheet].format_source_aware))
-            return fail(error,"Format selector is unknown, forbidden by its version or lacks explicit source-aware state.");
+            return fail(error,"Format selector is unknown or lacks explicit source-aware state.");
         position++;
     }
     format_selector_position(header,&sheet,&position);
@@ -1397,12 +1357,12 @@ WorkbookCodecReadStatus workbook_codec_read_feed(WorkbookCodecRead *read,Workboo
     if (family==WORKBOOK_CODEC_TABLE_SORTS) return table_sorts_feed(read,batch,retained,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_PIVOT_FIELDS || family==WORKBOOK_CODEC_MARKS) return definitions_feed(read,batch,retained,family==WORKBOOK_CODEC_MARKS,error) ? WORKBOOK_CODEC_READ_ACCEPTED : WORKBOOK_CODEC_READ_ERROR;
     if (family==WORKBOOK_CODEC_META) {
-        if (batch->first_row || batch->row_count!=1 || !batch->end || batch->cells[0].value.i32!=(int32_t)read->version ||
+        if (batch->first_row || batch->row_count!=1 || !batch->end || batch->cells[0].value.i32!=(int32_t)DX_WORKSPACE_VERSION ||
             batch->cells[1].value.u64>=DX_MAX_SHEETS || !isfinite(batch->cells[2].value.real) || batch->cells[2].value.real<.8 || batch->cells[2].value.real>1.5) {
             fail(error,"Invalid complete workbook meta row."); return WORKBOOK_CODEC_READ_ERROR;
         }
         read->header->active=(size_t)batch->cells[1].value.u64; read->header->user_scale=(float)batch->cells[2].value.real;
-        read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SHEETS,read->layout==WORKBOOK_CODEC_SHEETS_24 ? sheets24_sql : sheets25_sql,0,25,(size_t)read->layout,65};
+        read->request=(WorkbookCodecRequest){WORKBOOK_CODEC_SHEETS,sheets25_sql,0,25,25,65};
         return WORKBOOK_CODEC_READ_ACCEPTED;
     }
     size_t count=read->header->count;
