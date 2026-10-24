@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "archive-read": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition"),
+        ("src/workbook/archive_read.c", "src/workbook/archive_read.h", "src/workbook/workbook.c: borrowed v16 head reader", "tests/test_archive_read.c"),
+        ("archive_read",)),
     "version-closure": Feature((), "",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui"),
         ("src/workbook/version_restore.c", "src/workbook/version_restore.h", "tests/test_version_restore.c"),

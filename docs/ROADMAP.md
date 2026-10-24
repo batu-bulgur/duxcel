@@ -174,7 +174,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.3b3b · P1 · Complete | Owned chunk extraction and core admission; W11a2.3b3a. | Stream exact complete chunks into private leased leaves; validate hashes, inner v15 model/document association and full core root closure before return. |
 | W11a2.3b3b1 · P1 · Complete | Strict owned core reconstruction from a bounded stream; W11a2.3b3a. | Exact bytes/hash, inner v15/document/absolute-reference/nonrecursive admission, fixed input blocks, cancel/failure cleanup and out preservation. |
 | W11a2.3b3b2 · P1 · Complete | Whole root-set chunk extraction and closure; W11a2.3b3b1. | Reject orphan/missing/duplicate/trailing/oversized chunks and return only a fully admitted leased root set. Preserve metadata/live model on all failures. |
-| W11a2.3c · P1 · Queued | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
+| W11a2.3c · P1 · In progress | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
+| W11a2.3c1 · P1 · Complete | Staged native archive reader and discriminator; W11a2.3b. | Read-only legacy candidates or v16 head plus complete independent core roots; validate document/source identity and preserve older Latest Saved in an R+1 head. Ordinary App Open/Save stays unchanged until integration. |
+| W11a2.3c2 · P1 · Queued | Safe native versioned writer/upgrade; W11a2.3c1. | Prepare owned output before commit, preserve existing valid artifacts/unrelated data, reject corrupt targets and source aliases, and cancel/fail without replacing the named file. Scoped native file gate before App adoption. |
 | W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
@@ -290,6 +292,16 @@ trailing/orphan/missing-root cases and cancellation leave no partial output.
 Catalog strings are bounded; strict core shape is proved before any metadata
 view could execute. This completes codec-v1 core closure, not native fileversion
 upgrade, App adoption or future retained Data Model/result assets.
+
+W11a2.3c1 complete: the native staged reader admits read-only legacy models or
+a v16 head plus complete independent codec-v1 core roots, with matching document
+IDs and unchanged source identity. A checkpoint head R+1 correctly retains the
+older Latest Saved R and tag bytes. Legacy headers with hidden version metadata
+reject; v16 requires closed bytes without WAL. The `archive-read` gate passes144
+checks per optimized/ASan/UBSan build in12.730s, including v15/v14 non-writing Open,
+exact file hashes/identity, cancellation/cleanup and missing older-root rejection.
+The prepared candidate owns transferable model/core-set outputs. Normal App
+Open/Save still uses v1-v15; safe writing/upgrade and App adoption remain next.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

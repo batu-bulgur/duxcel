@@ -122,8 +122,14 @@ then restores and admits every core root independently before returning an owned
 core set. Missing older tagged payloads reject the whole set. Copied metadata and
 leased files outlive the outer SQL connection; failure/cancel releases ordinary
 new staging. This proves codec-v1 core closure, with external sources still
-explicit dependencies. Native fileversion upgrade and App adoption remain
-W11a2.3c/W11a3; normal native files remain v15.
+explicit dependencies. Native `archive_read.c` stages legacy candidates or the explicitly discriminated
+v16 container, whose authored head retains the v15 layout. The v16 candidate
+owns its independent complete core set and validates head/index document identity,
+closed-WAL policy and unchanged native file identity. It preserves an older
+Latest Saved R in an R+1 head. Legacy reads remain non-writing and cannot silently
+ignore a reserved version schema. Borrowed head decoding stays in the existing
+core reader; candidate adoption belongs to the caller. Safe v16 writing/upgrade
+and App adoption remain W11a2.3c2/W11a3; normal App files still use v1-v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

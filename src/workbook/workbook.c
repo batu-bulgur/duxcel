@@ -1942,6 +1942,15 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
  done:
     duckdb_destroy_result(&r); workbook_free(&book); return ok;
 }
+bool workbook_read_versioned_core(duckdb_connection c,const char *path,Workbook *out,char **error) {
+    if (!c || !path || !absolute(path) || !out) return range_fail(error,"Choose a selected native archive transaction and independent workbook result.");
+    if (!source_package_shape(c,15,error)) return false;
+    duckdb_result r={0}; bool ok=duckdb_query(c,"SELECT version FROM _duxcel_workspace.meta",&r)==DuckDBSuccess;
+    if (!ok) range_fail(error,duckdb_result_error(&r));
+    else if (duckdb_row_count(&r)!=1 || duckdb_value_is_null(&r,0,0) || duckdb_column_type(&r,0)!=DUCKDB_TYPE_INTEGER || duckdb_value_int32(&r,0,0)!=16) ok=range_fail(error,"A versioned archive requires the v16 discriminator and exact core layout.");
+    duckdb_destroy_result(&r);
+    return ok && read_workbook(c,path,15,out,error);
+}
 bool workbook_load_core_payload(Workbook *out,const char *path,char **error) {
     if (!out || !path || !*path) return range_fail(error,"Choose a core payload and an owned workbook result.");
     char *target=dx_absolute_path(path); if (!target) return range_fail(error,"Core payload file is missing or inaccessible.");

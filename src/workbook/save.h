@@ -32,4 +32,11 @@ WorkbookSaveResult workbook_save_core_payload(const Workbook *book,const char *p
    no unrelated tables or nested version schema. Reads an independent candidate
    and preserves out on failure. Ordinary workbook_load retains legacy support. */
 bool workbook_load_core_payload(Workbook *out,const char *path,char **error);
+/* Native archive adapter only. Borrow a selected, explicitly transactional
+   connection to a v16 container whose authored head retains the v15 layout.
+   Validate that exact core shape/header before reading an independent model.
+   The caller MUST separately admit version metadata/full payload closure and
+   document association before publishing either output. No transaction/DB
+   lifetime or fileversion upgrade is owned here. Normal Open stays v1-v15. */
+bool workbook_read_versioned_core(duckdb_connection connection,const char *path,Workbook *out,char **error);
 #endif

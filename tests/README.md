@@ -307,3 +307,11 @@ hash/inner-document mismatch and empty sets. The `version-closure` gate also
 runs strict stream restoration and metadata admission. A metadata view error
 sentinel proves strict core shape rejection precedes reading its definition.
 Native fileversion compatibility and App publication remain separate gates.
+
+`test_archive_read.c` composes real core Save and version staging to exercise
+native v16 candidate admission, an R+1 authored head with older Saved R/tag
+payloads, independent ownership transfers, phase cancellation/cleanup and exact
+input hash/identity preservation. Native v15/v14 Open remains non-writing;
+hidden legacy version metadata and missing old chunks reject. The `archive-read`
+gate is module-only: normal App entry/writing/upgrade remain explicit integration
+work, with ordinary unsupported v16 Open also asserted to preserve the model.
