@@ -184,6 +184,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a3.2b · P1 · In progress | Native IO job envelope and background retirement; W11a3.2a. | Transfer typed native contexts through existing ordered file jobs; keep native dependencies out of ordinary Core-only tests, retain source stores and retire owned files off App frames. |
 | W11a3.2b1 · P1 · Complete | Typed native file task/retirement boundary in QueryWorker; W11a3.2a. | Route owned Save/Load contexts, keep preparation cancellable, drain intrusive cleanup off mutex/frames and preserve ordinary worker/format ownership. Core-only focused tests plus narrow Save GUI. |
 | W11a3.2b2 · P1 · Queued | Versioned native IO adapter and owned replies; W11a3.2b1. | Retain input core sets, call real version Save/archive reader on the existing worker, transfer prepared receipts/candidates and retire disk ownership in background. |
+| W11a3.2b2a · P1 · Complete | Non-writing Saved baseline for opened legacy files; W11a3.2b1. | Retain opened Saved R before edits, so the first private R+1 checkpoint carries R even before upgrading the user file. Atomically adopt verified leaf/metadata ownership; preserve original bytes and dirty state. |
 | W11a3.3 · P1 · Queued | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
 | W11a3.4 · P1 · Queued | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
@@ -356,6 +357,15 @@ digest tests plus18 hidden Save stages (6.165s GUI). Existing record/digest work
 checks now reuse actual per-file Core objects and join the milestone inventory;
 no monolithic/global-header build is needed for these focused targets. Protocol
 fixtures use real ordinary Save/Load; the versioned IO adapter remains W11a3.2b2.
+
+W11a3.2b2a complete: admitted legacy files can seed an owned runtime Saved R
+baseline without rewriting their original bytes or moving a user pointer.
+Source identity is checked around capture. Bounded metadata copy and atomic
+sealed-leaf adoption preserve all input ownership on failure/cancel. A first
+private R+1 checkpoint now retains opened legacy Saved R even before file upgrade.
+The `legacy-version-seed` gate passes in16.483s with optimized/ASan/UBSan seeding,
+metadata and closure tests. Non-NUL label spans, mismatched descriptors, cancel,
+reservation and changed-source refusal pass. Native IO adapter integration follows.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

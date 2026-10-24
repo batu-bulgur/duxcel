@@ -350,3 +350,10 @@ Save, record-collection ownership and source-digest workers in optimized/ASan/
 UBSan builds, then18 hidden Save stages. Record/digest checks now have per-file
 `build/tests/test_record_selection_worker` / `test_worker_source_digest` targets;
 their actual product modules/headers drive rebuilds and test hooks stay private.
+
+`test_version_seed.c` opens a genuine v14 private file, retains its runtime Saved
+baseline without changing source bytes, edits a snapshot and verifies the first
+private R+1 checkpoint still carries Saved R. It also covers exact non-NUL label
+span copying, atomic leaf/metadata ownership transfer, cancellation/reservation
+and changed-source rejection. `legacy-version-seed` runs seeding, metadata and
+closure modules in optimized/ASan/UBSan builds; App adoption remains separate.

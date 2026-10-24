@@ -79,6 +79,20 @@ void workbook_version_metadata_free(WorkbookVersionMetadata *m) {
     for (size_t i=0;i<m->index.tag_count;i++) free((char *)m->tags[i].label.data);
     free(m->roots); free(m->tags); free(m);
 }
+bool workbook_version_metadata_copy(const WorkbookVersionIndex *index,uint64_t reserved,WorkbookVersionMetadata **out,char **error) {
+    if (!out || *out || workbook_version_index_check(index)!=VERSION_OK) return fail(error,"Choose a bounded index and empty owned metadata result.");
+    uint64_t bytes=0;
+    for (size_t i=0;i<index->root_count;i++) { if (index->roots[i].bytes>reserved-bytes) return fail(error,"Version metadata exceeds its reserved bytes."); bytes+=index->roots[i].bytes; }
+    WorkbookVersionMetadata *m=dx_alloc(sizeof(*m)); m->index=*index;
+    m->roots=dx_alloc(index->root_count*sizeof(*m->roots)); m->tags=dx_alloc(index->tag_count*sizeof(*m->tags));
+    m->index.roots=m->roots; m->index.tags=m->tags;
+    if (index->root_count) memcpy(m->roots,index->roots,index->root_count*sizeof(*m->roots));
+    for (size_t i=0;i<index->tag_count;i++) {
+        m->tags[i]=index->tags[i]; size_t length=index->tags[i].label.bytes; char *label=dx_alloc(length+1);
+        memcpy(label,index->tags[i].label.data,length); label[length]=0; m->tags[i].label.data=label;
+    }
+    *out=m; return true;
+}
 WorkbookVersionReadResult workbook_version_metadata_read(duckdb_connection c,uint64_t reserved,
     WorkbookVersionReadControl control,WorkbookVersionMetadata **out,char **error) {
     if (!c || !out || *out) { fail(error,"Choose a version transaction and an empty metadata result."); return VERSION_METADATA_FAILED; }

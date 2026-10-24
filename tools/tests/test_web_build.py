@@ -30,7 +30,7 @@ class WebBuildMetadataTests(unittest.TestCase):
             with self.subTest(target=target):
                 sources = build_web.make_metadata(target).splitlines()
                 self.assertTrue(sources)
-                self.assertFalse(set(sources) & {"src/workbook/version_save.c", "src/workbook/archive_write.c", "src/workbook/archive_read.c", "src/workbook/version_restore.c", "src/workbook/version_read.c", "src/workbook/version_sql.c", "src/workbook/version_stage.c", "src/workbook/core_compare.c", "src/workbook/core_payload.c", "src/workbook/recovery_worker.c", "src/platform/directory.c", "src/workbook/recovery_catalog.c", "src/platform/file_lease.c", "src/workbook/recovery.c", "src/workbook/journal.c", "src/workbook/journal_queue.c", "src/workbook/journal_session.c"})
+                self.assertFalse(set(sources) & {"src/workbook/version_seed.c", "src/workbook/version_save.c", "src/workbook/archive_write.c", "src/workbook/archive_read.c", "src/workbook/version_restore.c", "src/workbook/version_read.c", "src/workbook/version_sql.c", "src/workbook/version_stage.c", "src/workbook/core_compare.c", "src/workbook/core_payload.c", "src/workbook/recovery_worker.c", "src/platform/directory.c", "src/workbook/recovery_catalog.c", "src/platform/file_lease.c", "src/workbook/recovery.c", "src/workbook/journal.c", "src/workbook/journal_queue.c", "src/workbook/journal_session.c"})
                 self.assertEqual(len(sources), len(set(sources)))
                 self.assertTrue(all(name.endswith('.c') and
                                     (build_web.ROOT / name).is_file() for name in sources))

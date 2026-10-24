@@ -48,6 +48,31 @@ void workbook_version_core_set_free(WorkbookVersionCoreSet *s) {
 static bool prepare(duckdb_connection c,const char *sql,duckdb_prepared_statement *statement,char **error) {
     return duckdb_prepare(c,sql,statement)==DuckDBSuccess || fail(error,duckdb_prepare_error(*statement));
 }
+static bool adoption_cancel(void *context,uint64_t bytes) { return stopped(context,bytes,NULL); }
+WorkbookVersionRestoreResult workbook_version_core_set_take(WorkbookVersionMetadata **metadata,
+    WorkbookCorePayload **leaves,size_t count,uint64_t reserved,WorkbookVersionRestoreControl control,
+    WorkbookVersionCoreSet **out,char **error) {
+    const WorkbookVersionIndex *index=metadata && *metadata ? workbook_version_metadata_index(*metadata) : NULL;
+    if (!out || *out || workbook_version_index_check(index)!=VERSION_OK || count!=index->root_count || (count && !leaves)) {
+        fail(error,"Choose owned metadata, complete sealed leaves and an empty core-set result."); return VERSION_RESTORE_FAILED;
+    }
+    Restore restore={.control=control,.phase=VERSION_RESTORE_VERIFY}; uint64_t total=0;
+    for (size_t i=0;i<count;i++) {
+        const WorkbookVersionRoot *root=index->roots+i; const WorkbookCorePayloadInfo *info=workbook_core_payload_info(leaves[i]); restore.root=i;
+        if (!info || root->encoding!=15 || info->document.high!=index->document_high || info->document.low!=index->document_low ||
+            info->bytes!=root->bytes || info->encoding!=root->encoding || memcmp(info->sha256,root->key.bytes,DX_VERSION_KEY_BYTES) || root->bytes>reserved-total) {
+            fail(error,"Owned core leaves do not match the metadata or reserved bytes."); return VERSION_RESTORE_FAILED;
+        }
+        total+=root->bytes;
+        WorkbookCorePayloadResult result=workbook_core_payload_verify(leaves[i],adoption_cancel,&restore,error);
+        if (result!=CORE_PAYLOAD_READY) return restore.stopped ? VERSION_RESTORE_CANCELLED : VERSION_RESTORE_FAILED;
+    }
+    if (stopped(&restore,0,error)) return VERSION_RESTORE_CANCELLED;
+    WorkbookVersionCoreSet *set=dx_alloc(sizeof(*set)); set->references=1; dx_mutex_init(&set->ownership);
+    set->count=count; set->leaves=dx_alloc(count*sizeof(*set->leaves)); set->metadata=*metadata;
+    for (size_t i=0;i<count;i++) { set->leaves[i]=leaves[i]; leaves[i]=NULL; }
+    *metadata=NULL; *out=set; return VERSION_RESTORE_READY;
+}
 static bool chunk_inventory(duckdb_connection c,const WorkbookVersionIndex *index,Restore *restore,char **error) {
     uint64_t expected=0,total=0;
     for (size_t i=0;i<index->root_count;i++) {

@@ -15,6 +15,11 @@ typedef enum { VERSION_METADATA_READY,VERSION_METADATA_FAILED,VERSION_METADATA_C
    and complete asset closure MUST be verified separately before publication. */
 WorkbookVersionReadResult workbook_version_metadata_read(duckdb_connection connection,uint64_t reserved_bytes,
     WorkbookVersionReadControl control,WorkbookVersionMetadata **out,char **error);
+/* Copy a bounded pure index into independently owned metadata, without SQL or
+   asset admission. Label spans need not be NUL-terminated. out must be NULL;
+   every failure preserves it. Used for an opened legacy Saved baseline. */
+bool workbook_version_metadata_copy(const WorkbookVersionIndex *index,uint64_t reserved_bytes,
+    WorkbookVersionMetadata **out,char **error);
 /* The returned index borrows immutable handle-owned arrays/labels until free. */
 const WorkbookVersionIndex *workbook_version_metadata_index(const WorkbookVersionMetadata *metadata);
 void workbook_version_metadata_free(WorkbookVersionMetadata *metadata);

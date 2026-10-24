@@ -22,6 +22,14 @@ typedef enum { VERSION_RESTORE_READY,VERSION_RESTORE_FAILED,VERSION_RESTORE_CANC
    Caller still owns transaction lifetime and validates the outer .dxls format. */
 WorkbookVersionRestoreResult workbook_version_core_set_read(duckdb_connection connection,const char *parent,
     uint64_t reserved_bytes,WorkbookVersionRestoreControl control,WorkbookVersionCoreSet **out,char **error);
+/* Adopt independently owned metadata and already admitted sealed core leaves.
+   Verify exact descriptors/document/bytes before consuming anything. On READY,
+   *metadata and every leaves[i] become NULL; the caller still owns the array.
+   Failure/cancel preserves all inputs/out. No SQL, named-file write or implicit
+   Saved publication. The caller has admitted/constructed the metadata itself. */
+WorkbookVersionRestoreResult workbook_version_core_set_take(WorkbookVersionMetadata **metadata,
+    WorkbookCorePayload **leaves,size_t count,uint64_t reserved_bytes,WorkbookVersionRestoreControl control,
+    WorkbookVersionCoreSet **out,char **error);
 const WorkbookVersionIndex *workbook_version_core_set_index(const WorkbookVersionCoreSet *set);
 const WorkbookCorePayload *workbook_version_core_set_leaf(const WorkbookVersionCoreSet *set,size_t position);
 /* Acquire another immutable owning reference while an existing owner/borrow

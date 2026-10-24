@@ -150,9 +150,13 @@ jobs keep their existing writer/reader without native archive link dependencies.
 Owned contexts move into replies, and an intrusive retirement queue runs disposal
 outside the worker mutex before pending work and stop. Replacement/cancel frees
 also leave the mutex first, allowing safe retirement/scalar observers. Native
-preparation remains cancellable until named-file publication. The real versioned
-IO adapter, App publication and recovery adoption remain W11a3.2b2-W11a3.4;
-normal App files still use v1-v15.
+preparation remains cancellable until named-file publication. `version_seed.c` retains an already admitted legacy Saved R in the working store
+before edits begin, without rewriting the source file. Bounded metadata copying
+and atomic adoption of verified owned leaves avoid an extra archive round-trip;
+source identity remains unchanged. This supplies the older Saved R to a first
+private R+1 checkpoint before user-file upgrade. The real versioned IO adapter,
+App publication and recovery adoption remain W11a3.2b2-W11a3.4; normal App files
+still use v1-v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain
