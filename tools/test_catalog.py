@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "codec-test-cache": Feature(("format", "source_scope", "format_delta_codec"), "",
+        ("python3 tools/test.py feature --feature format-plan", "python3 tools/test.py full --config both"),
+        ("Makefile: cached format/native source-scope object graphs, real header and flag dependencies")),
     "format-delta-codec": Feature(("format_delta_codec", "format"), "",
         ("python3 tools/test.py feature --feature format-plan", "python3 tools/test.py feature --feature history-stream"),
         ("src/workbook/format_delta_codec.c", "src/workbook/format_delta_codec.h", "tests/test_format_delta_codec.c")),

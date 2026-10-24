@@ -344,10 +344,13 @@ build/tests/test_brand: tests/test_brand.c src/ui/brand_geometry.h | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) tests/test_brand.c -o $@ -lm
 build/tests/test_brand-debug: tests/test_brand.c src/ui/brand_geometry.h | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) tests/test_brand.c -o $@ -lm $(SANFLAGS)
-build/tests/test_format: src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c $(HEADERS) | build/tests
-	$(CC) -Isrc $(CFLAGS) $(WARN) src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c -o $@ -lm
-build/tests/test_format-debug: src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c $(HEADERS) | build/tests
-	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) src/common.c src/workbook/format.c src/transforms/number.c tests/test_format.c -o $@ -lm $(SANFLAGS)
+FORMAT_TEST_OBJECTS = build/obj/release/app/src/common.o build/obj/release/app/src/workbook/format.o build/obj/release/app/src/transforms/number.o build/obj/release/app/tests/test_format.o
+FORMAT_TEST_SAN_OBJECTS = build/obj/sanitize/app/src/common.o build/obj/sanitize/app/src/workbook/format.o build/obj/sanitize/app/src/transforms/number.o build/obj/sanitize/app/tests/test_format.o
+build/tests/test_format: $(FORMAT_TEST_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(FORMAT_TEST_OBJECTS),-lm)
+build/tests/test_format-debug: $(FORMAT_TEST_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(FORMAT_TEST_SAN_OBJECTS),-lm $(SANFLAGS))
+-include $(FORMAT_TEST_OBJECTS:.o=.d) $(FORMAT_TEST_SAN_OBJECTS:.o=.d)
 CHART_MAPPING_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c
 CHARTVIEW_SRC = $(CHART_MAPPING_SRC) src/ui/chartview.c tests/test_chartview.c
 build/tests/test_chartview: $(CHARTVIEW_SRC) $(HEADERS) | build/tests
@@ -370,10 +373,23 @@ build/tests/test_objects: $(OBJECT_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc $(CFLAGS) $(WARN) -Werror $(OBJECT_TEST_SRC) -o $@ -lm
 build/tests/test_objects-debug: $(OBJECT_TEST_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) -Werror $(SANFLAGS) $(OBJECT_TEST_SRC) -o $@ -lm $(SANFLAGS)
-build/tests/test_source_scope: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm
-build/tests/test_source_scope-debug: $(SOURCE_SCOPE_TEST_SRC) $(HEADERS) | build/tests
-	$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS) $(SOURCE_SCOPE_TEST_SRC) -o $@ -lm $(SANFLAGS)
+SOURCE_SCOPE_FLAGS = -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -Werror
+SOURCE_SCOPE_SAN_FLAGS = -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) -Werror $(SANFLAGS)
+SOURCE_SCOPE_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(SOURCE_SCOPE_TEST_SRC))))
+SOURCE_SCOPE_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(SOURCE_SCOPE_TEST_SRC))))
+build/obj/release/source-scope/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(SOURCE_SCOPE_FLAGS) -MMD -MP -c)
+build/obj/sanitize/source-scope/compile.flags: force-build-signature
+	$(call build_signature,$(CC) $(SOURCE_SCOPE_SAN_FLAGS) -MMD -MP -c)
+build/obj/release/source-scope/%.o: %.c build/obj/release/source-scope/compile.flags
+	$(call compile_object,$(SOURCE_SCOPE_FLAGS))
+build/obj/sanitize/source-scope/%.o: %.c build/obj/sanitize/source-scope/compile.flags
+	$(call compile_object,$(SOURCE_SCOPE_SAN_FLAGS))
+build/tests/test_source_scope: $(SOURCE_SCOPE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(SOURCE_SCOPE_OBJECTS),-lm)
+build/tests/test_source_scope-debug: $(SOURCE_SCOPE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(SOURCE_SCOPE_SAN_OBJECTS),-lm $(SANFLAGS))
+-include $(SOURCE_SCOPE_OBJECTS:.o=.d) $(SOURCE_SCOPE_SAN_OBJECTS:.o=.d)
 SELECTION_LADDER_SRC = src/grid/selection_ladder.c tests/test_selection_ladder.c
 build/tests/test_build_info: src/app/build_info.c src/app/build_info.h tests/test_build_info.c | build/tests
 	$(CC) $(CFLAGS) $(WARN) -Isrc src/app/build_info.c tests/test_build_info.c -o $@
@@ -828,7 +844,7 @@ distclean:
 # Legacy module-test recipes compile whole source lists and some execution goals
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
-PARALLEL_NATIVE_GOALS = build/tests/test_format_delta_codec build/tests/test_format_delta_codec-debug build/tests/test_format_plan-gui build/tests/test_history_stream build/tests/test_history_stream-debug build/tests/test_cell_delta_codec build/tests/test_cell_delta_codec-debug build/tests/test_cell_delta build/tests/test_cell_delta-debug build/tests/test_history_path build/tests/test_history_path-debug build/tests/test_history_anchors build/tests/test_history_anchors-debug build/tests/test_history_preview-gui-debug build/tests/test_history_window build/tests/test_history_window-debug build/tests/test_history_preview-gui build/tests/test_app_preview build/tests/test_app_preview-debug build/tests/test_file_conflict build/tests/test_file_conflict-debug build/tests/test_preview_worker build/tests/test_preview_worker-debug build/tests/test_version_preview build/tests/test_version_preview-debug build/tests/test_version_controls-gui build/tests/test_version_tag_save build/tests/test_version_tag_save-debug build/tests/test_version_tag build/tests/test_version_tag-debug build/tests/test_version_checkpoint build/tests/test_version_checkpoint-debug build/tests/test_app_versions build/tests/test_app_versions-debug build/tests/test_worker_archive build/tests/test_worker_archive-debug build/tests/test_version_seed build/tests/test_version_seed-debug build/tests/test_worker_native build/tests/test_worker_native-debug build/tests/test_record_selection_worker build/tests/test_record_selection_worker-debug build/tests/test_worker_source_digest build/tests/test_worker_source_digest-debug build/tests/test_version_lifetime build/tests/test_version_lifetime-debug build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
+PARALLEL_NATIVE_GOALS = build/tests/test_format build/tests/test_format-debug build/tests/test_source_scope build/tests/test_source_scope-debug build/tests/test_format_delta_codec build/tests/test_format_delta_codec-debug build/tests/test_format_plan-gui build/tests/test_history_stream build/tests/test_history_stream-debug build/tests/test_cell_delta_codec build/tests/test_cell_delta_codec-debug build/tests/test_cell_delta build/tests/test_cell_delta-debug build/tests/test_history_path build/tests/test_history_path-debug build/tests/test_history_anchors build/tests/test_history_anchors-debug build/tests/test_history_preview-gui-debug build/tests/test_history_window build/tests/test_history_window-debug build/tests/test_history_preview-gui build/tests/test_app_preview build/tests/test_app_preview-debug build/tests/test_file_conflict build/tests/test_file_conflict-debug build/tests/test_preview_worker build/tests/test_preview_worker-debug build/tests/test_version_preview build/tests/test_version_preview-debug build/tests/test_version_controls-gui build/tests/test_version_tag_save build/tests/test_version_tag_save-debug build/tests/test_version_tag build/tests/test_version_tag-debug build/tests/test_version_checkpoint build/tests/test_version_checkpoint-debug build/tests/test_app_versions build/tests/test_app_versions-debug build/tests/test_worker_archive build/tests/test_worker_archive-debug build/tests/test_version_seed build/tests/test_version_seed-debug build/tests/test_worker_native build/tests/test_worker_native-debug build/tests/test_record_selection_worker build/tests/test_record_selection_worker-debug build/tests/test_worker_source_digest build/tests/test_worker_source_digest-debug build/tests/test_version_lifetime build/tests/test_version_lifetime-debug build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
 	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_version_index build/tests/test_version_index-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \

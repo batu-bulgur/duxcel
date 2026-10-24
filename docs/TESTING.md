@@ -321,3 +321,12 @@ cover binary scope bytes, mixed selector precedence, mode-only changes, complete
 A34-scope case requires exactly the owned graph plus peak uniqueness scratch;
 under-reservation rejects before allocation. No App/source-version/file profile
 consumer is activated by this codec; its named interactions stay deferred.
+
+`codec-test-cache` verifies format/source-scope/format-codec runtime coverage in
+both builds. Format reuses compatible native per-file objects. Source-scope uses
+its own cached strict -Werror flags/signatures to retain that configuration
+boundary. Compiler .d dependencies replace the global header inventory for these
+targets; unrelated added headers cannot rebuild them. Mutable engine/desktop
+execution remains serialized. A local unrelated-HEADERS probe records watched
+object/binary mtimes under ignored build/tests/results; it is build-cache evidence,
+not extra product acceptance or a reason to run all fast modules.

@@ -39,7 +39,7 @@ numbered workbook dependencies. W05a/W05b implement the admitted single-cell com
 - [ ] Improve orchestration through its existing Python boundary with equivalent timeout, locking, failure/recovery and browser/platform coverage; no blanket language rewrite.
 - [ ] Extract native scenarios from App into a test-only build boundary without losing assertions. Split cohesive App controllers only when directly needed.
 - [x] Default incremental native App/review/helper builds to eight parallel compilation jobs, with one icon-generation owner and separate configuration/temp outputs. Keep mutable engine/desktop execution serialized. Recursive Python test builds now preserve the inherited Make jobserver, including its explicit BUILD_JOBS limit; Make inspection modes do not launch tests.
-- [ ] Extend compatible per-file compilation to remaining legacy module-test builds, preserving renderer-stub/configuration boundaries before admitting their graph to parallel builds. Core/workbook engine suites now share native per-file objects and actual header dependencies; fixture execution remains serial and core-before-workbook.
+- [ ] Extend compatible per-file compilation to remaining legacy module-test builds, preserving renderer-stub/configuration boundaries before admitting their graph to parallel builds. Core/workbook engine suites now share native per-file objects and actual header dependencies; fixture execution remains serial and core-before-workbook. Format and source-scope are now cached as well; other legacy renderer/stub graphs remain queued.
 - [ ] Split the large browser integration driver by workflow behind one shared CDP/lifecycle layer; remove duplicated helpers instead of writing a second engine.
 
 ## Persistence and source identity
@@ -1163,3 +1163,13 @@ must be explicit composites, not silent rewrites of immutable historical assets.
 Source-version rows/locators/packets referenced by scopes must remain owned through
 pending publication and later sheet/object deletion. Closure work is coordinated
 with W12c.3 source-definition assets and W12c.5 lifecycle payloads before activation.
+
+Focused codec build-cache slice complete: format tests reuse compatible native
+per-file objects; source-scope keeps a dedicated cached strict -Werror graph.
+Both use actual compiler-generated header dependencies and configuration
+signatures, not global HEADERS inventory, and can compile with eight job slots.
+The format/source-scope/format-codec optimized/sanitized gate passes in5.794s;
+55 tools pass in11.870s. An actual unrelated HEADERS override leaves all30 watched
+objects/binaries unchanged in0.643s. Evidence: ignored `w12-codec-cache*.log/json`.
+No product behavior or assertion coverage changed; wider GUI/milestone work is
+still deferred. Other legacy module build conversions remain separate.
