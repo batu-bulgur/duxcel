@@ -1,4 +1,5 @@
 #include "journal_queue.h"
+#include "cell_delta.h"
 #include "../platform/platform.h"
 #include <assert.h>
 #include <stdio.h>
@@ -118,9 +119,12 @@ bool workbook_journal_queue_reserve(WorkbookJournalQueue *q,const JournalCellEdi
         dx_unlock(&q->mutex); return fail(error,message);
     }
     JournalReservation *r=dx_alloc(bytes); r->owner=q; r->edit=*e; r->bytes=bytes;
-    if (e->before_bytes) memcpy(r->data,e->before,e->before_bytes);
-    if (e->after_bytes) memcpy(r->data+e->before_bytes,e->after,e->after_bytes);
-    r->edit.before=(const char *)r->data; r->edit.after=(const char *)r->data+e->before_bytes;
+    CellDelta owned;
+    if (cell_delta_capture((CellDelta){e->sheet,e->row,e->column,e->before,e->after,e->before_bytes,e->after_bytes},
+        r->data,bytes-sizeof(*r),&owned)!=CELL_DELTA_READY) {
+        free(r); dx_unlock(&q->mutex); return fail(error,"Cell backup payload changed before reservation. Your draft is kept.");
+    }
+    r->edit.before=owned.before; r->edit.after=owned.after;
     q->reservation=r; q->state.reserved=true; q->state.owned_bytes+=bytes;
     dx_unlock(&q->mutex); *out=r; return true;
 }

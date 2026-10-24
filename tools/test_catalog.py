@@ -70,6 +70,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "cell-delta": Feature(("cell_delta",), "journal-session",
+        ("python3 tools/test.py feature --feature journal-faults", "python3 tools/test.py feature --feature recovery-versions"),
+        ("src/workbook/cell_delta.c", "src/workbook/cell_delta.h", "src/workbook/journal.c: shared sparse value validation", "src/workbook/journal_queue.c: arena capture before mutation", "tests/test_cell_delta.c"),
+        ("journal_queue", "workbook_journal")),
     "history-path": Feature(("history_path", "history_anchors", "history_window"), "",
         ("python3 tools/test.py feature --feature app-preview", "python3 tools/test.py feature --feature workbook-history"),
         ("src/workbook/history_path.c", "src/workbook/history_path.h", "tests/test_history_path.c")),

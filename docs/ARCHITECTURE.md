@@ -761,3 +761,11 @@ lineage rejoin, and extends protected floors to the fork/an older active cursor.
 Current high-water marks cannot regress. Its output retains both interval
 obligations; it neither drops old checkpoints nor authorizes pruning. Empty Saved
 and checkpoint-only legacy files are not fictional event paths.
+
+`workbook/cell_delta.c` owns the shared sparse manual-text/clear payload contract.
+Its borrowed input has stable sheet/coordinate identity and exact before/after
+spans; capture copies into a caller-owned disjoint bounded arena without another
+allocation. Native journal validation/reservation uses this before cell mutation.
+The queue still owns one allocation until commit/cancel/disposal; operation clocks
+and document identity belong to the outer envelope. This body is not typed source
+SQL NULL/empty text, a file format or activated cross-session history.

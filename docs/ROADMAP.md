@@ -210,8 +210,11 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12b.2a · P1 · Complete | Structural event-path and anchor/window join; W12b.1. | Prove ordered lineage ancestry, exact retained transitions, cursor/Redo bounds and monotonic operation IDs. Ancestor prefixes remain on-path; abandoned suffixes stay checkpoints. A forked Saved endpoint cannot silently produce a successful empty window. Payload/file admission remains separate. |
 | W12b.2b · P1 · Complete | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
 | W12b.2c · P1 · Queued | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit legacy files as checkpoint-only history; unsupported/corrupt history cannot replace the live document. |
-| W12c · P1 · Queued | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
-| W12c.1 · P1 · Queued | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
+| W12c · P1 · In progress | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
+| W12c.1 · P1 · In progress | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
+| W12c.1a · P1 · Complete | Shared exact sparse-cell payload ownership; W12b.2a. | Validate target/text/clear/no-op and capture exact before/after spans into caller-owned bounded storage before mutation. Existing native recovery reservation uses the same shared controller without another allocation or wire migration. |
+| W12c.1b · P1 · Queued | Closed sparse-cell payload encoding; W12c.1a. | Canonical target/value bytes with explicit family encoding, strict bounds, unsupported/truncated/trailing rejection and borrowed decode lifetime. No raw C struct or process/session clock in the payload. |
+| W12c.1c · P1 · Queued | Retained event admission and producer handoff; W12c.1b. | Reserve owned event/envelope/payload before changing cells or evicting session rings, recheck owner/revisions and cancel on rejection/no-op. Preserve event IDs and exact inverse beyond session retention; activate cross-session history only after all families/publication are ready. |
 | W12c.2 · P1 · Queued | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
@@ -1072,3 +1075,15 @@ complete Redo, cross-document rejection and UINT64_MAX endpoints. Evidence:
 `build/tests/results/w12b2-protection.log` (ignored). Shared Wasm links the path
 foundation; no file format or App mutation behavior changed. Final metadata
 admission W12b.2c depends on payload families; the next ready slice is W12c.1.
+
+W12c.1a complete: shared `cell_delta` validates exact sparse manual text/clear
+and captures both byte spans into caller-owned storage. Native journal validation
+and queue reservation use it before mutation; the existing single allocation,
+queue byte accounting, journal schema and operation clocks remain unchanged.
+Literal NULL/exact DECIMAL/Unicode bytes survive capture; no-op, invalid target,
+embedded NUL and capacity rejection leave outputs/arena unchanged. The43-case
+module, journal queue/storage optimized/sanitized checks and18-stage hidden TEST
+App journal workflow pass in22.614s (GUI7.811s). The55 tool contracts pass in13.255s;
+shared Wasm builds. Evidence: ignored `w12c1-{cell-delta,tool-contracts,web-build}.log`.
+This is the common owned payload boundary, not retained cross-session Undo or a
+new `.dxls` profile; source typed NULL/zero-length values are outside sparse text.

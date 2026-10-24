@@ -1,4 +1,5 @@
 #include "journal.h"
+#include "cell_delta.h"
 #include <duckdb.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -34,11 +35,9 @@ static bool run(duckdb_prepared_statement s,duckdb_result *r,char **error) {
     if (duckdb_execute_prepared(s,r)==DuckDBSuccess) return true;
     fail(error,duckdb_result_error(r)); duckdb_destroy_result(r); return false;
 }
-static bool span(const char *text,size_t bytes) { return bytes<=65536 && (text || !bytes) && (!bytes || !memchr(text,0,bytes)); }
 bool workbook_journal_edit_valid(const JournalCellEdit *e) {
-    return e && (e->operation.high || e->operation.low) && e->sheet && e->row<DX_SHEET_ROWS && e->column<16384 &&
-        e->previous_revision<UINT64_MAX && e->revision==e->previous_revision+1 && span(e->before,e->before_bytes) && span(e->after,e->after_bytes) &&
-        (e->before_bytes!=e->after_bytes || (e->before_bytes && memcmp(e->before,e->after,e->before_bytes)));
+    return e && (e->operation.high || e->operation.low) && e->previous_revision<UINT64_MAX && e->revision==e->previous_revision+1 &&
+        cell_delta_check((CellDelta){e->sheet,e->row,e->column,e->before,e->after,e->before_bytes,e->after_bytes},NULL)==CELL_DELTA_READY;
 }
 static bool shape(duckdb_result *r,const duckdb_type *types,size_t columns) {
     if (duckdb_column_count(r)!=columns) return false;

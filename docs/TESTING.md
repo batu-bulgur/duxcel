@@ -270,3 +270,10 @@ rejoin, stale high-water marks, impossible anchor positions on either path, empt
 Saved and exhausted clocks. Every rejected protection plan preserves its output.
 These are structural range obligations; payload closure and durable IO remain
 separate gates. No unrelated GUI suite is run for this pure controller extension.
+
+`cell-delta` selects its43 pure C checks, native journal queue/storage modules in
+both configurations and the existing18-stage hidden App journal workflow. Exact
+nonterminated/Unicode/DECIMAL/literal-NULL bytes, clear/inverse, immutable copied
+inputs,64-KiB sides, arena sentinels and no-op/invalid/budget rejection are checked.
+The native consumer keeps its existing single reservation allocation and schema;
+filesystem faults/recovery interactions remain explicitly deferred by this plan.
