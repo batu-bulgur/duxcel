@@ -634,7 +634,16 @@ static bool source_format_reply_apply(App *a,QueryReply *reply) {
         intent->object_reserved=objects_snapshot_owned_bytes(&(ObjectSnapshot){sheet->objects.items,sheet->objects.count});
         if (intent->object_reserved==SIZE_MAX) { source_format_cancel(a,"The table definitions changed beyond safe formatting capture."); return true; }
     }
-    bool ok=source_format_budget(a,NULL,0,0,reply_bytes,0,0);
+    /* Version-only binding preserves all definition text. Admit its retained
+       parser peak BEFORE the existing planners validate/copy those graphs.
+       Reserve the current scope table plus one prospective RAW scope; the
+       actual bounded format plan is measured again below before adoption. */
+    size_t validation=0,prospective_scopes=sheet->formats.scope_count;
+    if (prospective_scopes<DX_FORMAT_PATCHES*DX_FORMAT_GUARDS) prospective_scopes++;
+    SourceFormatCommandPlan projection={.formats={.scope_count=prospective_scopes}};
+    if (intent->issue && !intent->owner) projection.primary=intent->source;
+    bool ok=workbook_source_format_scratch(sheet,&a->analysis,&projection,&validation,&error) &&
+        source_format_budget(a,NULL,0,validation,reply_bytes,0,0);
     if (ok && intent->issue) ok=source_versions_plan(&sheet->source_versions,&entry,true,&versions,&error);
     if (ok) ok=format_plan_records(&sheet->formats,&(FormatScopeView){intent->owner,intent->raw.data,intent->raw.bytes},
         records->ids,records->count,fields,count,intent->mask,intent->value,&plan,&error);
@@ -645,7 +654,6 @@ static bool source_format_reply_apply(App *a,QueryReply *reply) {
         next=analysis_copy(&intent->source); next.source_version=intent->version;
         ok=worksheet_analysis_preflight(sheet,&a->analysis,&next,&changed,&error) && changed;
     }
-    size_t validation=0;
     FormatStore projected=sheet->formats;
     if (ok) {
         projected.items=plan.items; projected.count=plan.count; projected.scopes=plan.scopes;
