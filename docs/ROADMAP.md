@@ -225,7 +225,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.2c.2 · P1 · Complete | Format-to-source dependency closure; W12c.2c.1. | Pin referenced immutable rows across before/after selectors, prove owner/version/RAW/schema bindings, classify inactive opaque legacy scopes explicitly and reject missing/conflicting record dependencies without mutation. |
 | W12c.2c.3 · P1 · In progress | Atomic format admission and event ownership; W12c.2c.2. | Capture format plus source dependencies before commit, reject stale owner/revision/budget, preserve monotonic source metadata and bind source/analysis/object composite constituents explicitly. App activation remains ordered publication work after all families. |
 | W12c.2c.3a · P1 · Complete | Owned format-event reservation; W12c.2c.2. | Reserve canonical format and exact source-metadata assets together in the bounded cell/format FIFO. Cancel preserves clocks/Redo; incomplete composite effects reject. Source/sheet/definition preflight and complete model adoption remain producer responsibilities. |
-| W12c.2c.3b · P1 · Queued | Fenced format producer and composite admission; W12c.2c.3a, W12c.3. | Recheck workbook/sheet/format/source state after reservation, then atomically adopt every constituent and publish once. Preserve prepared input on failure; cover analysis/object source-version changes before activating retained App history. |
+| W12c.2c.3b · P1 · In progress | Fenced format producer and composite admission; W12c.2c.3a, W12c.3. | Recheck workbook/sheet/format/source state after reservation, then atomically adopt every constituent and publish once. Preserve prepared input on failure; cover analysis/object source-version changes before activating retained App history. |
+| W12c.2c.3b.1 · P1 · Complete | Fenced manual-format producer; W12c.2c.3a. | Source-free/object-free spatial formatting reserves before mutation, rechecks durable/session/cell/format/document fences, then publishes one complete worksheet action. Failure preserves the owned plan; no-op preserves Redo and clocks. Normal manual App formatting uses this controller with session-only history. |
+| W12c.2c.3b.2 · P1 · Queued | Source-bound composite format producer; W12c.2c.3b.1, W12c.3. | Admit source ledger plus primary/Table bindings and format assets together, preserving immutable baseline normalization and all source/readiness/revision fences. No partial constituent publication or early retained-history activation. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1218,3 +1220,21 @@ ordering and40 format commits retaining the first event beyond32 session entries
 Receipts: ignored `w12c2-history-format*.log/json`. No GUI boundary changed;
 source/format/workbook fence recheck plus full composite adoption is W12c.2c.3b,
 and durable publication/App activation remains W12d after all producer families.
+
+W12c.2c.3b.1 complete: ordinary source-free/object-free App formatting now uses a
+shared typed command. It resolves durable sheet IDs across reorder, checks the
+independent runtime owner plus cell/format/document clocks, validates the owned
+plan and projected history budget, reserves before mutation, rechecks, then
+publishes one action/dirty/branch/document revision. No-op reserves nothing and
+preserves Redo; rejection preserves the prepared graph. Source-aware/analytical
+commands remain with their existing owner pending full composite admission.
+The237-case command,445-case format event and565-case chronology tests pass
+optimized/ASan/UBSan;177 native journal-session checks additionally prove that an
+admitted format revision requires a new checkpoint before the next cell append,
+and its styles survive recovery. The hidden10-stage real-App workflow passes
+20 checks at100/150 percent, actual Bold/Italic/Underline and Undo/Redo, no-op
+Redo preservation, monotonic command revisions and versioned Save/Open. Combined
+local gate13.073s; GUI3.092s;50 runner/catalog contracts pass in2.403s. Receipts: ignored `w12c2-format-command*.log/json`.
+Retained event reservations are exercised with the real controller through40
+edits beyond the32-entry session ring, but retained history remains inactive in
+the App until all producer families and ordered publication are ready.

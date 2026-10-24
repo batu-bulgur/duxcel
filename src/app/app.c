@@ -1,4 +1,5 @@
 #include "../workbook/cell_command.h"
+#include "../workbook/format_command.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
@@ -6064,6 +6065,17 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
     for (size_t i=0;!imported_owner && i<sheet->objects.count;i++) imported_owner=sheet->objects.items[i].kind==OBJECT_TABLE;
     bool manual_mode=imported_owner && !sheet->formats.source_aware && source_format_first_safe(&sheet->formats);
 #endif
+    if (a->analysis.kind==SOURCE_NONE && sheet->analysis.kind==SOURCE_NONE && !sheet->objects.count &&
+        !sheet->formats.source_aware && !sheet->formats.scope_count) {
+        ManualFormatTarget target={0}; FormatSnapshot plan={0};
+        bool prepared=workbook_prepare_manual_format(&a->book,a->book.active,&target,&error) &&
+            format_plan_spatial(&sheet->formats,range,mask,value,&plan,&error);
+        ManualFormatResult result={.status=MANUAL_FORMAT_INVALID};
+        if (prepared) result=workbook_apply_manual_format_recorded(&a->book,&target,&plan,NULL,&error);
+        format_snapshot_free(&plan);
+        bool ok=prepared && (result.status==MANUAL_FORMAT_APPLIED || result.status==MANUAL_FORMAT_NOOP);
+        if (!ok) status(a,error); free(error); return ok;
+    }
     bool ok=format_apply(&sheet->formats,range,mask,value,&error);
     if (ok && revision!=sheet->formats.revision) {
 #ifndef DUXCEL_BROWSER_HOST

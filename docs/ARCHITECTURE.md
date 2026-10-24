@@ -848,3 +848,15 @@ public payload bytes. The format producer remains responsible for readiness and
 workbook/sheet/format/source fences, recheck, coherent model/action/dirty/revision
 adoption and exactly one publish/cancel. App retained-history activation waits
 for every family and ordered file publication; no persistence receipt is implied.
+
+
+`workbook/format_command.c` owns source-free/object-free manual format admission.
+It borrows the workbook and an independent planned graph, uses the shared cell
+command's runtime identity issuer, and resolves the durable sheet across reorder.
+Exact cell/format/document fences and manual eligibility are checked before and
+after optional reservation. Only after complete adoption does it record one
+worksheet action and publish dirty/branch/document clocks. Rejection preserves
+the plan; semantic no-op consumes it without a reservation or losing Redo. Normal
+App manual formatting uses this same controller with no retained recorder. Source
+baseline normalization and source/analysis/object composites keep their existing
+App owner until their complete retained constituents are available.

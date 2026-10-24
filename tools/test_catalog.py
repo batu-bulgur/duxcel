@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "format-command": Feature(("format_command", "history_format", "workbook_history"), "format-plan",
+        ("python3 tools/test.py feature --feature format-controls", "python3 tools/test.py affected --feature source-format --modules source_scope format --config sanitize"),
+        ("src/workbook/format_command.c", "src/workbook/format_command.h", "src/app/app.c: manual apply_format adapter", "tests/test_format_command.c", "tests/support/format_plan_app.inc", "tests/test_journal_session.c: admitted-format checkpoint rotation"), ("journal_session",)),
     "history-format": Feature(("history_format", "history_stream", "cell_command"), "",
         ("python3 tools/test.py feature --feature format-plan", "python3 tools/test.py feature --feature workbook-history"),
         ("src/workbook/history_format.c", "src/workbook/history_format.h", "src/workbook/history_stream_internal.h", "tests/test_history_format.c")),

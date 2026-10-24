@@ -1,6 +1,7 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "workbook/journal_session.h"
+#include "workbook/format_command.h"
 #include "workbook/lifecycle.h"
 #include "platform/platform.h"
 #include "data/source_digest.h"
@@ -101,6 +102,12 @@ static void rotation_and_history(const char *root) {
     CHECK(second.generation.high!=first.generation.high || second.generation.low!=first.generation.low);
     for (unsigned i=0;i<100 && !access(old,F_OK);i++) { workbook_journal_session_poll(s); dx_sleep_ms(1); }
     CHECK(access(old,F_OK)); free(old);
+    ManualFormatTarget format_target={0}; FormatSnapshot format_next={0}; CellFormat italic=format_default(); italic.flags=FORMAT_ITALIC;
+    uint64_t format_revision=b.command_revision;
+    CHECK(workbook_prepare_manual_format(&b,0,&format_target,&error));
+    CHECK(format_plan_spatial(&b.sheets[0].formats,(FormatRange){0,0,0,0},FORMAT_ITALIC,italic,&format_next,&error));
+    CHECK(workbook_apply_manual_format_recorded(&b,&format_target,&format_next,NULL,&error).status==MANUAL_FORMAT_APPLIED && b.command_revision==format_revision+1 && !format_next.items);
+    CHECK(!workbook_journal_session_state(s,&b).covered && workbook_journal_session_needs_checkpoint(s,&b));
     CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=1,.name="Renamed B"},NULL,&error));
     CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_REORDER,.sheet=1,.destination=0},NULL,&error));
     apply(s,&b,0,"Third"); ready(s,&b);
@@ -113,6 +120,7 @@ static void rotation_and_history(const char *root) {
     recover(checkpoint,journal,&loaded,head,b.path);
     CHECK(!strcmp(loaded.sheets[0].name,"Renamed B") && !strcmp(cells_get(&loaded.sheets[0].cells,3,2),"Branch"));
     CHECK(format_at(&loaded.sheets[0].formats,3,2).flags==FORMAT_BOLD && !strcmp(cells_get(&loaded.sheets[1].cells,3,2),"First"));
+    CHECK(format_at(&loaded.sheets[1].formats,0,0).flags==FORMAT_ITALIC);
     cleanup_generation(checkpoint,journal); CHECK(!rmdir(root)); free(checkpoint); free(journal); workbook_free(&loaded); workbook_free(&b);
 }
 static void root_failure_and_discard(const char *root) {
