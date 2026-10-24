@@ -29,7 +29,7 @@ macOS workbook Open Document callbacks enqueue owned filesystem paths in the ada
 
 The macOS adapter owns an explicit application menu rather than depending on GLFW's optional defaults. Menu Quit and its Command-Q equivalent call AppKit `terminate:`; the delegate records a quit request and defers termination to the ordinary C document controller. AppKit does not bypass the dirty guard. Shutdown restores the prior application/Services menus and delegate before raylib teardown, supporting repeated App sessions.
 
-The shared workbook metadata reader is staged infrastructure, not completed browser Open/Save. Complete candidate validation, migration, activation, writer/output adapters and recovery remain roadmap work.
+The shared workbook metadata reader is staged infrastructure, not completed browser Open/Save. Complete candidate validation, activation, writer/output adapters and recovery remain roadmap work. Production migrations are deferred during prerelease.
 
 ## Feature seams and build identity
 
@@ -62,15 +62,14 @@ Exhausted counters still allow Open/Save of existing data but reject allocation
 atomically. Native entropy and shared-C model behavior are tested; browser crypto
 and Windows entropy branches are not platform acceptance in this slice.
 
-Native v15 adds required workbook_identity(high,low,sheet_high_water,command_revision)
-and sheet_identity(sheet_id,stable_id) tables to the strict v14 metadata package.
+Current core15 requires workbook_identity(high,low,sheet_high_water,command_revision)
+and sheet_identity(sheet_id,stable_id) tables in its exact metadata package.
 Existing integer sheet_id values remain archive ordinals. The adapter validates
 exact types, SQL NULL, row counts, complete ordinal coverage, uniqueness,
-nonzero IDs and high-water bounds before publishing a staged Workbook. Native
-v1–v14 Open generates identities in RAM without modifying the file or making it
-dirty; Save upgrades transactionally. Snapshot/Save As preserve logical identity.
+nonzero IDs and high-water bounds before publishing a staged Workbook. Native Open accepts only current container16 with current core15 roots.
+Snapshot/Save As preserve logical identity.
 Physical copies can share an identity but their runtime fences remain separate.
-The shared partial browser decoder still rejects v15; browser Workbook Open/Save
+The shared metadata decoder accepts current core15; browser Workbook Open/Save
 and final staged-model activation remain incomplete.
 
 `src/workbook/version_index.c` owns pure version metadata admission and

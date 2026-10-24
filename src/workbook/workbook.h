@@ -94,12 +94,11 @@ void worksheet_transfer_history(Worksheet *sheet,bool redo);
    changing any state. live is the App's independent authority or sheet.analysis.
    This is not source/provenance verification or an archive/alias validator.
    Caller must keep the proven inputs/formats unchanged through import preflight.
-   After a successful first-Table add (which may push the proven old object
-   state), it may mark ONLY the already-proven legacy current/history format
-   states source-aware and advance their store revision once, without a format
-   action or clearing Redo. No Table may have entered any earlier state. A failed
-   add must leave formatting unchanged. This helper performs eligibility only;
-   existing validators can use bounded temporary allocations, but no FS/SQL. */
+   First-Table adoption records current manual formats and object state together
+   as EDIT_OBJECTS_FORMAT, preserving the exact pre-import source-aware mode for
+   Undo. A failed add leaves formatting unchanged. This helper performs
+   eligibility only; existing validators can use bounded temporary allocations,
+   but no FS/SQL. */
 bool worksheet_manual_format_history_eligible(const Worksheet *sheet,const Analysis *live,char **error);
 /* Pure owned primary-Analysis journal primitives. live may be sheet.analysis or
    the App's independently owned authoritative value; the save cache is otherwise

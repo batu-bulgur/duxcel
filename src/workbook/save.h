@@ -30,6 +30,6 @@ WorkbookSaveResult workbook_save_controlled(const Workbook *book,const char *pat
 WorkbookSaveResult workbook_save_core_payload(const Workbook *book,const char *path,WorkbookSaveControl control,char **error);
 /* Strict native leaf admission: exact v15 core, stored absolute locators and
    no unrelated tables or nested version schema. Reads an independent candidate
-   and preserves out on failure. Ordinary workbook_load retains legacy support. */
+   and preserves out on failure. Ordinary workbook_load also requires exact v15. */
 bool workbook_load_core_payload(Workbook *out,const char *path,char **error);
 #endif

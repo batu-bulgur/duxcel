@@ -292,7 +292,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4f.3a · P1 · Complete | Atomic baseline model prerequisite; W12c.3c.3b.4f.2. | Opaque independent plan owns the full normalized current/Undo/Redo formats, primary binding and immutable ledger; explicit origin epoch/open proof fences adoption without creating an action or altering Saved assets. App authority is still W12c.3c.3a.2. |
 | W12c.4 · P1 · In progress | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.4.1 · P1 · Complete | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
-| W12c.4.2 · P1 · In progress | Manual-only row insertion/deletion; W12c.4.1. | Reuse complete sparse cell/format events and owner fences for bounded row actions. Keep column-width metadata, source/object axes and paste as explicit complete-effect prerequisites. |
+| W12c.4.2 · P1 · Complete | Manual-only row insertion/deletion; W12c.4.1. | Reuse complete sparse cell/format events and owner fences for bounded row actions. Keep column-width metadata, source/object axes and paste as explicit complete-effect prerequisites. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
@@ -1905,7 +1905,7 @@ agent or a module result with integrated product acceptance.
 | Lane / managed worktree | Dependency-ready scope | Reconciliation boundary |
 | --- | --- | --- |
 | `roadmap-isolation` · Stopped | Verified build/test isolation infrastructure | No active assignment; leave this agent stopped as requested |
-| `roadmap-object-create` · Active | W12c.4.2 manual row actions; manual move/replace complete | Own range_event/history_range/range_command; family4 reserved; mixed source/object integration waits for closure |
+| `roadmap-object-create` · Active | Manual row actions and manual move/replace complete | Own range_event/history_range/range_command; family4 reserved; mixed source/object integration waits for closure |
 | `roadmap-source-format` · Active | W12c.3c.3a.2 authoritative working-origin completion | Own source-origin/default relation and verified baseline integration; no retained writer activation |
 | `roadmap-history-save-as` · Active | W12c.5.3 guarded metadata adoption; payload/preparation and W13 complete | Own sheet_lifecycle metadata codec; same stable ID set, no topology/App activation; future envelope family5 reserved |
 
@@ -2094,8 +2094,7 @@ App/governor/GUI acceptance outstanding). `codex/wip-sheet-adoption-614f37d`
 points to `614f37d6d0459fefa26af643f8f34ea2239ced90` (metadata adoption draft;
 actual publication tests, lifecycle allocation admission and native adapter/GUI
 outstanding). These drafts must be reconciled with current-only contracts before
-resuming. Verified row milestone `bc1219f` remains reachable in its active lane;
-it is not yet integrated. Isolation stays stopped; all three product agents now
+resuming. Verified row milestone `bc1219f` is integrated as `2f6ca44`. Isolation stays stopped; all three product agents now
 implement this requested cleanup.
 
 
@@ -2119,3 +2118,15 @@ native identity checks in optimized/ASan/UBSan plus9hidden App stages in60.686s
 The source-format removal, exact shared registry/reader and exact native core
 commits are integrated; regeneration of acceptance inputs and current browser
 component matrices remain active before packaging the cleanup.
+
+
+W12c.4.2 integrated: `2f6ca44` admits bounded source/object-free manual row
+insertion/deletion through the same complete sparse cell/format event as range
+Move/Replace. Exact inverse, format-only changes, no-op preservation and owner
+fences remain enforced. The combined `range-command` gate passes its four
+modules in optimized/ASan/UBSan plus 23 hidden native stages/50 checks in39.095s
+(GUI11.360s), receipt
+`build/tests/results/runs/20261024T145747-feature-79689/summary.json`.
+Columns still require their complete width/ColumnEdit effect; paste and mixed
+source/object axes retain their existing complete paths. Parent W12c.4 remains
+in progress; retained App writer and durable Undo remain inactive.

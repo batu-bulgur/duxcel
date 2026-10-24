@@ -87,7 +87,7 @@ bool format_plan_scoped(const FormatStore *store,FormatRange range,unsigned mask
 bool format_snapshot_matches(const FormatStore *store,const FormatSnapshot *snapshot);
 bool format_apply_scoped(FormatStore *store,FormatRange range,unsigned mask,CellFormat value,
     const FormatScopeView *scopes,size_t count,bool include_manual,char **error);
-/* Native v14 can archive these dormant selectors; live producers must still
+/* The current native core can archive these dormant selectors; live producers must still
    verify their source/fields and captured request before activation. IDs must be
    nonzero and strictly increasing (at most 20,000); original field ordinals must
    be strictly increasing in [0,16383]. Inputs and the exact scope are copied. */

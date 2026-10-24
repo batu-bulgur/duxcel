@@ -38,13 +38,13 @@ action and advance the persisted command clock; no-op/failure preserve it.
 Native v15 persists a 128-bit document ID and exact uint64 sheet IDs/high-water.
 Rename/reorder/snapshot/reopen retain identity; duplicate allocates a fresh ID.
 Exhaustion rejects allocation atomically while existing sheets remain saveable.
-Legacy v1–v14 Open assigns IDs in RAM without writing the file; Save upgrades.
+Prerelease Open requires current container16 and core15; older formats reject.
 Malformed current identity metadata rejects Open/overwrite without replacing the
 live document or corrupt archive. Session fences still reject old drafts after
 reopen, including a file with matching durable IDs. Direct legacy mutation
 producers retain their own store clocks; W06 history
 replays now advance the command clock. Durable journal work remains W08.
-The partial browser header decoder still rejects v15; no browser Open/Save claim.
+The shared header decoder accepts current core15 metadata; browser Open/Save remains unavailable.
 
 The W05a baseline verification recorded 158 shared-model assertions per optimized and
 ASan/UBSan build and 13 real native App stages (29 assertions). Native GUI time
@@ -62,19 +62,14 @@ receipts and captures live under ignored `build/tests/results/`; physical input
 remains outside this automated gate. The clean generated demo is
 `build/tests/generated/cell-command-demo.dxls`.
 
-W05b's focused gate passes75 identity,158 cell-command and2,353 descriptor checks
-per optimized/ASan/UBSan configuration, followed by800 private native identity/
-migration checks per configuration. The nine-stage hidden TEST App passes18
-checks in3.668s; the final local gate takes66.831s including39.595s native archive
-sanitizer work and6.119s feature App compilation. It exercises legacy Open,
-rename/duplicate/reorder, independent edits, asynchronous Save/Open and stale
-session rejection. A separate optimized legacy-header comparison passes1,611
-checks across v12/v13/v14/physical-reorder/legacy24 components;41 focused runner,
-catalog and identity-fixture tool contracts pass. Source/binary fingerprints,
-completion markers, logs and captures are under ignored build/tests/results/.
-Full native/source/browser regression remains deferred. Generated example inputs are
-build/tests/generated/identity-legacy.dxls (untouched v12) and
-build/tests/generated/workbook-identity-demo.dxls (saved v15, two independent sheets).
+Current-only W05b verification uses actual runtime cell entry, rename/duplicate/
+reorder, asynchronous current Save/Open and stale-session rejection. The focused
+`workbook-identity` gate passes three modules and native identity checks in
+optimized/ASan/UBSan plus nine hidden TEST App stages in60.686s (GUI5.120s).
+Source/binary fingerprints and completion evidence are under ignored
+`build/tests/results/runs/20261024T145346-feature-75635/`. Historical migration
+fixtures and compatibility-success tests are removed; current rejection and
+identity invariants remain covered. Full regression remains deferred.
 
 W06 completes workbook-chronological session Undo/Redo under the local automated
 gate. Existing worksheet actions carry process-order stamps, independent of
