@@ -22,7 +22,7 @@ UIChoiceListLayout ui_choice_list_layout(Vector2 origin,Vector2 viewport,float s
     if (!isfinite(scale)||scale<=0 || !isfinite(viewport.y) || count<1) return out;
     float capacity=floorf((viewport.y/scale-56)/28);
     if (capacity<1) return out;
-    out.visible=count<UI_CHOICE_MAX ? count : UI_CHOICE_MAX;
+    out.visible=count<UI_CHOICE_LIST_ROWS ? count : UI_CHOICE_LIST_ROWS;
     if (capacity<out.visible) out.visible=(int)capacity;
     out.frame=ui_choice_layout(origin,viewport,scale,out.visible,-1);
     if (!out.frame.valid) return (UIChoiceListLayout){0};

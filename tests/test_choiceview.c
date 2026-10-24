@@ -234,7 +234,7 @@ int main(void) {
     CHECK(!ui_choice_layout((Vector2){0,0},(Vector2){160,100},1,4,-1).valid);
     for (int s=0;s<4;s++) for (int w=0;w<3;w++) for (int count=1;count<=16384;count=count<12 ? count+1 : count*8) {
         UIChoiceListLayout list=ui_choice_list_layout((Vector2){windows[w].x,windows[w].y},windows[w],scales[s],count);
-        CHECK(list.frame.valid && list.visible>=1 && list.visible<=count && list.visible<=UI_CHOICE_MAX);
+        CHECK(list.frame.valid && list.visible>=1 && list.visible<=count && list.visible<=UI_CHOICE_LIST_ROWS);
         CHECK(list.frame.panel.width==240*scales[s]);
         CHECK(list.frame.panel.y+list.frame.panel.height<=windows[w].y);
         CHECK(list.items.height==list.visible*28*scales[s]);
@@ -242,7 +242,9 @@ int main(void) {
         CHECK(list.items.y+list.items.height<=list.frame.panel.y+list.frame.panel.height);
     }
     UIChoiceListLayout list=ui_choice_list_layout((Vector2){1000,620},(Vector2){1020,640},1.5f,11);
-    CHECK(list.frame.valid && list.visible==10 && list.frame.panel.width==360 && list.frame.panel.height==480);
+    CHECK(list.frame.valid && list.visible==9 && list.frame.panel.width==360 && list.frame.panel.height==438);
+    UIChoiceLayout file=ui_choice_layout((Vector2){0},(Vector2){1020,640},1.5f,10,4);
+    CHECK(file.valid && file.count==10 && file.panel.height==493.5f);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,820},NAN,11).frame.valid);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,820},1,0).frame.valid);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,100},2,11).frame.valid);

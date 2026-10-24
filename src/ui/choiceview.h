@@ -2,6 +2,9 @@
 #define DUXCEL_CHOICEVIEW_H
 #include "ui.h"
 #define UI_CHOICE_MAX 10
+/* Storage accommodates the complete File menu. Scrollable context menus keep
+   their established nine-row viewport independently of File command count. */
+#define UI_CHOICE_LIST_ROWS 9
 typedef struct { Rectangle panel,title,rows[UI_CHOICE_MAX],separator; int count; bool valid; } UIChoiceLayout;
 UIChoiceLayout ui_choice_layout(Vector2 origin,Vector2 viewport,float scale,int count,int separator_before);
 typedef struct { UIChoiceLayout frame; Rectangle items; int visible; } UIChoiceListLayout;

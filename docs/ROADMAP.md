@@ -1020,3 +1020,12 @@ limit, without an assertion/sanitizer failure. Save-heavy Document/Chart/Table/
 Unique ceilings now allow versioned IO; all completion predicates, immediate
 assertion failures and stage counts remain unchanged. Passing tests do not wait
 out a ceiling. Continue at Document rather than repeating the completed checks.
+
+W11e continuation: Document/Chart/Statistics/Table/Icon pass, including Table's
+million-row source and Save/Open. Query exposed File's enlarged storage capacity
+also enlarging the shared context viewport. Choice storage now supports ten File
+commands while scrollable context lists retain nine visible rows; exact geometry
+tests cover both. Optimized/sanitized choice/keytip modules and the26-stage native
+version-controls workflow pass in12.430s; browser File/access passes in17.334s.
+Continue Query/Unique only. The integrated temporary retention checkout was
+removed; all authored commits remain reachable on main.
