@@ -262,3 +262,11 @@ operation/lineage/position order, aliases, presentation-only boundaries, empty a
 exhausted clocks,100,000 transitions and unchanged output on rejection. It has no
 GUI/database and does not decode/admit durable event payloads; App history and
 preview interactions remain deferred in the registered feature plan.
+
+The same `history-path` gate now has77 path/join/protection cases. Independent
+Saved/current branches cover overlapping/gapped floors, a fork before the prior
+window, inconsistent shared operations, reused divergent IDs, attempted lineage
+rejoin, stale high-water marks, impossible anchor positions on either path, empty
+Saved and exhausted clocks. Every rejected protection plan preserves its output.
+These are structural range obligations; payload closure and durable IO remain
+separate gates. No unrelated GUI suite is run for this pure controller extension.

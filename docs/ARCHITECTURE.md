@@ -754,3 +754,10 @@ only through their fork, preserving abandoned branches as independent checkpoint
 A Saved endpoint beyond the draft's fork needs its own retained path/window; the
 single-path helper reports that case without changing the output. This is structural
 planning, not a payload decoder, archive profile, mutation producer, replay or GC.
+
+`workbook_history_protect` combines independently proved Saved and current paths.
+It compares the shared prefix, rejects operation-ID reuse after divergence and
+lineage rejoin, and extends protected floors to the fork/an older active cursor.
+Current high-water marks cannot regress. Its output retains both interval
+obligations; it neither drops old checkpoints nor authorizes pruning. Empty Saved
+and checkpoint-only legacy files are not fictional event paths.

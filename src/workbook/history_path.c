@@ -59,3 +59,64 @@ WorkbookHistoryPathStatus workbook_history_path_window(const WorkbookVersionInde
     default: return HISTORY_PATH_INVALID;
     }
 }
+static uint64_t lesser(uint64_t a,uint64_t b) { return a<b ? a : b; }
+static uint64_t greater(uint64_t a,uint64_t b) { return a>b ? a : b; }
+static bool shared_prefix(const WorkbookHistoryPath *s,const WorkbookHistoryPath *c,uint64_t *fork) {
+    size_t common=0;
+    while (common<s->segment_count && common<c->segment_count && s->segments[common].lineage==c->segments[common].lineage) {
+        if (s->segments[common].from!=c->segments[common].from) return false;
+        uint64_t end=lesser(s->segments[common].through,c->segments[common].through);
+        bool split=s->segments[common].through!=c->segments[common].through;
+        *fork=end; common++; if (split) break;
+    }
+    if (!common) return false;
+    size_t i=common,j=common;
+    /* Monotonic IDs permit a linear intersection check. A branch cannot
+       silently rejoin a later shared lineage with different ancestry. */
+    while (i<s->segment_count && j<c->segment_count) {
+        uint64_t a=s->segments[i].lineage,b=c->segments[j].lineage;
+        if (a==b) return false;
+        if (a<b) i++; else j++;
+    }
+    uint64_t start=greater(s->available,c->available);
+    if (start<*fork) for (uint64_t at=start;at<*fork;at++) {
+        const WorkbookHistoryEventPosition *a=s->events+(size_t)(at-s->available),*b=c->events+(size_t)(at-c->available);
+        if (a->operation!=b->operation || a->lineage!=b->lineage) return false;
+    }
+    i=j=0;
+    while (i<s->event_count && j<c->event_count) {
+        const WorkbookHistoryEventPosition *a=s->events+i,*b=c->events+j;
+        if (a->operation==b->operation) {
+            if (a->position!=b->position || a->position>*fork || a->lineage!=b->lineage) return false;
+            i++; j++;
+        } else if (a->operation<b->operation) i++; else j++;
+    }
+    return true;
+}
+WorkbookHistoryPathStatus workbook_history_protect(const WorkbookVersionIndex *v,
+    const WorkbookHistoryAnchors *h,const WorkbookHistoryPath *s,const WorkbookHistoryPath *c,WorkbookHistoryProtection *out) {
+    if (!out) return HISTORY_PATH_INVALID;
+    if (workbook_history_anchors_check(v,h)!=HISTORY_ANCHORS_OK) return HISTORY_PATH_ANCHORS;
+    WorkbookHistoryProtection next={.has_saved=v->saved.present};
+    if (!v->saved.present) {
+        if (s) return HISTORY_PATH_INVALID;
+        WorkbookHistoryWindow draft;
+        WorkbookHistoryPathStatus status=workbook_history_path_window(v,h,c,&draft);
+        if (status!=HISTORY_PATH_OK) return status;
+        next.current_from=draft.from; next.current_cursor=draft.cursor; next.current_through=draft.through; next.shared_through=c->origin;
+    } else {
+        WorkbookHistoryPathStatus status=workbook_history_path_window(v,h,s,&next.saved);
+        if (status!=HISTORY_PATH_OK) return status;
+        status=workbook_history_path_check(c);
+        if (status!=HISTORY_PATH_OK) return status;
+        if (c->document_high!=h->document_high || c->document_low!=h->document_low || c->origin!=s->origin ||
+            c->lineage_high_water<s->lineage_high_water || c->operation_high_water<s->operation_high_water) return HISTORY_PATH_INVALID;
+        for (size_t i=0;i<h->count;i++) if (membership(c,h->items+i)<0) return HISTORY_PATH_INVALID;
+        if (!shared_prefix(s,c,&next.shared_through)) return HISTORY_PATH_SEQUENCE;
+        uint64_t from=lesser(next.saved.from,lesser(next.shared_through,c->cursor));
+        if (from<s->available || from<c->available) return HISTORY_PATH_GAP;
+        next.saved.from=from;
+        next.current_from=from; next.current_cursor=c->cursor; next.current_through=c->tail;
+    }
+    *out=next; return HISTORY_PATH_OK;
+}

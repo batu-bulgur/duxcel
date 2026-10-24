@@ -208,7 +208,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12b.1 · P1 · Complete | Closed public anchor/index bindings; W12a. | Validate exact document, tag-publication identity, Saved root, anchor high-water and complete public references. Reused content/positions never substitute anchor identity; no event/payload or cross-session Undo claim. |
 | W12b.2 · P1 · In progress | Event/path continuity and durable metadata profile; W12b.1. | Prove current lineage/cursor and retained ranges, classify checkpoint-only legacy history explicitly, and bind each reversible payload family before selecting a file profile. Never fabricate old Undo from saved snapshots. |
 | W12b.2a · P1 · Complete | Structural event-path and anchor/window join; W12b.1. | Prove ordered lineage ancestry, exact retained transitions, cursor/Redo bounds and monotonic operation IDs. Ancestor prefixes remain on-path; abandoned suffixes stay checkpoints. A forked Saved endpoint cannot silently produce a successful empty window. Payload/file admission remains separate. |
-| W12b.2b · P1 · Queued | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
+| W12b.2b · P1 · Complete | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
 | W12b.2c · P1 · Queued | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit legacy files as checkpoint-only history; unsupported/corrupt history cannot replace the live document. |
 | W12c · P1 · Queued | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
 | W12c.1 · P1 · Queued | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
@@ -1060,3 +1060,15 @@ Payload capture follows the path foundation; final file-profile admission follow
 all payload families, avoiding a circular dependency. Evidence:
 `build/tests/results/w12b2-history-path.log` (ignored).
 The55 runner/catalog/web-build contracts also pass in11.505s.
+
+W12b.2b complete: the same history controller now protects the independent Saved
+window and current draft together. Shared-prefix operation IDs must agree;
+divergent suffixes cannot reuse IDs or rejoin lineages. Both required floors
+extend to an older fork/cursor, preserving the inverse of a new edit even before
+the previous Saved window. Either missing interval or regressed durable clock
+rejects without changing the output. The77-case path/join/protection module plus
+anchor/window optimized/sanitized gate passes in1.700s, including empty Saved,
+complete Redo, cross-document rejection and UINT64_MAX endpoints. Evidence:
+`build/tests/results/w12b2-protection.log` (ignored). Shared Wasm links the path
+foundation; no file format or App mutation behavior changed. Final metadata
+admission W12b.2c depends on payload families; the next ready slice is W12c.1.

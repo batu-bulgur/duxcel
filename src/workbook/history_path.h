@@ -36,4 +36,21 @@ WorkbookHistoryPathStatus workbook_history_path_check(const WorkbookHistoryPath 
    Failure preserves out, all inputs and every checkpoint. */
 WorkbookHistoryPathStatus workbook_history_path_window(const WorkbookVersionIndex *versions,
     const WorkbookHistoryAnchors *anchors,const WorkbookHistoryPath *path,WorkbookHistoryWindow *out);
+typedef struct {
+    bool has_saved;
+    WorkbookHistoryWindow saved;
+    uint64_t current_from,current_cursor,current_through,shared_through;
+} WorkbookHistoryProtection;
+/* Protect Saved's window independently from the working draft. Extend both
+   required floors to the shared fork or an older working cursor when needed.
+   Shared retained events must agree; divergent branches cannot reuse operation
+   IDs or rejoin a lineage. Current durable high-water marks cannot regress.
+   saved_path is required exactly when Latest Saved exists; legacy checkpoints
+   without event metadata cannot fabricate one. Ranges are obligations only,
+   not payload admission, replay, budget reservation or deletion permission.
+   No allocation/IO/mutation; linear path work plus the bounded anchor join.
+   Failure preserves out. */
+WorkbookHistoryPathStatus workbook_history_protect(const WorkbookVersionIndex *versions,
+    const WorkbookHistoryAnchors *anchors,const WorkbookHistoryPath *saved_path,
+    const WorkbookHistoryPath *current_path,WorkbookHistoryProtection *out);
 #endif
