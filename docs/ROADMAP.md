@@ -276,7 +276,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4c · P1 · Complete | Pivot definition commands; W12c.3c.3b.4b. | Admit complete field/aggregate/date/filter/reorder definitions with selected-measure remapping, bounded query revision and one object event. Keep App schema checks, no-op Redo and unrelated caches; verify real authoring, Undo/Redo and Save/Open. |
 | W12c.3c.3b.4d · P1 · In progress | Source connection/binding replacement commands; W12c.3c.3b.4c. | Prepare primary/Table connection and analytical source-binding replacements with complete before/after dependency closure, explicit reset/invalidation and owner/source fences. Default-relation completion remains origin enrichment, not a manufactured edit. |
 | W12c.3c.3b.4d.1 · P1 · Complete | Resolved Table connection/relation replacement; W12c.3c.3b.4c. | Admit changed file/relation/version bindings through the existing Table transaction, close old/new source metadata before eviction and invalidate only target/dependent results. Preserve no-op Redo, formats, stable IDs and unrelated Pages; worker default completion remains enrichment. |
-| W12c.3c.3b.4d.2 · P1 · Queued | Primary connection/relation replacement; W12c.3c.3b.4d.1. | Bind the live App primary authority, source/readiness/owner fences and complete dependencies before one Analysis action. Support explicit relinking from unavailable prior results, preserve no-op Redo and keep default-relation enrichment separate. |
+| W12c.3c.3b.4d.2 · P1 · Complete | Primary connection/relation replacement; W12c.3c.3b.4d.1. | Bind the live App primary authority, source/readiness/owner fences and complete dependencies before one Analysis action. Support explicit relinking from unavailable prior results, preserve no-op Redo and keep default-relation enrichment separate. |
 | W12c.3c.3b.4d.3 · P1 · Queued | Analytical object source binding; W12c.3c.3b.4d.2. | Admit changed source_id against an existing Table or primary owner, reserve full before/after graph/dependencies before eviction, preserve identity/layout/Marks and invalidate only the rebound object. Source/format composites remain W12c.3c.3b.4f. |
 | W12c.3c.3b.4e · P1 · Queued | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
 | W12c.3c.3b.4f · P1 · Queued | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
@@ -1779,3 +1779,23 @@ compiled commit provenance and private feature/review exclusions pass. Receipts:
 ignored `w12c3-table-replacement-bundle.log`, `w12c3-table-replacement-package.json`
 and `w12c3-table-replacement-web.log`. No user App was launched/closed; browser
 runtime/Open/Save, durable history and broad regression remain separate gates.
+
+
+W12c.3c.3b.4d.2 complete: explicit primary replacement reuses Analysis transaction
+admission with full live/cached definition, allocator and immutable ledger fences.
+Reservation also freezes the owned candidate descriptor. Changed commands guard
+source/document clock exhaustion, close both source dependencies and publish one
+action; no-op preserves Redo. App native/text relink and queued relation selection
+share one owner, admit clone/scratch coexistence and allow actual unavailable-result
+recovery while ordinary transforms keep their result-readiness checks. Relation
+selection clears query/filter/sort/group/unique state; worker default enrichment
+remains separate. The scoped gate passes in 19.568s with 17 native stages/42 checks
+(GUI 9.050s), including actual missing-file query failure, relink recovery,
+Undo/Redo/no-op Redo, transform reset, dependent Pivot and unrelated Table Page,
+150% v16 Save/Open. The expanded primary module passes 189 optimized/ASan/UBSan
+checks (additional binding run 2.866s); existing Analysis/recorder/dependency modules
+also pass. Named primary-group/query (15 stages, 17.108s) and source-result/guarded
+formatting (24 stages, 22.554s) interactions pass; 50 tool contracts pass in 2.488s.
+Receipts: ignored `w12c3-primary-replacement*.log` and run summaries. No full
+regression, native file-panel gate, retained App writer or dataset retention is
+claimed. Next: W12c.3c.3b.4d.3 analytical source_id admission.

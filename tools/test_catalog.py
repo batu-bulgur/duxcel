@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "primary-replacement": ("build/tests/test_primary_replacement-gui", "PASS: native primary replacement workflow",
+                            r"^PASS: native primary replacement workflow \(17 stages, [1-9]\d* checks\)$", 17),
     "table-replacement": ("build/tests/test_table_replacement-gui", "PASS: native Table replacement workflow",
                           r"^PASS: native Table replacement workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "object-pivot-command": ("build/tests/test_object_pivot_command-gui", "PASS: native object Pivot workflow",
@@ -94,6 +96,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "primary-replacement": Feature(("primary_replacement", "analysis_command", "history_definition", "definition_dependencies"), "primary-replacement",
+        ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py feature --feature source-result-format"),
+        ("src/workbook/analysis_command.c: resolved primary replacement and full metadata fences", "src/app/app.c: primary relink/relation and unavailable-result readiness", "tests/test_primary_replacement.c", "tests/support/primary_replacement_app.inc"), fixtures=("source-connections",)),
     "table-replacement": Feature(("table_replacement", "table_command", "object_source_plan", "history_definition"), "table-replacement",
         ("python3 tools/test.py feature --feature source-result-format", "python3 tools/test.py feature --feature table-command"),
         ("src/transforms/analysis.c: shape-measured result comparison before grammar admission", "src/workbook/object_source_plan.c: explicit connection/binding replacement projection", "src/workbook/table_command.c: replacement transaction", "src/app/app.c: Table replacement admission", "tests/test_table_replacement.c", "tests/support/table_replacement_app.inc", "tools/create_workbook.py: finite source connection fixtures"), fixtures=("source-connections",)),

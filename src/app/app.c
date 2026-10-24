@@ -1388,6 +1388,34 @@ static bool primary_transform_adopt(App *a,Analysis *owned,size_t validation,con
     if (*changed) SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
     return true;
 }
+static void change_analysis(App *a,bool schema);
+static bool replace_primary_connection(App *a,const Analysis *proposal) {
+    Analysis adjusted=*proposal; SOURCE_FORMAT_ADJUST(a,0,&adjusted);
+    char *error=NULL; size_t validation=0;
+    if (!primary_transform_budget(a,&adjusted,&validation,0,&error)) { status(a,error); free(error); return false; }
+    Analysis owned=analysis_copy(&adjusted);
+    AnalysisCommandContext context={.book=&a->book,.live=&a->analysis,.source_epoch=&a->analysis_revision,.validation_reserved=validation,
+        .ready=!a->io_busy && !a->query_loading && !a->step_preview.active,.read_only=history_locked(a)};
+    AnalysisTransformTarget target; bool ok=false,changed=false;
+    if (workbook_prepare_analysis_transform(&context,a->book.active,&target,&error)) {
+        AnalysisTransformResult result=workbook_apply_analysis_replacement_recorded(&context,&target,&owned,NULL,&error);
+        ok=result.status==ANALYSIS_TRANSFORM_APPLIED || result.status==ANALYSIS_TRANSFORM_NOOP;
+        changed=result.status==ANALYSIS_TRANSFORM_APPLIED;
+    }
+    analysis_free(&owned);
+    if (error) status(a,error);
+    free(error);
+    if (changed) change_analysis(a,true);
+    return ok;
+}
+static bool relink_primary_path(App *a,const char *path) {
+    char *absolute=dx_absolute_path(path);
+    if (!absolute || source_kind(absolute)!=a->analysis.kind) { free(absolute); status(a,"Choose an existing source of the same file type."); return false; }
+    Analysis proposal=a->analysis; proposal.path=absolute;
+    bool ok=replace_primary_connection(a,&proposal); free(absolute);
+    if (ok) a->modal=MODAL_NONE;
+    return ok;
+}
 static void request_page(App *a,bool reset) {
     if (a->refresh_plans) SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
     SOURCE_FORMAT_REQUEST(a);
@@ -2410,7 +2438,7 @@ static void open_modal(App *a,Modal modal) {
             if (modal==MODAL_SAVE) workspace_save_as(a,path);
             else if (modal==MODAL_RELINK) {
                 if (source_kind(path)==a->analysis.kind) {
-                    remember(a); free(a->analysis.path); a->analysis.path=dx_strdup(path); a->modal=MODAL_NONE; change_analysis(a,true);
+                    relink_primary_path(a,path);
                 } else status(a,"Choose a source of the same file type.");
             } else open_source(a,path,false);
             free(path);
@@ -2467,11 +2495,7 @@ static void new_sheet(App *a) {
     if (!(a->book.count ? workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name=name,.analysis=&blank},NULL,&error) : workbook_add(&a->book,name,&blank,&error))) { status(a,error); free(error); free(name); return; }
     free(name); activate_sheet(a,a->book.active,false);
 }
-static void relink_source(App *a) {
-    char *path=dx_absolute_path(a->input.text);
-    if (!path || source_kind(path)!=a->analysis.kind) { free(path); status(a,"Choose an existing source with the same file type."); return; }
-    remember(a); free(a->analysis.path); a->analysis.path=path; a->modal=MODAL_NONE; change_analysis(a,true);
-}
+static void relink_source(App *a) { relink_primary_path(a,a->input.text); }
 static void apply_sort_order(App *a,const Analysis *order) {
     a->modal=MODAL_NONE;
     if (a->sort_object>=0 && (size_t)a->sort_object<active_sheet(a)->objects.count && active_sheet(a)->objects.items[a->sort_object].kind==OBJECT_TABLE) {
@@ -2717,7 +2741,6 @@ static void clear_analysis_transforms(Analysis *analysis) {
     free(analysis->measure_column); analysis->measure_column=NULL;
     analysis_sorts_clear(analysis);
 }
-static void clear_transforms(App *a) { clear_analysis_transforms(&a->analysis); }
 #ifndef DUXCEL_BROWSER_HOST
 static void reset_analysis(App *a) {
     SheetObject *object=selected_object(a);
@@ -2758,9 +2781,9 @@ static bool set_unique_rows(App *a,int index,bool unique) {
     status(a,unique ? "Duplicate rows removed across all source columns. Undo restores them." : "Duplicate rows restored. Other transformations are retained."); return true;
 }
 static void select_relation(App *a,const Relation *r) {
-    char *schema=dx_strdup(r->schema), *name=dx_strdup(r->name);
-    remember(a); clear_transforms(a); free(a->analysis.schema); free(a->analysis.table);
-    a->analysis.schema=schema; a->analysis.table=name; free(a->analysis.query); a->analysis.query=NULL; change_analysis(a,true);
+    Analysis proposal={.kind=a->analysis.kind,.path=a->analysis.path,.schema=r->schema,.table=r->name,
+        .source_version=a->analysis.source_version,.aggregate=a->analysis.aggregate};
+    replace_primary_connection(a,&proposal);
 }
 static void run_action(App *a,UIAction action);
 static bool action_enabled(App *a,UIAction action);
@@ -15625,6 +15648,9 @@ static void primary_transforms_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_QUERY
 static void primary_query_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_REPLACEMENT
+static void primary_replacement_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
 static void primary_steps_test_frame(AppSession *session);
 #endif
@@ -16503,6 +16529,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_QUERY
     primary_query_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_REPLACEMENT
+    primary_replacement_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
     primary_steps_test_frame(session);
 #endif
@@ -16831,4 +16860,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_TABLE_REPLACEMENT
 #include "../../tests/support/table_replacement_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_PRIMARY_REPLACEMENT
+#include "../../tests/support/primary_replacement_app.inc"
 #endif

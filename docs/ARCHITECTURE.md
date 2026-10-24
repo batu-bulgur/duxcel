@@ -1114,3 +1114,17 @@ preserved. `analysis_same_result_measured` performs allocation-free comparison
 only after bounded shape measurement; full grammar still follows scratch admission.
 Primary replacement, analytical source_id edits and source/format composite
 publication remain separate roadmap work; metadata closure is not dataset retention.
+
+
+Primary replacement is explicit Analysis transaction admission with independent
+App authority. Targets now freeze complete live/cached native descriptors,
+allocator high-water and immutable source ledger rows; changed candidates are
+rechecked after event reservation before one ownership/action publication. The
+validated after-plan and runtime source/document clocks cannot change or wrap
+silently. App path/relation adapters admit clone/scratch coexistence, clear stale
+source-version locators before dependency closure and allow relink from a real
+failed prior result without relaxing ordinary transform readiness. Only primary-
+bound analytical views invalidate; independent Table Pages remain. Relation
+selection resets transforms as one definition action; default enrichment remains
+metadata work. Native descriptors are never serialized; retained event IO and
+source/format composites remain separate.

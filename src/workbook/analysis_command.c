@@ -3,6 +3,7 @@
 #include "history.h"
 #include <stdlib.h>
 #include <string.h>
+typedef char AnalysisFenceBound[(sizeof(AnalysisTransformTarget)<512u*1024u) ? 1 : -1];
 static bool fail(char **error,const char *message) { if (error) { free(*error); *error=dx_strdup(message); } return false; }
 static Worksheet *resolve(Workbook *b,uint64_t id) {
     for (size_t i=0;i<b->count;i++) if (b->sheets[i].id==id) return b->sheets+i;
@@ -17,9 +18,16 @@ bool workbook_prepare_analysis_transform(AnalysisCommandContext *c,size_t index,
         return fail(error,"Choose a valid primary source before transforming it.");
     if (!c->ready || c->read_only || c->live->kind==SOURCE_NONE || definition_baseline_status((DefinitionDependencyView){c->live,NULL})!=DEFINITION_BASELINE_READY)
         return fail(error,"Wait for an editable, resolved primary source before transforming it.");
-    CellEditTarget owner={0}; if (!workbook_prepare_cell_edit(c->book,index,0,0,&owner,error)) return false;
     Worksheet *s=c->book->sheets+index;
-    *out=(AnalysisTransformTarget){owner,c->live==&s->analysis ? NULL : c->live,*c->source_epoch,s->formats.revision,s->history_last,s->source_versions.high_water}; return true;
+    if (s->source_versions.count>DX_SOURCE_VERSIONS || (s->source_versions.count && !s->source_versions.items)) return fail(error,"Invalid source metadata ownership.");
+    CellEditTarget owner={0}; if (!workbook_prepare_cell_edit(c->book,index,0,0,&owner,error)) return false;
+    AnalysisTransformTarget next={.owner=owner,.external_authority=c->live==&s->analysis ? NULL : c->live,
+        .source_epoch=*c->source_epoch,.format_revision=s->formats.revision,.history_last=s->history_last,
+        .source_high_water=s->source_versions.high_water,.object_high_water=s->objects.next_id};
+    memcpy(&next.live_state,c->live,sizeof(*c->live)); memcpy(&next.cached_state,&s->analysis,sizeof(s->analysis));
+    memcpy(&next.sources,&s->source_versions,sizeof(s->source_versions));
+    if (s->source_versions.count) memcpy(next.versions,s->source_versions.items,s->source_versions.count*sizeof(*next.versions));
+    *out=next; return true;
 }
 static bool scratch(const Analysis *a,uint64_t sheet,uint64_t owners,size_t *peak,char **error) {
     AnalysisAssetMeasure m={0};
@@ -36,7 +44,7 @@ bool workbook_analysis_transform_scratch(const Worksheet *s,const Analysis *live
     for (size_t i=0;i<s->redo_count;i++) if (!scratch(s->redo+i,s->id,s->objects.next_id,&peak,error)) return false;
     *out=peak; return true;
 }
-static AnalysisTransformResult check(AnalysisCommandContext *c,const AnalysisTransformTarget *t,Analysis *next,char **error) {
+static AnalysisTransformResult check(AnalysisCommandContext *c,const AnalysisTransformTarget *t,Analysis *next,char **error,bool replacement) {
     AnalysisTransformResult r={.status=ANALYSIS_TRANSFORM_INVALID};
     if (!c || !c->live || !c->source_epoch || !t || !next || !workbook_identity_valid(c->book) || !t->owner.document || !t->owner.sheet || t->owner.row || t->owner.column) {
         fail(error,"Invalid primary source command."); return r;
@@ -45,13 +53,20 @@ static AnalysisTransformResult check(AnalysisCommandContext *c,const AnalysisTra
     r.status=ANALYSIS_TRANSFORM_STALE;
     if (!s || b->id.high!=t->owner.workbook.high || b->id.low!=t->owner.workbook.low || b->edit_session_id!=t->owner.document || s->edit_session_id!=t->owner.sheet ||
         c->live!=(t->external_authority ? t->external_authority : &s->analysis) || *c->source_epoch!=t->source_epoch || b->command_revision!=t->owner.expected_document_revision ||
-        s->cells.revision!=t->owner.expected_revision || s->formats.revision!=t->format_revision || s->history_last!=t->history_last || s->source_versions.high_water!=t->source_high_water) {
+        s->cells.revision!=t->owner.expected_revision || s->formats.revision!=t->format_revision || s->history_last!=t->history_last || s->source_versions.high_water!=t->source_high_water || s->objects.next_id!=t->object_high_water ||
+        memcmp(c->live,&t->live_state,sizeof(*c->live)) || memcmp(&s->analysis,&t->cached_state,sizeof(s->analysis)) ||
+        memcmp(&s->source_versions,&t->sources,sizeof(s->source_versions))) {
         fail(error,"The primary source owner changed; prepare the transformation again."); return r;
     }
+    if (s->source_versions.count>DX_SOURCE_VERSIONS || (s->source_versions.count && (!s->source_versions.items ||
+        memcmp(s->source_versions.items,t->versions,s->source_versions.count*sizeof(*t->versions))))) {
+        fail(error,"Source metadata changed; prepare the primary edit again."); return r;
+    }
     r.status=ANALYSIS_TRANSFORM_PROTECTED;
-    if (!c->ready || c->read_only || c->live->kind==SOURCE_NONE || !same_connection(c->live,next) ||
-        definition_baseline_status((DefinitionDependencyView){c->live,NULL})!=DEFINITION_BASELINE_READY) {
-        fail(error,"This transformation requires an editable, resolved source with the same connection."); return r;
+    if (!c->ready || c->read_only || c->live->kind==SOURCE_NONE || next->kind==SOURCE_NONE || (!replacement && !same_connection(c->live,next)) ||
+        definition_baseline_status((DefinitionDependencyView){c->live,NULL})!=DEFINITION_BASELINE_READY ||
+        definition_baseline_status((DefinitionDependencyView){next,NULL})!=DEFINITION_BASELINE_READY) {
+        fail(error,replacement ? "This replacement requires editable, resolved source endpoints." : "This transformation requires an editable, resolved source with the same connection."); return r;
     }
     r.status=ANALYSIS_TRANSFORM_INVALID;
     if (s->undo_count>DX_HISTORY || s->redo_count>DX_HISTORY || !source_versions_valid(&s->source_versions,s->objects.next_id,error)) return r;
@@ -68,13 +83,13 @@ static AnalysisTransformResult check(AnalysisCommandContext *c,const AnalysisTra
     }
     if (definition_analysis_equal(c->live,next)) { r.status=ANALYSIS_TRANSFORM_NOOP; return r; }
     r.status=ANALYSIS_TRANSFORM_LIMIT;
-    if (b->command_revision==UINT64_MAX || !worksheet_history_order_available()) { fail(error,"Primary source revision space is exhausted."); return r; }
+    if (b->command_revision==UINT64_MAX || *c->source_epoch==UINT64_MAX || !worksheet_history_order_available()) { fail(error,"Primary source revision space is exhausted."); return r; }
     if (workbook_history_peek(b,false,NULL).status==WORKBOOK_HISTORY_INVALID) { r.status=ANALYSIS_TRANSFORM_INVALID; fail(error,"Worksheet history is incomplete; no transformation was applied."); return r; }
     r.status=ANALYSIS_TRANSFORM_READY; return r;
 }
-AnalysisTransformResult workbook_apply_analysis_transform_recorded(AnalysisCommandContext *c,const AnalysisTransformTarget *t,Analysis *owned,
-    const WorkbookHistoryDefinitionRecorder *recorder,char **error) {
-    AnalysisTransformResult r=check(c,t,owned,error);
+static AnalysisTransformResult apply(AnalysisCommandContext *c,const AnalysisTransformTarget *t,Analysis *owned,
+    const WorkbookHistoryDefinitionRecorder *recorder,char **error,bool replacement) {
+    AnalysisTransformResult r=check(c,t,owned,error,replacement);
     if (r.status==ANALYSIS_TRANSFORM_NOOP) { analysis_free(owned); return r; }
     if (r.status!=ANALYSIS_TRANSFORM_READY) return r;
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id); void *ticket=NULL;
@@ -83,13 +98,17 @@ AnalysisTransformResult workbook_apply_analysis_transform_recorded(AnalysisComma
         WorkbookHistoryDefinitionRecord record={.workbook=b->id,.edit_session=b->edit_session_id,.sheet_session=s->edit_session_id,
             .expected_revision=b->command_revision,.revision=b->command_revision+1,.validation_reserved=c->validation_reserved,
             .view={.sheet=s->id,.object_high_water=s->objects.next_id,.effects=1,.before={c->live,NULL},.after={owned,NULL},.sources=&s->source_versions}};
+        Analysis proposed; memcpy(&proposed,owned,sizeof(proposed));
         bool reserved=recorder->reserve(recorder->context,&record,&ticket,error);
         if (!reserved || !ticket) {
             bool invalid=reserved || ticket!=NULL; if (ticket) recorder->cancel(recorder->context,ticket);
             r.status=invalid ? ANALYSIS_TRANSFORM_INVALID : ANALYSIS_TRANSFORM_LIMIT;
             if (!error || !*error) fail(error,"Definition recording is busy; the prepared edit is kept."); return r;
         }
-        r=check(c,t,owned,error);
+        if (memcmp(&proposed,owned,sizeof(proposed))) {
+            r.status=ANALYSIS_TRANSFORM_STALE; fail(error,"The primary candidate changed during event reservation."); recorder->cancel(recorder->context,ticket); return r;
+        }
+        r=check(c,t,owned,error,replacement);
         if (r.status!=ANALYSIS_TRANSFORM_READY) { recorder->cancel(recorder->context,ticket); if (r.status==ANALYSIS_TRANSFORM_NOOP) analysis_free(owned); return r; }
         s=resolve(b,t->owner.sheet_id);
     }
@@ -99,3 +118,6 @@ AnalysisTransformResult workbook_apply_analysis_transform_recorded(AnalysisComma
     if (recorder) recorder->publish(recorder->context,ticket);
     return r;
 }
+
+AnalysisTransformResult workbook_apply_analysis_transform_recorded(AnalysisCommandContext *c,const AnalysisTransformTarget *t,Analysis *owned,const WorkbookHistoryDefinitionRecorder *recorder,char **error) { return apply(c,t,owned,recorder,error,false); }
+AnalysisTransformResult workbook_apply_analysis_replacement_recorded(AnalysisCommandContext *c,const AnalysisTransformTarget *t,Analysis *owned,const WorkbookHistoryDefinitionRecorder *recorder,char **error) { return apply(c,t,owned,recorder,error,true); }

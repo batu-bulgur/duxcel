@@ -12,7 +12,10 @@ typedef struct {
 typedef struct {
     CellEditTarget owner;
     const Analysis *external_authority; /* NULL selects resolved sheet.analysis. */
-    uint64_t source_epoch,format_revision,history_last,source_high_water;
+    uint64_t source_epoch,format_revision,history_last,source_high_water,object_high_water;
+    Analysis live_state,cached_state;
+    SourceVersions sources;
+    SourceVersion versions[DX_SOURCE_VERSIONS];
 } AnalysisTransformTarget;
 typedef enum { ANALYSIS_TRANSFORM_APPLIED,ANALYSIS_TRANSFORM_NOOP,ANALYSIS_TRANSFORM_READY,
     ANALYSIS_TRANSFORM_STALE,ANALYSIS_TRANSFORM_INVALID,ANALYSIS_TRANSFORM_PROTECTED,ANALYSIS_TRANSFORM_LIMIT } AnalysisTransformStatus;
@@ -35,5 +38,13 @@ bool workbook_analysis_transform_scratch(const Worksheet *sheet,const Analysis *
    invalidation/jobs, focus and global transient budgets. Callbacks are single-owner
    and nonreentrant as in history_definition.h. No retained App activation or IO. */
 AnalysisTransformResult workbook_apply_analysis_transform_recorded(AnalysisCommandContext *context,
+    const AnalysisTransformTarget *target,Analysis *owned,const WorkbookHistoryDefinitionRecorder *recorder,char **error);
+/* Explicit resolved primary connection/version replacement. Prepare with the
+   same target; App may declare readiness independently from an unavailable old
+   result. Both endpoints remain nonempty/resolved; no source issuance, default
+   completion or format mutation is hidden here. Ownership/no-op/reservation
+   contracts match transform adoption. Native descriptors and immutable source
+   rows are runtime fences only, never serialized. */
+AnalysisTransformResult workbook_apply_analysis_replacement_recorded(AnalysisCommandContext *context,
     const AnalysisTransformTarget *target,Analysis *owned,const WorkbookHistoryDefinitionRecorder *recorder,char **error);
 #endif
