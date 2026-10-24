@@ -9,6 +9,7 @@
 #include "../workbook/object_binding_command.h"
 #include "../workbook/object_delete_command.h"
 #include "../workbook/object_create_command.h"
+#include "../workbook/object_import_draft.h"
 #include "../workbook/object_move_command.h"
 #include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
@@ -327,6 +328,7 @@ typedef struct {
     bool command_activate,ribbon_reveal_command;
     Page page, spare;
     ObjectView objects[DX_MAX_OBJECTS];
+    ObjectImportDraft object_import;
     int selected_object,pivot_role,pivot_focus,pivot_field,pivot_value,pivot_field_scroll;
     int pivot_drag_field,pivot_drag_role,pivot_drag_index;
     bool pivot_drag_right,pivot_search_focus,pivot_reveal_object,reduced_motion,author_reveal,pivot_drop_pending;
@@ -1080,17 +1082,17 @@ static ObjectCreateContext object_creation_context(App *a,bool manual_formats) {
         .manual_formats=manual_formats};
 }
 /* App owns result readiness/jobs; the producer owns every authored constituent. */
-static int admit_object_creation_target(App *a,ObjectCreateCommand command,bool manual_formats,const ObjectCreateTarget *captured,char **error) {
+static int admit_object_creation_target(App *a,ObjectCreateCommand command,bool manual_formats,const ObjectCreateTarget *captured,size_t reply_owned,char **error) {
     Worksheet *s=active_sheet(a); ObjectCreatePlanInfo info={0}; ObjectCreateContext context=object_creation_context(a,manual_formats);
     if (!s || workbook_object_create_measure(&context,a->book.active,command,&info,error)!=OBJECT_CREATE_READY) return -1;
-    if (info.owned>SIZE_MAX-info.validation_scratch || info.primary_owned>SIZE_MAX-info.validation_scratch) {
+    if (info.owned>SIZE_MAX-info.validation_scratch || info.primary_owned>SIZE_MAX-info.validation_scratch || info.proposal_owned>SIZE_MAX-reply_owned) {
         if (error) *error=dx_strdup("Creation planning reservation overflow."); return -1;
     }
 #ifndef DUXCEL_BROWSER_HOST
-    if (source_format_budget_status(a,NULL,info.owned,info.validation_scratch+info.primary_owned,info.proposal_owned,0,0)) {
+    if (source_format_budget_status(a,NULL,info.owned,info.validation_scratch+info.primary_owned,info.proposal_owned+reply_owned,0,0)) {
         if (error) *error=dx_strdup(a->message ? a->message : "Creation exceeds the current memory budget."); return -1;
     }
-    CreationAdmission admission={a,info.primary_owned,info.proposal_owned}; context.admit=admit_creation_memory; context.admission_context=&admission;
+    CreationAdmission admission={a,info.primary_owned,info.proposal_owned+reply_owned}; context.admit=admit_creation_memory; context.admission_context=&admission;
 #endif
     context.command.plan_reserved=info.owned+info.validation_scratch; context.command.validation_reserved=info.validation_scratch;
     ObjectCreateTarget target;
@@ -1098,7 +1100,7 @@ static int admit_object_creation_target(App *a,ObjectCreateCommand command,bool 
     ObjectCreateResult result=workbook_apply_object_create_recorded(&context,captured,command,NULL,error);
     return result.status==OBJECT_CREATE_APPLIED ? (int)s->objects.count-1 : -1;
 }
-static int admit_object_creation(App *a,ObjectCreateCommand command,char **error) { return admit_object_creation_target(a,command,false,NULL,error); }
+static int admit_object_creation(App *a,ObjectCreateCommand command,char **error) { return admit_object_creation_target(a,command,false,NULL,0,error); }
 static bool import_table(App *a,const char *path) {
     if (a->io_busy || a->busy || !active_sheet(a)) return false;
     SourceKind kind=source_kind(path); char *absolute=workbook_is_path(path) ? NULL :
@@ -1111,26 +1113,47 @@ static bool import_table(App *a,const char *path) {
     Worksheet *sheet=active_sheet(a); char *error=NULL;
     if (!objects_fits(&sheet->objects,-1,a->grid.row,a->grid.col,5,4,&sheet->cells,source_rows(a),a->page.column_count,&error)) { status(a,error); free(error); free(absolute); return false; }
     Analysis source={.kind=kind,.path=absolute}; char name[64]; snprintf(name,sizeof(name),"Table %" PRIu64,sheet->objects.next_id+1);
+    bool manual_formats=false;
 #ifndef DUXCEL_BROWSER_HOST
-    bool manual_formats=source_format_manual_import_ready(a);
+    manual_formats=source_format_manual_import_ready(a);
 #endif
-    bool admitted=kind!=SOURCE_DATABASE;
+    if (kind==SOURCE_DATABASE) {
+        if (a->request_id==UINT64_MAX) { analysis_free(&source); status(a,"The import request identities are exhausted."); return false; }
 #ifndef DUXCEL_BROWSER_HOST
+        if (source_format_budget_status(a,NULL,0,sizeof(source)+analysis_text_bytes(&source),0,1,0)) { analysis_free(&source); return false; }
 #endif
-    int index=admitted ? admit_object_creation_target(a,(ObjectCreateCommand){.kind=OBJECT_TABLE,.row=a->grid.row,.column=a->grid.col,.name=name,.source=&source},
-#ifndef DUXCEL_BROWSER_HOST
-        manual_formats,
-#else
-        false,
-#endif
-        NULL,&error) :
-        objects_add_table(&sheet->objects,a->grid.row,a->grid.col,name,&source,&error); analysis_free(&source);
-    if (index<0) { status(a,error); free(error); return false; }
-#ifndef DUXCEL_BROWSER_HOST
-    if (!admitted && manual_formats) source_format_manual_adopt(a,true);
-#endif
-    if (!admitted) worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
+        a->request_id++; ObjectCreateContext context=object_creation_context(a,manual_formats);
+        if (!object_import_draft_begin(&context,a->book.active,a->request_id,a->grid.row,a->grid.col,&source,manual_formats,&a->object_import,&error)) {
+            analysis_free(&source); status(a,error); free(error); return false;
+        }
+        QueryJob *job=dx_alloc(sizeof(*job)); job->kind=JOB_PAGE; job->id=a->request_id; job->analysis=analysis_copy(&source); job->known_total=-1;
+        analysis_free(&source); a->busy=true; a->pending_kind=JOB_PAGE; a->pending_object_id=0; app_worker_submit(a,job);
+        a->consume_grid_input=true; status(a,"Resolving the database relation before inserting the Table…"); return true;
+    }
+    int index=admit_object_creation_target(a,(ObjectCreateCommand){.kind=OBJECT_TABLE,.row=a->grid.row,.column=a->grid.col,.name=name,.source=&source},manual_formats,NULL,0,&error);
+    analysis_free(&source); if (index<0) { status(a,error); free(error); return false; }
+    a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;
+}
+static bool object_import_reply(App *a,QueryReply *reply) {
+    ObjectImportDraft *draft=&a->object_import;
+    if (!draft->active || reply->id!=draft->request || reply->kind!=JOB_PAGE) return false;
+    char *error=NULL; ObjectCreateCommand command={0}; int index=-1;
+    if (reply->error) error=dx_strdup(reply->error);
+    else if (!active_sheet(a) || active_sheet(a)->id!=draft->target.owner.owner.sheet_id) error=dx_strdup("The import worksheet changed. Choose the database again.");
+    else if (object_import_draft_command(draft,reply->id,a->grid.row,a->grid.col,&reply->analysis,&command,&error)) {
+        /* The probe Page is independent runtime output, not retained Table data.
+           Release it before admitting the actual definition and its histories. */
+        page_free(&reply->page);
+        size_t owned=sizeof(*reply)+analysis_text_bytes(&reply->analysis)+analysis_text_bytes(&draft->source);
+        index=admit_object_creation_target(a,command,draft->manual_formats,&draft->target,owned,&error);
+    }
+    object_import_draft_free(draft);
+    if (index>=0) {
+        a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
+        invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Table inserted with its resolved database relation.");
+    } else status(a,error ? error : "Database import was not admitted. No Table was inserted.");
+    free(error); return true;
 }
 /* Presentation names are session-owned; executable Analysis paths never change. */
 static const char *source_display_filename(const App *a,const Analysis *source) {
@@ -1470,6 +1493,7 @@ static bool relink_primary_path(App *a,const char *path) {
     return ok;
 }
 static void request_page(App *a,bool reset) {
+    if (a->object_import.active) return;
     if (a->refresh_plans) SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
     SOURCE_FORMAT_REQUEST(a);
     QueryJob *j=dx_alloc(sizeof(*j));
@@ -1915,6 +1939,10 @@ static void pause_count(App *a) {
     status(a,"Row counting paused. Data remains available; F5 retries.");
 }
 static void cancel_active_query(App *a) {
+    if (a->object_import.active) {
+        worker_cancel(&a->worker); a->request_id++; a->busy=false; object_import_draft_free(&a->object_import);
+        a->consume_grid_input=true; status(a,"Table import cancelled. No object or history was changed."); return;
+    }
     if (SOURCE_FORMAT_PENDING(a)) { SOURCE_FORMAT_CANCEL(a,"Source formatting cancelled. No style or history was changed."); return; }
     JobKind kind=a->pending_kind;
     worker_cancel(&a->worker); a->request_id++; a->busy=false;
@@ -2167,6 +2195,7 @@ static void receive_source_validation(App *a,QueryReply *r) {
     a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Source query applied. Undo restores the previous definition.");
 }
 static void poll_query(App *a) {
+    if (a->object_import.active && a->object_import.request!=a->request_id) object_import_draft_free(&a->object_import);
     QueryReply *r=worker_poll(&a->worker); if (!r) return;
     REVIEW_EVENT(a,"async.reply",r->id);
     if (r->id!=a->request_id) { reply_free(r); return; }
@@ -2175,6 +2204,7 @@ static void poll_query(App *a) {
     if (worker_archive_is_preview_reply(r)) { history_reply(a,r); reply_free(r); return; }
     if (source_format_reply(a,r)) { reply_free(r); return; }
 #endif
+    if (object_import_reply(a,r)) { reply_free(r); return; }
     if (r->kind==JOB_STEP_PREVIEW) { step_preview_reply(&a->step_preview,r); reply_free(r); return; }
     if (r->is_preview) {
         if (r->kind==JOB_COPY) { if (r->error) status(a,r->error); else { copy_text(a,r->clipboard,"Preview selection copied."); } }
@@ -16998,6 +17028,7 @@ int app_finish(AppSession *session) {
     dx_review_capture_destroy(a->review); a->review=NULL;
 #endif
     SOURCE_FORMAT_RESET(a);
+    object_import_draft_free(&a->object_import);
     cancel_values(a);
 #ifndef DUXCEL_BROWSER_HOST
     close_journal(a,a->discard_journal || !a->book.dirty);

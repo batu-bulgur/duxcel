@@ -2,6 +2,7 @@
 static unsigned creation_stage,creation_wait,creation_checks;
 static int creation_result;
 static uint64_t creation_revision,creation_high,creation_table;
+static Analysis creation_primary;
 static Cell *creation_page;
 static const char *creation_path="build/tests/generated/object-create-command.dxls";
 #define CREATE_GUI_CHECK(x) do { creation_checks++; if (!(x)) { fprintf(stderr,"FAIL object create GUI stage %u:%d: %s (%s)\n",creation_stage,__LINE__,#x,a->message ? a->message : ""); creation_result=-1; return; } } while (0)
@@ -11,7 +12,9 @@ static void object_create_command_test_frame(AppSession *session) {
     creation_wait=0; CREATE_GUI_CHECK(a->modal!=MODAL_ERROR);
     switch (creation_stage) {
     case 0:
-        remove(creation_path); grid_select_cell(&a->grid,2,1,false); CREATE_GUI_CHECK(import_table(a,"tests/fixtures/duplicates.csv")); break;
+        remove(creation_path); CREATE_GUI_CHECK(!s->formats.source_aware);
+        creation_primary=a->analysis; grid_select_cell(&a->grid,2,1,false); CREATE_GUI_CHECK(import_table(a,"tests/fixtures/duplicates.csv"));
+        CREATE_GUI_CHECK(s->formats.source_aware && s->undo_actions[s->undo_actions_count-1]==EDIT_OBJECTS_FORMAT && !s->formats.undo[s->formats.undo_count-1].source_aware); break;
     case 1: {
         if (!object_ready(a,0)) return;
         creation_revision=a->book.command_revision; creation_high=store->next_id; creation_table=store->items[0].id; creation_page=a->objects[0].page.cells;
@@ -54,14 +57,31 @@ static void object_create_command_test_frame(AppSession *session) {
         CREATE_GUI_CHECK(store->count==4 && store->items[3].id==creation_high+4 && a->book.command_revision==creation_revision+10);
         ui_set_scale(&a->ui,1.5f); SetWindowSize(1000,700); break;
     case 11:
-        workspace_job(a,JOB_SAVE,creation_path); break;
+        grid_select_cell(&a->grid,55,20,false); CREATE_GUI_CHECK(import_table(a,"build/tests/generated/source-connection-a.duckdb"));
+        CREATE_GUI_CHECK(a->object_import.active && store->count==4 && store->next_id==creation_high+4 && a->book.command_revision==creation_revision+10);
+        cancel_active_query(a); CREATE_GUI_CHECK(!a->object_import.active && !a->busy && store->count==4 && store->next_id==creation_high+4 && !memcmp(&a->analysis,&creation_primary,sizeof(creation_primary))); break;
     case 12:
-        CREATE_GUI_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,creation_path); creation_stage++; return;
+        CREATE_GUI_CHECK(import_table(a,"build/tests/generated/source-connection-a.duckdb"));
+        CREATE_GUI_CHECK(a->object_import.active && store->count==4 && store->next_id==creation_high+4 && a->book.command_revision==creation_revision+10); break;
     case 13:
+        if (!object_ready(a,4)) { a->selected_object=4; return; }
+        CREATE_GUI_CHECK(!a->object_import.active && store->count==5 && store->next_id==creation_high+5 && a->book.command_revision==creation_revision+11 && store->items[4].source.kind==SOURCE_DATABASE && store->items[4].source.schema && store->items[4].source.table && !strcmp(store->items[4].source.table,"alpha") && !memcmp(&a->analysis,&creation_primary,sizeof(creation_primary)));
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 14:
+        CREATE_GUI_CHECK(store->count==4 && store->next_id==creation_high+5); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 15:
+        if (!object_ready(a,4)) { a->selected_object=4; return; }
+        CREATE_GUI_CHECK(store->count==5 && store->next_id==creation_high+5 && a->book.command_revision==creation_revision+13 && !strcmp(store->items[4].source.table,"alpha"));
+        break;
+    case 16:
+        workspace_job(a,JOB_SAVE,creation_path); break;
+    case 17:
+        CREATE_GUI_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,creation_path); creation_stage++; return;
+    case 18:
         if (!object_ready(a,0)) { a->selected_object=0; return; }
-        CREATE_GUI_CHECK(store->count==4 && store->next_id==creation_high+4 && store->items[1].source_id==creation_table && store->items[2].source_id==creation_table && !s->undo_actions_count && !a->book.dirty);
+        CREATE_GUI_CHECK(store->count==5 && store->next_id==creation_high+5 && store->items[1].source_id==creation_table && store->items[2].source_id==creation_table && !strcmp(store->items[4].source.table,"alpha") && !s->undo_actions_count && !a->book.dirty);
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820); creation_result=1;
-        printf("PASS: native object create workflow (14 stages, %u checks)\n",creation_checks); break;
+        printf("PASS: native object create workflow (19 stages, %u checks)\n",creation_checks); break;
     }
     creation_stage++;
 }

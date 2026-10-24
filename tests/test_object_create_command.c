@@ -176,4 +176,19 @@ static void manual_creation(void) {
     CHECK(definition_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==DEFINITION_EVENT_OK && event.effects==12 && !event.formats.before.source_aware && event.formats.after.source_aware && !event.formats.before.count && !event.formats.after.count);
     definition_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK); CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); workbook_free(&b);
 }
-int main(void) { plans(); callbacks(); sources_and_stream(); bounds_and_dependencies(); manual_creation(); printf("PASS: %u admitted object create checks\n",checks); return 0; }
+static void manual_retained_history(void) {
+    Workbook b; workbook_init(&b); Analysis empty={0},source={.kind=SOURCE_CSV,.path="/table.csv"}; CHECK(workbook_add(&b,"Manual",&empty,NULL)); Worksheet *s=b.sheets;
+    for (unsigned i=0;i<DX_FORMAT_HISTORY;i++) {
+        CellFormat value=format_default(); value.flags=1; FormatSnapshot next={0};
+        CHECK(format_plan_spatial(&s->formats,(FormatRange){100+i,100+i,20,20},FORMAT_BOLD,value,&next,NULL)); CHECK(format_commit(&s->formats,&next)); worksheet_record(s,EDIT_FORMAT);
+    }
+    CHECK(s->formats.undo_count==DX_FORMAT_HISTORY && format_valid(&s->formats,NULL));
+    FormatPatch *prior=s->formats.items; FormatPatch *retained=s->formats.undo[1].items;
+    ObjectCreateContext c=context(&b); c.manual_formats=true; ObjectCreateTarget t=target(&c);
+    ObjectCreateCommand table={.kind=OBJECT_TABLE,.row=10,.column=10,.name="Table",.source=&source};
+    CHECK(workbook_apply_object_create_recorded(&c,&t,table,NULL,NULL).status==OBJECT_CREATE_APPLIED);
+    CHECK(s->formats.undo_count==DX_FORMAT_HISTORY && format_valid(&s->formats,NULL) && s->formats.undo[0].items==retained && s->formats.undo[31].items==prior &&
+        !s->formats.undo[31].source_aware && s->formats.source_aware && s->undo_actions[s->undo_actions_count-1]==EDIT_OBJECTS_FORMAT);
+    workbook_free(&b);
+}
+int main(void) { plans(); callbacks(); sources_and_stream(); bounds_and_dependencies(); manual_creation(); manual_retained_history(); printf("PASS: %u admitted object create checks\n",checks); return 0; }

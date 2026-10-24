@@ -148,13 +148,14 @@ ObjectCreateResult workbook_apply_object_create_recorded(ObjectCreateContext *c,
         DefinitionEventInfo event={0}; DefinitionEventStatus status=definition_event_measure(view,c->command.validation_reserved,&event);
         if (status!=DEFINITION_EVENT_OK) { r.status=status==DEFINITION_EVENT_LIMIT ? OBJECT_CREATE_LIMIT : OBJECT_CREATE_INVALID; fail(error,"The complete creation and manual format event is invalid."); goto cancelled; }
     }
-    if (c->admit) {
-        FormatStore prospective=s->formats;
-        if (c->manual_formats) {
+    FormatStore prospective=s->formats;
+    if (c->manual_formats) {
             prospective.items=formats.items; prospective.count=formats.count; prospective.scopes=formats.scopes; prospective.scope_count=formats.scope_count; prospective.source_aware=true; prospective.redo_count=0;
             if (prospective.undo_count==DX_FORMAT_HISTORY) { memmove(prospective.undo,prospective.undo+1,(DX_FORMAT_HISTORY-1)*sizeof(*prospective.undo)); prospective.undo_count--; }
             prospective.undo[prospective.undo_count++]=(FormatSnapshot){s->formats.items,s->formats.count,s->formats.scopes,s->formats.scope_count,s->formats.source_aware}; prospective.revision++;
-        }
+        if (!format_valid(&prospective,error)) { r.status=OBJECT_CREATE_LIMIT; goto cancelled; }
+    }
+    if (c->admit) {
         if (!c->admit(c->admission_context,&prospective,info.owned,info.validation_scratch,c->manual_formats ? objects_snapshot_owned_bytes(&before) : 0,error)) {
             r.status=OBJECT_CREATE_LIMIT; if (!error || !*error) fail(error,"Creation memory admission was rejected."); goto cancelled;
         }
