@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-checkpoint": Feature((), "",
+        ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py feature --feature journal-session"),
+        ("src/workbook/journal_session.c: versioned checkpoint admission", "src/workbook/journal_session.h", "tests/test_version_checkpoint.c"),
+        ("version_checkpoint", "journal_session")),
     "app-versions": Feature((), "workbook-save",
         ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py native --scenario workspace --config sanitize"),
         ("src/app/versionstate.c", "src/app/versionstate.h", "src/app/app.c: native IO publication", "tests/test_app_versions.c", "tests/support/workbook_save_app.inc"),

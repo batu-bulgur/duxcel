@@ -187,6 +187,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a3.2b2a · P1 · Complete | Non-writing Saved baseline for opened legacy files; W11a3.2b1. | Retain opened Saved R before edits, so the first private R+1 checkpoint carries R even before upgrading the user file. Atomically adopt verified leaf/metadata ownership; preserve original bytes and dirty state. |
 | W11a3.3 · P1 · Complete | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
 | W11a3.4 · P1 · In progress | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
+| W11a3.4a · P1 · Complete | Version-preserving journal checkpoint admission; W11a3.3. | Background private v16 checkpoints retain complete older Saved roots without advancing them; root ownership survives rotation and caller release. Legacy callers remain compatible until App/recovery integration. |
+| W11a3.4b · P1 · In progress | Full-store recovery and App checkpoint binding; W11a3.4a. | Recover head/tail plus independent Saved closure, transfer runtime ownership and update R+1 backup after named Save. Narrow journal/recovery UI gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
@@ -788,3 +790,13 @@ passes20 Save/cancel/R+1/reopen/New stages in15.778s (9.067s GUI), and19 catalog
 web-inventory contracts pass in8.221s. Recovery still uses legacy checkpoints
 until W11a3.4; no Tag UI or retained analytics claim. Evidence is under ignored
 `build/tests/results/` with the `w11a33` prefix.
+
+W11a3.4a complete: journal sessions can explicitly admit an immutable version
+binding before edits or after Saved advances. The background writer produces a
+v16 checkpoint with the existing Saved pointer and complete roots; each generation
+retains its own store and supports a caller-provided background retirement adapter.
+A covered matching generation is reused; rotation keeps old roots until publication.
+The `version-checkpoint` gate passes new round-trip/rotation/caller-release checks
+and existing legacy journal-session tests under optimized/ASan/UBSan in17.111s.
+App use and recovery admission remain W11a3.4b. Evidence: ignored
+`build/tests/results/w11a34a-version-checkpoint.log`.

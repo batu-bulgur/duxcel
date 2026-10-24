@@ -1,4 +1,5 @@
 #include "journal_session.h"
+#include "version_save.h"
 #include "../platform/platform.h"
 #include "../data/source_digest.h"
 #include "../platform/file_lease.h"
@@ -25,6 +26,10 @@ typedef struct {
 } ContentFence;
 typedef struct {
     Workbook *snapshot;
+    WorkbookVersionCoreSet *versions;
+    JournalCheckpointVersions binding;
+    bool versioned;
+    char *version_parent;
     char *directory,*checkpoint,*journal;
     size_t format_bytes;
     JournalOrigin origin;
@@ -68,13 +73,25 @@ static bool matches(const ContentFence *f,const Workbook *b) {
 static void checkpoint_release(void *context) {
     Checkpoint *c=context;
     if (c->snapshot) { workbook_free(c->snapshot); free(c->snapshot); }
+    if (c->binding.release) c->binding.release(c->binding.context,&c->versions);
+    else workbook_version_core_set_free(c->versions);
+    free(c->version_parent);
     dx_file_lease_release(c->lease); free(c->lease_path);
     free((void *)c->origin.original_path); free(c->directory); free(c->checkpoint); free(c->journal); free(c);
 }
 static bool checkpoint_prepare(void *context,char **error) {
     Checkpoint *c=context;
     if (!c->snapshot) return true;
-    if (!workbook_save(c->snapshot,c->checkpoint,error)) return false;
+    if (c->versioned) {
+        if (!dx_make_directories(c->version_parent)) return fail(error,"Cannot create the version working folder for local backup.");
+        WorkbookVersionReceipt *receipt=NULL;
+        WorkbookSaveResult result=workbook_version_save((WorkbookVersionSaveRequest){
+            .head=c->snapshot,.base=c->versions,.owner=c->binding.owner,.purpose=VERSION_RECOVERY_CHECKPOINT,
+            .path=c->checkpoint,.parent=c->version_parent,.reserved_bytes=c->binding.reserved_bytes
+        },(WorkbookVersionSaveControl){0},&receipt,error);
+        workbook_version_receipt_free(receipt);
+        if (result!=WORKBOOK_SAVE_COMPLETE) return false;
+    } else if (!workbook_save(c->snapshot,c->checkpoint,error)) return false;
 #ifdef __APPLE__
     /* The existing streaming digest adapter is validated on native macOS.
        Other native hosts retain unbound v1 backup behavior until their digest
@@ -131,7 +148,7 @@ void workbook_journal_session_poll(WorkbookJournalSession *s) {
        its base. Retire only after publication and the old writer's exit. */
     if (current.prepared && !current.opening && !current.failed && old.stopped) generation_close(&s->retired,true,NULL,NULL);
 }
-static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **error) {
+static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,const JournalCheckpointVersions *versions,char **error) {
     if ((s->inherited_document.high || s->inherited_document.low) && (s->inherited_document.high!=b->id.high || s->inherited_document.low!=b->id.low)) return fail(error,"The recovered lineage belongs to a different workbook. Your draft is kept.");
     workbook_journal_session_poll(s);
     if (s->retired.queue) return fail(error,"The previous backup is still finishing. Your draft is kept; try again shortly.");
@@ -142,6 +159,12 @@ static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **
     if (status!=FORMAT_BUDGET_OK) return fail(error,workbook_format_budget_message(status));
     if (!dx_make_directories(s->root)) return fail(error,"Cannot create the local backup folder. Your draft is kept.");
     Checkpoint *c=dx_alloc(sizeof(*c)); memset(c,0,sizeof(*c)); c->format_bytes=usage.current;
+    if (versions) {
+        c->versioned=true; c->binding=*versions; c->version_parent=dx_strdup(versions->parent);
+        c->binding.parent=c->version_parent;
+        c->versions=workbook_version_core_set_retain(versions->base);
+        if (versions->base && !c->versions) { checkpoint_release(c); return fail(error,"Cannot retain Saved versions for local backup."); }
+    }
     bool identified=false;
     for (unsigned attempt=0;attempt<8 && !identified;attempt++) {
         if (!dx_random_bytes(&c->origin.generation,sizeof(c->origin.generation))) break;
@@ -171,12 +194,22 @@ static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,char **
     }
     s->active=(Generation){queue,c}; capture(&s->expected,b); return true;
 }
+bool workbook_journal_session_capture_versions(WorkbookJournalSession *s,const Workbook *b,JournalCheckpointVersions v,char **error) {
+    const WorkbookVersionIndex *index=workbook_version_core_set_index(v.base);
+    if (!s || !b || !workbook_identity_valid(b) || !v.parent || !*v.parent || !v.reserved_bytes ||
+        !v.owner.session || v.owner.mode!=VERSION_WORKING_HEAD || v.owner.document_high!=b->id.high || v.owner.document_low!=b->id.low ||
+        (v.base && (!index || index->document_high!=b->id.high || index->document_low!=b->id.low)))
+        return fail(error,"Choose a matching working owner and complete Saved store for local backup.");
+    const Checkpoint *c=s->active.checkpoint;
+    if (c && c->versioned && c->versions==v.base && c->binding.owner.session==v.owner.session && !workbook_journal_session_needs_checkpoint(s,b)) return true;
+    return begin_generation(s,b,&v,error);
+}
 CellEditResult workbook_journal_session_apply(WorkbookJournalSession *s,Workbook *b,const CellEditCommand *command,CellEditPolicy policy,char **error) {
     CellEditResult result=workbook_check_cell_edit(b,command,policy,error);
     if (result.status!=CELL_EDIT_READY) return result;
     result.status=CELL_EDIT_LIMIT;
     if (!s) { fail(error,"Local backup is unavailable. Your draft is kept."); return result; }
-    if (workbook_journal_session_needs_checkpoint(s,b) && !begin_generation(s,b,error)) return result;
+    if (workbook_journal_session_needs_checkpoint(s,b) && !begin_generation(s,b,NULL,error)) return result;
     if (s->operation.high==UINT64_MAX && s->operation.low==UINT64_MAX) { fail(error,"Recovery operation identity space is exhausted."); return result; }
     const Worksheet *sheet=NULL; for (size_t i=0;i<b->count;i++) if (b->sheets[i].id==command->target.sheet_id) sheet=b->sheets+i;
     const char *before=cells_get(&sheet->cells,command->target.row,command->target.column);

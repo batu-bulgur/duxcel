@@ -2,6 +2,7 @@
 #define DUXCEL_WORKBOOK_JOURNAL_SESSION_H
 #include "journal_queue.h"
 #include "cell_command.h"
+#include "version_restore.h"
 typedef struct WorkbookJournalSession WorkbookJournalSession;
 typedef struct {
     JournalQueueState queue;
@@ -19,6 +20,23 @@ typedef struct { WorkbookId document,parent; const char *original_path; } Journa
    the document must match admission, and it never changes the Save target. */
 bool workbook_journal_session_lineage(WorkbookJournalSession *session,JournalSessionLineage lineage,char **error);
 bool workbook_journal_session_needs_checkpoint(const WorkbookJournalSession *session,const Workbook *book);
+typedef struct {
+    const WorkbookVersionCoreSet *base;
+    WorkbookVersionOwner owner;
+    const char *parent;
+    uint64_t reserved_bytes;
+    /* Optional background retirement adapter; context must outlive the session.
+       Without it final release runs on the caller/queue disposal thread. */
+    void (*release)(void *context,WorkbookVersionCoreSet **owned);
+    void *context;
+} JournalCheckpointVersions;
+/* Explicit versioned checkpoint admission before a changed valid command, or
+   after Saved advances while newer edits remain. Retains immutable roots and
+   copies binding metadata; all archive IO runs on the journal writer. A matching
+   covered generation is reused. No Saved pointer advances here. Legacy callers
+   keep their existing v15 checkpoint path. */
+bool workbook_journal_session_capture_versions(WorkbookJournalSession *session,const Workbook *book,
+    JournalCheckpointVersions versions,char **error);
 CellEditResult workbook_journal_session_apply(WorkbookJournalSession *session,Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
 JournalSessionState workbook_journal_session_state(WorkbookJournalSession *session,const Workbook *book);
 void workbook_journal_session_poll(WorkbookJournalSession *session);
