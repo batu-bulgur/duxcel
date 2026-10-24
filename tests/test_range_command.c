@@ -13,7 +13,7 @@ static Workbook book(void) {
     style.flags=0; style.color=2; CHECK(format_apply(&s->formats,(FormatRange){10,12,10,12},FORMAT_COLOR,style,&error)); worksheet_record(s,EDIT_FORMAT);
     b.dirty=false; free(error); return b;
 }
-static RangeCommand command(void) { return (RangeCommand){{1,3,1,3},9,9,true}; }
+static RangeCommand command(void) { return (RangeCommand){.range={1,3,1,3},.dr=9,.dc=9,.replace=true}; }
 static RangeCommandContext context(Workbook *b,uint64_t *request,uint64_t *epoch) { return (RangeCommandContext){.command={b,request,SIZE_MAX,SIZE_MAX,true,false},.primary=&b->sheets[0].analysis,.primary_epoch=epoch}; }
 static RangeCommandTarget *target(RangeCommandContext *c) { RangeCommandTarget *t=dx_alloc(sizeof(*t)); CHECK(workbook_prepare_range_command(c,0,t,NULL)); return t; }
 static void reject(RangeCommandContext *c,const RangeCommandTarget *t,RangeCommand cmd,const WorkbookHistoryRangeRecorder *recorder,RangeCommandStatus expected) {
@@ -32,7 +32,7 @@ static void plans(void) {
     STALE(owner.request_epoch); STALE(owner.format_revision); STALE(owner.history_last); STALE(primary_epoch); STALE(cells.capacity); STALE(entries[0].row); STALE(formats.count);
 #undef STALE
     WorkbookHistoryRangeRecorder broken={0}; reject(&c,t,cmd,&broken,RANGE_COMMAND_INVALID);
-    RangeCommand empty={{50,52,50,52},10,10,false}; c.command.plan_reserved=0;
+    RangeCommand empty={.range={50,52,50,52},.dr=10,.dc=10}; c.command.plan_reserved=0;
     CHECK(workbook_apply_range_command_recorded(&c,t,empty,NULL,NULL).status==RANGE_COMMAND_NOOP && !b.dirty);
     request++; reject(&c,t,empty,NULL,RANGE_COMMAND_STALE); request--; c.command.plan_reserved=SIZE_MAX;
     CHECK(workbook_apply_range_command_recorded(&c,t,cmd,NULL,NULL).status==RANGE_COMMAND_APPLIED);
@@ -80,7 +80,7 @@ static void stream(void) {
     WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
     CHECK(info->family==4 && range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==10 && event.count==5 && event.formats.before.count==2);
     CHECK(workbook_history_stream_retry(queue,&held)==HISTORY_STREAM_OK && workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK);
-    free(t); t=target(&c); RangeCommand reverse={{10,12,10,12},-9,-9,false};
+    free(t); t=target(&c); RangeCommand reverse={.range={10,12,10,12},.dr=-9,.dc=-9};
     CHECK(workbook_apply_range_command_recorded(&c,t,reverse,&recorder,NULL).status==RANGE_COMMAND_LIMIT && b.command_revision==1 && b.sheets[0].cells.count==2);
     CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
     CHECK(workbook_apply_range_command_recorded(&c,t,reverse,&recorder,NULL).status==RANGE_COMMAND_APPLIED && b.command_revision==2);
@@ -102,4 +102,26 @@ static void effects_and_noop(void) {
         free(t); workbook_free(&b);
     }
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+static void rows(void) {
+    Workbook b=book(); uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
+    RangeCommand insert={.operation=RANGE_OPERATION_INSERT_ROWS,.row=2,.row_count=2};
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id}; WorkbookHistoryStream *queue=NULL;
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){8,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); WorkbookHistoryRangeRecorder recorder=workbook_history_stream_range_recorder(queue);
+    CHECK(workbook_apply_range_command_recorded(&c,t,insert,&recorder,NULL).status==RANGE_COMMAND_APPLIED && b.command_revision==1 && !strcmp(cells_get(&b.sheets[0].cells,5,3),"12345678901234567890.123456789") && !strcmp(cells_get(&b.sheets[0].cells,12,10),"Occupied"));
+    CHECK(format_at(&b.sheets[0].formats,5,3).flags&1);
+    WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+    CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==10 && event.count==6); range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+    CHECK(cells_history(&b.sheets[0].cells,false) && format_history(&b.sheets[0].formats,false)); worksheet_transfer_history(b.sheets,false); b.command_revision++;
+    CHECK(!strcmp(cells_get(&b.sheets[0].cells,3,3),"12345678901234567890.123456789") && !strcmp(cells_get(&b.sheets[0].cells,10,10),"Occupied"));
+    free(t); t=target(&c); RangeCommand deletion={.operation=RANGE_OPERATION_DELETE_ROWS,.row=1,.row_count=3};
+    CHECK(workbook_apply_range_command_recorded(&c,t,deletion,NULL,NULL).status==RANGE_COMMAND_APPLIED && b.sheets[0].cells.count==2 && !strcmp(cells_get(&b.sheets[0].cells,7,10),"Occupied") && !format_at(&b.sheets[0].formats,1,1).flags);
+    CHECK(cells_history(&b.sheets[0].cells,false) && format_history(&b.sheets[0].formats,false)); worksheet_transfer_history(b.sheets,false); b.command_revision++;
+    CHECK(!strcmp(cells_get(&b.sheets[0].cells,1,1),"NULL") && !strcmp(cells_get(&b.sheets[0].cells,3,3),"12345678901234567890.123456789"));
+    free(t); t=target(&c); deletion.row_count=0; reject(&c,t,deletion,NULL,RANGE_COMMAND_INVALID); free(t); CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); workbook_free(&b);
+    workbook_init(&b); Analysis empty={0}; CHECK(workbook_add(&b,"Manual",&empty,NULL)); CellFormat style=format_default(); style.flags=1;
+    CHECK(format_apply(&b.sheets[0].formats,(FormatRange){0,DX_SHEET_ROWS-1,2,2},FORMAT_BOLD,style,NULL)); worksheet_record(b.sheets,EDIT_FORMAT); b.dirty=false;
+    c=context(&b,&request,&epoch); c.command.plan_reserved=c.command.validation_reserved=0; t=target(&c);
+    CHECK(workbook_apply_range_command_recorded(&c,t,insert,NULL,NULL).status==RANGE_COMMAND_NOOP && !b.command_revision && !b.dirty && b.sheets[0].undo_actions_count==1);
+    free(t); workbook_free(&b);
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }

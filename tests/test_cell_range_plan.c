@@ -30,5 +30,13 @@ int main(void) {
     for (size_t i=0;i<s.count;i++) { s.cells[i]=(SheetCell){i,0,dx_strdup("X")}; s.bytes+=2; }
     CHECK(cells_range_measure(&s,0,DX_SHEET_ROWS-2,0,16382,1,1,false,&info,NULL)==CELL_RANGE_READY && info.count==DX_MAX_EDIT_CELLS);
     CHECK(cells_range_plan(&s,0,DX_SHEET_ROWS-2,0,16382,1,1,false,info.owned,&out,NULL)==CELL_RANGE_READY && out.count==DX_MAX_EDIT_CELLS && out.cells[out.count-1].row==DX_MAX_EDIT_CELLS);
-    cells_snapshot_free(&out); cells_free(&s); free(error); printf("PASS: %u sparse cell range checks\n",checks); return 0;
+    cells_snapshot_free(&out); cells_free(&s);
+    CHECK(cells_set(&s,1,1,"NULL",&error) && cells_set(&s,3,3,"Exact",&error));
+    CHECK(cells_rows_plan(&s,2,2,true,SIZE_MAX,&out,NULL)==CELL_RANGE_READY && out.cells[0].row==1 && out.cells[1].row==5); cells_snapshot_free(&out);
+    CHECK(cells_rows_plan(&s,1,3,false,SIZE_MAX,&out,NULL)==CELL_RANGE_READY && !out.count); cells_snapshot_free(&out);
+    CHECK(cells_rows_measure(&s,10,3,true,&info,NULL)==CELL_RANGE_NOOP && cells_rows_measure(&s,1,0,true,&info,NULL)==CELL_RANGE_INVALID);
+    CHECK(cells_set(&s,DX_SHEET_ROWS-1,1,"Boundary",&error));
+    CHECK(cells_rows_measure(&s,DX_SHEET_ROWS-1,1,true,&info,NULL)==CELL_RANGE_INVALID);
+    CHECK(cells_rows_plan(&s,DX_SHEET_ROWS-1,1,false,SIZE_MAX,&out,NULL)==CELL_RANGE_READY && out.count==2); cells_snapshot_free(&out);
+    cells_free(&s); free(error); printf("PASS: %u sparse cell range checks\n",checks); return 0;
 }

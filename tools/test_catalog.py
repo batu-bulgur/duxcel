@@ -18,7 +18,7 @@ class Feature:
 
 STANDALONE_GUI = {
     "range-command": ("build/tests/test_range_command-gui", "PASS: native manual range workflow",
-                      r"^PASS: native manual range workflow \(16 stages, [1-9]\d* checks\)$", 16),
+                      r"^PASS: native manual range workflow \(23 stages, [1-9]\d* checks\)$", 23),
     "object-create-command": ("build/tests/test_object_create_command-gui", "PASS: native object create workflow",
                               r"^PASS: native object create workflow \(19 stages, [1-9]\d* checks\)$", 19),
     "object-move-command": ("build/tests/test_object_move_command-gui", "PASS: native object move workflow",
@@ -115,7 +115,7 @@ FEATURES = {
         ("src/workbook/sheet_lifecycle_command.c", "src/workbook/history_sheet_lifecycle.c", "tests/test_sheet_lifecycle_command.c")),
     "range-command": Feature(("cell_range_plan", "range_event", "range_command", "history_range"), "range-command",
         ("python3 tools/test.py feature --feature range-move", "python3 tools/test.py feature --feature range-replace"),
-        ("src/workbook/cell_range_plan.c", "src/workbook/cells.c: admitted range transfer", "src/workbook/range_event.c", "src/workbook/history_range.c", "src/workbook/range_command.c", "src/app/app.c: manual range move/Replace and captured confirmation", "tests/test_range_command.c", "tests/test_range_event.c", "tests/test_history_range.c", "tests/test_cell_range_plan.c", "tests/support/range_command_app.inc")),
+        ("src/workbook/cell_range_plan.c", "src/workbook/cells.c: admitted range transfer", "src/workbook/range_event.c", "src/workbook/history_range.c", "src/workbook/range_command.c", "src/app/app.c: manual range move/Replace, captured confirmation and row actions", "tests/test_range_command.c", "tests/test_range_event.c", "tests/test_history_range.c", "tests/test_cell_range_plan.c", "tests/support/range_command_app.inc")),
     "object-create-command": Feature(("object_create_command", "object_import_draft", "objects", "history_definition"), "object-create-command",
         ("python3 tools/test.py feature --feature object-binding-command", "python3 tools/test.py feature --feature source-result-format"),
         ("src/workbook/object_create_command.c", "src/workbook/object_create_command.h", "src/workbook/object_fence.c: sheet creation fence", "src/workbook/objects.c: admitted creation transfer", "src/app/app.c: creation, pending import dispatch and cleanup", "src/workbook/object_import_draft.c", "tests/test_object_create_command.c", "tests/test_object_import_draft.c", "tests/support/object_create_command_app.inc"), fixtures=("source-connections",)),

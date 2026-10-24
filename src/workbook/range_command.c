@@ -29,15 +29,18 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,s
     if (!eligible(c,s)) { fail(error,"Source and analytical ranges require their complete composite owner."); return RANGE_COMMAND_PROTECTED; }
     if (!format_shape(&s->formats)) { fail(error,"Invalid bounded format state."); return RANGE_COMMAND_INVALID; }
     CellRangePlanInfo cells={0}; SheetRange r=command.range;
-    CellRangeStatus status=cells_range_measure(&s->cells,r.r0,r.r1,r.c0,r.c1,command.dr,command.dc,command.replace,&cells,error);
+    if ((unsigned)command.operation>RANGE_OPERATION_DELETE_ROWS || (command.operation==RANGE_OPERATION_MOVE && (command.row || command.row_count))) { fail(error,"Choose a valid manual range or row operation."); return RANGE_COMMAND_INVALID; }
+    CellRangeStatus status=command.operation==RANGE_OPERATION_MOVE ? cells_range_measure(&s->cells,r.r0,r.r1,r.c0,r.c1,command.dr,command.dc,command.replace,&cells,error) :
+        cells_rows_measure(&s->cells,command.row,command.row_count,command.operation==RANGE_OPERATION_INSERT_ROWS,&cells,error);
     if (status!=CELL_RANGE_READY && status!=CELL_RANGE_NOOP) return status==CELL_RANGE_OCCUPIED ? RANGE_COMMAND_OCCUPIED : RANGE_COMMAND_INVALID;
-    if (!command.dr && !command.dc) return RANGE_COMMAND_NOOP;
+    if (command.operation==RANGE_OPERATION_MOVE && !command.dr && !command.dc) return RANGE_COMMAND_NOOP;
     if (status==CELL_RANGE_NOOP) {
         FormatRange from={r.r0,r.r1,r.c0,r.c1},to={(uint64_t)((int64_t)r.r0+command.dr),(uint64_t)((int64_t)r.r1+command.dr),(size_t)((int64_t)r.c0+command.dc),(size_t)((int64_t)r.c1+command.dc)};
         bool relevant=false;
         for (size_t i=0;i<s->formats.count;i++) {
             FormatRange p=s->formats.items[i].range;
-            relevant|=(p.r0<=from.r1 && from.r0<=p.r1 && p.c0<=from.c1 && from.c0<=p.c1) || (p.r0<=to.r1 && to.r0<=p.r1 && p.c0<=to.c1 && to.c0<=p.c1);
+            if (command.operation==RANGE_OPERATION_MOVE) relevant|=(p.r0<=from.r1 && from.r0<=p.r1 && p.c0<=from.c1 && from.c0<=p.c1) || (p.r0<=to.r1 && to.r0<=p.r1 && p.c0<=to.c1 && to.c0<=p.c1);
+            else relevant|=p.r1>=command.row && (p.r0 || p.r1!=DX_SHEET_ROWS-1);
         }
         if (!relevant) return RANGE_COMMAND_NOOP;
     }
@@ -80,9 +83,12 @@ RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,
         r.status=RANGE_COMMAND_INVALID; if (!error || !*error) fail(error,"The current manual range/history ownership is incomplete."); return r;
     }
     CellSnapshot after={0}; FormatSnapshot formats={0}; CellDelta *changes=NULL; void *ticket=NULL; SheetRange range=command.range;
-    CellRangeStatus planned=cells_range_plan(&s->cells,range.r0,range.r1,range.c0,range.c1,command.dr,command.dc,command.replace,info.owned,&after,error);
+    CellRangeStatus planned=command.operation==RANGE_OPERATION_MOVE ? cells_range_plan(&s->cells,range.r0,range.r1,range.c0,range.c1,command.dr,command.dc,command.replace,info.owned,&after,error) :
+        cells_rows_plan(&s->cells,command.row,command.row_count,command.operation==RANGE_OPERATION_INSERT_ROWS,info.owned,&after,error);
     if (planned!=CELL_RANGE_READY && planned!=CELL_RANGE_NOOP) { r.status=planned==CELL_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancelled; }
-    if (!format_plan_move(&s->formats,(FormatRange){range.r0,range.r1,range.c0,range.c1},command.dr,command.dc,&formats,error)) { r.status=RANGE_COMMAND_LIMIT; goto cancelled; }
+    bool format_planned=command.operation==RANGE_OPERATION_MOVE ? format_plan_move(&s->formats,(FormatRange){range.r0,range.r1,range.c0,range.c1},command.dr,command.dc,&formats,error) :
+        format_plan_axis(&s->formats,true,command.row,command.row_count,command.operation==RANGE_OPERATION_INSERT_ROWS,&formats,error);
+    if (!format_planned) { r.status=RANGE_COMMAND_LIMIT; goto cancelled; }
     bool changed=planned==CELL_RANGE_READY,format_changed=!format_snapshot_matches(&s->formats,&formats);
     r.effects=(changed ? 2u : 0u)|(format_changed ? 8u : 0u);
     if (!r.effects) { r.status=RANGE_COMMAND_NOOP; goto cancelled; }

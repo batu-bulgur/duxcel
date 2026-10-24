@@ -15,7 +15,12 @@ typedef struct {
     CellStore cells; SheetCell entries[DX_MAX_EDIT_CELLS];
     FormatStore formats; FormatPatch patches[DX_FORMAT_PATCHES];
 } RangeCommandTarget;
-typedef struct { SheetRange range; int64_t dr; int dc; bool replace; } RangeCommand;
+typedef enum { RANGE_OPERATION_MOVE,RANGE_OPERATION_INSERT_ROWS,RANGE_OPERATION_DELETE_ROWS } RangeCommandOperation;
+typedef struct {
+    SheetRange range; int64_t dr; int dc; bool replace;
+    RangeCommandOperation operation;
+    uint64_t row,row_count;
+} RangeCommand;
 typedef struct { size_t owned,validation_scratch; } RangeCommandPlanInfo;
 typedef enum { RANGE_COMMAND_APPLIED,RANGE_COMMAND_NOOP,RANGE_COMMAND_READY,RANGE_COMMAND_STALE,
     RANGE_COMMAND_INVALID,RANGE_COMMAND_PROTECTED,RANGE_COMMAND_OCCUPIED,RANGE_COMMAND_LIMIT } RangeCommandStatus;
@@ -34,7 +39,9 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *con
    Format history even with no global admission callback. Reserve before either
    model journal can evict, recheck all owners and transfer independent graphs.
    App owns budget/readiness, input/confirmation, selection and rendering. No IO,
-   retained App writer, source activation or structural/mixed-range admission. */
+   retained App writer, source activation or column/paste/mixed-range admission.
+   Manual row insertion/deletion uses the same complete effect owner; columns
+   need their additional width/history constituent before admission. */
 RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *context,const RangeCommandTarget *target,RangeCommand command,
     const WorkbookHistoryRangeRecorder *recorder,char **error);
 #endif

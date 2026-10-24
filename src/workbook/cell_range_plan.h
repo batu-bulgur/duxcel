@@ -9,6 +9,10 @@ typedef enum { CELL_RANGE_READY,CELL_RANGE_NOOP,CELL_RANGE_INVALID,CELL_RANGE_OC
    failure/no-op. No live model/history mutation or eviction. */
 CellRangeStatus cells_range_measure(const CellStore *store,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,bool replace,CellRangePlanInfo *info,char **error);
 CellRangeStatus cells_range_plan(const CellStore *store,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,bool replace,size_t reserved,CellSnapshot *out,char **error);
+/* Independent sparse row insertion/deletion; no object/source or column-width
+   constituent. Delete retains exact removed text in the outer before-event. */
+CellRangeStatus cells_rows_measure(const CellStore *store,uint64_t row,uint64_t count,bool insert,CellRangePlanInfo *info,char **error);
+CellRangeStatus cells_rows_plan(const CellStore *store,uint64_t row,uint64_t count,bool insert,size_t reserved,CellSnapshot *out,char **error);
 /* Nonfallible transfer AFTER complete command/constituent reservation and
    owner recheck. Independent changed canonical snapshot replaces current; prior
    current ownership moves to bounded Undo, Redo clears, cell revision advances.

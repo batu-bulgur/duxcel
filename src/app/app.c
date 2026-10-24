@@ -5440,7 +5440,7 @@ static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replac
     }
     bool manual=manual_range_owner(a,sheet);
     if (captured && !manual) { if (error) *error=dx_strdup("The manual range owner changed. Review the destination again."); return false; }
-    bool moved=manual ? move_manual_range(a,(RangeCommand){range,dr,dc,replace},captured,error) : single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
+    bool moved=manual ? move_manual_range(a,(RangeCommand){.range=range,.dr=dr,.dc=dc,.replace=replace},captured,error) : single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
         replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
         worksheet_move_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error);
     if (!moved) return false;
@@ -5585,9 +5585,11 @@ static void column_action(App *a,ColumnAction action) {
         uint64_t first,last; selected_rows(g,&first,&last);
         uint64_t row=action==ROW_BELOW ? last+1 : first,count=last-first+1,rows=a->analysis.kind==SOURCE_NONE ? 0 : !a->page.column_count ? UINT64_MAX : source_rows(a); char *error=NULL;
         bool moved=false; for (size_t i=0;i<sheet->objects.count;i++) if (action==ROW_DELETE ? sheet->objects.items[i].row>=row+count : sheet->objects.items[i].row>=row) moved=true;
-        uint64_t revision=sheet->cells.revision;
-        if (!worksheet_rows(sheet,row,count,action!=ROW_DELETE,rows,&error)) { status(a,error); free(error); return; }
-        bool changed=moved || revision!=sheet->cells.revision;
+        uint64_t revision=sheet->cells.revision,format_revision=sheet->formats.revision;
+        bool accepted=manual_range_owner(a,sheet) ? move_manual_range(a,(RangeCommand){.operation=action==ROW_DELETE ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=row,.row_count=count},NULL,&error) :
+            worksheet_rows(sheet,row,count,action!=ROW_DELETE,rows,&error);
+        if (!accepted) { status(a,error); free(error); return; }
+        bool changed=moved || revision!=sheet->cells.revision || format_revision!=sheet->formats.revision;
         if (changed) a->book.dirty=true;
         char text[96]; snprintf(text,sizeof(text),"%" PRIu64 " worksheet %s %s.",count,count==1 ? "row" : "rows",action==ROW_DELETE ? "deleted" : "inserted");
         status(a,changed ? text : "These rows have no worksheet content to shift.");
