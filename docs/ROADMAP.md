@@ -158,7 +158,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10c3 · P0 · Complete | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W10c3a · P0 · Complete | Archive compatibility and bounded schema proof; W10c2. | Preserve strict v15 and genuine legacy upgrades, byte-for-byte failed-overwrite protection and exact typed metadata; batch catalog proof without relaxing row validation. Focused schema/Save gate plus explicit archive matrix. |
 | W10c3b · P0 · Complete | Final foundation integration and native lifecycle/Open; W10c3a. | Exercise the registered native milestone coverage, verify owned crash/restart, lifecycle/Finder entry and hidden TEST boundaries, and record command/runtime limits before W11. |
-| W11 · P1 · In progress | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
+| W11 · P1 · Complete | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W11a · P1 · Complete | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
 | W11a1 · P1 · Complete | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
 | W11a2 · P1 · Complete | Immutable supported-state payload closure and native version codec; W11a1. | Archive every advertised root independently of the editable head, without recursive history copies. Reject missing/invalid payloads and preserve non-writing legacy Open/safe upgrade. Scoped archive gate; no tag UI claim. |
@@ -200,7 +200,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11d.2 · P1 · Complete | Owned historical read jobs/replies; W11d.1. | Retain protected roots through ordered worker reads, cooperative cancellation and late replies; no working-state adoption yet. |
 | W11d.3 · P1 · Complete | Working Head suspension and return controller; W11d.2. | Move the actual owned book/history and runtime write owner rather than copying away Undo; preserve recovery and reject cancelled/wrong-owner preview adoption. |
 | W11d.4 · P1 · Complete | Read-only preview UI and return; W11d.3. | Inspect retained authored sheets/cells/styles/definitions, block all mutation/publication routes and return to the exact Working Head. External results not retained by the current core remain explicitly unavailable. |
-| W11e · P1 · In progress | Version milestone compatibility/regression gate; W11d. | Migrate App-produced-file assertions to explicit full-archive readers while preserving v15 fixture/legacy tests. Run the broad milestone gate once, plus package/shared-browser checks; record actual coverage and limits. No silent head-only legacy fallback. |
+| W11e · P1 · Complete | Version milestone compatibility/regression gate; W11d. | Migrate App-produced-file assertions to explicit full-archive readers while preserving v15 fixture/legacy tests. Run the broad milestone gate once, plus package/shared-browser checks; record actual coverage and limits. No silent head-only legacy fallback. |
 | W11f · P1 · Complete | Same-destination Save conflict protection; W11c, prioritized during W11d. | Refuse implicit Save/Tag against changed file identity or another v16 version index; preserve edits/peer tags. Only explicit accepted Save As can replace a changed destination. |
 | W12 · P1 · In progress | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W12a · P1 · Complete | Explicit version-boundary retention window; W11. | Select three states/two intervals ending at Saved, coalesce only aliases of the same explicit version boundary, preserve an older cursor plus current Redo/unsaved suffix, and reject required history gaps. Pure planning only; no durable Undo claim. |
@@ -1029,3 +1029,18 @@ tests cover both. Optimized/sanitized choice/keytip modules and the26-stage nati
 version-controls workflow pass in12.430s; browser File/access passes in17.334s.
 Continue Query/Unique only. The integrated temporary retention checkout was
 removed; all authored commits remain reachable on main.
+
+W11e complete by combined receipts, not a green single full-command run. The
+frozen `f888e33` broad optimized/sanitized engine/metadata and standalone GUI
+matrix, background/GPU and950-stage layout passed. Continuations pass every
+remaining native scenario; final Query47/Unique32 pass in37.980s/24.196s
+(`20261024T035420-native-23644`). Old Save-heavy deadlines were increased without
+removing assertions; the real context-viewport regression was fixed separately.
+The final26-stage version-controls gate passes in12.430s; browser File/access
+passes in17.334s. Shared production/review Wasm builds and the native bundle
+build pass; strict signature and linked shipping test/review exclusion pass.
+Historical viewer's20-stage full-App sanitizer and focused model/GUI receipts
+above cover the later reader fixes. Existing v15 compatibility stays separate
+from explicit full v16 readers. Native source/analytical payload retention,
+browser Open/Save and durable Undo are not established by this milestone.
+Concise current receipts remain under ignored `build/tests/results/`.
