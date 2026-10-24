@@ -2161,3 +2161,17 @@ release/sanitizer matrix and actual Worker gates are still active in their
 owning lanes; these component changes are not yet packaged or marked fully
 accepted. Evidence: `build/tests/results/current-metadata-runner-contracts.txt`
 and `build/tests/results/current-persistence-node-contracts.txt`.
+
+Current browser metadata acceptance integrated as `b660196`: exact core15/layout25
+normal/reordered pairs replace compatibility matrices while malformed current
+preferences/query inputs remain. All14 actual official-Worker family profiles
+pass (133.346s summed runtime; 3,641,520 C checks,32 fixture loads,51 owned headers,
+1,096 queries,94 atomic rejections and17 stale observations). The independent
+base-header profile passes9.147s. Lane receipt:
+`build/tests/results/lanes/source-format-97024-1792854331800846000.json` in the
+source-format checkout; per-profile provenance is in its
+`build/tests/results/browser-current-final/inventory.json`. Combined-main
+24 browser runner contracts pass1.630s and driver syntax validation passes.
+These are metadata components; browser workbook Open/Save remains unavailable.
+Desktop ownership passed to History for workbook-save/lifecycle GUI, then Object
+for the separate current cross-engine rewrite boundary.

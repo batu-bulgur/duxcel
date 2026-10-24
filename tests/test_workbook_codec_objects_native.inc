@@ -172,8 +172,8 @@ static void objects_archive_rejected(const char *path,bool missing_table,size_t 
     kept_objects_header(*out,stamp); workbook_codec_read_free(read); duckdb_disconnect(&connection); duckdb_close(&database); free(target); workbook_free(&native);
     FileImage after=file_image(path); CHECK(before.bytes==after.bytes && !memcmp(before.data,after.data,before.bytes)); free(before.data); free(after.data);
 }
-/* Full native owner-only v13 requires objects even with no live entries.
-   The optional component must reject too, preserving independent prior state. */
+/* The exact current core requires object metadata even with no live entries.
+   The component rejects a missing table, preserving independent prior state. */
 
 static int objects_only(void) {
     char temporary[]="/tmp/duxcel-codec-objects-XXXXXX"; CHECK(mkdtemp(temporary)); char *directory=dx_absolute_path(temporary); CHECK(directory);
