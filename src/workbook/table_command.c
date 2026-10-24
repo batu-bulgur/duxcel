@@ -3,7 +3,6 @@
 #include "history.h"
 #include <stdlib.h>
 #include <string.h>
-typedef char TableFenceStackBound[(sizeof(TableTransformTarget)<512u*1024u) ? 1 : -1];
 static bool fail(char **error,const char *message) { if (error) { free(*error); *error=dx_strdup(message); } return false; }
 static Worksheet *resolve(Workbook *b,uint64_t id) {
     for (size_t i=0;i<b->count;i++) if (b->sheets[i].id==id) return b->sheets+i;
@@ -16,43 +15,21 @@ bool workbook_prepare_table_transform(TableCommandContext *c,size_t index,uint64
     if (!c || !c->request_epoch || !out || !object || !workbook_identity_valid(c->book) || index>=c->book->count)
         return fail(error,"Choose a valid Table before transforming it.");
     Worksheet *s=c->book->sheets+index;
-    if (s->objects.count>DX_MAX_OBJECTS || (s->objects.count && !s->objects.items) || s->source_versions.count>DX_SOURCE_VERSIONS ||
-        (s->source_versions.count && !s->source_versions.items)) return fail(error,"Invalid bounded Table ownership.");
+    if (s->objects.count>DX_MAX_OBJECTS || (s->objects.count && !s->objects.items)) return fail(error,"Invalid bounded Table ownership.");
     size_t at=object_index(&s->objects,object);
     if (at==s->objects.count || s->objects.items[at].kind!=OBJECT_TABLE) return fail(error,"The source Table is missing.");
-    if (!c->ready || c->read_only || definition_baseline_status((DefinitionDependencyView){&s->objects.items[at].source,NULL})!=DEFINITION_BASELINE_READY)
-        return fail(error,"Wait for an editable, resolved Table definition.");
-    CellEditTarget owner={0}; if (!workbook_prepare_cell_edit(c->book,index,0,0,&owner,error)) return false;
-    memset(out,0,sizeof(*out)); out->owner=owner; out->object=object; out->request_epoch=*c->request_epoch;
-    out->format_revision=s->formats.revision; out->history_last=s->history_last;
-    /* Exact native runtime fences, including padding, copied byte-for-byte.
-       No old pointed-to allocation is read while checking a stale target. */
-    memcpy(&out->objects,&s->objects,sizeof(s->objects)); memcpy(&out->sources,&s->source_versions,sizeof(s->source_versions));
-    if (s->objects.count) memcpy(out->items,s->objects.items,s->objects.count*sizeof(*out->items));
-    if (s->source_versions.count) memcpy(out->versions,s->source_versions.items,s->source_versions.count*sizeof(*out->versions));
-    return true;
+    if (definition_baseline_status((DefinitionDependencyView){&s->objects.items[at].source,NULL})!=DEFINITION_BASELINE_READY)
+        return fail(error,"Wait for a resolved Table definition.");
+    return workbook_prepare_object_fence(c,index,object,out,error);
 }
+
 static TableTransformResult check(TableCommandContext *c,const TableTransformTarget *t,char **error) {
-    TableTransformResult r={.status=TABLE_TRANSFORM_INVALID};
-    if (!c || !c->request_epoch || !t || !t->object || !t->owner.document || !t->owner.sheet || t->owner.row || t->owner.column || !workbook_identity_valid(c->book)) {
-        fail(error,"Invalid Table transform command."); return r;
-    }
-    Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id);
-    r.owner=t->object; r.before_revision=r.after_revision=b->command_revision; r.status=TABLE_TRANSFORM_STALE;
-    if (!s || b->id.high!=t->owner.workbook.high || b->id.low!=t->owner.workbook.low || b->edit_session_id!=t->owner.document || s->edit_session_id!=t->owner.sheet ||
-        b->command_revision!=t->owner.expected_document_revision || s->cells.revision!=t->owner.expected_revision || s->formats.revision!=t->format_revision ||
-        s->history_last!=t->history_last || *c->request_epoch!=t->request_epoch || memcmp(&s->objects,&t->objects,sizeof(s->objects)) ||
-        memcmp(&s->source_versions,&t->sources,sizeof(s->source_versions))) {
-        fail(error,"The Table owner changed; prepare the transformation again."); return r;
-    }
-    if (s->objects.count>DX_MAX_OBJECTS || s->source_versions.count>DX_SOURCE_VERSIONS ||
-        (s->objects.count && (!s->objects.items || memcmp(s->objects.items,t->items,s->objects.count*sizeof(*t->items)))) ||
-        (s->source_versions.count && (!s->source_versions.items || memcmp(s->source_versions.items,t->versions,s->source_versions.count*sizeof(*t->versions))))) {
-        fail(error,"Table layout, definitions or source metadata changed; prepare again."); return r;
-    }
-    size_t at=object_index(&s->objects,t->object);
-    if (at==s->objects.count || s->objects.items[at].kind!=OBJECT_TABLE) { fail(error,"The source Table changed."); return r; }
-    if (!c->ready || c->read_only) { r.status=TABLE_TRANSFORM_PROTECTED; fail(error,"This Table definition is currently read-only or unavailable."); return r; }
+    ObjectFenceResult fence=workbook_check_object_fence(c,t,error);
+    TableTransformResult r={.status=fence.status==OBJECT_FENCE_STALE ? TABLE_TRANSFORM_STALE : fence.status==OBJECT_FENCE_PROTECTED ? TABLE_TRANSFORM_PROTECTED : TABLE_TRANSFORM_INVALID,
+        .owner=fence.owner,.before_revision=fence.revision,.after_revision=fence.revision};
+    if (fence.status!=OBJECT_FENCE_READY) return r;
+    Worksheet *s=resolve(c->book,t->owner.sheet_id); size_t at=object_index(&s->objects,t->object);
+    if (s->objects.items[at].kind!=OBJECT_TABLE) { r.status=TABLE_TRANSFORM_STALE; fail(error,"The source Table changed."); return r; }
     r.status=TABLE_TRANSFORM_READY; return r;
 }
 static TableTransformStatus plan_status(ObjectSourcePlanStatus status) {

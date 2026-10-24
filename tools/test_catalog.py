@@ -87,7 +87,7 @@ FEATURES = {
         ("src/app/source_format.inc: exact-result/guarded owner interaction", "src/app/app.c: source-result-format layout bootstrap", "src/workbook/source_scope.c", "src/workbook/format.c")),
     "table-command": Feature(("table_command", "object_source_plan", "history_definition", "workbook_history"), "table-command",
         ("python3 tools/test.py native --scenario table unique", "python3 tools/test.py feature --feature source-result-format"),
-        ("src/workbook/table_command.c", "src/workbook/table_command.h", "src/app/app.c: same-connection Table adapter", "tests/test_table_command.c", "tests/support/table_command_app.inc", "tests/test_journal_session.c: Table transform checkpoint rotation"), ("journal_session",)),
+        ("src/workbook/table_command.c", "src/workbook/table_command.h", "src/workbook/object_fence.c", "src/workbook/object_fence.h", "src/app/app.c: same-connection Table adapter", "tests/test_table_command.c", "tests/support/table_command_app.inc", "tests/test_journal_session.c: Table transform checkpoint rotation"), ("journal_session",)),
     "object-source-plan": Feature(("object_source_plan", "objects_asset", "definition_state", "objects"), "",
         ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py native --scenario table"),
         ("src/workbook/object_source_plan.c", "src/workbook/object_source_plan.h", "src/workbook/objects.c: admitted source-plan ownership transfer", "src/workbook/objects.h", "tests/test_object_source_plan.c")),

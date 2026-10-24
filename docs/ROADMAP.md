@@ -265,6 +265,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4a.2b · P1 · Complete | Table event reservation/fences and App adapter; W12c.3c.3b.4a.2a. | Bind durable/session/object/source/layout ownership, reserve before eviction, recheck and publish the whole action once; verify unrelated Table/Pivot caches and the smallest real GUI lane. |
 | W12c.3c.3b.4a.2b.1 · P1 · Complete | Fenced Table event producer; W12c.3c.3b.4a.2a. | Freeze durable/session/request/object/source/layout state, reserve closed DXDE before eviction, recheck and publish one coherent object action. Reject pressure/stale/cancel without model changes. |
 | W12c.3c.3b.4a.2b.2 · P1 · Complete | Table producer App integration; W12c.3c.3b.4a.2b.1. | Route same-connection Table transforms through admitted planning/adoption; retain replacement/composite owners and prove target/dependent/unrelated caches plus narrow input/Undo/Redo/Save/Open and recovery rotation. |
+| W12c.3c.3b.4b · P1 · In progress | Object presentation command admission; W12c.3c.3b.4a. | Retain names, presentation and chart/Marks definitions as complete object events without unnecessary source queries; preserve source links, identity and layout ownership. |
+| W12c.3c.3b.4b.1 · P1 · Complete | Shared object transaction fences; W12c.3c.3b.4a. | Extract the proven identity/request/layout/source/metadata fence for reuse by Table and presentation controllers; keep kind/readiness semantics in each command owner. |
+| W12c.3c.3b.4b.2 · P1 · Queued | Object name command producer/App adapter; W12c.3c.3b.4b.1. | Capture rename draft identity independently from background result completion, reserve a complete object event before mutation, preserve caches/Redo and verify actual editor/Undo/Redo/Save/Open. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1575,3 +1578,12 @@ tool contracts reject nonexistent feature references. Receipts: ignored
 `w12c3-table-command-app*.log`, `w12c3-table-source-format.log` and run summaries.
 No full regression, browser runtime or durable-history activation is claimed.
 Source/object replacement and format composites remain W12c.3c.3b.4 work.
+
+
+W12c.3c.3b.4b.1 complete: shared object transaction fences now live in
+`object_fence.c`; Table commands retain their explicit kind/default-relation
+readiness and event/budget owner. Full native descriptor capture/check logic is
+shared, without relaxing any source/layout/request/metadata fence. The unchanged
+Table scoped module/sanitizer/journal gate and14-stage native workflow passes
+26.468s. Receipt: ignored `w12c3-object-fence-table.log` and run summary. This
+prepares the next presentation producer; it does not broaden App history activation.

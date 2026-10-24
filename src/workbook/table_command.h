@@ -1,22 +1,10 @@
 #ifndef DUXCEL_TABLE_COMMAND_H
 #define DUXCEL_TABLE_COMMAND_H
-#include "cell_command.h"
+#include "object_fence.h"
 #include "object_source_plan.h"
 #include "history_definition.h"
-typedef struct {
-    Workbook *book;
-    const uint64_t *request_epoch;
-    size_t plan_reserved,validation_reserved;
-    bool ready,read_only; /* Owned definition readiness, independent of old Page success. */
-} TableCommandContext;
-typedef struct {
-    CellEditTarget owner;
-    uint64_t object,request_epoch,format_revision,history_last;
-    ObjectStore objects;
-    SourceVersions sources;
-    SheetObject items[DX_MAX_OBJECTS];
-    SourceVersion versions[DX_SOURCE_VERSIONS];
-} TableTransformTarget;
+typedef ObjectCommandContext TableCommandContext;
+typedef ObjectCommandTarget TableTransformTarget;
 typedef enum { TABLE_TRANSFORM_APPLIED,TABLE_TRANSFORM_NOOP,TABLE_TRANSFORM_READY,
     TABLE_TRANSFORM_STALE,TABLE_TRANSFORM_INVALID,TABLE_TRANSFORM_PROTECTED,TABLE_TRANSFORM_LIMIT } TableTransformStatus;
 typedef struct {
