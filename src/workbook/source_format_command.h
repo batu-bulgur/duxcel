@@ -49,6 +49,11 @@ bool workbook_prepare_source_format(SourceFormatCommandContext *context,size_t s
    Rejection preserves the plan. APPLIED consumes it. Callbacks obey the
    single-owner nonreentrant recorder contract. No IO or retained App activation.
    Model/plan/event/job/global coexistence must be admitted by the outer owner. */
+/* Allocation-free retained/current/candidate grammar scratch measurement. Admit
+   this peak through the App governor before semantic validation; outputs remain
+   unchanged on failure. Existing independent plan ownership is separate. */
+bool workbook_source_format_scratch(const Worksheet *sheet,const Analysis *primary,
+    const SourceFormatCommandPlan *plan,size_t *out,char **error);
 SourceFormatCommandResult workbook_apply_source_format_recorded(SourceFormatCommandContext *context,
     const SourceFormatCommandTarget *target,SourceFormatCommandPlan *owned,
     const WorkbookHistoryDefinitionRecorder *recorder,char **error);

@@ -83,6 +83,10 @@ static bool scratch(const Worksheet *s,const Analysis *primary,const SourceForma
     }
     return true;
 }
+bool workbook_source_format_scratch(const Worksheet *s,const Analysis *primary,const SourceFormatCommandPlan *p,size_t *out,char **error) {
+    if (!s || !primary || !p || !out) return fail(error,"Choose complete source formatting plans before measuring scratch.");
+    size_t peak=0; if (!scratch(s,primary,p,&peak,error)) return false; *out=peak; return true;
+}
 static DefinitionEventView view(const Worksheet *s,const SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,const SourceFormatCommandPlan *p,const ObjectSnapshot *before) {
     DefinitionEventView v={.sheet=s->id,.object_high_water=s->objects.next_id,.effects=t->object ? 12 : 9,
         .before_formats=format_delta_store_view(&s->formats),.after_formats=format_delta_snapshot_view(&p->formats),.sources=&p->sources};
@@ -112,7 +116,7 @@ static SourceFormatCommandResult check(SourceFormatCommandContext *c,const Sourc
     if (b->command_revision==UINT64_MAX || s->formats.revision==UINT64_MAX || s->source_versions.high_water==UINT64_MAX || s->source_versions.count==DX_SOURCE_VERSIONS || !worksheet_history_order_available()) { fail(error,"Source formatting revision space is exhausted."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_INVALID;
     size_t validation=0;
-    if (!scratch(s,c->primary,p,&validation,error)) return r;
+    if (!workbook_source_format_scratch(s,c->primary,p,&validation,error)) return r;
     if (validation>c->validation_reserved) { r.status=SOURCE_FORMAT_COMMAND_LIMIT; fail(error,"Composite validation exceeds the admitted scratch budget."); return r; }
     if (!ledger(s,t,&p->sources,error)) return r;
     for (size_t i=0;i<s->formats.undo_count+s->formats.redo_count;i++) {

@@ -59,6 +59,7 @@ LAYOUT_PROFILES = {
     "source-cache": (687, 716, "PASS: source replacement retires"),
     "source-format": (687, 730, "PASS: native source-aware primary Table matrix preview"),
     "format-journal": (730, 734, "PASS: native prepared Analysis and format transaction"),
+    "source-format-first-binding": (734, 800, "PASS: native Table record formatting"),
     "source-record-format": (734, 764, "PASS: native captured Verify Collect Commit"),
     "table-record-format": (764, 800, "PASS: native Table record formatting"),
     "source-result-format": (800, 824, "PASS: native verified exact-result and guarded styles"),

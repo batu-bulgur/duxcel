@@ -1,3 +1,4 @@
+#include "../workbook/source_format_command.h"
 /* Native raw-source formatting controller. App owns one captured transaction;
    the worker owns independent jobs/replies. No paint-time I/O. */
 #define SOURCE_FORMAT_CAPTURE_BYTES (256u*1024u)
@@ -644,6 +645,7 @@ static bool source_format_reply_apply(App *a,QueryReply *reply) {
         next=analysis_copy(&intent->source); next.source_version=intent->version;
         ok=worksheet_analysis_preflight(sheet,&a->analysis,&next,&changed,&error) && changed;
     }
+    size_t validation=0;
     FormatStore projected=sheet->formats;
     if (ok) {
         projected.items=plan.items; projected.count=plan.count; projected.scopes=plan.scopes;
@@ -665,20 +667,30 @@ static bool source_format_reply_apply(App *a,QueryReply *reply) {
         /* The prepared object graph replaces its prior preallocation reserve.
            Old live objects remain the authority until the single journal commit. */
         intent->object_reserved=0;
-        if (ok) ok=source_format_budget(a,&replacement,adopted,0,reply_bytes,0,incoming);
+        SourceFormatCommandPlan composite={.sources=versions,.primary=next,.objects=objects,.formats=plan};
+        if (ok && intent->issue) ok=workbook_source_format_scratch(sheet,&a->analysis,&composite,&validation,&error);
+        if (ok) ok=source_format_budget(a,&replacement,adopted,validation,reply_bytes,0,incoming);
     }
     if (!ok) {
         if (error) status(a,error);
         free(error); source_versions_free(&versions); format_snapshot_free(&plan); analysis_free(&next); objects_snapshot_free(&objects);
         source_format_cancel(a,NULL); return true;
     }
+    bool formatted=false;
     if (intent->issue) {
-        source_versions_free(&sheet->source_versions); sheet->source_versions=versions; versions=(SourceVersions){0};
-        if (intent->owner) objects_adopt_source_version(&sheet->objects,&objects);
-        else worksheet_analysis_adopt(sheet,&a->analysis,&next);
+        SourceFormatCommandContext context={.book=&a->book,.primary=&a->analysis,.request_epoch=&a->request_id,
+            .validation_reserved=validation,.ready=source_format_fence(a),.read_only=history_locked(a)};
+        SourceFormatCommandTarget target;
+        SourceFormatCommandPlan composite={.sources=versions,.primary=next,.objects=objects,.formats=plan};
+        versions=(SourceVersions){0}; next=(Analysis){0}; objects=(ObjectSnapshot){0}; plan=(FormatSnapshot){0};
+        bool prepared=workbook_prepare_source_format(&context,a->book.active,intent->owner,&target,&error);
+        if (prepared) formatted=workbook_apply_source_format_recorded(&context,&target,&composite,NULL,&error).status==SOURCE_FORMAT_COMMAND_APPLIED;
+        source_format_command_plan_free(&composite);
+        if (!formatted) { if (error) status(a,error); free(error); source_format_cancel(a,NULL); return true; }
+    } else {
+        formatted=format_commit(&sheet->formats,&plan);
+        if (formatted) { worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true; }
     }
-    bool formatted=format_commit(&sheet->formats,&plan);
-    if (formatted || intent->issue) { worksheet_record(sheet,intent->issue ? intent->owner ? EDIT_OBJECTS_FORMAT : EDIT_ANALYSIS_FORMAT : EDIT_FORMAT); a->book.dirty=true; }
     uint64_t id=intent->owner; SourceFormatProof *proof=source_format_owner_proof(a,id,false);
     source_format_proof_adopt(a,proof,intent);
     source_format_intent_free(intent); source_format_page_owner(a,id);
