@@ -160,8 +160,13 @@ only allocates/copies/refcounts; the worker creates working folders and executes
 all native IO. Owned context/store retirement uses the background queue, with
 synchronous fallback only after stop/shutdown. Internal capture publication is
 kept distinct from named-file cancellation, and outputs outlive the worker when
-explicitly transferred. App job construction/publication and recovery adoption
-remain W11a3.3-W11a3.4; normal App files still use v1-v15.
+explicitly transferred. `app/versionstate.c` owns the current immutable store, transient write owner and
+observed file identity. It prepares native jobs and adopts only owner/index-fenced
+receipts, queues retirement, and rotates runtime ownership on successful Open.
+App separately owns live model/path/history/dirty publication, retaining newer
+edits after captured R saves. Normal native App files now use v16; recovery
+checkpoint/store adoption remains W11a3.4. Working roots use a separate sibling
+folder beside recovery sessions, excluded from normal user Save/Open targets.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

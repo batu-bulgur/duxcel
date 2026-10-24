@@ -22,7 +22,7 @@ STANDALONE_GUI = {
     "recovery": ("build/tests/test_recovery-gui", "PASS: native recovery choice workflow",
                   r"^PASS: native recovery choice workflow \(19 stages, [1-9]\d* checks\)$", 19),
     "workbook-save": ("build/tests/test_workbook_save-gui", "PASS: native controlled Save workflow",
-                      r"^PASS: native controlled Save workflow \(18 stages, [1-9]\d* checks\)$", 18),
+                      r"^PASS: native controlled Save workflow \(20 stages, [1-9]\d* checks\)$", 20),
     "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
                         r"^PASS: native checkpoint journal workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "workbook-lifecycle": ("build/tests/test_workbook_lifecycle-gui", "PASS: native workbook lifecycle workflow",
@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "app-versions": Feature((), "workbook-save",
+        ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py native --scenario workspace --config sanitize"),
+        ("src/app/versionstate.c", "src/app/versionstate.h", "src/app/app.c: native IO publication", "tests/test_app_versions.c", "tests/support/workbook_save_app.inc"),
+        ("app_versions", "worker_archive")),
     "worker-archive": Feature((), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition"),
         ("src/data/worker_archive.c", "src/data/worker_archive.h", "tests/test_worker_archive.c"),

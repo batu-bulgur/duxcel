@@ -24,8 +24,13 @@ static void save_gui_unblock(void) { dx_lock(&save_gui_mutex); save_gui_release=
 static bool save_gui_waiting(void) { dx_lock(&save_gui_mutex); bool entered=save_gui_entered; dx_unlock(&save_gui_mutex); return entered; }
 static void save_gui_edit(App *a,const char *text) { a->chrome_focus=0; grid_select_cell(&a->grid,1,1,false); open_modal(a,MODAL_CELL); input_set(&a->input,text); ui_note_key_press(KEY_ENTER,0); }
 static bool save_gui_value(const char *text) {
-    Workbook b; workbook_init(&b); char *error=NULL; bool ok=workbook_load(&b,save_gui_path,&error);
-    ok=ok && !error && !strcmp(cells_get(&b.sheets[0].cells,1,1),text); free(error); workbook_free(&b); return ok;
+    WorkbookArchiveCandidate *candidate=NULL; char *error=NULL;
+    bool ok=workbook_archive_read(save_gui_path,"build/tests/generated",DX_APP_VERSION_BYTES,(WorkbookArchiveReadControl){0},&candidate,&error)==ARCHIVE_READ_READY;
+    const Workbook *b=workbook_archive_book(candidate);
+    const WorkbookVersionIndex *index=workbook_version_core_set_index(workbook_archive_versions(candidate));
+    ok=ok && !error && b && index && index->saved.present && workbook_archive_file_version(candidate)==16 &&
+        !strcmp(cells_get(&b->sheets[0].cells,1,1),text);
+    free(error); workbook_archive_candidate_free(candidate); return ok;
 }
 static void workbook_save_test_frame(AppSession *session) {
     App *a=&session->app; if (save_gui_result || !active_sheet(a) || ++save_gui_wait<12) return; save_gui_wait=0;
@@ -92,7 +97,16 @@ static void workbook_save_test_frame(AppSession *session) {
         SAVE_GUI_CHECK(a->book.path && !strcmp(dx_basename(a->book.path),dx_basename(save_gui_path))); ui_note_key_press(KEY_ESCAPE,0); break;
     case 17:
         if (busy) return; SAVE_GUI_CHECK(a->modal==MODAL_NONE && !a->exit_ready);
-        a->document_action=DOCUMENT_NEW; a->discard_journal=true; finish_document_action(a); SAVE_GUI_CHECK(!a->journal && !a->book.dirty);
+        a->document_action=DOCUMENT_NEW; a->discard_journal=true; finish_document_action(a); SAVE_GUI_CHECK(!a->journal && !a->book.dirty && !a->versions.store && !a->versions.owner.session);
+        workspace_job(a,JOB_LOAD,save_gui_path); break;
+    case 18:
+        if (busy) return;
+        SAVE_GUI_CHECK(!a->book.dirty && a->versions.store && a->versions.identity_valid && a->versions.owner.session);
+        SAVE_GUI_CHECK(workbook_version_core_set_index(a->versions.store)->root_count==3 && !strcmp(cells_get(&active_sheet(a)->cells,1,1),"Newer"));
+        SAVE_GUI_CHECK(!strcmp(cells_get(&active_sheet(a)->cells,9000,0),"Offscreen")); break;
+    case 19:
+        a->document_action=DOCUMENT_NEW; finish_document_action(a);
+        SAVE_GUI_CHECK(!a->versions.store && !a->versions.owner.session && !a->book.dirty);
         save_gui_result=1; break;
     default: save_gui_result=-1; return;
     }
@@ -102,5 +116,5 @@ int app_test_workbook_save_result(void) { return save_gui_result; }
 void app_test_workbook_save_cleanup(void) { if (save_gui_ready) save_gui_unblock(); }
 void app_test_workbook_save_finished(void) {
     if (save_gui_ready) { dx_cond_destroy(&save_gui_condition); dx_mutex_destroy(&save_gui_mutex); }
-    if (save_gui_result==1) printf("PASS: native controlled Save workflow (18 stages, %u checks)\n",save_gui_checks);
+    if (save_gui_result==1) printf("PASS: native controlled Save workflow (20 stages, %u checks)\n",save_gui_checks);
 }

@@ -185,8 +185,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a3.2b1 · P1 · Complete | Typed native file task/retirement boundary in QueryWorker; W11a3.2a. | Route owned Save/Load contexts, keep preparation cancellable, drain intrusive cleanup off mutex/frames and preserve ordinary worker/format ownership. Core-only focused tests plus narrow Save GUI. |
 | W11a3.2b2 · P1 · Complete | Versioned native IO adapter and owned replies; W11a3.2b1. | Retain input core sets, call real version Save/archive reader on the existing worker, transfer prepared receipts/candidates and retire disk ownership in background. |
 | W11a3.2b2a · P1 · Complete | Non-writing Saved baseline for opened legacy files; W11a3.2b1. | Retain opened Saved R before edits, so the first private R+1 checkpoint carries R even before upgrading the user file. Atomically adopt verified leaf/metadata ownership; preserve original bytes and dirty state. |
-| W11a3.3 · P1 · In progress | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
-| W11a3.4 · P1 · Queued | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
+| W11a3.3 · P1 · Complete | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
+| W11a3.4 · P1 · In progress | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
@@ -774,3 +774,17 @@ trees into active source.
 - [x] Recover the C/native format-state/selector reader without losing the original assertions.
 - [x] Recover bounded selector transport helpers with native column names.
 - [ ] Connect the recovered tag reader and both stream families through the real official Worker; verify failure, cancellation, retained Header and retry before marking this integrated.
+
+W11a3.3 complete: native App jobs use the owned v16 worker adapter. The small
+`app/versionstate` controller adopts only matching owner/index receipts, rotates
+runtime owners on Open and keeps model/path/dirty/history decisions in App.
+R+1 edits remain dirty after captured R publishes; cancellation/failure retains
+the current store and file. Native Open admits full roots, legacy Open seeds its
+Saved baseline without rewriting it, New retires stores off frames, and compact
+progress distinguishes snapshot preparation from named-file publication.
+The `app-versions` gate passes optimized/ASan/UBSan controller and real worker
+checks in35.658s including18 hidden Save stages. The extended `save-ui` gate
+passes20 Save/cancel/R+1/reopen/New stages in15.778s (9.067s GUI), and19 catalog/
+web-inventory contracts pass in8.221s. Recovery still uses legacy checkpoints
+until W11a3.4; no Tag UI or retained analytics claim. Evidence is under ignored
+`build/tests/results/` with the `w11a33` prefix.

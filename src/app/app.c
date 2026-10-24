@@ -3,6 +3,7 @@
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include "../workbook/journal_session.h"
+#include "versionstate.h"
 #include "../workbook/save_fence.h"
 #include "../workbook/recovery_worker.h"
 #include "../ui/recoveryview.h"
@@ -163,6 +164,8 @@ typedef struct {
     Analysis analysis;
     Workbook book;
 #ifndef DUXCEL_BROWSER_HOST
+    AppVersionState versions;
+    char *version_root;
     WorkbookJournalSession *journal;
     WorkbookRecoveryWorker *recovery_worker;
     WorkbookRecoveryReply *recovery_page;
@@ -1172,11 +1175,16 @@ static void recovery_open(App *a);
 static void recovery_draw(App *a);
 static bool recovery_managed_path(App *a,const char *path) {
     if (workbook_journal_session_owns_path(a->journal,path)) return true;
-    if (!a->recovery_root || !path || !*path) return false;
-    char *root=dx_absolute_path(a->recovery_root); if (!root) root=dx_strdup(a->recovery_root);
-    size_t n=strlen(root),p=strlen(path);
-    bool inside=(p>=n && !strncmp(root,path,n) && (!path[n] || path[n]=='/')) || (n>p && !strncmp(root,path,p) && root[p]=='/');
-    free(root); return inside;
+    if (!path || !*path) return false;
+    const char *roots[]={a->recovery_root,a->version_root};
+    for (size_t i=0;i<2;i++) {
+        if (!roots[i]) continue;
+        char *root=dx_absolute_path(roots[i]); if (!root) root=dx_strdup(roots[i]);
+        size_t n=strlen(root),p=strlen(path);
+        bool inside=(p>=n && !strncmp(root,path,n) && (!path[n] || path[n]=='/')) || (n>p && !strncmp(root,path,p) && root[p]=='/');
+        free(root); if (inside) return true;
+    }
+    return false;
 }
 static void recovery_dismiss(App *a) {
     a->recovery_startup=a->recovery_refresh=false; a->recovery_request=0;
@@ -1361,6 +1369,12 @@ static void workspace_job(App *a,JobKind kind,const char *path) {
         a->save_document=a->book.id; a->save_revision=a->book.command_revision; a->save_history=workbook_history_stamp(&a->book);
 #endif
     }
+#ifndef DUXCEL_BROWSER_HOST
+    char *error=NULL;
+    if (!app_versions_job(&a->versions,&a->worker,j,a->version_root,&error)) {
+        worker_job_free(j); status(a,error); free(error); return;
+    }
+#endif
     a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=a->grid.dragging=false; a->grid.scrollbar=0; a->grid.resizing=-1;
     a->pending_kind=kind; a->busy=a->io_busy=true; a->modal=MODAL_NONE;
     app_worker_submit(a,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
@@ -1427,7 +1441,7 @@ static void finish_document_action(App *a) {
         end_step_preview(a); cancel_values(a); statistics_cancel(a);
         close_journal(a,discard);
 #ifndef DUXCEL_BROWSER_HOST
-        recovery_resolve(a,discard);
+        recovery_resolve(a,discard); app_versions_reset(&a->versions,&a->worker);
 #endif
         workbook_free(&a->book); workbook_init(&a->book); new_sheet(a); a->book.dirty=false;
         a->key_tips=a->ribbon_focus=a->file_menu=false;
@@ -2036,6 +2050,12 @@ static void poll_query(App *a) {
 #endif
         if (r->error) { cancel_document_action(a); status(a,r->error); a->modal=MODAL_ERROR; }
         else if (r->kind==JOB_LOAD) {
+#ifndef DUXCEL_BROWSER_HOST
+            char *error=NULL;
+            if (!app_versions_loaded(&a->versions,&a->worker,r,&error)) {
+                cancel_document_action(a); status(a,error); free(error); a->modal=MODAL_ERROR; reply_free(r); return;
+            }
+#endif
 #ifdef DUXCEL_DEV_REVIEW
             if (a->review) a->review->document_serial++;
 #endif
@@ -2048,6 +2068,15 @@ static void poll_query(App *a) {
             activate_sheet(a,a->book.active,false);
             SOURCE_FORMAT_ORIGIN_ARM(a);
         } else {
+#ifndef DUXCEL_BROWSER_HOST
+            char *error=NULL; AppVersionOutcome outcome=app_versions_saved(&a->versions,&a->worker,&a->book,r,&error);
+            if (outcome!=APP_VERSION_APPLIED) {
+                cancel_document_action(a);
+                status(a,outcome==APP_VERSION_STALE ? "An earlier document owner was saved. The current workbook is unchanged." : error);
+                if (outcome==APP_VERSION_INVALID) a->modal=MODAL_ERROR;
+                free(error); reply_free(r); return;
+            }
+#endif
             free(a->book.path); a->book.path=r->path; r->path=NULL;
 #ifndef DUXCEL_BROWSER_HOST
             capture_sheet(a);
@@ -8107,6 +8136,14 @@ static void draw_save_progress(App *a) {
     ui_label(u,label,box(x+16*s,y+14*s,w-32*s,20*s),14,UI_TEXT,false,UI_MEDIUM);
     bool publishing=state.progress.phase>=SAVE_PHASE_PUBLISH;
     const char *detail=state.cancel_requested ? "Waiting for the current write to stop." : publishing ? "Publishing the complete workbook." : "You can keep scrolling while saving.";
+    if (!state.cancel_requested && !publishing) switch (state.preparation) {
+    case WORKER_SAVE_SNAPSHOT: detail="Preparing the saved snapshot…"; break;
+    case WORKER_SAVE_COMPARE: detail="Comparing the saved state…"; break;
+    case WORKER_SAVE_INSPECT: detail="Checking saved versions…"; break;
+    case WORKER_SAVE_ROOTS: detail="Writing saved versions…"; break;
+    case WORKER_SAVE_RECEIPT: detail="Verifying saved versions…"; break;
+    default: break;
+    }
     ui_label(u,detail,box(x+16*s,y+40*s,w-32*s,18*s),12,UI_MUTED,false,UI_REGULAR);
     Rectangle track=box(x+16*s,y+70*s,w-32*s,6*s); DrawRectangleRounded(track,.5f,4,UI_BORDER);
     float fraction=state.progress.total ? (float)state.progress.completed/state.progress.total : 0;
@@ -15383,6 +15420,7 @@ AppSession *app_start(const AppOptions *options) {
 #ifndef DUXCEL_BROWSER_HOST
     const char *recovery_override=automated ? getenv("DUXCEL_TEST_RECOVERY_ROOT") : NULL;
     a->recovery_root=automated ? dx_strdup(recovery_override && *recovery_override ? recovery_override : "build/tests/generated/recovery") : dx_recovery_location(false);
+    a->version_root=a->recovery_root ? dx_printf("%s-versions",a->recovery_root) : NULL;
 #endif
     status(a,"Ready");
     const char *layout_from=getenv("DUXCEL_LAYOUT_FROM");
@@ -16257,7 +16295,11 @@ int app_finish(AppSession *session) {
     dx_review_capture_destroy(a->review); a->review=NULL;
 #endif
     SOURCE_FORMAT_RESET(a);
-    cancel_values(a); worker_stop(&a->worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
+    cancel_values(a);
+#ifndef DUXCEL_BROWSER_HOST
+    app_versions_reset(&a->versions,&a->worker);
+#endif
+    worker_stop(&a->worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
     statistics_free(&a->statistics); free(a->statistics_error);
 #ifdef DUXCEL_BROWSER_HOST
     clear_browser_file(a,false); /* worker_stop closed the engine/registrations */
@@ -16268,6 +16310,8 @@ int app_finish(AppSession *session) {
     recovery_dismiss(a); workbook_recovery_worker_free(a->recovery_worker); a->recovery_worker=NULL;
     workbook_recovery_reply_free(a->recovery_page); workbook_recovery_free(a->recovery_staged); a->recovery_staged=NULL;
     recovery_resolve(a,a->discard_journal || !a->book.dirty); free(a->recovery_root);
+    if (a->version_root) dx_remove_temp_directory(a->version_root);
+    free(a->version_root);
 #endif
     close_journal(a,a->discard_journal || !a->book.dirty);
     clear_cell_edit_error(a); workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor); REVIEW_SQL_CLEAR(a);
