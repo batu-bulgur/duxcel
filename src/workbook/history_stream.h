@@ -26,6 +26,8 @@ typedef struct {
     bool forked;
     unsigned family,encoding;
     size_t bytes;
+    unsigned dependency_encoding;
+    size_t dependency_bytes,inactive_scopes;
 } WorkbookHistoryEventInfo;
 typedef enum {
     HISTORY_STREAM_OK,HISTORY_STREAM_INVALID,HISTORY_STREAM_READ_ONLY,
@@ -36,7 +38,7 @@ typedef enum {
    No IO/thread/model mutation or file profile. Allocation follows dx_alloc.
    out must be NULL; failure preserves it. Zero/exhausted clocks remain readable.
    Transition IDs are separate from user-action IDs, positions and command clocks;
-   this first producer admits new cell edits only, not Undo/Redo transitions. */
+   typed producers admit new edits only, not Undo/Redo transitions. */
 WorkbookHistoryStreamStatus workbook_history_stream_new(WorkbookHistoryStreamOrigin origin,
     WorkbookHistoryStreamOptions options,WorkbookHistoryStream **out);
 WorkbookHistoryStreamState workbook_history_stream_state(const WorkbookHistoryStream *stream);
@@ -53,6 +55,8 @@ CellEditRecorder workbook_history_stream_cell_recorder(WorkbookHistoryStream *st
 WorkbookHistoryStreamStatus workbook_history_stream_dispatch(WorkbookHistoryStream *stream,WorkbookHistoryEvent **out);
 const WorkbookHistoryEventInfo *workbook_history_event_info(const WorkbookHistoryEvent *event);
 const void *workbook_history_event_payload(const WorkbookHistoryEvent *event);
+/* Optional immutable source-metadata asset; encoding/length are in event info. */
+const void *workbook_history_event_dependencies(const WorkbookHistoryEvent *event);
 /* Completion requires the adapter's independently proved durable asset/metadata
    handoff. This releases staging memory only, not an IO receipt or GC authority.
    Retry restores FIFO ownership without releasing the byte/entry charge.

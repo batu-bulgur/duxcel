@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-format": Feature(("history_format", "history_stream", "cell_command"), "",
+        ("python3 tools/test.py feature --feature format-plan", "python3 tools/test.py feature --feature workbook-history"),
+        ("src/workbook/history_format.c", "src/workbook/history_format.h", "src/workbook/history_stream_internal.h", "tests/test_history_format.c")),
     "format-dependencies": Feature(("format_dependencies", "source_versions_codec", "format_delta_codec"), "",
         ("python3 tools/test.py feature --feature format-plan", "python3 tools/test.py feature --feature history-stream"),
         ("src/workbook/format_dependencies.c", "src/workbook/format_dependencies.h", "tests/test_format_dependencies.c")),

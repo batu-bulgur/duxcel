@@ -834,3 +834,17 @@ opaque non-record legacy scopes are counted without activation; unknown record
 identity rejects. Unreferenced scope rows remain format bytes without fabricated
 source dependencies. All failure paths preserve inputs and the existing owned
 output. This is metadata closure, not source file/Page proof or live adoption.
+
+
+`workbook/history_format.c` provides typed format-only reservations over the same
+bounded history stream as cells. Each event independently owns the canonical
+format delta and a canonical source-metadata dependency asset. Their byte/entry
+charge survives dispatch/retry; mixed events share one operation/transition and
+lineage sequence. Source metadata is never assigned back over the live ledger.
+Only effect8 is admitted: source/analysis/object/range/lifecycle composites need
+all constituents and cannot publish their format part alone. The private stream
+reservation helper is shared by typed producers without admitting arbitrary
+public payload bytes. The format producer remains responsible for readiness and
+workbook/sheet/format/source fences, recheck, coherent model/action/dirty/revision
+adoption and exactly one publish/cancel. App retained-history activation waits
+for every family and ordered file publication; no persistence receipt is implied.

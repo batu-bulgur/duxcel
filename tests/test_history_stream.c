@@ -85,7 +85,7 @@ static void test_reservation_and_fences(void) {
     CHECK(cell_delta_decode(workbook_history_event_payload(event),info->bytes,&value)==CELL_DELTA_CODEC_OK && !memcmp(value.after,"New",3));
     CHECK(workbook_history_stream_complete(s,&event)==HISTORY_STREAM_OK && !event && !workbook_history_stream_state(s).owned_bytes);
     CHECK(workbook_history_stream_free(&s,false)==HISTORY_STREAM_OK);
-    CHECK(!workbook_history_event_info(NULL) && !workbook_history_event_payload(NULL));
+    CHECK(!workbook_history_event_info(NULL) && !workbook_history_event_payload(NULL) && !workbook_history_event_dependencies(NULL));
 }
 static void test_fifo_budget_and_handoff(void) {
     WorkbookHistoryStream *s=create(origin(),2,4096),*other=create(origin(),2,4096); WorkbookHistoryEvent *event=NULL,*empty=NULL;

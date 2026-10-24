@@ -1,4 +1,4 @@
-#include "history_stream.h"
+#include "history_stream_internal.h"
 #include "cell_delta_codec.h"
 #include <assert.h>
 #include <stdlib.h>
@@ -26,41 +26,58 @@ WorkbookHistoryStreamStatus workbook_history_stream_new(WorkbookHistoryStreamOri
     *out=s; return HISTORY_STREAM_OK;
 }
 WorkbookHistoryStreamState workbook_history_stream_state(const WorkbookHistoryStream *s) { return s ? s->state : (WorkbookHistoryStreamState){0}; }
-static bool reserve_cell(void *context,const CellEditRecord *r,void **ticket,char **error) {
-    WorkbookHistoryStream *s=context;
-    if (!s || !r || !ticket || *ticket) return fail(error,"Choose a valid empty history reservation.");
-    const WorkbookHistoryStreamOrigin *o=&s->state.current; const CellEditTarget *t=&r->target;
-    if (t->workbook.high!=o->owner.document_high || t->workbook.low!=o->owner.document_low || t->document!=o->edit_session ||
-        t->expected_document_revision!=o->command_revision) return fail(error,"The retained history owner changed; your draft is kept.");
-    if (o->command_revision==UINT64_MAX || r->revision!=o->command_revision+1 || !t->sheet ||
-        r->delta.sheet!=t->sheet_id || r->delta.row!=t->row || r->delta.column!=t->column)
-        return fail(error,"The cell history envelope is invalid; your draft is kept.");
+bool workbook_history_stream_reserve(WorkbookHistoryStream *s,WorkbookHistoryEditFence f,
+    unsigned family,unsigned encoding,size_t bytes,unsigned dependency_encoding,size_t dependency_bytes,
+    size_t inactive_scopes,void **ticket,char **error) {
+    if (!s || !ticket || *ticket) return fail(error,"Choose a valid empty history reservation.");
+    const WorkbookHistoryStreamOrigin *o=&s->state.current;
+    if (f.workbook.high!=o->owner.document_high || f.workbook.low!=o->owner.document_low || f.edit_session!=o->edit_session ||
+        f.expected_revision!=o->command_revision) return fail(error,"The retained history owner changed; your draft is kept.");
+    if (o->command_revision==UINT64_MAX || f.revision!=o->command_revision+1 || !family || !encoding || !bytes ||
+        (!!dependency_encoding != !!dependency_bytes)) return fail(error,"The history envelope is invalid; your draft is kept.");
     bool forked=o->cursor<o->tail;
     if (o->cursor==UINT64_MAX || o->action_high_water==UINT64_MAX || o->transition_high_water==UINT64_MAX ||
         (forked && o->lineage_high_water==UINT64_MAX)) return fail(error,"Retained history identity space is exhausted; your draft is kept.");
-    size_t bytes=0;
-    if (cell_delta_encoded_size(r->delta,&bytes)!=CELL_DELTA_CODEC_OK) return fail(error,"Choose a changed bounded cell payload before recording history.");
-    size_t charge=sizeof(WorkbookHistoryEvent)+bytes;
+    if (bytes>DX_HISTORY_STREAM_BYTES || dependency_bytes>DX_HISTORY_STREAM_BYTES-bytes ||
+        bytes+dependency_bytes>DX_HISTORY_STREAM_BYTES-sizeof(WorkbookHistoryEvent)) return fail(error,"The history payload exceeds the staging limit.");
+    size_t charge=sizeof(WorkbookHistoryEvent)+bytes+dependency_bytes;
     if (s->reservation || s->state.pending+(s->flight!=NULL)>=s->options.entries || charge>s->options.bytes-s->state.owned_bytes)
         return fail(error,"Retained history is busy; your draft is kept.");
     WorkbookHistoryEvent *e=dx_alloc(charge); *e=(WorkbookHistoryEvent){.owner=s,.charge=charge,
-        .info={.owner=o->owner,.edit_session=o->edit_session,.revision=r->revision,
+        .info={.owner=o->owner,.edit_session=o->edit_session,.revision=f.revision,
             .action=o->action_high_water+1,.transition=o->transition_high_water+1,
             .lineage=forked ? o->lineage_high_water+1 : o->lineage,.parent_lineage=o->lineage,
             .previous_position=o->cursor,.position=o->cursor+1,.forked=forked,
-            .family=DX_HISTORY_CELL_FAMILY,.encoding=DX_CELL_DELTA_ENCODING,.bytes=bytes}};
-    size_t written=0;
-    if (cell_delta_encode(r->delta,e->data,bytes,&written)!=CELL_DELTA_CODEC_OK || written!=bytes) {
-        free(e); return fail(error,"The cell history payload changed before admission.");
-    }
+            .family=family,.encoding=encoding,.bytes=bytes,.dependency_encoding=dependency_encoding,
+            .dependency_bytes=dependency_bytes,.inactive_scopes=inactive_scopes}};
     s->reservation=e; s->state.reserved=true; s->state.owned_bytes+=charge; *ticket=e; return true;
 }
-static void cancel_cell(void *context,void *ticket) {
+void *workbook_history_reservation_payload(void *ticket) { return ((WorkbookHistoryEvent *)ticket)->data; }
+void *workbook_history_reservation_dependencies(void *ticket) {
+    WorkbookHistoryEvent *e=ticket; return e->data+e->info.bytes;
+}
+static bool reserve_cell(void *context,const CellEditRecord *r,void **ticket,char **error) {
+    if (!r || !ticket || *ticket) return fail(error,"Choose a valid empty cell history reservation.");
+    const CellEditTarget *t=&r->target;
+    if (!t->sheet || r->delta.sheet!=t->sheet_id || r->delta.row!=t->row || r->delta.column!=t->column)
+        return fail(error,"The cell history envelope is invalid; your draft is kept.");
+    size_t bytes=0;
+    if (cell_delta_encoded_size(r->delta,&bytes)!=CELL_DELTA_CODEC_OK) return fail(error,"Choose a changed bounded cell payload before recording history.");
+    WorkbookHistoryEditFence f={t->workbook,t->document,t->expected_document_revision,r->revision};
+    if (!workbook_history_stream_reserve(context,f,DX_HISTORY_CELL_FAMILY,DX_CELL_DELTA_ENCODING,bytes,0,0,0,ticket,error)) return false;
+    size_t written=0;
+    if (cell_delta_encode(r->delta,workbook_history_reservation_payload(*ticket),bytes,&written)!=CELL_DELTA_CODEC_OK || written!=bytes) {
+        workbook_history_stream_cancel(context,*ticket); *ticket=NULL;
+        return fail(error,"The cell history payload changed before admission.");
+    }
+    return true;
+}
+void workbook_history_stream_cancel(void *context,void *ticket) {
     WorkbookHistoryStream *s=context; WorkbookHistoryEvent *e=ticket;
     assert(s && e && s->reservation==e && e->owner==s);
     s->reservation=NULL; s->state.reserved=false; s->state.owned_bytes-=e->charge; free(e);
 }
-static void publish_cell(void *context,void *ticket) {
+void workbook_history_stream_publish(void *context,void *ticket) {
     WorkbookHistoryStream *s=context; WorkbookHistoryEvent *e=ticket;
     assert(s && e && s->reservation==e && e->owner==s);
     if (s->last) s->last->next=e; else s->head=e; s->last=e;
@@ -70,7 +87,7 @@ static void publish_cell(void *context,void *ticket) {
     o->lineage=e->info.lineage; o->cursor=o->tail=e->info.position;
     s->reservation=NULL; s->state.reserved=false; s->state.pending++;
 }
-CellEditRecorder workbook_history_stream_cell_recorder(WorkbookHistoryStream *s) { return (CellEditRecorder){reserve_cell,publish_cell,cancel_cell,s}; }
+CellEditRecorder workbook_history_stream_cell_recorder(WorkbookHistoryStream *s) { return (CellEditRecorder){reserve_cell,workbook_history_stream_publish,workbook_history_stream_cancel,s}; }
 WorkbookHistoryStreamStatus workbook_history_stream_dispatch(WorkbookHistoryStream *s,WorkbookHistoryEvent **out) {
     if (!s || !out || *out) return HISTORY_STREAM_INVALID;
     if (s->flight) return HISTORY_STREAM_BUSY;
@@ -80,6 +97,7 @@ WorkbookHistoryStreamStatus workbook_history_stream_dispatch(WorkbookHistoryStre
 }
 const WorkbookHistoryEventInfo *workbook_history_event_info(const WorkbookHistoryEvent *e) { return e ? &e->info : NULL; }
 const void *workbook_history_event_payload(const WorkbookHistoryEvent *e) { return e ? e->data : NULL; }
+const void *workbook_history_event_dependencies(const WorkbookHistoryEvent *e) { return e && e->info.dependency_bytes ? e->data+e->info.bytes : NULL; }
 static WorkbookHistoryStreamStatus finish(WorkbookHistoryStream *s,WorkbookHistoryEvent **owned,bool complete) {
     if (!s || !owned || !*owned) return HISTORY_STREAM_INVALID;
     WorkbookHistoryEvent *e=*owned;
