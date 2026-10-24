@@ -24,6 +24,8 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | `support/legacy_workbook.h` | Explicit test-only downgrade of current checkpoints for historical v12–v14 component assertions | Does not generate source data; never linked to product |
 | `test_cell_command.c` | Shared-C bounded command validation, session fences, stale/no-op/history ownership, protection, exact text and limits | Tracked C test; per-file optimized/sanitizer objects |
 | `test_cell_command_gui.c`, `support/cell_command_app.inc` | Isolated real App editor/Undo/Redo/stale-draft/Save/Open workflow; private compile-time fixture | Tracked C tests; hidden TEST-badged release App |
+| `test_analysis_command.c` | Same-connection primary authority, ownership/fences, authored no-op, reservation/cancel and immutable events beyond the session ring | Cached optimized/ASan/UBSan model objects |
+| `test_analysis_command_gui.c`, `support/analysis_command_app.inc` | Ten-stage primary duplicate transform, Cmd-Z/Redo, stale draft/no-op, Enter-driven pipeline removal and v16 Save/Open; consumes finite `fixtures/duplicates.csv` | Hidden TEST release App; production excludes fixture |
 | `test_selection.c` | Controller rules over borrowed cells/resolved analytical bounds, with model/viewport retention | Tracked C test; optimized/sanitizer targets |
 | `test_build_info.c` | Direct C/source-archive metadata fallback without Git or generated headers | Tracked C test; optimized/sanitizer targets |
 | `test_about_native.m` | Standalone real AppKit history scrolling, TEST icon/Dock identity and repeated cleanup; consumes canonical `assets/icons/duxcel.icns` | Tracked macOS adapter test; hidden ASan/UBSan GUI |

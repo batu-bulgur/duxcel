@@ -251,7 +251,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3a.2 · P1 · Queued | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
 | W12c.3c.3b · P1 · Queued | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
-| W12c.3c.3b.2 · P1 · In progress | Primary transform App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with narrow real-input/Undo/Redo/Save/Open coverage; migrate other same-connection transform lanes separately. Keep source replacements/composites with their full owner. |
+| W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
+| W12c.3c.3b.3 · P1 · Queued | Remaining primary same-connection adapters; W12c.3c.3b.2. | Prepare sort/filter/group/reset/query after-plans before adoption; preserve schema/readiness and source-format budget ownership. Prove each migrated lane with focused module/input coverage. |
+| W12c.3c.3b.4 · P1 · Queued | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1413,3 +1415,20 @@ fences, unresolved defaults, ownership aliases, pressure and immutable first-eve
 bytes beyond32 session actions. Receipts: ignored `w12c3-analysis-command*.log`.
 App query/cache invalidation remains the adapter's responsibility; retained App
 history and source replacement/composite producers remain inactive/queued.
+
+
+W12c.3c.3b.2 complete: primary Remove duplicates now uses the fenced command
+controller rather than recording history before mutation. Allocation-free scratch
+inspection admits candidate/grammar coexistence under the native App governor;
+source refresh/read-only/stale states cannot enter the transform. Existing query
+invalidation and the Table source owner remain in their App adapters. The202-case
+command,290-case recorder and565-case chronology modules pass optimized/ASan/UBSan;
+216 native journal checks prove a new definition forces a checkpoint before the
+next cell tail and recovers the exact transformed source. The hidden TEST App
+passes10 stages/23 checks including Cmd-Z/Redo, no-op Redo preservation, stale
+preparation, Enter-driven pipeline removal,150% layout and v16 Save/Open. Combined
+gate24.020s;50 tool contracts2.917s. The GUI waits for resized layout publication
+before Save R (the initial simultaneous resize correctly preserved newer dirty
+state). Receipts: ignored `w12c3-analysis-command-app*.log` and run summaries.
+Retained App history/durable Undo remains inactive; broader interactions are
+registered but deferred. Next: remaining primary same-connection adapters.

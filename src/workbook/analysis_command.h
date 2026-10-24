@@ -23,6 +23,10 @@ typedef struct { AnalysisTransformStatus status; uint64_t before_revision,after_
    Trusted owned model; targets bind durable/session/cell/format/history/source
    fences and the actual primary authority, not a stale worksheet save cache. */
 bool workbook_prepare_analysis_transform(AnalysisCommandContext *context,size_t sheet,AnalysisTransformTarget *out,char **error);
+/* Allocation-free peak grammar scratch for live/cached/candidate/retained states.
+   Use before cloning a candidate to admit coexistence under the App governor.
+   out is unchanged on failure; full ownership/grammar/source checks follow. */
+bool workbook_analysis_transform_scratch(const Worksheet *sheet,const Analysis *live,const Analysis *next,size_t *out,char **error);
 /* Candidate is independently owned; rejection preserves it, NOOP/APPLIED consume
    it. Authored no-op ignores derived NumberType caches and preserves global Redo.
    Reserve exact before/after before eviction, recheck all fences, move ownership,

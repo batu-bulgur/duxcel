@@ -91,7 +91,8 @@ static void limits_and_sources(void) {
     p=analysis_copy(c.live); CHECK(workbook_apply_analysis_transform_recorded(&c,&t,&p,NULL,NULL).status==ANALYSIS_TRANSFORM_NOOP); b.command_revision=0;
     c.live->source_version=1; t=target(&c,0); p=plan(c.live); reject(&c,t,&p,NULL,ANALYSIS_TRANSFORM_INVALID); analysis_free(&p); c.live->source_version=0;
     CHECK(analysis_filter_set(c.live,"Amount",FILTER_BETWEEN,"[\"1\",\"2\"]",NULL)); t=target(&c,0); p=plan(c.live); c.validation_reserved=0;
-    reject(&c,t,&p,NULL,ANALYSIS_TRANSFORM_INVALID); c.validation_reserved=SIZE_MAX;
+    size_t validation=0; CHECK(workbook_analysis_transform_scratch(b.sheets,c.live,&p,&validation,NULL) && validation>0);
+    reject(&c,t,&p,NULL,ANALYSIS_TRANSFORM_LIMIT); c.validation_reserved=validation;
     CHECK(workbook_apply_analysis_transform_recorded(&c,&t,&p,NULL,NULL).status==ANALYSIS_TRANSFORM_APPLIED);
     workbook_free(&b);
     b=book(); c=(AnalysisCommandContext){&b,&b.sheets[0].analysis,&epoch,SIZE_MAX,true,false}; c.live->kind=SOURCE_DATABASE;

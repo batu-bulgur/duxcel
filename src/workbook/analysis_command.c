@@ -21,10 +21,20 @@ bool workbook_prepare_analysis_transform(AnalysisCommandContext *c,size_t index,
     Worksheet *s=c->book->sheets+index;
     *out=(AnalysisTransformTarget){owner,c->live==&s->analysis ? NULL : c->live,*c->source_epoch,s->formats.revision,s->history_last,s->source_versions.high_water}; return true;
 }
-static bool scratch(const Analysis *a,uint64_t sheet,uint64_t owners,size_t reserved,char **error) {
+static bool scratch(const Analysis *a,uint64_t sheet,uint64_t owners,size_t *peak,char **error) {
     AnalysisAssetMeasure m={0};
     if (analysis_asset_measure(sheet,0,a,owners,&m)!=ANALYSIS_ASSET_OK) return fail(error,"Invalid bounded primary source definition.");
-    return m.validation_scratch<=reserved || fail(error,"Primary source validation exceeds the admitted scratch budget.");
+    if (m.validation_scratch>*peak) *peak=m.validation_scratch;
+    return true;
+}
+bool workbook_analysis_transform_scratch(const Worksheet *s,const Analysis *live,const Analysis *next,size_t *out,char **error) {
+    if (!s || !live || !next || !out || s->undo_count>DX_HISTORY || s->redo_count>DX_HISTORY) return fail(error,"Invalid bounded primary source history.");
+    size_t peak=0;
+    if (!scratch(live,s->id,s->objects.next_id,&peak,error) || !scratch(next,s->id,s->objects.next_id,&peak,error) ||
+        (live!=&s->analysis && !scratch(&s->analysis,s->id,s->objects.next_id,&peak,error))) return false;
+    for (size_t i=0;i<s->undo_count;i++) if (!scratch(s->undo+i,s->id,s->objects.next_id,&peak,error)) return false;
+    for (size_t i=0;i<s->redo_count;i++) if (!scratch(s->redo+i,s->id,s->objects.next_id,&peak,error)) return false;
+    *out=peak; return true;
 }
 static AnalysisTransformResult check(AnalysisCommandContext *c,const AnalysisTransformTarget *t,Analysis *next,char **error) {
     AnalysisTransformResult r={.status=ANALYSIS_TRANSFORM_INVALID};
@@ -47,10 +57,9 @@ static AnalysisTransformResult check(AnalysisCommandContext *c,const AnalysisTra
     if (s->undo_count>DX_HISTORY || s->redo_count>DX_HISTORY || !source_versions_valid(&s->source_versions,s->objects.next_id,error)) return r;
     /* Admit grammar scratch before the ownership validator parses ANY retained
        state. It validates one definition at a time; peaks do not accumulate. */
-    if (!scratch(c->live,s->id,s->objects.next_id,c->validation_reserved,error) || !scratch(next,s->id,s->objects.next_id,c->validation_reserved,error) ||
-        (c->live!=&s->analysis && !scratch(&s->analysis,s->id,s->objects.next_id,c->validation_reserved,error))) return r;
-    for (size_t i=0;i<s->undo_count;i++) if (!scratch(s->undo+i,s->id,s->objects.next_id,c->validation_reserved,error)) return r;
-    for (size_t i=0;i<s->redo_count;i++) if (!scratch(s->redo+i,s->id,s->objects.next_id,c->validation_reserved,error)) return r;
+    size_t validation=0;
+    if (!workbook_analysis_transform_scratch(s,c->live,next,&validation,error)) return r;
+    if (validation>c->validation_reserved) { r.status=ANALYSIS_TRANSFORM_LIMIT; fail(error,"Primary source validation exceeds the admitted scratch budget."); return r; }
     bool changed=false;
     if (!worksheet_analysis_preflight(s,c->live,next,&changed,error)) return r;
     DefinitionDependencySelection deps={0};

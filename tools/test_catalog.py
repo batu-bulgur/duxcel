@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "analysis-command": ("build/tests/test_analysis_command-gui", "PASS: native primary transform workflow",
+                         r"^PASS: native primary transform workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "format-plan": ("build/tests/test_format_plan-gui", "PASS: native cancellable format workflow",
                     r"^PASS: native cancellable format workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "history-preview-sanitize": ("build/tests/test_history_preview-gui-debug", "PASS: native historical preview workflow",
@@ -72,9 +74,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
-    "analysis-command": Feature(("analysis_command", "history_definition", "workbook_history"), "",
+    "analysis-command": Feature(("analysis_command", "history_definition", "workbook_history"), "analysis-command",
         ("python3 tools/test.py native --scenario unique", "python3 tools/test.py feature --feature source-result-format"),
-        ("src/workbook/analysis_command.c", "src/workbook/analysis_command.h", "tests/test_analysis_command.c")),
+        ("src/workbook/analysis_command.c", "src/workbook/analysis_command.h", "src/app/app.c: primary Remove duplicates adapter", "tests/test_analysis_command.c", "tests/support/analysis_command_app.inc", "tests/test_journal_session.c: primary transform checkpoint rotation"), ("journal_session",)),
     "definition-baseline": Feature(("definition_baseline", "history_definition"), "",
         ("python3 tools/test.py feature --feature definition-event", "python3 tools/test.py native --scenario table"),
         ("src/workbook/definition_baseline.c", "src/workbook/definition_baseline.h", "src/workbook/history_definition.c: resolved relation admission", "tests/test_definition_baseline.c", "tests/test_history_definition.c")),
