@@ -1947,7 +1947,7 @@ bool workbook_load_core_payload(Workbook *out,const char *path,char **error) {
     char *target=dx_absolute_path(path); if (!target) return range_fail(error,"Core payload file is missing or inaccessible.");
     Workbook staged; workbook_init(&staged);
     duckdb_database db=NULL; duckdb_connection c=NULL; char *temporary=NULL; int workspace_version=0; duckdb_result r={0};
-    bool ok=open_metadata(target,true,&db,&c,&temporary,error) && version(c,true,&workspace_version,error);
+    bool ok=open_metadata(target,true,&db,&c,&temporary,error) && source_package_shape(c,15,error) && version(c,true,&workspace_version,error);
     if (ok && workspace_version!=15) ok=range_fail(error,"A version leaf requires the exact v15 core encoding.");
     if (ok) ok=read_workbook(c,target,workspace_version,&staged,error);
     /* Full core admission has already rejected views/incompatible row shapes.

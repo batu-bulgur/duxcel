@@ -166,14 +166,14 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.2 · P1 · Complete | Sealed immutable payload ownership and content proof; W11a2.1. | Closed private core bytes, explicit lease/lifetime, bounded hashing and cancel/failure cleanup; no user publication or recursive history payloads. |
 | W11a2.3 · P1 · In progress | Native version root/payload archive codec; W11a2.2. | Complete root closure, chunk integrity, non-writing legacy Open and safe upgrade/overwrite. No advertised unresolved roots; scoped archive gate. |
 | W11a2.3a · P1 · Complete | Complete admitted core equality proof; W11a2.2. | Compare all current typed codec rows/columns with read-only IO and pre/post integrity, cancellation and bounded memory. No reuse based only on clocks, SQL or byte count. |
-| W11a2.3b · P1 · In progress | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
+| W11a2.3b · P1 · Complete | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
 | W11a2.3b1 · P1 · Complete | Pure bounded chunk framing; W11a2.3a. | Reserved uint64 byte bounds, exact64 KiB framing, gap/duplicate/NULL/trailing/truncation rejection without allocation or IO. Shared optimized/sanitizer module gate. |
 | W11a2.3b2 · P1 · Complete | Transactional native chunk encoding; W11a2.3b1. | Stage verified core leaves as bounded SQL BLOB chunks and typed roots/index inside a caller-owned explicit transaction/fresh schema. Reject autocommit/overwrite; caller rollback on cancellation/failure. Keep App publication separate. |
-| W11a2.3b3 · P1 · In progress | Staged native chunk decoding and payload closure; W11a2.3b2. | Validate complete index/references/types/bytes/hash/core identity before returning owned leaves; no live-model replacement on failure. |
+| W11a2.3b3 · P1 · Complete | Staged native chunk decoding and payload closure; W11a2.3b2. | Validate complete index/references/types/bytes/hash/core identity before returning owned leaves; no live-model replacement on failure. |
 | W11a2.3b3a · P1 · Complete | Bounded typed version metadata reader; W11a2.3b2. | Validate shared codec inventory, NULLs, bounded labels/roots, positions/references/generations and explicit byte reservation under a borrowed read transaction. No payload/closure admission claim. |
-| W11a2.3b3b · P1 · In progress | Owned chunk extraction and core admission; W11a2.3b3a. | Stream exact complete chunks into private leased leaves; validate hashes, inner v15 model/document association and full core root closure before return. |
+| W11a2.3b3b · P1 · Complete | Owned chunk extraction and core admission; W11a2.3b3a. | Stream exact complete chunks into private leased leaves; validate hashes, inner v15 model/document association and full core root closure before return. |
 | W11a2.3b3b1 · P1 · Complete | Strict owned core reconstruction from a bounded stream; W11a2.3b3a. | Exact bytes/hash, inner v15/document/absolute-reference/nonrecursive admission, fixed input blocks, cancel/failure cleanup and out preservation. |
-| W11a2.3b3b2 · P1 · Queued | Whole root-set chunk extraction and closure; W11a2.3b3b1. | Reject orphan/missing/duplicate/trailing/oversized chunks and return only a fully admitted leased root set. Preserve metadata/live model on all failures. |
+| W11a2.3b3b2 · P1 · Complete | Whole root-set chunk extraction and closure; W11a2.3b3b1. | Reject orphan/missing/duplicate/trailing/oversized chunks and return only a fully admitted leased root set. Preserve metadata/live model on all failures. |
 | W11a2.3c · P1 · Queued | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
 | W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
@@ -278,6 +278,18 @@ per optimized/ASan/UBSan build plus refactored core ownership/relocation modules
 in16.463s, with zero App launches. Copy/hash/admission/recheck cancellation,
 wrong proof/document/version and rehashed invalid core bytes preserve out and
 clean ordinary staging. Whole root-set extraction is W11a2.3b3b2.
+
+W11a2.3b3b2 complete: native core-set restoration preflights total chunks/bytes,
+NULLs/size/orphan roots, then independently reconstructs every referenced leaf
+with exact ordered framing, hash and inner-model/document admission. Only a
+complete owned set returns READY; missing older tagged bytes also reject. Valid
+sets survive closing the outer connection and releasing original leaves. The
+`version-closure` gate passes325 closure checks per optimized/ASan/UBSan build,
+plus strict restoration/metadata modules, in22.479s. Corruption/duplicate/gap/
+trailing/orphan/missing-root cases and cancellation leave no partial output.
+Catalog strings are bounded; strict core shape is proved before any metadata
+view could execute. This completes codec-v1 core closure, not native fileversion
+upgrade, App adoption or future retained Data Model/result assets.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

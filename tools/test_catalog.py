@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-closure": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui"),
+        ("src/workbook/version_restore.c", "src/workbook/version_restore.h", "tests/test_version_restore.c"),
+        ("version_restore", "core_restore", "version_read")),
     "core-restore": Feature((), "",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui"),
         ("src/workbook/core_payload.c: streamed restore", "src/workbook/save.h", "src/workbook/workbook.c: strict leaf reader", "tests/test_core_restore.c"),

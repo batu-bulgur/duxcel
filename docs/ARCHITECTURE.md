@@ -117,7 +117,13 @@ leased child, checks exact bytes/hash, admits the embedded model through
 v15, original absolute source locators and no unrelated tables/nested version
 schema; failures preserve the independent output. Ordinary legacy Open remains
 unchanged. Copy/hash/admission/recheck have explicit cancellation phases.
-Whole root-set closure and App adoption remain W11a2/W11a3; native files remain v15.
+`version_restore.c` preflights aggregate chunk extents/NULLs/orphan references,
+then restores and admits every core root independently before returning an owned
+core set. Missing older tagged payloads reject the whole set. Copied metadata and
+leased files outlive the outer SQL connection; failure/cancel releases ordinary
+new staging. This proves codec-v1 core closure, with external sources still
+explicit dependencies. Native fileversion upgrade and App adoption remain
+W11a2.3c/W11a3; normal native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

@@ -11,7 +11,7 @@ static unsigned checks;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL core restore:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
 typedef struct {
     FILE *file; uint64_t offset,fail_at; unsigned calls,seen;
-    bool fail,flip,cancel; WorkbookCoreRestorePhase phase; uint64_t cancel_after;
+    bool fail,flip,cancel; WorkbookCoreRestorePhase phase; uint64_t cancel_after; const char *forbidden;
 } Input;
 static bool read_block(void *context,uint64_t offset,void *buffer,size_t bytes,char **error) {
     (void)error; Input *in=context;
@@ -36,6 +36,7 @@ static WorkbookCorePayloadResult restore(const char *path,const char *parent,Wor
     WorkbookCorePayloadResult result=workbook_core_payload_restore(&expected,parent,reserved,(WorkbookCorePayloadInput){read_block,cancel,input},out,&error);
     CHECK(!fclose(input->file)); input->file=NULL;
     if (result==CORE_PAYLOAD_READY) CHECK(!error && *out); else CHECK(error && !*out);
+    if (input->forbidden) CHECK(!error || !strstr(error,input->forbidden));
     free(error); return result;
 }
 static void mutate(const char *path,const char *sql) {
@@ -89,7 +90,9 @@ int main(void) {
     CHECK(restore(path,parent,wrong,wrong.bytes,&input,&out)==CORE_PAYLOAD_FAILED && children(parent)==1);
     mutate(path,"DROP SCHEMA _duxcel_versions; CREATE TABLE unrelated AS SELECT 482 AS value"); wrong=rehash(path,expected); input=(Input){0};
     CHECK(restore(path,parent,wrong,wrong.bytes,&input,&out)==CORE_PAYLOAD_FAILED && children(parent)==1);
-    mutate(path,"DROP TABLE unrelated; UPDATE _duxcel_workspace.meta SET version=14; DROP TABLE _duxcel_workspace.workbook_identity; DROP TABLE _duxcel_workspace.sheet_identity"); wrong=rehash(path,expected); input=(Input){0};
+    mutate(path,"DROP TABLE unrelated; CREATE TABLE held_meta AS SELECT * FROM _duxcel_workspace.meta; DROP TABLE _duxcel_workspace.meta; CREATE VIEW _duxcel_workspace.meta AS SELECT error('CORE_META_VIEW_EXECUTED')::INTEGER AS version,0::UBIGINT AS active_sheet,1::DOUBLE AS user_scale"); wrong=rehash(path,expected); input=(Input){.forbidden="CORE_META_VIEW_EXECUTED"};
+    CHECK(restore(path,parent,wrong,wrong.bytes,&input,&out)==CORE_PAYLOAD_FAILED && children(parent)==1);
+    mutate(path,"DROP VIEW _duxcel_workspace.meta; CREATE TABLE _duxcel_workspace.meta AS SELECT * FROM held_meta; DROP TABLE held_meta; UPDATE _duxcel_workspace.meta SET version=14; DROP TABLE _duxcel_workspace.workbook_identity; DROP TABLE _duxcel_workspace.sheet_identity"); wrong=rehash(path,expected); input=(Input){0};
     CHECK(restore(path,parent,wrong,wrong.bytes,&input,&out)==CORE_PAYLOAD_FAILED && children(parent)==1);
     /* The test deliberately changed its original leaf; ordinary free keeps it. */
     char *owned_path=dx_strdup(path),*directory=dx_strdup(workbook_core_payload_directory(source)),*lease=dx_printf("%s/lease.lock",directory);

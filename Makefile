@@ -26,7 +26,7 @@ endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 CORE = src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/objects.c src/workbook/workbook.c src/workbook/cell_command.c src/workbook/save_fence.c src/workbook/history.c src/workbook/lifecycle.c src/workbook/identity.c src/workbook/workbook_codec.c src/workbook/schema.c src/workbook/version_index.c src/workbook/version_chunks.c src/workbook/version_codec.c src/data/worker.c
-NATIVE_PERSISTENCE = src/workbook/version_read.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/core_compare.c src/workbook/core_payload.c src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
+NATIVE_PERSISTENCE = src/workbook/version_restore.c src/workbook/version_read.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/core_compare.c src/workbook/core_payload.c src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
 SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m src/platform/macos_about.m
@@ -819,7 +819,7 @@ distclean:
 # Legacy module-test recipes compile whole source lists and some execution goals
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
-PARALLEL_NATIVE_GOALS = build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
+PARALLEL_NATIVE_GOALS = build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
 	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_version_index build/tests/test_version_index-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
@@ -1235,6 +1235,15 @@ build/tests/test_journal_performance: $(JOURNAL_PERF_OBJECTS) | build/tests
 build/tests/test_journal_performance-debug: $(JOURNAL_PERF_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_PERF_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_PERF_OBJECTS:.o=.d) $(JOURNAL_PERF_SAN_OBJECTS:.o=.d)
+
+VERSION_RESTORE_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c tests/test_version_restore.c
+VERSION_RESTORE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(VERSION_RESTORE_SOURCES))))
+VERSION_RESTORE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(VERSION_RESTORE_SOURCES))))
+build/tests/test_version_restore: $(VERSION_RESTORE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(VERSION_RESTORE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_version_restore-debug: $(VERSION_RESTORE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(VERSION_RESTORE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(VERSION_RESTORE_OBJECTS:.o=.d) $(VERSION_RESTORE_SAN_OBJECTS:.o=.d)
 
 CORE_RESTORE_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c tests/test_core_restore.c
 CORE_RESTORE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE_RESTORE_SOURCES))))

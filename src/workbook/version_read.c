@@ -27,7 +27,7 @@ static const char *type_name(char type) {
 }
 static bool shape(Read *read,char **error) {
     duckdb_result r={0}; uint64_t seen[DX_VERSION_CODEC_TABLES]={0}; bool ok=false;
-    const char *sql="SELECT t.table_name,t.table_type,c.column_name,c.data_type FROM information_schema.tables t LEFT JOIN information_schema.columns c ON t.table_catalog=c.table_catalog AND t.table_schema=c.table_schema AND t.table_name=c.table_name WHERE t.table_catalog=current_database() AND t.table_schema='_duxcel_versions' LIMIT 19";
+    const char *sql="SELECT CASE WHEN length(t.table_name)<=64 AND NOT contains(t.table_name,chr(0)) THEN t.table_name END,t.table_type,CASE WHEN length(c.column_name)<=64 AND NOT contains(c.column_name,chr(0)) THEN c.column_name END,CASE WHEN length(c.data_type)<=64 THEN c.data_type END FROM information_schema.tables t LEFT JOIN information_schema.columns c ON t.table_catalog=c.table_catalog AND t.table_schema=c.table_schema AND t.table_name=c.table_name WHERE t.table_catalog=current_database() AND t.table_schema='_duxcel_versions' LIMIT 19";
     if (!query(read,sql,&r,error)) goto done;
     if (duckdb_row_count(&r)!=DX_VERSION_CODEC_FIELDS) goto invalid;
     for (idx_t row=0;row<duckdb_row_count(&r);row++) {

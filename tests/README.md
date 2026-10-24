@@ -298,3 +298,12 @@ encoding and rehashed relative/nested/unrelated/legacy core files. The
 `core-restore` gate also runs ownership/relocation modules after the factory
 refactor; the strict leaf reader preserves a prior model on rejection. These are
 native component checks, not user-facing version Open/Save acceptance.
+
+`test_version_restore.c` exercises full core-set closure through the actual
+metadata/chunk/owned-leaf stack: exact prior/current values and shared tags,
+independent lifetime after source connection/leaf release, multi-root phase
+cancellation, NULL/oversize/orphan/gap/duplicate/trailing/missing older payloads,
+hash/inner-document mismatch and empty sets. The `version-closure` gate also
+runs strict stream restoration and metadata admission. A metadata view error
+sentinel proves strict core shape rejection precedes reading its definition.
+Native fileversion compatibility and App publication remain separate gates.
