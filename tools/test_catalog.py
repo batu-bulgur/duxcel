@@ -106,6 +106,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "sheet-lifecycle-command": Feature(("sheet_lifecycle_command", "sheet_lifecycle"), "",
+        ("python3 tools/test.py feature --feature workbook-lifecycle",),
+        ("src/workbook/sheet_lifecycle_command.c", "src/workbook/history_sheet_lifecycle.c", "tests/test_sheet_lifecycle_command.c")),
     "range-command": Feature(("cell_range_plan", "range_event", "range_command", "history_range"), "range-command",
         ("python3 tools/test.py feature --feature range-move", "python3 tools/test.py feature --feature range-replace"),
         ("src/workbook/cell_range_plan.c", "src/workbook/cells.c: admitted range transfer", "src/workbook/range_event.c", "src/workbook/history_range.c", "src/workbook/range_command.c", "src/app/app.c: manual range move/Replace and captured confirmation", "tests/test_range_command.c", "tests/test_range_event.c", "tests/test_history_range.c", "tests/test_cell_range_plan.c", "tests/support/range_command_app.inc")),
