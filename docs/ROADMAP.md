@@ -1667,3 +1667,12 @@ Redo, complete six-role binding publication, three Page/job/request caches,
 `w12c3-object-marks-app.log`, `w12c3-object-marks-tools.log` and run summary.
 No broad regression or retained App event writing is claimed. Next:
 W12c.3c.3b.4b.5 representation/sizing command admission.
+
+
+Chart/Marks packaging boundary: product source4f656f3 produces the current native
+bundle with strict signature, compiled commit provenance and private feature/
+review symbol exclusions verified. The normal shared-C Wasm application compiles/
+links in23.511s wall time. Receipts: ignored `w12c3-chart-marks-bundle.log`,
+`w12c3-chart-marks-package.json` and `w12c3-chart-marks-web.log`. No user App was
+launched/closed. This is build/packaging evidence, not browser runtime/Open/Save,
+retained-history activation or full regression acceptance.
