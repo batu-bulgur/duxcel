@@ -53,6 +53,8 @@ def source_id(root):
 def generate(root, output):
     values = dict(metadata(root))
     values["SOURCE"] = source_id(root)
+    values["LANE"] = os.environ.get("DUXCEL_BUILD_LANE", "")
+    values["CHECKOUT"] = str(root.resolve()) if values["LANE"] else ""
     epoch = os.environ.get("SOURCE_DATE_EPOCH")
     signature = json.dumps({"metadata": values, "epoch": epoch}, sort_keys=True)
     values["TIME"] = datetime.datetime.fromtimestamp(int(epoch), datetime.timezone.utc).isoformat() if epoch else datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")

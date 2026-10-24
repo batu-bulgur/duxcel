@@ -86,9 +86,9 @@ class FileLock:
     before removing build/, so no process can open a replacement lock inode.
     """
 
-    def __init__(self, path, purpose, *, shared=False):
+    def __init__(self, path, purpose, *, shared=False, blocking=False):
         self.path, self.purpose, self.stream = Path(path), purpose, None
-        self.shared, self.gate = shared, None
+        self.shared, self.gate, self.blocking = shared, None, blocking
 
     def __enter__(self):
         build = next((p for p in self.path.resolve().parents if p.name == "build"), None)
@@ -100,7 +100,7 @@ class FileLock:
             self.stream = self.path.open("a+", encoding="utf-8")
             try:
                 mode = fcntl.LOCK_SH if self.shared else fcntl.LOCK_EX
-                fcntl.flock(self.stream.fileno(), mode | fcntl.LOCK_NB)
+                fcntl.flock(self.stream.fileno(), mode | (0 if self.blocking else fcntl.LOCK_NB))
             except BlockingIOError:
                 self.stream.seek(0)
                 owner = self.stream.read().strip() or "workspace operation active"
@@ -131,6 +131,15 @@ class FileLock:
 def checkout_gate_path(root=None):
     identity = hashlib.sha256(os.fsencode((ROOT if root is None else root).resolve())).hexdigest()[:20]
     return Path("/tmp") / f"duxcel-workspace-{os.getuid()}-{identity}.lock"
+
+
+def repository_lock_path(root):
+    """One stable OS advisory lock for all worktrees of this Git repository."""
+    result = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root,
+                            text=True, capture_output=True, check=True)
+    common = (Path(root) / result.stdout.strip()).resolve()
+    identity = hashlib.sha256(os.fsencode(common)).hexdigest()[:20]
+    return Path("/tmp") / f"duxcel-operations-{os.getuid()}-{identity}.lock"
 
 
 def native_lock_path():

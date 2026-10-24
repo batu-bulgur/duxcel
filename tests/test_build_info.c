@@ -10,6 +10,7 @@ int main(void) {
     assert(!info->revision_known && !info->dirty);
     assert(strstr(info->revision,"source archive"));
     assert(*info->version && *info->subject && *info->author && *info->commit_date);
+    assert(info->lane && !*info->lane && info->checkout && !*info->checkout);
     assert(*info->built_at && strstr(info->changelog,"unavailable"));
     puts("PASS: source-archive build metadata without Git or generated input");
     return 0;

@@ -18,7 +18,10 @@ int main(void) {
         NSImage *baseline=[NSApp.applicationIconImage retain];
         for (unsigned cycle=0;cycle<2;cycle++) {
             dx_native_test_identity(true);
-            CHECK([NSApp.dockTile.badgeLabel isEqualToString:@"TEST"]);
+            const char *lane=getenv("DUXCEL_LANE");
+            if (!lane || !*lane) lane=build_info()->lane;
+            NSString *badge=*lane ? [NSString stringWithFormat:@"TEST %s",lane] : @"TEST";
+            CHECK([NSApp.dockTile.badgeLabel isEqualToString:badge]);
             CHECK(NSApp.applicationIconImage!=original);
             CHECK(![NSApp.applicationIconImage.TIFFRepresentation isEqualToData:original.TIFFRepresentation]);
             dx_native_about_show(); dx_native_about_show();
@@ -34,6 +37,11 @@ int main(void) {
             CHECK([text.string containsString:[NSString stringWithUTF8String:build_info()->subject]]);
             CHECK([text.string containsString:[NSString stringWithUTF8String:build_info()->source_id]]);
             CHECK([text.string containsString:@"Recent changes"]);
+            CHECK([text.string containsString:@"Build lane"]);
+            if (*build_info()->lane) {
+                CHECK([text.string containsString:[NSString stringWithUTF8String:build_info()->lane]]);
+                CHECK([text.string containsString:[NSString stringWithUTF8String:build_info()->checkout]]);
+            }
             if (build_info()->revision_known) {
                 CHECK(text.frame.size.height>scroll.contentSize.height);
                 [text scrollRangeToVisible:NSMakeRange(text.string.length,0)];

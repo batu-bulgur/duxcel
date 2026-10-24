@@ -65,3 +65,16 @@ class BuildInfoTests(unittest.TestCase):
         makefile = Path(__file__).resolve().parents[2].joinpath("Makefile").read_text()
         self.assertIn("$(BUILD_INFO_OBJECTS): OBJECT_CPPFLAGS = -include $(BUILD_INFO_HEADER)", makefile)
         self.assertNotIn("CPPFLAGS += -include $(BUILD_INFO_HEADER)", makefile)
+
+    def test_lane_metadata_is_compiled_and_main_has_no_checkout_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "info.h"
+            with mock.patch.object(build_info, "metadata", return_value={}), mock.patch.dict(os.environ, {"DUXCEL_BUILD_LANE": "ISOLATION"}):
+                build_info.generate(root, target)
+                self.assertIn('#define DX_BUILD_LANE "ISOLATION"', target.read_text())
+                self.assertIn(str(root.resolve()), target.read_text())
+            with mock.patch.object(build_info, "metadata", return_value={}), mock.patch.dict(os.environ, {"DUXCEL_BUILD_LANE": ""}):
+                build_info.generate(root, target)
+                self.assertIn('#define DX_BUILD_LANE ""', target.read_text())
+                self.assertIn('#define DX_BUILD_CHECKOUT ""', target.read_text())

@@ -29,7 +29,9 @@ void dx_native_test_identity(bool automated) {
         [label drawAtPoint:NSMakePoint((512-size.width)/2,32) withAttributes:style];
         [test_icon unlockFocus]; NSApp.applicationIconImage=test_icon;
         [installed_icon release]; installed_icon=[NSApp.applicationIconImage retain];
-        NSApp.dockTile.badgeLabel=@"TEST";
+        const char *lane=getenv("DUXCEL_LANE");
+        if (!lane || !*lane) lane=build_info()->lane;
+        NSApp.dockTile.badgeLabel=*lane ? [NSString stringWithFormat:@"TEST %s",lane] : @"TEST";
     } else {
         if (normal_icon && NSApp.applicationIconImage==installed_icon) NSApp.applicationIconImage=normal_icon;
         NSApp.dockTile.badgeLabel=nil;
@@ -65,7 +67,8 @@ void dx_native_about_show(void) {
         text.autoresizingMask=NSViewWidthSizable;
         text.textContainer.widthTracksTextView=YES;
         text.textContainerInset=NSMakeSize(12,12); text.font=[NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular];
-        text.string=[NSString stringWithFormat:@"Revision\n%s\n\n%s\n%s · %s\n\nSource fingerprint\n%s\n\nRecent changes (up to 40 commits)\n\n%s",
+        text.string=[NSString stringWithFormat:@"Build lane\n%s\nCheckout\n%s\n\nRevision\n%s\n\n%s\n%s · %s\n\nSource fingerprint\n%s\n\nRecent changes (up to 40 commits)\n\n%s",
+            *info->lane ? info->lane : "Main / unspecified",*info->checkout ? info->checkout : "Not recorded",
             info->revision,info->subject,info->author,info->commit_date,info->source_id,info->changelog];
         scroll.documentView=text; [content addSubview:scroll];
         [text.layoutManager ensureLayoutForTextContainer:text.textContainer];
