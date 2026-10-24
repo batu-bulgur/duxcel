@@ -882,3 +882,11 @@ memory and parser scratch are admitted before copied strings; full shelf and
 grammar rules precede atomic output replacement. Derived schema caches require
 verified rebinding before execution. The enclosing Object asset remains owner of
 geometry/source links; this asset contains no result cells or source dataset.
+
+
+`workbook/marks_asset.c` retains all six ordered Marks roles using the shared
+checked definition wire layer. Size/Shape single-field limits, duplicate semantics,
+measure/date-grain rules, exact UTF-8 names and latent aggregate values survive
+independently of current chart capabilities. Decode preflights exact inline/text
+ownership before allocation and replaces an independent graph atomically. Outer
+Object/source/representation binding and result caches remain separate owners.

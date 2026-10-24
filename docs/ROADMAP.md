@@ -232,7 +232,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3a · P1 · Complete | Closed primary/Table Analysis definition asset; W12c.1. | Preserve stable sheet/owner/source-version IDs, exact nullable texts, query/unique/group/aggregate, ordered filters/sorts and finite enum tags. Preflight owned memory and grammar scratch before copying; exclude derived schema caches and require verified rebinding before execution. |
 | W12c.3b · P1 · In progress | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
 | W12c.3b.1 · P1 · Complete | Closed Pivot/Chart query-definition asset; W12c.3a. | Preserve ordered role fields, exact names/filter values, aggregation and date-grain tags; enforce shelf/duplicate/grammar rules after bounded scratch admission. Share checked definition-wire primitives with Analysis; derived schema caches require rebinding. |
-| W12c.3b.2 · P1 · Queued | Closed Marks bindings; W12c.3b.1. | Preserve all six ordered role bindings, measure/dimension distinction, aggregation and date grain with strict role limits. |
+| W12c.3b.2 · P1 · Complete | Closed Marks bindings; W12c.3b.1. | Preserve all six ordered role bindings, measure/dimension distinction, aggregation and date grain with strict role limits. |
 | W12c.3b.3 · P1 · Queued | Closed object snapshot/envelope; W12c.3a–W12c.3b.2. | Preserve stable IDs, geometry, names, source links, chart representation/measure and complete nested definitions under one owned bound. Captured allocator obligations cannot rewind live counters or runtime query epochs. |
 | W12c.3c · P1 · Queued | Analysis/object producer and composite event admission; W12c.3a–W12c.3b. | Reserve every changed definition/dependency before adoption, recheck source/request/workbook state and publish once; coordinate source-bound formats and preserve allocator high-water. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
@@ -1264,3 +1264,10 @@ accepts an omitted diagnostic pointer instead of dereferencing NULL. Byte oracle
 inner/outer truncation, grammar/UTF-8/tag errors, full vectors, duplicate shelves
 and8 MiB boundaries pass. Receipts: ignored `w12c3-pivot-asset*.log/json`.
 No output materialization, source execution, App profile activation or GUI change.
+
+W12c.3b.2 complete: Marks encoding1 preserves all six ordered roles, exact UTF-8
+names, latent aggregate values, date grains and measure/dimension flags. The
+292-case optimized/ASan/UBSan gate passes in2.638s;50 runner/catalog contracts pass
+in2.303s. Byte oracle, inner/outer truncation, invalid tags/UTF-8, role/duplicate
+rules, exact owned budgets and all34 maximum-length assignments pass. Receipts:
+ignored `w12c3-marks-asset*.log/json`. No GUI/runtime chart behavior changed.

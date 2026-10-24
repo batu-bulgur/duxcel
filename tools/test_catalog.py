@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "marks-asset": Feature(("marks_asset",), "",
+        ("python3 tools/test.py native --scenario chart --config sanitize", "python3 tools/test.py feature --feature pivot-asset"),
+        ("src/workbook/marks_asset.c", "src/workbook/marks_asset.h", "tests/test_marks_asset.c")),
     "pivot-asset": Feature(("pivot_asset", "analysis_asset"), "",
         ("python3 tools/test.py native --scenario pivot chart --config sanitize", "python3 tools/test.py feature --feature history-format"),
         ("src/workbook/pivot_asset.c", "src/workbook/pivot_asset.h", "src/workbook/definition_wire.c", "src/workbook/definition_wire.h", "src/transforms/pivot.c: optional diagnostics", "tests/test_pivot_asset.c")),
