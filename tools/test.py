@@ -483,7 +483,25 @@ class Runner:
             if not check or not check.primary:
                 self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
             ensure_unchanged(self.summary["binaries"])
+            if module=="workbook_codec_native":
+                self.codec_native_checks(binary,config)
             self.engine_process_check(module,config,binary)
+
+    def codec_native_checks(self,binary,config):
+        """Run the current metadata families against separate private archives."""
+        families = (("sorts", "optional sorts"), ("preferences", "optional preferences"),
+                    ("objects", "object descriptors"), ("queries", "source queries"),
+                    ("source-options", "source options"), ("tables", "Table sources"),
+                    ("pivot-marks", "Pivot Marks"), ("filters", "primary filters"),
+                    ("grid", "grid metadata"), ("counters", "object counters"),
+                    ("source-counters", "source version counters"), ("source-versions", "source versions"),
+                    ("source-bindings", "source bindings"), ("format-rows", "format rows"),
+                    ("format-tags", "format tags"))
+        for option,marker in families:
+            self.record(self.command(f"workbook_codec_native-{option}-{config}",
+                                     ["./" + binary,f"--{option}-only"],
+                                     completion_pattern=rf"^PASS: native {marker} \d+ checks;"))
+            ensure_unchanged(self.summary["binaries"])
 
     def engine_process_check(self,module,config,binary):
         if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(self.args.feature):
@@ -580,48 +598,7 @@ class Runner:
                     self.record(self.command(f"{module}-{config}", ["./" + binary], "PASS:"))
                 ensure_unchanged(self.summary["binaries"])
                 if module=="workbook_codec_native":
-                    self.record(self.command(f"{module}-sorts-{config}", ["./" + binary,"--sorts-only"],
-                                             completion_pattern=r"^PASS: native optional sorts \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-preferences-{config}", ["./" + binary,"--preferences-only"],
-                                             completion_pattern=r"^PASS: native optional preferences \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-objects-{config}", ["./" + binary,"--objects-only"],
-                                             completion_pattern=r"^PASS: native object descriptors \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-queries-{config}", ["./" + binary,"--queries-only"],
-                                             completion_pattern=r"^PASS: native source queries \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-source-options-{config}", ["./" + binary,"--source-options-only"],
-                                             completion_pattern=r"^PASS: native source options \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-tables-{config}", ["./" + binary,"--tables-only"],
-                                             completion_pattern=r"^PASS: native Table sources \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-pivot-marks-{config}", ["./" + binary,"--pivot-marks-only"],
-                                             completion_pattern=r"^PASS: native Pivot Marks \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-filters-{config}", ["./" + binary,"--filters-only"],
-                                             completion_pattern=r"^PASS: native primary filters \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-grid-{config}", ["./" + binary,"--grid-only"],
-                                             completion_pattern=r"^PASS: native grid metadata \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-counters-{config}", ["./" + binary,"--counters-only"],
-                                             completion_pattern=r"^PASS: native object counters \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-source-counters-{config}", ["./" + binary,"--source-counters-only"],
-                                             completion_pattern=r"^PASS: native source version counters \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-source-versions-{config}", ["./" + binary,"--source-versions-only"],
-                                             completion_pattern=r"^PASS: native source versions \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-source-bindings-{config}", ["./" + binary,"--source-bindings-only"],
-                                             completion_pattern=r"^PASS: native source bindings \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
-                    self.record(self.command(f"{module}-format-rows-{config}", ["./" + binary,"--format-rows-only"],
-                                             completion_pattern=r"^PASS: native format rows \d+ checks;"))
-                    ensure_unchanged(self.summary["binaries"])
+                    self.codec_native_checks(binary,config)
                 self.engine_process_check(module,config,binary)
         self.background_check()
         self.record(self.command("gpu-sanitize", ["./build/tests/test_paint-native-debug"], "PASS: 110 native paint checks"))

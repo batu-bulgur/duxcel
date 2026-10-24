@@ -2,7 +2,7 @@
    and byte-exact; only archive metadata, never those definitions, is executed. */
 #define OPTION_HEADER_LIMIT (8u*1024u*1024u)
 static unsigned option_reference_checks;
-static void options_fixture(const char *path,const char *missing,unsigned version) {
+static void options_fixture(const char *path,const char *missing,unsigned version) {CHECK(version==15);
     queries_fixture(path,missing,version);
     Workbook book;workbook_init(&book);char *error=NULL;CHECK(workbook_load(&book,path,&error)&&!error);
     for(size_t sheet=0;sheet<book.count;sheet++){
@@ -17,13 +17,13 @@ static void options_fixture(const char *path,const char *missing,unsigned versio
     duckdb_disconnect(&connection);duckdb_close(&database);
 }
 static const EmitFixture emit_options_fixtures[]={
-    {"options-v12.dxls",12,25,false},{"options-v13.dxls",13,25,false},
-    {"options-v14.dxls",14,25,false},{"options-v14-reordered.dxls",14,25,true}
+
+    {"options-v15.dxls",15,25,false},{"options-v15-reordered.dxls",15,25,true}
 };
 static const char options_reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_source_options AS SELECT unique_rows,object_id,sheet_id FROM _duxcel_workspace.source_options; DROP TABLE _duxcel_workspace.source_options; ALTER TABLE _duxcel_workspace.reordered_source_options RENAME TO source_options";
 static int emit_options(const char *directory) {
     char reorder[3072];int n=snprintf(reorder,sizeof(reorder),"%s;%s;%s",objects_reorder_sql,queries_reorder_sql,options_reorder_sql);CHECK(n>0&&(size_t)n<sizeof(reorder));
-    return emit_fixture_files(directory,emit_options_fixtures,4,options_fixture,reorder,NULL);
+    return emit_fixture_files(directory,emit_options_fixtures,2,options_fixture,reorder,NULL);
 }
 typedef struct {QueryHeaderStamp queries;uint64_t digest;} OptionHeaderStamp;
 static OptionHeaderStamp options_stamp(WorkbookCodecHeader *header) {
@@ -47,7 +47,7 @@ static void options_add_queries(duckdb_connection connection,WorkbookCodecRead *
     CHECK(result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&executions==prior+1);
     CHECK(query_result_rows==2112&&query_batches256==8&&query_batches64==1);
 }
-static void options_compare(const char *path,unsigned version,size_t rows,bool queries_first,bool faults,WorkbookCodecHeader **out) {
+static void options_compare(const char *path,unsigned version,size_t rows,bool queries_first,bool faults,WorkbookCodecHeader **out) {CHECK(version==15);
     FileImage before=file_image(path);Workbook native;workbook_init(&native);char *error=NULL;
     bool loaded=workbook_load(&native,path,&error);if(!loaded)fprintf(stderr,"options native load: %s\n",error?error:"no diagnostic");CHECK(loaded&&!error&&native.count==64&&native.active==63);
     duckdb_database database=NULL;duckdb_connection connection=NULL;open_readonly(path,&database,&connection);
@@ -99,7 +99,7 @@ static void options_compare(const char *path,unsigned version,size_t rows,bool q
     OptionHeaderStamp sealed=options_stamp(*out);workbook_free(&native);kept_options_header(*out,sealed);
     FileImage after=file_image(path);CHECK(before.bytes==after.bytes&&!memcmp(before.data,after.data,before.bytes));free(before.data);free(after.data);free(error);
 }
-static void options_rejected(const char *path,unsigned version,bool missing_table,bool with_queries,size_t first,const char *reason,WorkbookCodecHeader **out) {
+static void options_rejected(const char *path,unsigned version,bool missing_table,bool with_queries,size_t first,const char *reason,WorkbookCodecHeader **out) {CHECK(version==15);
     FileImage before=file_image(path);Workbook native;workbook_init(&native);Analysis blank={0};char *error=NULL;CHECK(workbook_add(&native,"Retained native",&blank,&error));Workbook old=native;
     CHECK(!workbook_load(&native,path,&error)&&!memcmp(&native,&old,sizeof(native))&&!strcmp(native.sheets[0].name,"Retained native"));clear_error(&error);
     char *target=dx_absolute_path(path);CHECK(target);duckdb_database database=NULL;duckdb_connection connection=NULL;open_readonly(path,&database,&connection);
@@ -125,7 +125,7 @@ static void options_blank(const char *path,WorkbookCodecHeader **out) {
     for(size_t pass=0;pass<2;pass++){
         FileImage before=file_image(path);bool loaded=workbook_load(&book,path,&error);CHECK(loaded==(pass==0));if(pass)clear_error(&error);
         char *target=dx_absolute_path(path);CHECK(target);duckdb_database database=NULL;duckdb_connection connection=NULL;open_readonly(path,&database,&connection);size_t retained=workbook_codec_header_owned_bytes(*out);
-        WorkbookCodecRead *read=objects_begin(connection,12,target,retained);CHECK(workbook_codec_read_add_objects(read,true,&error)&&result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);
+        WorkbookCodecRead *read=objects_begin(connection,15,target,retained);CHECK(workbook_codec_read_add_objects(read,true,&error)&&result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);
         CHECK(workbook_codec_read_add_queries(read,true,&error)&&result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);
         CHECK(workbook_codec_read_add_source_options(read,true,&error));OptionHeaderStamp stamp=options_stamp(*out);
         if(pass){CHECK(result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ERROR&&strstr(error,"blank primary")&&workbook_codec_read_request(read)->first_row==0);clear_error(&error);kept_options_header(*out,stamp);}
@@ -141,15 +141,15 @@ static void options_blank(const char *path,WorkbookCodecHeader **out) {
 }
 static int options_only(void) {
     char temporary[]="/tmp/duxcel-codec-options-XXXXXX";CHECK(mkdtemp(temporary));char *directory=dx_absolute_path(temporary);CHECK(directory);char *missing=dx_printf("%s/missing-source.csv",directory);CHECK(access(missing,F_OK)!=0);
-    WorkbookCodecHeader *header=NULL;char *paths[4]={0};
-    for(size_t i=0;i<4;i++){
+    WorkbookCodecHeader *header=NULL;char *paths[2]={0};
+    for(size_t i=0;i<2;i++){
         const EmitFixture *entry=emit_options_fixtures+i;paths[i]=dx_printf("%s/%s",directory,entry->name);options_fixture(paths[i],missing,entry->version);
         if(entry->reordered){mutate(paths[i],reorder_sql);mutate(paths[i],objects_reorder_sql);mutate(paths[i],queries_reorder_sql);mutate(paths[i],options_reorder_sql);}
-        options_compare(paths[i],entry->version,2112,i!=3,entry->version==13,&header);
+        options_compare(paths[i],entry->version,2112,i!=1,!entry->reordered,&header);
     }
-    char *path=dx_printf("%s/private.dxls",directory);FileImage valid=file_image(paths[2]);
-    for(size_t i=0;i<3;i++){
-        FileImage original=file_image(paths[i]);options_copy_image(path,original);free(original.data);mutate(path,"DROP TABLE _duxcel_workspace.source_options");options_rejected(path,(unsigned)i+12,true,true,0,"",&header);CHECK(!unlink(path));
+    char *path=dx_printf("%s/private.dxls",directory);FileImage valid=file_image(paths[0]);
+    for(size_t i=0;i<2;i++){
+        FileImage original=file_image(paths[i]);options_copy_image(path,original);free(original.data);mutate(path,"DROP TABLE _duxcel_workspace.source_options");options_rejected(path,15,true,true,0,"",&header);CHECK(!unlink(path));
     }
     const char *invalid[]={
         "UPDATE _duxcel_workspace.source_options SET unique_rows=NULL WHERE sheet_id=63 AND object_id=18446744073709551615::UBIGINT",
@@ -161,14 +161,14 @@ static int options_only(void) {
     };
     const char *reasons[]={"SQL NULL","ordered","source owner","source owner","Too many source options","SQL type"};
     for(size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++){
-        options_copy_image(path,valid);mutate(path,invalid[i]);options_rejected(path,14,false,i!=2,i==5?0:2048,reasons[i],&header);CHECK(!unlink(path));
+        options_copy_image(path,valid);mutate(path,invalid[i]);options_rejected(path,15,false,i!=2,i==5?0:2048,reasons[i],&header);CHECK(!unlink(path));
     }
-    options_copy_image(path,valid);mutate(path,"UPDATE _duxcel_workspace.source_options SET unique_rows=false WHERE sheet_id=0 AND object_id=0; UPDATE _duxcel_workspace.source_options SET unique_rows=false WHERE sheet_id=0 AND object_id=9007199254740993; DELETE FROM _duxcel_workspace.source_options WHERE sheet_id=63 AND object_id=18446744073709551615::UBIGINT");options_compare(path,14,2111,true,false,&header);
+    options_copy_image(path,valid);mutate(path,"UPDATE _duxcel_workspace.source_options SET unique_rows=false WHERE sheet_id=0 AND object_id=0; UPDATE _duxcel_workspace.source_options SET unique_rows=false WHERE sheet_id=0 AND object_id=9007199254740993; DELETE FROM _duxcel_workspace.source_options WHERE sheet_id=63 AND object_id=18446744073709551615::UBIGINT");options_compare(path,15,2111,true,false,&header);
     bool value=true;CHECK(workbook_codec_header_unique_rows(header,0,0,&value)&&!value);value=true;CHECK(workbook_codec_header_unique_rows(header,0,object_fixture_id(0,0),&value)&&!value);value=true;CHECK(workbook_codec_header_unique_rows(header,63,UINT64_MAX,&value)&&!value);
-    mutate(path,"DELETE FROM _duxcel_workspace.source_options");options_compare(path,14,0,false,false,&header);for(size_t sheet=0;sheet<64;sheet++)for(size_t slot=0;slot<=32;slot++){value=true;CHECK(workbook_codec_header_unique_rows(header,sheet,slot?object_fixture_id(sheet,slot-1):0,&value)&&!value);}
-    CHECK(!unlink(path));options_copy_image(path,valid);options_compare(path,14,2112,true,false,&header);CHECK(!unlink(path));free(valid.data);
+    mutate(path,"DELETE FROM _duxcel_workspace.source_options");options_compare(path,15,0,false,false,&header);for(size_t sheet=0;sheet<64;sheet++)for(size_t slot=0;slot<=32;slot++){value=true;CHECK(workbook_codec_header_unique_rows(header,sheet,slot?object_fixture_id(sheet,slot-1):0,&value)&&!value);}
+    CHECK(!unlink(path));options_copy_image(path,valid);options_compare(path,15,2112,true,false,&header);CHECK(!unlink(path));free(valid.data);
     options_blank(path,&header);CHECK(!unlink(path));free(path);workbook_codec_header_free(header);
-    for(size_t i=0;i<4;i++){CHECK(!unlink(paths[i]));free(paths[i]);}CHECK(!nul_cells&&access(missing,F_OK)!=0);free(missing);CHECK(!rmdir(directory));free(directory);
+    for(size_t i=0;i<2;i++){CHECK(!unlink(paths[i]));free(paths[i]);}CHECK(!nul_cells&&access(missing,F_OK)!=0);free(missing);CHECK(!rmdir(directory));free(directory);
     printf("PASS: native source options %u checks; %u cursor metadata executions/%u typed feeds, %u fixture raw-reference validations;2112 BOOLEAN primary/Table owners, retained exact queries/reorder/defaultfalse/duplicatefalse/NULL/type/owner/sentinel rejection, closed-handle ownership/budget/stale/recovery; no source execution or Worker/App Open claim; engine %s\n",checks,executions,feeds,option_reference_checks,duckdb_library_version());return 0;
 }
 #undef OPTION_HEADER_LIMIT

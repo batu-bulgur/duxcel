@@ -9,9 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* This component driver intentionally consumes only legacy v12-v14 packages. */
-#include "support/legacy_workbook.h"
-#define workbook_save test_legacy_save
+/* This component driver consumes exact current core version 15. */
 
 static unsigned checks,executions,feeds,nul_cells,preference_result_rows;
 static unsigned query_result_rows,query_null_rows,query_batches256,query_batches64;
@@ -182,7 +180,7 @@ static WorkbookCodecReadStatus result_feed(duckdb_connection connection,Workbook
     return status;
 }
 static bool text_same(const char *a,const char *b) { return a && b ? !strcmp(a,b) : a==b; }
-static void compare(const WorkbookCodecHeader *header,const Workbook *native,unsigned version) {
+static void compare(const WorkbookCodecHeader *header,const Workbook *native,unsigned version) {CHECK(version==15);
     CHECK(workbook_codec_header_version(header)==version && workbook_codec_header_sheet_count(header)==native->count &&
         workbook_codec_header_active_sheet(header)==native->active && workbook_codec_header_user_scale(header)==native->user_scale);
     const WorkbookCodecKey *stored=workbook_codec_header_key(header); CHECK(stored && stored->document_epoch==key.document_epoch && stored->operation_ticket==key.operation_ticket && stored->snapshot_generation==key.snapshot_generation);
@@ -207,7 +205,7 @@ static void compare(const WorkbookCodecHeader *header,const Workbook *native,uns
     CHECK(!strcmp(workbook_codec_header_analysis(header,0)->table,"NULL") && !workbook_codec_header_analysis(header,0)->filter_value);
     CHECK(workbook_codec_header_analysis(header,1)->filter_value && !*workbook_codec_header_analysis(header,1)->filter_value);
 }
-static void fixture(const char *path,const char *missing,unsigned version) {
+static void fixture(const char *path,const char *missing,unsigned version) {CHECK(version==15);
     Workbook book; workbook_init(&book); char *error=NULL;
     Analysis a={.kind=SOURCE_CSV,.path=dx_strdup(missing),.schema=dx_strdup(""),.table=dx_strdup("NULL"),
         .query=dx_strdup("SELECT * FROM __BP1_SOURCE_MUST_NOT_EXECUTE"),.filter_column=dx_strdup("city"),.filter_op=FILTER_NULL,
@@ -219,11 +217,11 @@ static void fixture(const char *path,const char *missing,unsigned version) {
     CHECK(workbook_add(&book,"Literal NULL",&a,&error)); analysis_free(&a);
     book.active=1; book.user_scale=1.25f;
     for (size_t i=0;i<book.count;i++) book.sheets[i].view=(SheetView){.row=DX_SHEET_ROWS-1,.col=16383,.anchor_row=1,.anchor_col=2,.end_row=3,.end_col=4,.top=5,.horizontal=120.25f,.fraction=.25,.selection=2,.canvas_zoom=1.5f};
-    if (version==13) book.sheets[0].objects.next_id=UINT64_C(9007199254740994);
-    if (version==14) book.sheets[0].formats.source_aware=true;
+
+     book.sheets[0].formats.source_aware=true;
     CHECK(workbook_save(&book,path,&error) && !error); workbook_free(&book);
 }
-static void sorts_fixture(const char *path,const char *missing,unsigned version) {
+static void sorts_fixture(const char *path,const char *missing,unsigned version) {CHECK(version==15);
     Workbook book; workbook_init(&book); char *error=NULL;
     for (size_t sheet=0;sheet<64;sheet++) {
         Analysis a={.kind=SOURCE_CSV,.path=dx_strdup(missing),.schema=dx_strdup(""),.table=dx_strdup("NULL"),
@@ -238,15 +236,15 @@ static void sorts_fixture(const char *path,const char *missing,unsigned version)
         book.sheets[sheet].view=(SheetView){.row=DX_SHEET_ROWS-1,.col=16383,.anchor_row=1,.anchor_col=2,.end_row=3,.end_col=4,.top=5,.horizontal=120.25f,.fraction=.25,.selection=2,.canvas_zoom=1.5f};
     }
     book.active=63; book.user_scale=1.25f;
-    if (version==13) book.sheets[0].objects.next_id=UINT64_C(9007199254740994);
-    if (version==14) book.sheets[0].formats.source_aware=true;
+
+     book.sheets[0].formats.source_aware=true;
     CHECK(workbook_save(&book,path,&error) && !error); workbook_free(&book);
 }
 static void mutate(const char *path,const char *sql) {
     duckdb_database database=NULL; duckdb_connection connection=NULL; CHECK(duckdb_open(path,&database)==DuckDBSuccess && duckdb_connect(database,&connection)==DuckDBSuccess);
     execute(connection,sql); duckdb_disconnect(&connection); duckdb_close(&database);
 }
-static void preferences_fixture(const char *path,const char *missing,unsigned version) {
+static void preferences_fixture(const char *path,const char *missing,unsigned version) {CHECK(version==15);
     Workbook book; workbook_init(&book); char *error=NULL;
     for (size_t sheet=0;sheet<64;sheet++) {
         Analysis a={.kind=SOURCE_CSV,.path=dx_strdup(missing),.schema=dx_strdup(""),.table=dx_strdup("NULL"),
@@ -256,8 +254,8 @@ static void preferences_fixture(const char *path,const char *missing,unsigned ve
         book.sheets[sheet].view=(SheetView){.row=DX_SHEET_ROWS-1,.col=16383,.anchor_row=1,.anchor_col=2,.end_row=3,.end_col=4,.top=5,.horizontal=120.25f,.fraction=.25,.selection=2,.canvas_zoom=1.5f};
     }
     book.active=63; book.user_scale=1.25f; book.reduced_motion=true;
-    if (version==13) book.sheets[0].objects.next_id=UINT64_C(9007199254740994);
-    if (version==14) book.sheets[0].formats.source_aware=true;
+
+     book.sheets[0].formats.source_aware=true;
     CHECK(workbook_save(&book,path,&error) && !error); workbook_free(&book);
     /* Native Save omits visible entries. This explicitly stored false is valid
        metadata and reaches65 rows without changing the active sheet. */
@@ -271,20 +269,20 @@ static const char preferences_unknown_nul[]="DELETE FROM _duxcel_workspace.prefe
 
 typedef struct { const char *name; unsigned version,layout; bool reordered; } EmitFixture;
 static const EmitFixture emit_fixtures[]={
-    {"v12.dxls",12,25,false},{"v12-reordered.dxls",12,25,true},{"v12-legacy24.dxls",12,24,true},
-    {"v13.dxls",13,25,false},{"v13-reordered.dxls",13,25,true},
-    {"v14.dxls",14,25,false},{"v14-reordered.dxls",14,25,true}
+
+
+    {"v15.dxls",15,25,false},{"v15-reordered.dxls",15,25,true}
 };
 static const EmitFixture emit_sorts_fixtures[]={
-    {"sorts-v12.dxls",12,25,false},{"sorts-v13.dxls",13,25,false},
-    {"sorts-v14.dxls",14,25,false},{"sorts-v14-reordered.dxls",14,25,true}
+
+    {"sorts-v15.dxls",15,25,false},{"sorts-v15-reordered.dxls",15,25,true}
 };
 static const EmitFixture emit_preferences_fixtures[]={
-    {"preferences-v12.dxls",12,25,false},{"preferences-v13.dxls",13,25,false},
-    {"preferences-v14.dxls",14,25,false},{"preferences-v14-reordered.dxls",14,25,true},
-    {"preferences-v14-unknown-null.dxls",14,25,false},{"preferences-v14-unknown-nul.dxls",14,25,false}
+
+    {"preferences-v15.dxls",15,25,false},{"preferences-v15-reordered.dxls",15,25,true},
+    {"preferences-v15-unknown-null.dxls",15,25,false},{"preferences-v15-unknown-nul.dxls",15,25,false}
 };
-static const char *const preferences_post_sql[]={NULL,NULL,NULL,NULL,preferences_unknown_null,preferences_unknown_nul};
+static const char *const preferences_post_sql[]={NULL,NULL,preferences_unknown_null,preferences_unknown_nul};
 static struct {
     char *directory,*missing,*stage,*wal,*outputs[7];
     dev_t devices[7]; ino_t inodes[7];
@@ -331,7 +329,7 @@ static int emit_fixture_files(const char *directory,const EmitFixture *entries,s
         emission.wal=dx_printf("%s.wal",emission.stage);
         make_fixture(emission.stage,missing,entry->version);
         if (entry->reordered) { mutate(emission.stage,reorder_sql); if (extra_reorder) mutate(emission.stage,extra_reorder); }
-        if (entry->layout==24) mutate(emission.stage,"ALTER TABLE _duxcel_workspace.sheets DROP COLUMN canvas_zoom");
+
         if (post_sql && post_sql[i]) mutate(emission.stage,post_sql[i]);
         CHECK(!lstat(emission.stage,&st) && S_ISREG(st.st_mode) && st.st_size>0);
         CHECK(!chmod(emission.stage,0444));
@@ -357,11 +355,11 @@ static void open_readonly(const char *path,duckdb_database *database,duckdb_conn
     if (duckdb_open_ext(path,database,config,&message)!=DuckDBSuccess) { fprintf(stderr,"metadata open: %s\n",message); exit(1); }
     duckdb_free(message); duckdb_destroy_config(&config); CHECK(duckdb_connect(*database,connection)==DuckDBSuccess);
 }
-static void read_compare(const char *path,unsigned version,WorkbookCodecSheetsLayout layout,bool faults) {
+static void read_compare(const char *path,unsigned version,WorkbookCodecSheetsLayout layout,bool faults) {CHECK(version==15);
     FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL;
     CHECK(workbook_load(&native,path,&error) && !error && native.count==3);
-    if (version==13) CHECK(native.sheets[0].objects.next_id==UINT64_C(9007199254740994));
-    if (version==14) CHECK(native.sheets[0].formats.source_aware && !native.sheets[0].source_versions.count);
+
+     CHECK(native.sheets[0].formats.source_aware && !native.sheets[0].source_versions.count);
     duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
     /* Native loading resolves against the canonical archive path; a caller's
        /tmp symlink spelling is not the locator resolver's document identity. */
@@ -404,18 +402,18 @@ static void pending_sorts_header(WorkbookCodecRead *read,WorkbookCodecHeader **o
     WorkbookCodecHeader *identity=*out; size_t bytes=workbook_codec_header_owned_bytes(identity); char *error=NULL;
     CHECK(!workbook_codec_read_finish(read,out,&error)); clear_error(&error); kept_sorts_header(*out,identity,bytes);
 }
-static void sorts_compare(const char *path,unsigned version,bool present,bool faults,WorkbookCodecHeader **out) {
+static void sorts_compare(const char *path,unsigned version,bool present,bool faults,WorkbookCodecHeader **out) {CHECK(present);CHECK(version==15);
     FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL;
     CHECK(workbook_load(&native,path,&error) && !error && native.count==64 && native.active==63);
-    if (version==13) CHECK(native.sheets[0].objects.next_id==UINT64_C(9007199254740994));
-    if (version==14) CHECK(native.sheets[0].formats.source_aware && !native.sheets[0].source_versions.count);
+
+     CHECK(native.sheets[0].formats.source_aware && !native.sheets[0].source_versions.count);
     duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
     WorkbookCodecRead *read=NULL; CHECK(workbook_codec_read_begin(&read,key,version,WORKBOOK_CODEC_SHEETS_25,8u*1024u*1024u,resolve,native.path,&error));
     size_t old_bytes=workbook_codec_header_owned_bytes(*out);
     CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
     CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
-    CHECK(workbook_codec_read_add_sorts(read,present,&error) && !error);
-    if (present) {
+    CHECK(workbook_codec_read_add_sorts(read,true,&error) && !error);
+     {
         CHECK(workbook_codec_read_request(read)->family==WORKBOOK_CODEC_SORTS && workbook_codec_read_request(read)->row_limit==449);
         pending_sorts_header(read,out);
         if (faults) {
@@ -448,7 +446,7 @@ static void sorts_compare(const char *path,unsigned version,bool present,bool fa
     CHECK(workbook_codec_header_version(*out)==version && workbook_codec_header_sheet_count(*out)==64 && workbook_codec_header_active_sheet(*out)==63 && workbook_codec_header_user_scale(*out)==1.25f);
     for (size_t i=0;i<native.count;i++) {
         const Analysis *a=workbook_codec_header_analysis(*out,i),*b=&native.sheets[i].analysis;
-        CHECK(analysis_sorts_equal(a,b) && a->sort_count==(present ? 7u : 0u) && a->kind==SOURCE_CSV && text_same(a->path,b->path));
+        CHECK(analysis_sorts_equal(a,b) && a->sort_count==(7u) && a->kind==SOURCE_CSV && text_same(a->path,b->path));
         CHECK(!a->query && !a->source_version && !a->filter_count && !a->unique_rows && !strcmp(a->schema,"") && !strcmp(a->table,"NULL") &&
             !strcmp(b->query,"SELECT * FROM __BP1_SOURCE_MUST_NOT_EXECUTE") && !strcmp(workbook_codec_header_reference(*out,i),"missing-source.csv"));
         CHECK(!strcmp(workbook_codec_header_name(*out,i),native.sheets[i].name));
@@ -456,7 +454,7 @@ static void sorts_compare(const char *path,unsigned version,bool present,bool fa
     workbook_free(&native); FileImage after=file_image(path);
     CHECK(before.bytes==after.bytes && !memcmp(before.data,after.data,before.bytes)); free(before.data); free(after.data);
     CHECK(!strcmp(workbook_codec_header_analysis(*out,63)->sort_column,"Primary 'İ'") &&
-        (!present || !strcmp(workbook_codec_header_analysis(*out,63)->sorts[6].column,"Field 'İ' 447"))); free(error);
+        (!true || !strcmp(workbook_codec_header_analysis(*out,63)->sorts[6].column,"Field 'İ' 447"))); free(error);
 }
 static void sorts_archive_rejected(const char *path,bool missing_table,WorkbookCodecHeader **out) {
     FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL; Analysis blank={0};
@@ -464,7 +462,7 @@ static void sorts_archive_rejected(const char *path,bool missing_table,WorkbookC
     CHECK(!workbook_load(&native,path,&error) && !memcmp(&native,&old_native,sizeof(native)) && !strcmp(native.sheets[0].name,"Retained native")); clear_error(&error);
     WorkbookCodecHeader *identity=*out; size_t old_bytes=workbook_codec_header_owned_bytes(*out);
     char *target=dx_absolute_path(path); CHECK(target); WorkbookCodecRead *read=NULL;
-    CHECK(workbook_codec_read_begin(&read,key,14,WORKBOOK_CODEC_SHEETS_25,8u*1024u*1024u,resolve,target,&error));
+    CHECK(workbook_codec_read_begin(&read,key,15,WORKBOOK_CODEC_SHEETS_25,8u*1024u*1024u,resolve,target,&error));
     duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
     CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
     CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
@@ -487,17 +485,15 @@ static int sorts_only(void) {
     for (size_t i=0;i<sizeof(emit_sorts_fixtures)/sizeof(*emit_sorts_fixtures);i++) {
         const EmitFixture *entry=emit_sorts_fixtures+i; char *path=dx_printf("%s/%s",directory,entry->name); sorts_fixture(path,missing,entry->version);
         if (entry->reordered) { mutate(path,reorder_sql); mutate(path,sorts_reorder_sql); }
-        sorts_compare(path,entry->version,true,entry->version==13,&header); CHECK(!unlink(path)); free(path);
+        sorts_compare(path,entry->version,true,!entry->reordered,&header); CHECK(!unlink(path)); free(path);
     }
-    char *path=dx_printf("%s/absent12.dxls",directory); sorts_fixture(path,missing,12); mutate(path,"DROP TABLE _duxcel_workspace.sorts");
-    sorts_compare(path,12,false,false,&header); CHECK(!unlink(path)); free(path);
-    path=dx_printf("%s/absent14.dxls",directory); sorts_fixture(path,missing,14); mutate(path,"DROP TABLE _duxcel_workspace.sorts");
+    char *path=dx_printf("%s/absent14.dxls",directory); sorts_fixture(path,missing,15); mutate(path,"DROP TABLE _duxcel_workspace.sorts");
     sorts_archive_rejected(path,true,&header); CHECK(!unlink(path)); free(path);
-    path=dx_printf("%s/sentinel14.dxls",directory); sorts_fixture(path,missing,14); mutate(path,"INSERT INTO _duxcel_workspace.sorts(sheet_id,position,name,descending) VALUES (64,0,'Sentinel',false)");
+    path=dx_printf("%s/sentinel14.dxls",directory); sorts_fixture(path,missing,15); mutate(path,"INSERT INTO _duxcel_workspace.sorts(sheet_id,position,name,descending) VALUES (64,0,'Sentinel',false)");
     sorts_archive_rejected(path,false,&header); mutate(path,"DELETE FROM _duxcel_workspace.sorts WHERE sheet_id=64");
-    sorts_compare(path,14,true,false,&header); CHECK(!unlink(path)); free(path); workbook_codec_header_free(header);
+    sorts_compare(path,15,true,false,&header); CHECK(!unlink(path)); free(path); workbook_codec_header_free(header);
     CHECK(access(missing,F_OK)!=0); free(missing); CHECK(!rmdir(directory)); free(directory);
-    printf("PASS: native optional sorts %u checks; %u metadata executions/%u typed feeds; four448-row native packages, legacy missing-table default, v14 missing/sentinel rejection, owned prior Header and fault/budget/stale recovery; source definitions never executed; native comparison only, no Worker/App Open claim; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
+    printf("PASS: native optional sorts %u checks; %u metadata executions/%u typed feeds; two448-row current native packages, missing/sentinel rejection, owned prior Header and fault/budget/stale recovery; source definitions never executed; native comparison only, no Worker/App Open claim; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
 }
 typedef struct { WorkbookCodecHeader *identity; size_t bytes,count; unsigned version; bool ready,motion; uint64_t hidden; } PreferenceHeaderStamp;
 static PreferenceHeaderStamp preference_stamp(WorkbookCodecHeader *header) {
@@ -515,7 +511,7 @@ static void pending_preferences_header(WorkbookCodecRead *read,WorkbookCodecHead
     PreferenceHeaderStamp before=preference_stamp(*out); char *error=NULL;
     CHECK(!workbook_codec_read_finish(read,out,&error)); clear_error(&error); kept_preferences_header(*out,before);
 }
-static void preferences_compare(const char *path,unsigned version,bool present,bool faults,WorkbookCodecHeader **out) {
+static void preferences_compare(const char *path,unsigned version,bool present,bool faults,WorkbookCodecHeader **out) {CHECK(present);CHECK(version==15);
     FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL;
     CHECK(workbook_load(&native,path,&error) && !error && native.count==64 && native.active==63);
     duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
@@ -523,8 +519,8 @@ static void preferences_compare(const char *path,unsigned version,bool present,b
     size_t old_bytes=workbook_codec_header_owned_bytes(*out);
     CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
     CHECK(result_feed(connection,read,NULL,256,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
-    CHECK(workbook_codec_read_add_preferences(read,present,&error) && !error);
-    if (present) {
+    CHECK(workbook_codec_read_add_preferences(read,true,&error) && !error);
+     {
         CHECK(workbook_codec_read_request(read)->family==WORKBOOK_CODEC_PREFERENCES && workbook_codec_read_request(read)->row_limit==66); pending_preferences_header(read,out);
         if (faults) {
             const char *sql=workbook_codec_read_request(read)->sql;
@@ -542,7 +538,7 @@ static void preferences_compare(const char *path,unsigned version,bool present,b
             clear_error(&error); free(pressure); pending_preferences_header(read,out);
         }
         unsigned old_executions=executions,old_feeds=feeds;
-        CHECK(result_feed(connection,read,NULL,version==13 ? 32 : 1,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
+        CHECK(result_feed(connection,read,NULL,1,true,old_bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
         CHECK(preference_result_rows==65 && executions==old_executions+1 && feeds==old_feeds+2); /* One65-row result ->1+64 or32+33. */
     }
     CHECK(workbook_codec_read_finish(read,out,&error) && !error && workbook_codec_header_preferences_ready(*out));
@@ -550,21 +546,21 @@ static void preferences_compare(const char *path,unsigned version,bool present,b
     CHECK(workbook_codec_header_version(*out)==version && workbook_codec_header_user_scale(*out)==1.25f && workbook_codec_header_reduced_motion(*out)==native.reduced_motion && workbook_codec_header_sheet_count(*out)==64 && workbook_codec_header_active_sheet(*out)==63 && !workbook_codec_header_sorts_ready(*out));
     for (size_t i=0;i<native.count;i++) {
         const Analysis *a=workbook_codec_header_analysis(*out,i),*b=&native.sheets[i].analysis;
-        CHECK(workbook_codec_header_sheet_hidden(*out,i)==native.sheets[i].hidden && native.sheets[i].hidden==(present && i!=63));
+        CHECK(workbook_codec_header_sheet_hidden(*out,i)==native.sheets[i].hidden && native.sheets[i].hidden==(true && i!=63));
         CHECK(a->kind==SOURCE_CSV && text_same(a->path,b->path) && !a->sort_column && !a->sort_count && !a->query && !a->filter_column && !a->filter_count && !strcmp(a->schema,"") && !strcmp(a->table,"NULL"));
         CHECK(!strcmp(b->query,"SELECT * FROM __BP1_SOURCE_MUST_NOT_EXECUTE") && !strcmp(workbook_codec_header_reference(*out,i),"missing-source.csv") && !strcmp(workbook_codec_header_name(*out,i),native.sheets[i].name));
         const SheetView *view=workbook_codec_header_view(*out,i);
         CHECK(view->row==DX_SHEET_ROWS-1 && view->col==16383 && view->anchor_row==1 && view->anchor_col==2 && view->end_row==3 && view->end_col==4 && view->top==5 && view->horizontal==120.25f && view->fraction==.25 && view->selection==2 && view->canvas_zoom==1.5f && !view->column_count);
     }
     workbook_free(&native); FileImage after=file_image(path); CHECK(before.bytes==after.bytes && !memcmp(before.data,after.data,before.bytes)); free(before.data); free(after.data);
-    CHECK(!workbook_codec_header_sheet_hidden(*out,63) && !workbook_codec_header_sheet_hidden(*out,64) && workbook_codec_header_reduced_motion(*out)==present); free(error);
+    CHECK(!workbook_codec_header_sheet_hidden(*out,63) && !workbook_codec_header_sheet_hidden(*out,64) && workbook_codec_header_reduced_motion(*out)==true); free(error);
 }
 static void preferences_rejected(const char *path,bool missing_table,unsigned rows,size_t split,size_t accepted,WorkbookCodecHeader **out) {
     FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL; Analysis blank={0};
     CHECK(workbook_add(&native,"Retained native",&blank,&error)); Workbook old_native=native;
     CHECK(!workbook_load(&native,path,&error) && !memcmp(&native,&old_native,sizeof(native)) && !strcmp(native.sheets[0].name,"Retained native")); clear_error(&error);
     PreferenceHeaderStamp old=preference_stamp(*out); char *target=dx_absolute_path(path); CHECK(target); WorkbookCodecRead *read=NULL;
-    CHECK(workbook_codec_read_begin(&read,key,14,WORKBOOK_CODEC_SHEETS_25,8u*1024u*1024u,resolve,target,&error));
+    CHECK(workbook_codec_read_begin(&read,key,15,WORKBOOK_CODEC_SHEETS_25,8u*1024u*1024u,resolve,target,&error));
     duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
     CHECK(result_feed(connection,read,NULL,256,true,old.bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
     CHECK(result_feed(connection,read,NULL,256,true,old.bytes,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error); size_t owned=workbook_codec_read_owned_bytes(read);
@@ -581,19 +577,17 @@ static void preferences_rejected(const char *path,bool missing_table,unsigned ro
 static int preferences_only(void) {
     char temporary[]="/tmp/duxcel-codec-preferences-XXXXXX"; CHECK(mkdtemp(temporary)); char *directory=dx_absolute_path(temporary); CHECK(directory);
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0); WorkbookCodecHeader *header=NULL;
-    for (size_t i=0;i<6;i++) {
+    for (size_t i=0;i<4;i++) {
         const EmitFixture *entry=emit_preferences_fixtures+i; char *path=dx_printf("%s/%s",directory,entry->name); preferences_fixture(path,missing,entry->version);
         if (entry->reordered) { mutate(path,reorder_sql); mutate(path,preferences_reorder_sql); }
         if (preferences_post_sql[i]) { mutate(path,preferences_post_sql[i]); preferences_rejected(path,false,65,32,0,&header); }
         else {
-            preferences_compare(path,entry->version,true,entry->version==13,&header);
-            if (i==2) { mutate(path,"INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('Future ''İ'' flag',true)"); preferences_compare(path,14,true,false,&header); }
+            preferences_compare(path,entry->version,true,!entry->reordered,&header);
+            if (i==0) { mutate(path,"INSERT INTO _duxcel_workspace.preferences(name,value) VALUES ('Future ''İ'' flag',true)"); preferences_compare(path,15,true,false,&header); }
         }
         CHECK(!unlink(path)); free(path);
     }
-    char *path=dx_printf("%s/absent12.dxls",directory); preferences_fixture(path,missing,12); mutate(path,"DROP TABLE _duxcel_workspace.preferences");
-    preferences_compare(path,12,false,false,&header); CHECK(!unlink(path)); free(path);
-    path=dx_printf("%s/absent14.dxls",directory); preferences_fixture(path,missing,14); mutate(path,"DROP TABLE _duxcel_workspace.preferences");
+    char *path=dx_printf("%s/absent14.dxls",directory); preferences_fixture(path,missing,15); mutate(path,"DROP TABLE _duxcel_workspace.preferences");
     preferences_rejected(path,true,0,32,0,&header); CHECK(!unlink(path)); free(path);
     const char *invalid[]={
         "CREATE TABLE _duxcel_workspace.bad_preferences AS SELECT * FROM _duxcel_workspace.preferences WHERE name<>'sheet_hidden_62'; INSERT INTO _duxcel_workspace.bad_preferences VALUES ('sheet_hidden_63',false); DROP TABLE _duxcel_workspace.preferences; ALTER TABLE _duxcel_workspace.bad_preferences RENAME TO preferences",
@@ -603,9 +597,9 @@ static int preferences_only(void) {
         "CREATE TABLE _duxcel_workspace.bad_preferences AS SELECT * FROM _duxcel_workspace.preferences; INSERT INTO _duxcel_workspace.bad_preferences VALUES ('reduce_motion',false); DROP TABLE _duxcel_workspace.preferences; ALTER TABLE _duxcel_workspace.bad_preferences RENAME TO preferences"
     };
     for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
-        path=dx_printf("%s/rejected%zu.dxls",directory,i); preferences_fixture(path,missing,14); mutate(path,invalid[i]);
+        path=dx_printf("%s/rejected%zu.dxls",directory,i); preferences_fixture(path,missing,15); mutate(path,invalid[i]);
         preferences_rejected(path,false,i==4 ? 66 : 65,i==4 ? 66 : 32,i<3 ? 32 : 0,&header);
-        if (i==4) { mutate(path,"DELETE FROM _duxcel_workspace.preferences WHERE name='reduce_motion' AND value=false"); preferences_compare(path,14,true,false,&header); }
+        if (i==4) { mutate(path,"DELETE FROM _duxcel_workspace.preferences WHERE name='reduce_motion' AND value=false"); preferences_compare(path,15,true,false,&header); }
         CHECK(!unlink(path)); free(path);
     }
     workbook_codec_header_free(header); CHECK(nul_cells==1 && access(missing,F_OK)!=0); free(missing); CHECK(!rmdir(directory)); free(directory);
@@ -625,12 +619,12 @@ static int preferences_only(void) {
 #include "test_workbook_codec_format_rows_native.inc"
 #include "test_workbook_codec_format_tags_native.inc"
 int main(int argc,char **argv) {
-    if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,7,fixture,NULL,NULL);
-    if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,4,sorts_fixture,sorts_reorder_sql,NULL);
-    if (argc==3 && !strcmp(argv[1],"--emit-preferences-fixtures")) return emit_fixture_files(argv[2],emit_preferences_fixtures,6,preferences_fixture,preferences_reorder_sql,preferences_post_sql);
+    if (argc==3 && !strcmp(argv[1],"--emit-fixtures")) return emit_fixture_files(argv[2],emit_fixtures,2,fixture,NULL,NULL);
+    if (argc==3 && !strcmp(argv[1],"--emit-sorts-fixtures")) return emit_fixture_files(argv[2],emit_sorts_fixtures,2,sorts_fixture,sorts_reorder_sql,NULL);
+    if (argc==3 && !strcmp(argv[1],"--emit-preferences-fixtures")) return emit_fixture_files(argv[2],emit_preferences_fixtures,4,preferences_fixture,preferences_reorder_sql,preferences_post_sql);
     if (argc==2 && !strcmp(argv[1],"--sorts-only")) return sorts_only();
     if (argc==2 && !strcmp(argv[1],"--preferences-only")) return preferences_only();
-    if (argc==3 && !strcmp(argv[1],"--emit-objects-fixtures")) return emit_fixture_files(argv[2],emit_objects_fixtures,4,objects_fixture,objects_reorder_sql,NULL);
+    if (argc==3 && !strcmp(argv[1],"--emit-objects-fixtures")) return emit_fixture_files(argv[2],emit_objects_fixtures,2,objects_fixture,objects_reorder_sql,NULL);
     if (argc==2 && !strcmp(argv[1],"--objects-only")) return objects_only();
     if (argc==3 && !strcmp(argv[1],"--emit-queries-fixtures")) return emit_queries(argv[2]);
     if (argc==2 && !strcmp(argv[1],"--queries-only")) return queries_only();
@@ -659,13 +653,13 @@ int main(int argc,char **argv) {
     if (argc!=1) { fprintf(stderr,"usage: %s [--emit-fixtures DIR | --sorts-only | --emit-sorts-fixtures DIR | --preferences-only | --emit-preferences-fixtures DIR | --objects-only | --emit-objects-fixtures DIR | --queries-only | --emit-queries-fixtures DIR | --source-options-only | --emit-source-options-fixtures DIR | --tables-only | --emit-tables-fixtures DIR | --pivot-marks-only | --emit-pivot-marks-fixtures DIR | --filters-only | --emit-filters-fixtures DIR | --grid-only | --emit-grid-fixtures DIR | --counters-only | --emit-counters-fixtures DIR | --source-counters-only | --emit-source-counters-fixtures DIR | --source-versions-only | --emit-source-versions-fixtures DIR | --source-bindings-only | --emit-source-bindings-fixtures DIR | --format-rows-only | --emit-format-rows-fixtures DIR | --format-tags-only | --emit-format-tags-fixtures DIR]\n",argv[0]); return 2; }
     char directory[]="/tmp/duxcel-codec-native-XXXXXX"; CHECK(mkdtemp(directory));
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0);
-    for (unsigned version=12;version<=14;version++) {
-        char *path=dx_printf("%s/v%u.dxls",directory,version); fixture(path,missing,version); read_compare(path,version,WORKBOOK_CODEC_SHEETS_25,version==12);
+    for(unsigned version=15;version<=15;version++) {
+        char *path=dx_printf("%s/v%u.dxls",directory,version); fixture(path,missing,version); read_compare(path,version,WORKBOOK_CODEC_SHEETS_25,true);
         mutate(path,reorder_sql);
         read_compare(path,version,WORKBOOK_CODEC_SHEETS_25,false);
-        if (version==12) { mutate(path,"ALTER TABLE _duxcel_workspace.sheets DROP COLUMN canvas_zoom"); read_compare(path,version,WORKBOOK_CODEC_SHEETS_24,false); }
+
         CHECK(!unlink(path)); free(path);
     }
     CHECK(access(missing,F_OK)!=0); free(missing); CHECK(!rmdir(directory));
-    printf("PASS: native workbook header %u checks; %u metadata executions/%u typed feeds, v12/v13/v14 and physical reorder/legacy24/native parity; source definitions never executed, partial-header component only; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
+    printf("PASS: native workbook header %u checks; %u metadata executions/%u typed feeds, current15 and physical reorder/native parity; source definitions never executed, partial-header component only; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
 }

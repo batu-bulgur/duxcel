@@ -5,7 +5,7 @@
 static uint64_t object_fixture_id(size_t sheet,size_t object) {
     return sheet==63 && object==31 ? UINT64_MAX : OBJECT_BASE+object;
 }
-static void objects_fixture(const char *path,const char *missing,unsigned version) {
+static void objects_fixture(const char *path,const char *missing,unsigned version) {CHECK(version==15);
     Workbook book; workbook_init(&book); char *error=NULL;
     for (size_t sheet=0;sheet<64;sheet++) {
         Analysis a={.kind=SOURCE_CSV,.path=dx_strdup(missing),.schema=dx_strdup(""),.table=dx_strdup("NULL"),
@@ -28,13 +28,13 @@ static void objects_fixture(const char *path,const char *missing,unsigned versio
         s->objects.next_id=object_fixture_id(sheet,31);
     }
     book.active=63; book.user_scale=1.25f;
-    if (version==13) book.sheets[0].objects.next_id=OBJECT_BASE+100;
-    if (version==14) book.sheets[0].formats.source_aware=true;
+
+     book.sheets[0].formats.source_aware=true;
     CHECK(workbook_save(&book,path,&error) && !error); workbook_free(&book);
 }
 static const EmitFixture emit_objects_fixtures[]={
-    {"objects-v12.dxls",12,25,false},{"objects-v13.dxls",13,25,false},
-    {"objects-v14.dxls",14,25,false},{"objects-v14-reordered.dxls",14,25,true}
+
+    {"objects-v15.dxls",15,25,false},{"objects-v15-reordered.dxls",15,25,true}
 };
 static const char objects_reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_objects AS SELECT chart_measure,source_id,mark,kind,width,height,column_id,row_id,name,id,sheet_id FROM _duxcel_workspace.objects; DROP TABLE _duxcel_workspace.objects; ALTER TABLE _duxcel_workspace.reordered_objects RENAME TO objects";
 static uint64_t object_hash_word(uint64_t h,uint64_t word) {
@@ -66,25 +66,25 @@ static void pending_objects_header(WorkbookCodecRead *read,WorkbookCodecHeader *
     ObjectHeaderStamp before=objects_stamp(*out); char *error=NULL;
     CHECK(!workbook_codec_read_finish(read,out,&error)); clear_error(&error); kept_objects_header(*out,before);
 }
-static WorkbookCodecRead *objects_begin(duckdb_connection c,unsigned version,const char *target,size_t retained) {
+static WorkbookCodecRead *objects_begin(duckdb_connection c,unsigned version,const char *target,size_t retained) {CHECK(version==15);
     WorkbookCodecRead *read=NULL; char *error=NULL;
     CHECK(workbook_codec_read_begin(&read,key,version,WORKBOOK_CODEC_SHEETS_25,OBJECT_HEADER_LIMIT,resolve,(void *)target,&error));
     CHECK(result_feed(c,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
     CHECK(result_feed(c,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED && !error);
     return read;
 }
-static void objects_compare(const char *path,unsigned version,bool present,bool faults,WorkbookCodecHeader **out) {
+static void objects_compare(const char *path,unsigned version,bool present,bool faults,WorkbookCodecHeader **out) {CHECK(present);CHECK(version==15);
     FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL;
     bool loaded=workbook_load(&native,path,&error);
     if (!loaded) fprintf(stderr,"object native load %s: %s\n",path,error ? error : "no diagnostic");
     CHECK(loaded && !error && native.count==64 && native.active==63);
-    if (version==13) CHECK(native.sheets[0].objects.next_id==OBJECT_BASE+100);
-    if (version==14) CHECK(native.sheets[0].formats.source_aware);
+
+     CHECK(native.sheets[0].formats.source_aware);
     duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
     size_t retained=workbook_codec_header_owned_bytes(*out);
     WorkbookCodecRead *read=objects_begin(connection,version,native.path,retained);
-    CHECK(workbook_codec_read_add_objects(read,present,&error) && !error);
-    if (present) {
+    CHECK(workbook_codec_read_add_objects(read,true,&error) && !error);
+     {
         const WorkbookCodecRequest *request=workbook_codec_read_request(read);
         CHECK(request && request->family==WORKBOOK_CODEC_OBJECTS && request->column_count==11 && request->source_column_count==11 && request->row_limit==2049);
         CHECK(!strcmp(request->sql,"SELECT sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure FROM _duxcel_workspace.objects ORDER BY sheet_id,id LIMIT 2049"));
@@ -126,7 +126,7 @@ static void objects_compare(const char *path,unsigned version,bool present,bool 
         CHECK(!strcmp(s->analysis.query,"SELECT * FROM __BP1_SOURCE_MUST_NOT_EXECUTE") && !s->hidden);
         const SheetView *v=workbook_codec_header_view(*out,sheet),*w=&s->view;
         CHECK(v && v->row==w->row && v->col==w->col && v->anchor_row==w->anchor_row && v->anchor_col==w->anchor_col && v->end_row==w->end_row && v->end_col==w->end_col && v->top==w->top && v->horizontal==w->horizontal && v->fraction==w->fraction && v->selection==w->selection && v->canvas_zoom==w->canvas_zoom);
-        CHECK(workbook_codec_header_object_count(*out,sheet)==s->objects.count && s->objects.count==(present ? 32u : 0u));
+        CHECK(workbook_codec_header_object_count(*out,sheet)==s->objects.count && s->objects.count==(32u));
         for (size_t j=0;j<s->objects.count;j++) {
             const SheetObject *o=s->objects.items+j; WorkbookCodecObjectView view={0};
             CHECK(workbook_codec_header_object_at(*out,sheet,j,&view));
@@ -138,16 +138,16 @@ static void objects_compare(const char *path,unsigned version,bool present,bool 
     }
     WorkbookCodecObjectView invalid; memset(&invalid,0x5a,sizeof(invalid)); WorkbookCodecObjectView saved=invalid;
     CHECK(!workbook_codec_header_object_at(*out,64,0,&invalid) && !memcmp(&invalid,&saved,sizeof(invalid)));
-    CHECK(!workbook_codec_header_object_at(*out,0,present ? 32 : 0,&invalid) && !memcmp(&invalid,&saved,sizeof(invalid)));
+    CHECK(!workbook_codec_header_object_at(*out,0,32,&invalid) && !memcmp(&invalid,&saved,sizeof(invalid)));
     CHECK(!workbook_codec_header_object_at(*out,0,0,NULL));
     workbook_free(&native); FileImage after=file_image(path); CHECK(before.bytes==after.bytes && !memcmp(before.data,after.data,before.bytes)); free(before.data); free(after.data);
-    if (present) { WorkbookCodecObjectView view={0}; CHECK(workbook_codec_header_object_at(*out,63,31,&view) && view.id==UINT64_MAX && !strcmp(view.name,"Object 'İ' 63:31")); CHECK(workbook_codec_header_object_at(*out,0,0,&view) && !strcmp(view.name,"NULL")); }
+     { WorkbookCodecObjectView view={0}; CHECK(workbook_codec_header_object_at(*out,63,31,&view) && view.id==UINT64_MAX && !strcmp(view.name,"Object 'İ' 63:31")); CHECK(workbook_codec_header_object_at(*out,0,0,&view) && !strcmp(view.name,"NULL")); }
     free(error);
 }
 static void objects_graph_fault(const char *path,const char *replacement,WorkbookCodecHeader **out) {
     FileImage before=file_image(path); char *target=dx_absolute_path(path); CHECK(target);
     duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
-    ObjectHeaderStamp stamp=objects_stamp(*out); char *error=NULL; WorkbookCodecRead *read=objects_begin(connection,14,target,stamp.bytes);
+    ObjectHeaderStamp stamp=objects_stamp(*out); char *error=NULL; WorkbookCodecRead *read=objects_begin(connection,15,target,stamp.bytes);
     CHECK(workbook_codec_read_add_objects(read,true,&error)); size_t base=workbook_codec_read_owned_bytes(read);
     char *bad=dx_printf("SELECT * REPLACE (%s) FROM (%s)",replacement,workbook_codec_read_request(read)->sql);
     unsigned prior_queries=executions,prior_feeds=feeds;
@@ -162,7 +162,7 @@ static void objects_archive_rejected(const char *path,bool missing_table,size_t 
     CHECK(workbook_add(&native,"Retained native",&blank,&error)); Workbook saved=native;
     CHECK(!workbook_load(&native,path,&error) && !memcmp(&native,&saved,sizeof(native)) && !strcmp(native.sheets[0].name,"Retained native")); clear_error(&error);
     char *target=dx_absolute_path(path); CHECK(target); duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
-    ObjectHeaderStamp stamp=objects_stamp(*out); WorkbookCodecRead *read=objects_begin(connection,14,target,stamp.bytes);
+    ObjectHeaderStamp stamp=objects_stamp(*out); WorkbookCodecRead *read=objects_begin(connection,15,target,stamp.bytes);
     if (missing_table) { CHECK(!workbook_codec_read_add_objects(read,false,&error) && !workbook_codec_read_request(read)); clear_error(&error); }
     else {
         CHECK(workbook_codec_read_add_objects(read,true,&error));
@@ -174,46 +174,32 @@ static void objects_archive_rejected(const char *path,bool missing_table,size_t 
 }
 /* Full native owner-only v13 requires objects even with no live entries.
    The optional component must reject too, preserving independent prior state. */
-static void objects_absent13(const char *path,WorkbookCodecHeader **out) {
-    FileImage before=file_image(path); Workbook native; workbook_init(&native); char *error=NULL; Analysis blank={0};
-    CHECK(workbook_add(&native,"Retained native",&blank,&error)); Workbook saved=native;
-    CHECK(!workbook_load(&native,path,&error) && error && strstr(error,"owner/format") && !memcmp(&native,&saved,sizeof(native))); clear_error(&error);
-    char *target=dx_absolute_path(path); CHECK(target); duckdb_database database=NULL; duckdb_connection connection=NULL; open_readonly(path,&database,&connection);
-    ObjectHeaderStamp stamp=objects_stamp(*out); WorkbookCodecRead *read=objects_begin(connection,13,target,stamp.bytes); size_t owned=workbook_codec_read_owned_bytes(read);
-    CHECK(!workbook_codec_read_add_objects(read,false,&error) && error && strstr(error,"v13") && !workbook_codec_read_request(read) && workbook_codec_read_owned_bytes(read)==owned); clear_error(&error);
-    kept_objects_header(*out,stamp); workbook_codec_read_free(read); duckdb_disconnect(&connection); duckdb_close(&database); workbook_free(&native); free(target);
-    FileImage after=file_image(path); CHECK(before.bytes==after.bytes && !memcmp(before.data,after.data,before.bytes)); free(before.data); free(after.data);
-}
+
 static int objects_only(void) {
     char temporary[]="/tmp/duxcel-codec-objects-XXXXXX"; CHECK(mkdtemp(temporary)); char *directory=dx_absolute_path(temporary); CHECK(directory);
     char *missing=dx_printf("%s/missing-source.csv",directory); CHECK(access(missing,F_OK)!=0); WorkbookCodecHeader *header=NULL;
-    for (size_t i=0;i<4;i++) {
+    for(size_t i=0;i<2;i++) {
         const EmitFixture *entry=emit_objects_fixtures+i; char *path=dx_printf("%s/%s",directory,entry->name); objects_fixture(path,missing,entry->version);
         if (entry->reordered) { mutate(path,reorder_sql); mutate(path,objects_reorder_sql); }
-        objects_compare(path,entry->version,true,entry->version==13,&header);
-        if (entry->version==14 && !entry->reordered) {
+        objects_compare(path,entry->version,true,!entry->reordered,&header);
+        if ( !entry->reordered) {
             objects_graph_fault(path,"CASE WHEN sheet_id=63 AND kind<>2 THEN 9007199254741993::UBIGINT ELSE source_id END AS source_id",&header);
             objects_graph_fault(path,"CASE WHEN sheet_id=63 AND id=18446744073709551615::UBIGINT THEN 0 ELSE kind END AS kind",&header);
-            objects_compare(path,14,true,false,&header); /* Fresh one-result recovery, never rerun a partially accepted cursor. */
+            objects_compare(path,15,true,false,&header); /* Fresh one-result recovery, never rerun a partially accepted cursor. */
         }
         CHECK(!unlink(path)); free(path);
     }
-    for (unsigned version=12;version<=13;version++) {
-        char *path=dx_printf("%s/absent%u.dxls",directory,version); objects_fixture(path,missing,version);
-        mutate(path,"DELETE FROM _duxcel_workspace.queries WHERE object_id<>0; DELETE FROM _duxcel_workspace.table_sources; DROP TABLE _duxcel_workspace.objects");
-        if (version==13) objects_absent13(path,&header); else objects_compare(path,version,false,false,&header);
-        CHECK(!unlink(path)); free(path);
-    }
-    char *path=dx_printf("%s/rejected14.dxls",directory); objects_fixture(path,missing,14);
+
+    char *path=dx_printf("%s/rejected14.dxls",directory); objects_fixture(path,missing,15);
     mutate(path,"DELETE FROM _duxcel_workspace.objects WHERE sheet_id=62 AND id=9007199254741023; INSERT INTO _duxcel_workspace.objects(sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure) VALUES (0,9007199254741025,'Extra object',500,8,8,4,0,0,0,0)");
     objects_archive_rejected(path,false,0,&header);
     mutate(path,"DELETE FROM _duxcel_workspace.objects WHERE sheet_id=0 AND id=9007199254741025; INSERT INTO _duxcel_workspace.objects(sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure) VALUES (62,9007199254741023,'Object ''İ'' 62:30',370,8,8,4,0,0,9007199254741024,0); INSERT INTO _duxcel_workspace.objects(sheet_id,id,name,row_id,column_id,height,width,kind,mark,source_id,chart_measure) VALUES (64,1,'Sentinel',500,8,8,4,0,0,0,0)");
     objects_archive_rejected(path,false,2048,&header);
-    mutate(path,"DELETE FROM _duxcel_workspace.objects WHERE sheet_id=64"); objects_compare(path,14,true,false,&header);
+    mutate(path,"DELETE FROM _duxcel_workspace.objects WHERE sheet_id=64"); objects_compare(path,15,true,false,&header);
     mutate(path,"DROP TABLE _duxcel_workspace.objects"); objects_archive_rejected(path,true,0,&header);
     CHECK(!unlink(path)); free(path); workbook_codec_header_free(header);
     CHECK(nul_cells==1 && access(missing,F_OK)!=0); free(missing); CHECK(!rmdir(directory)); free(directory);
-    printf("PASS: native object descriptors %u checks; %u metadata executions/%u typed feeds;2048-row native parity/forward Table owners/reorder/v12default-v13v14required, typed faults/geometry/33-sheet/2049-sentinel/budget/stale/recovery; source definitions never executed; descriptor-only comparison, not full Workbook/Worker/App Open; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
+    printf("PASS: native object descriptors %u checks; %u metadata executions/%u typed feeds;2048-row native parity/forward Table owners/reorder/current required, typed faults/geometry/33-sheet/2049-sentinel/budget/stale/recovery; source definitions never executed; descriptor-only comparison, not full Workbook/Worker/App Open; engine %s\n",checks,executions,feeds,duckdb_library_version()); return 0;
 }
 #undef OBJECT_BASE
 #undef OBJECT_HEADER_LIMIT

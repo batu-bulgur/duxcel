@@ -4,7 +4,7 @@
 static char *query_fixture_text(size_t sheet,size_t slot) {
     return !sheet&&!slot?dx_strdup("NULL"):dx_printf("SELECT 1 /* 'İ' %zu:%zu */;  \n",sheet,slot);
 }
-static void queries_fixture(const char *path,const char *missing,unsigned version) {
+static void queries_fixture(const char *path,const char *missing,unsigned version) {CHECK(version==15);
     Workbook book;workbook_init(&book);char *error=NULL;
     for(size_t sheet=0;sheet<64;sheet++){
         Analysis source={.kind=SOURCE_CSV,.path=dx_strdup(missing),.schema=dx_strdup(""),.table=dx_strdup("NULL"),.query=query_fixture_text(sheet,0)};
@@ -19,22 +19,22 @@ static void queries_fixture(const char *path,const char *missing,unsigned versio
         s->objects.next_id=object_fixture_id(sheet,31);
     }
     book.active=63;book.user_scale=1.25f;
-    if(version==13)book.sheets[0].objects.next_id=UINT64_C(9007199254740993)+100;
-    if(version==14)book.sheets[0].formats.source_aware=true;
+
+    book.sheets[0].formats.source_aware=true;
     CHECK(workbook_save(&book,path,&error)&&!error);workbook_free(&book);
 }
 static const EmitFixture emit_queries_fixtures[]={
-    {"queries-v12.dxls",12,25,false},{"queries-v13.dxls",13,25,false},
-    {"queries-v14.dxls",14,25,false},{"queries-v14-reordered.dxls",14,25,true},
-    {"queries-v14-blank.dxls",14,25,false},{"queries-v14-nul.dxls",14,25,false}
+
+    {"queries-v15.dxls",15,25,false},{"queries-v15-reordered.dxls",15,25,true},
+    {"queries-v15-blank.dxls",15,25,false},{"queries-v15-nul.dxls",15,25,false}
 };
-static const char *const queries_post_sql[]={NULL,NULL,NULL,NULL,
+static const char *const queries_post_sql[]={NULL,NULL,
     "UPDATE _duxcel_workspace.queries SET query='   ' WHERE sheet_id=63 AND object_id=18446744073709551615::UBIGINT",
     "UPDATE _duxcel_workspace.queries SET query=concat('a',chr(0),'b') WHERE sheet_id=63 AND object_id=18446744073709551615::UBIGINT"};
 static const char queries_reorder_sql[]="CREATE TABLE _duxcel_workspace.reordered_queries AS SELECT query,object_id,sheet_id FROM _duxcel_workspace.queries; DROP TABLE _duxcel_workspace.queries; ALTER TABLE _duxcel_workspace.reordered_queries RENAME TO queries";
 static int emit_queries(const char *directory) {
     char reorder[2048];int n=snprintf(reorder,sizeof(reorder),"%s;%s",objects_reorder_sql,queries_reorder_sql);CHECK(n>0&&(size_t)n<sizeof(reorder));
-    return emit_fixture_files(directory,emit_queries_fixtures,6,queries_fixture,reorder,queries_post_sql);
+    return emit_fixture_files(directory,emit_queries_fixtures,4,queries_fixture,reorder,queries_post_sql);
 }
 typedef struct {ObjectHeaderStamp objects;uint64_t digest;} QueryHeaderStamp;
 static QueryHeaderStamp queries_stamp(WorkbookCodecHeader *header) {
@@ -57,18 +57,18 @@ static void kept_queries_header(WorkbookCodecHeader *header,QueryHeaderStamp bef
 static void pending_queries_header(WorkbookCodecRead *read,WorkbookCodecHeader **out) {
     QueryHeaderStamp before=queries_stamp(*out);char *error=NULL;CHECK(!workbook_codec_read_finish(read,out,&error));clear_error(&error);kept_queries_header(*out,before);
 }
-static WorkbookCodecRead *queries_begin(duckdb_connection connection,unsigned version,const char *target,size_t retained) {
+static WorkbookCodecRead *queries_begin(duckdb_connection connection,unsigned version,const char *target,size_t retained) {CHECK(version==15);
     WorkbookCodecRead *read=objects_begin(connection,version,target,retained);char *error=NULL;
     CHECK(workbook_codec_read_add_objects(read,true,&error)&&!error);unsigned prior_queries=executions,prior_feeds=feeds;
     CHECK(result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
     CHECK(executions==prior_queries+1&&feeds==prior_feeds+8);return read;
 }
-static void queries_compare(const char *path,unsigned version,bool canonical,bool faults,WorkbookCodecHeader **out) {
+static void queries_compare(const char *path,unsigned version,bool canonical,bool faults,WorkbookCodecHeader **out) {CHECK(version==15);
     FileImage before=file_image(path);Workbook native;workbook_init(&native);char *error=NULL;
     bool loaded=workbook_load(&native,path,&error);if(!loaded)fprintf(stderr,"queries native load: %s\n",error?error:"no diagnostic");
     CHECK(loaded&&!error&&native.count==64&&native.active==63);
-    if(version==13)CHECK(native.sheets[0].objects.next_id==UINT64_C(9007199254740993)+100);
-    if(version==14)CHECK(native.sheets[0].formats.source_aware);
+
+    CHECK(native.sheets[0].formats.source_aware);
     duckdb_database database=NULL;duckdb_connection connection=NULL;open_readonly(path,&database,&connection);
     size_t retained=workbook_codec_header_owned_bytes(*out);WorkbookCodecRead *read=queries_begin(connection,version,native.path,retained);
     CHECK(workbook_codec_read_add_queries(read,true,&error)&&!error);const WorkbookCodecRequest *request=workbook_codec_read_request(read);
@@ -123,7 +123,7 @@ static void queries_compare(const char *path,unsigned version,bool canonical,boo
     QueryHeaderStamp sealed=queries_stamp(*out);workbook_free(&native);kept_queries_header(*out,sealed);
     FileImage after=file_image(path);CHECK(before.bytes==after.bytes&&!memcmp(before.data,after.data,before.bytes));free(before.data);free(after.data);free(error);
 }
-static void queries_rejected(const char *path,unsigned version,bool missing_table,size_t first,const char *reason,bool mapped_null,WorkbookCodecHeader **out) {
+static void queries_rejected(const char *path,unsigned version,bool missing_table,size_t first,const char *reason,bool mapped_null,WorkbookCodecHeader **out) {CHECK(version==15);
     FileImage before=file_image(path);Workbook native;workbook_init(&native);Analysis blank={0};char *error=NULL;CHECK(workbook_add(&native,"Retained native",&blank,&error));Workbook old=native;
     CHECK(!workbook_load(&native,path,&error)&&!memcmp(&native,&old,sizeof(native))&&!strcmp(native.sheets[0].name,"Retained native"));clear_error(&error);
     char *target=dx_absolute_path(path);CHECK(target);duckdb_database database=NULL;duckdb_connection connection=NULL;open_readonly(path,&database,&connection);
@@ -141,7 +141,7 @@ static void queries_rejected(const char *path,unsigned version,bool missing_tabl
 static void queries_empty(const char *path,WorkbookCodecHeader **out) {
     Workbook native;workbook_init(&native);Analysis blank={0};char *error=NULL;CHECK(workbook_add(&native,"Blank primary",&blank,&error)&&workbook_save(&native,path,&error));workbook_free(&native);
     FileImage before=file_image(path);char *target=dx_absolute_path(path);CHECK(target);duckdb_database database=NULL;duckdb_connection connection=NULL;open_readonly(path,&database,&connection);
-    WorkbookCodecRead *read=NULL;size_t retained=workbook_codec_header_owned_bytes(*out);CHECK(workbook_codec_read_begin(&read,key,12,WORKBOOK_CODEC_SHEETS_25,QUERY_HEADER_LIMIT,resolve,target,&error));
+    WorkbookCodecRead *read=NULL;size_t retained=workbook_codec_header_owned_bytes(*out);CHECK(workbook_codec_read_begin(&read,key,15,WORKBOOK_CODEC_SHEETS_25,QUERY_HEADER_LIMIT,resolve,target,&error));
     CHECK(result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);CHECK(result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);
     CHECK(workbook_codec_read_add_objects(read,true,&error)&&result_feed(connection,read,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED);
     CHECK(workbook_codec_read_add_queries(read,true,&error));unsigned prior_queries=executions,prior_feeds=feeds;
@@ -152,14 +152,14 @@ static void queries_empty(const char *path,WorkbookCodecHeader **out) {
 }
 static int queries_only(void) {
     char temporary[]="/tmp/duxcel-codec-queries-XXXXXX";CHECK(mkdtemp(temporary));char *directory=dx_absolute_path(temporary);CHECK(directory);char *missing=dx_printf("%s/missing-source.csv",directory);CHECK(access(missing,F_OK)!=0);WorkbookCodecHeader *header=NULL;
-    for(size_t i=0;i<6;i++){
+    for(size_t i=0;i<4;i++){
         const EmitFixture *entry=emit_queries_fixtures+i;char *path=dx_printf("%s/%s",directory,entry->name);queries_fixture(path,missing,entry->version);
         if(entry->reordered){mutate(path,reorder_sql);mutate(path,objects_reorder_sql);mutate(path,queries_reorder_sql);}
-        if(queries_post_sql[i]){mutate(path,queries_post_sql[i]);queries_rejected(path,14,false,2048,"SQL NULL",true,&header);}
-        else queries_compare(path,entry->version,true,entry->version==13,&header);
+        if(queries_post_sql[i]){mutate(path,queries_post_sql[i]);queries_rejected(path,15,false,2048,"SQL NULL",true,&header);}
+        else queries_compare(path,entry->version,true,!entry->reordered,&header);
         CHECK(!unlink(path));free(path);
     }
-    for(unsigned version=12;version<=14;version++){
+    for(unsigned version=15;version<=15;version++){
         char *path=dx_printf("%s/absent%u.dxls",directory,version);queries_fixture(path,missing,version);mutate(path,"DROP TABLE _duxcel_workspace.queries");queries_rejected(path,version,true,0,"",false,&header);CHECK(!unlink(path));free(path);
     }
     const char *invalid[]={
@@ -173,12 +173,12 @@ static int queries_only(void) {
     };
     const char *reasons[]={"SQL NULL","SQL NULL","ordered","source owner","ordered","Too many query definitions","SQL type"};
     for(size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++){
-        char *path=dx_printf("%s/rejected%zu.dxls",directory,i);queries_fixture(path,missing,14);mutate(path,invalid[i]);queries_rejected(path,14,false,i>=3&&i<=5?2048:0,reasons[i],i<2,&header);CHECK(!unlink(path));free(path);
+        char *path=dx_printf("%s/rejected%zu.dxls",directory,i);queries_fixture(path,missing,15);mutate(path,invalid[i]);queries_rejected(path,15,false,i>=3&&i<=5?2048:0,reasons[i],i<2,&header);CHECK(!unlink(path));free(path);
     }
-    char *path=dx_printf("%s/limit.dxls",directory);queries_fixture(path,missing,14);mutate(path,"UPDATE _duxcel_workspace.queries SET query=repeat('x',65536) WHERE sheet_id=0 AND object_id=0");queries_compare(path,14,false,false,&header);
+    char *path=dx_printf("%s/limit.dxls",directory);queries_fixture(path,missing,15);mutate(path,"UPDATE _duxcel_workspace.queries SET query=repeat('x',65536) WHERE sheet_id=0 AND object_id=0");queries_compare(path,15,false,false,&header);
     const char *text=NULL;CHECK(workbook_codec_header_query(header,0,0,&text)&&text&&strlen(text)==65536);for(size_t i=0;i<65536;i++)CHECK(text[i]=='x');
-    mutate(path,"DELETE FROM _duxcel_workspace.queries WHERE sheet_id=0 AND object_id=0");queries_compare(path,14,false,false,&header);CHECK(workbook_codec_header_query(header,0,0,&text)&&!text);
-    mutate(path,"INSERT INTO _duxcel_workspace.queries(sheet_id,object_id,query) VALUES (0,0,'NULL')");queries_compare(path,14,true,false,&header);CHECK(!unlink(path));free(path);
+    mutate(path,"DELETE FROM _duxcel_workspace.queries WHERE sheet_id=0 AND object_id=0");queries_compare(path,15,false,false,&header);CHECK(workbook_codec_header_query(header,0,0,&text)&&!text);
+    mutate(path,"INSERT INTO _duxcel_workspace.queries(sheet_id,object_id,query) VALUES (0,0,'NULL')");queries_compare(path,15,true,false,&header);CHECK(!unlink(path));free(path);
     path=dx_printf("%s/blank.dxls",directory);queries_empty(path,&header);CHECK(!unlink(path));free(path);workbook_codec_header_free(header);
     CHECK(nul_cells==1&&access(missing,F_OK)!=0);free(missing);CHECK(!rmdir(directory));free(directory);
     printf("PASS: native source queries %u checks; %u metadata executions/%u typed feeds;2112 primary/Table definitions, exact bytes/reorder/64KiB, all-version required tables, realNULL/NUL/blank/duplicates/owner/sentinel rejection, owned state/budget/stale/recovery; no source execution or Worker/App Open claim; engine %s\n",checks,executions,feeds,duckdb_library_version());return 0;

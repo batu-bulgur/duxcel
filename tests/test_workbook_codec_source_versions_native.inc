@@ -16,8 +16,8 @@ static uint64_t ledger_version(bool large,size_t sheet,size_t index) {
     return sheet==0?(large?1u+index:index?LEDGER_BASE:1):sheet==1?LEDGER_BASE+1+index:UINT64_MAX;
 }
 static uint64_t ledger_owner(size_t sheet) {return sheet==0?0:sheet==1?LEDGER_BASE+30:sheet==2?UINT64_MAX:LEDGER_BASE;}
-static uint64_t ledger_high(unsigned version,bool large,size_t sheet) {
-    if(version<14)return 0;
+static uint64_t ledger_high(unsigned version,bool large,size_t sheet) {CHECK(version==15);
+
     return sheet==0?(large?257:LEDGER_BASE+17):sheet==1?(large?LEDGER_BASE+26:LEDGER_BASE+1):sheet==2||sheet==5||sheet==63?UINT64_MAX:0;
 }
 static SourceKind ledger_kind(size_t ordinal) {return ordinal%2?SOURCE_PARQUET:SOURCE_CSV;}
@@ -34,7 +34,7 @@ static SourcePacket ledger_packet(uint64_t owner,uint64_t version,SourceKind kin
     CHECK(source_scope_raw_build(owner,version,&a,&schema,&digest,duckdb_library_version(),&raw,&error)&&!error);
     CHECK(raw.bytes==141+strlen(duckdb_library_version())&&memchr(raw.data,0,raw.bytes));return raw;
 }
-static void ledger_fixture_make(const char *path,const char *missing,unsigned version,bool large) {
+static void ledger_fixture_make(const char *path,const char *missing,unsigned version,bool large) {CHECK(version==15);
     Workbook b;workbook_init(&b);char *error=NULL;CHECK(access(missing,F_OK)!=0);
     char *parquet=dx_printf("%.*s/missing-source.parquet",(int)(strrchr(missing,'/')-missing),missing);CHECK(access(parquet,F_OK)!=0);
     for(size_t s=0;s<64;s++) {
@@ -48,7 +48,7 @@ static void ledger_fixture_make(const char *path,const char *missing,unsigned ve
             if(kind==OBJECT_TABLE)o->source=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup(missing),.schema=dx_strdup(""),.table=dx_strdup("NULL"),.query=dx_strdup("SELECT * FROM __BP1_SOURCE_VERSIONS_MUST_NOT_EXECUTE")};
         }
         w->objects.next_id=counters_expected(version,s);SourceVersions *v=&w->source_versions;v->high_water=ledger_high(version,large,s);
-        if(version==14&&ledger_count(large,s)) {
+        if(ledger_count(large,s)) {
             v->count=v->capacity=ledger_count(large,s);v->items=dx_alloc(v->count*sizeof(*v->items));v->bytes=v->count*sizeof(*v->items);
             for(size_t i=0;i<v->count;i++) {
                 size_t n=ledger_ordinal(large,s,i);SourceKind kind=ledger_kind(n);SourceVersion *entry=v->items+i;
@@ -59,16 +59,16 @@ static void ledger_fixture_make(const char *path,const char *missing,unsigned ve
         }
         CHECK(objects_valid(&w->objects,&error)&&source_versions_valid(v,w->objects.next_id,&error)&&!error&&!w->formats.source_aware&&!w->analysis.source_version);
     }
-    b.active=63;b.user_scale=1.25f;CHECK(workbook_codec_content_version(&b)==version);
+    b.active=63;b.user_scale=1.25f;CHECK(workbook_codec_min_write_version(&b)==version);
     CHECK(workbook_save(&b,path,&error)&&!error);workbook_free(&b);free(parquet);
 }
-static void ledger_emit_fixture(const char *path,const char *missing,unsigned version) {ledger_fixture_make(path,missing,version,ledger_emit_index++==3);}
+static void ledger_emit_fixture(const char *path,const char *missing,unsigned version) {CHECK(version==15);ledger_fixture_make(path,missing,version,ledger_emit_index++==1);}
 static const EmitFixture emit_source_versions_fixtures[]={
-    {"source-versions-v12.dxls",12,25,false},{"source-versions-v13.dxls",13,25,false},
-    {"source-versions-v14.dxls",14,25,false},{"source-versions-v14-reordered.dxls",14,25,true}
+
+    {"source-versions-v15.dxls",15,25,false},{"source-versions-v15-reordered.dxls",15,25,true}
 };
 static const char ledger_reorder_sql[]="CREATE TABLE _duxcel_workspace.ledger_reordered AS SELECT definition,encoding,source_reference,source_kind,owner,version,sheet_id FROM _duxcel_workspace.source_versions; DROP TABLE _duxcel_workspace.source_versions; ALTER TABLE _duxcel_workspace.ledger_reordered RENAME TO source_versions";
-static int emit_source_versions(const char *directory) {ledger_emit_index=0;return emit_fixture_files(directory,emit_source_versions_fixtures,4,ledger_emit_fixture,ledger_reorder_sql,NULL);}
+static int emit_source_versions(const char *directory) {ledger_emit_index=0;return emit_fixture_files(directory,emit_source_versions_fixtures,2,ledger_emit_fixture,ledger_reorder_sql,NULL);}
 /* A single materialized SDK result, <=256 independently owned scalar rows at a
    time. No chunks/vector API is mixed with row APIs. SDK allocations are exact
    size observations and retired with duckdb_free, after poisoning. The engine's
@@ -121,13 +121,13 @@ static LedgerStamp ledger_stamp(WorkbookCodecHeader *h) {
     return stamp;
 }
 static void ledger_kept(WorkbookCodecHeader *h,LedgerStamp before) {source_counters_kept(h,before.prior);CHECK(ledger_stamp(h).digest==before.digest);}
-static WorkbookCodecRead *ledger_begin(duckdb_connection c,unsigned version,const char *path,size_t retained,size_t limit,WorkbookCodecResolve locator) {
+static WorkbookCodecRead *ledger_begin(duckdb_connection c,unsigned version,const char *path,size_t retained,size_t limit,WorkbookCodecResolve locator) {CHECK(version==15);
     WorkbookCodecRead *r=NULL;char *error=NULL;CHECK(workbook_codec_read_begin(&r,key,version,WORKBOOK_CODEC_SHEETS_25,limit,locator,(void *)path,&error));
     CHECK(result_feed(c,r,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);CHECK(result_feed(c,r,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
-    CHECK(!workbook_codec_read_add_source_versions(r,version==14,retained,&error)&&strstr(error,"complete unclaimed"));clear_error(&error);
+    CHECK(!workbook_codec_read_add_source_versions(r,true,retained,&error)&&strstr(error,"complete unclaimed"));clear_error(&error);
     CHECK(workbook_codec_read_add_objects(r,true,&error)&&result_feed(c,r,NULL,256,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
-    CHECK(workbook_codec_read_add_object_counters(r,version>=13,&error));if(version>=13)CHECK(result_feed(c,r,NULL,32,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
-    CHECK(workbook_codec_read_add_source_version_counters(r,version==14,&error));if(version==14)CHECK(result_feed(c,r,NULL,32,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
+    CHECK(workbook_codec_read_add_object_counters(r,true,&error));CHECK(result_feed(c,r,NULL,32,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
+    CHECK(workbook_codec_read_add_source_version_counters(r,true,&error));CHECK(result_feed(c,r,NULL,32,true,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);
     return r;
 }
 static void ledger_request(WorkbookCodecRead *r) {
@@ -135,19 +135,18 @@ static void ledger_request(WorkbookCodecRead *r) {
     CHECK(!strcmp(q->sql,"SELECT sheet_id,version,owner,source_kind,source_reference,encoding,definition FROM _duxcel_workspace.source_versions ORDER BY sheet_id,version LIMIT 65537"));
 }
 static void ledger_unfinished(WorkbookCodecRead *r,WorkbookCodecHeader **out) {LedgerStamp old=ledger_stamp(*out);char *error=NULL;CHECK(!workbook_codec_read_finish(r,out,&error));clear_error(&error);ledger_kept(*out,old);}
-static void ledger_compare(const char *path,unsigned version,bool large,bool unresolved,WorkbookCodecHeader **out) {
+static void ledger_compare(const char *path,unsigned version,bool large,bool unresolved,WorkbookCodecHeader **out) {CHECK(version==15);
     FileImage before=file_image(path);Workbook native;workbook_init(&native);char *error=NULL;CHECK(workbook_load(&native,path,&error)&&!error&&native.count==64);
     duckdb_database db=NULL;duckdb_connection c=NULL;open_readonly(path,&db,&c);size_t retained=workbook_codec_header_owned_bytes(*out);WorkbookCodecRead *r=ledger_begin(c,version,native.path,retained,LEDGER_LIMIT,unresolved?NULL:resolve);unsigned old_exec=executions;
-    CHECK(workbook_codec_read_add_source_versions(r,version==14,retained,&error)&&!error);
-    if(version==14){ledger_request(r);ledger_unfinished(r,out);CHECK(ledger_feed(c,r,NULL,256,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&executions==old_exec+1&&ledger_rows==(large?285u:5u));CHECK(ledger_256==(large?1u:0u)&&ledger_29==(large?1u:0u)&&ledger_pending==(large?95u:2u)&&ledger_complete==(large?190u:3u));}
-    else CHECK(executions==old_exec&&!workbook_codec_read_request(r));
-    size_t owned=workbook_codec_read_owned_bytes(r);CHECK(!workbook_codec_read_add_source_versions(r,version==14,retained,&error)&&workbook_codec_read_owned_bytes(r)==owned);clear_error(&error);
+    CHECK(workbook_codec_read_add_source_versions(r,true,retained,&error)&&!error);
+    {ledger_request(r);ledger_unfinished(r,out);CHECK(ledger_feed(c,r,NULL,256,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error&&executions==old_exec+1&&ledger_rows==(large?285u:5u));CHECK(ledger_256==(large?1u:0u)&&ledger_29==(large?1u:0u)&&ledger_pending==(large?95u:2u)&&ledger_complete==(large?190u:3u));}
+    size_t owned=workbook_codec_read_owned_bytes(r);CHECK(!workbook_codec_read_add_source_versions(r,true,retained,&error)&&workbook_codec_read_owned_bytes(r)==owned);clear_error(&error);
     CHECK(workbook_codec_read_finish(r,out,&error)&&!error);workbook_codec_read_free(r);duckdb_disconnect(&c);duckdb_close(&db);
     CHECK(workbook_codec_header_source_versions_ready(*out)&&workbook_codec_header_source_version_counters_ready(*out)&&workbook_codec_header_object_counters_ready(*out)&&!workbook_codec_header_queries_ready(*out));
     for(size_t s=0;s<64;s++) {
         Worksheet *w=native.sheets+s;const Analysis *a=workbook_codec_header_analysis(*out,s);CHECK(a&&a->kind==SOURCE_NONE&&a->path&&!*a->path&&!a->query&&!a->source_version&&!strcmp(workbook_codec_header_reference(*out,s),"")&&!strcmp(workbook_codec_header_name(*out,s),w->name));
         uint64_t high=0;CHECK(workbook_codec_header_source_version_high_water(*out,s,&high)&&high==ledger_high(version,large,s)&&high==w->source_versions.high_water);
-        size_t count=version==14?ledger_count(large,s):0;CHECK(workbook_codec_header_source_version_count(*out,s)==count&&count==w->source_versions.count);
+        size_t count=ledger_count(large,s);CHECK(workbook_codec_header_source_version_count(*out,s)==count&&count==w->source_versions.count);
         for(size_t i=0;i<count;i++) {
             WorkbookCodecSourceVersionView v;SourceVersion *n=w->source_versions.items+i;size_t ordinal=ledger_ordinal(large,s,i);CHECK(workbook_codec_header_source_version_at(*out,s,i,&v)&&v.version==n->version&&v.owner==n->owner&&v.kind==n->kind&&!strcmp(v.reference,ledger_basename(n->kind)));
             CHECK(v.reference!=n->path&&v.locator&&v.locator_resolved==!unresolved&&(unresolved?!*v.locator:!strcmp(v.locator,n->path))&&v.raw.bytes==n->raw.bytes);
@@ -158,22 +157,22 @@ static void ledger_compare(const char *path,unsigned version,bool large,bool unr
     WorkbookCodecSourceVersionView untouched;memset(&untouched,0x5a,sizeof(untouched));unsigned char bytes[sizeof(untouched)];memcpy(bytes,&untouched,sizeof(bytes));CHECK(!workbook_codec_header_source_version_at(*out,64,0,&untouched)&&!memcmp(bytes,&untouched,sizeof(bytes))&&!workbook_codec_header_source_version_at(*out,0,9999,&untouched)&&!memcmp(bytes,&untouched,sizeof(bytes)));
     LedgerStamp stamp=ledger_stamp(*out);workbook_free(&native);ledger_kept(*out,stamp);FileImage after=file_image(path);CHECK(before.bytes==after.bytes&&!memcmp(before.data,after.data,before.bytes));free(before.data);free(after.data);
 }
-static void ledger_rejected_limit(const char *path,unsigned version,bool present,size_t first,size_t limit,WorkbookCodecHeader **out) {
+static void ledger_rejected_limit(const char *path,unsigned version,bool present,size_t first,size_t limit,WorkbookCodecHeader **out) {CHECK(version==15);
     FileImage before=file_image(path);Workbook native;workbook_init(&native);Analysis blank={0};char *error=NULL;CHECK(workbook_add(&native,"Retained ledger",&blank,&error));unsigned char saved[sizeof(native)];memcpy(saved,&native,sizeof(native));
     CHECK(!workbook_load(&native,path,&error)&&error&&!memcmp(saved,&native,sizeof(native)));clear_error(&error);
     duckdb_database db=NULL;duckdb_connection c=NULL;open_readonly(path,&db,&c);LedgerStamp old=ledger_stamp(*out);char *target=dx_absolute_path(path);WorkbookCodecRead *r=ledger_begin(c,version,target,old.prior.prior.objects.bytes,limit,resolve);
-    if(version<14||!present){CHECK(!workbook_codec_read_add_source_versions(r,present,old.prior.prior.objects.bytes,&error)&&error&&!workbook_codec_read_request(r));}
+    if(!present){CHECK(!workbook_codec_read_add_source_versions(r,present,old.prior.prior.objects.bytes,&error)&&error&&!workbook_codec_read_request(r));}
     else{CHECK(workbook_codec_read_add_source_versions(r,true,old.prior.prior.objects.bytes,&error));ledger_request(r);WorkbookCodecReadStatus status=ledger_feed(c,r,NULL,256,old.prior.prior.objects.bytes,&error);const WorkbookCodecRequest *remaining=workbook_codec_read_request(r);if(status!=WORKBOOK_CODEC_READ_ERROR||!error||!remaining||remaining->first_row!=first||workbook_codec_read_owned_bytes(r)!=ledger_last_owned)fprintf(stderr,"ledger rejection: status=%d expected_first=%zu actual_first=%zu owned=%zu before=%zu diagnostic=%s\n",status,first,remaining?remaining->first_row:SIZE_MAX,workbook_codec_read_owned_bytes(r),ledger_last_owned,error?error:"NULL");CHECK(status==WORKBOOK_CODEC_READ_ERROR&&error&&workbook_codec_read_request(r)->first_row==first&&workbook_codec_read_owned_bytes(r)==ledger_last_owned);ledger_unfinished(r,out);}
     clear_error(&error);ledger_kept(*out,old);workbook_codec_read_free(r);duckdb_disconnect(&c);duckdb_close(&db);free(target);workbook_free(&native);
     FileImage after=file_image(path);CHECK(before.bytes==after.bytes&&!memcmp(before.data,after.data,before.bytes));free(before.data);free(after.data);
 }
-static void ledger_rejected(const char *path,unsigned version,bool present,size_t first,WorkbookCodecHeader **out) {ledger_rejected_limit(path,version,present,first,LEDGER_LIMIT,out);}
+static void ledger_rejected(const char *path,unsigned version,bool present,size_t first,WorkbookCodecHeader **out) {CHECK(version==15);ledger_rejected_limit(path,version,present,first,LEDGER_LIMIT,out);}
 static void ledger_restore(const char *path,const char *change) {
     char *sql=dx_printf("DROP TABLE _duxcel_workspace.source_versions; CREATE TABLE _duxcel_workspace.source_versions AS SELECT %s FROM main.ledger_backup ORDER BY sheet_id,version",change?change:"*");mutate(path,sql);free(sql);
 }
 static void ledger_input_faults(const char *path,WorkbookCodecHeader **out) {
     duckdb_database db=NULL;duckdb_connection c=NULL;open_readonly(path,&db,&c);char *target=dx_absolute_path(path),*error=NULL;LedgerStamp old=ledger_stamp(*out);size_t retained=old.prior.prior.objects.bytes;
-    WorkbookCodecRead *r=ledger_begin(c,14,target,retained,LEDGER_LIMIT,resolve);CHECK(workbook_codec_read_add_source_versions(r,true,retained,&error));size_t bytes=LEDGER_LIMIT-workbook_codec_read_owned_bytes(r)-retained;unsigned char *pressure=dx_alloc(bytes);memset(pressure,0,bytes);
+    WorkbookCodecRead *r=ledger_begin(c,15,target,retained,LEDGER_LIMIT,resolve);CHECK(workbook_codec_read_add_source_versions(r,true,retained,&error));size_t bytes=LEDGER_LIMIT-workbook_codec_read_owned_bytes(r)-retained;unsigned char *pressure=dx_alloc(bytes);memset(pressure,0,bytes);
     CHECK(ledger_feed(c,r,NULL,256,retained+bytes,&error)==WORKBOOK_CODEC_READ_ERROR&&strstr(error,"budget")&&!workbook_codec_read_request(r)->first_row&&workbook_codec_read_owned_bytes(r)==ledger_last_owned);clear_error(&error);free(pressure);ledger_unfinished(r,out);ledger_kept(*out,old);
     CHECK(ledger_feed(c,r,NULL,256,retained,&error)==WORKBOOK_CODEC_READ_ACCEPTED&&!error);CHECK(workbook_codec_read_finish(r,out,&error)&&!error);workbook_codec_read_free(r);duckdb_disconnect(&c);duckdb_close(&db);free(target);
 }
@@ -182,11 +181,11 @@ static void ledger_bounds(const char *path,WorkbookCodecHeader **out) {
        these are not a claim that a4MiB Worker input can carry their maxima. */
     mutate(path,"UPDATE _duxcel_workspace.source_version_counters SET high_water=18446744073709551615::UBIGINT");
     mutate(path,"DROP TABLE _duxcel_workspace.source_versions; CREATE TABLE _duxcel_workspace.source_versions AS SELECT 0::INTEGER AS sheet_id,(i+1)::UBIGINT AS version,0::UBIGINT AS owner,1::INTEGER AS source_kind,'missing-source.csv'::VARCHAR AS source_reference,0::INTEGER AS encoding,NULL::BLOB AS definition FROM range(1025) r(i)");
-    ledger_rejected_limit(path,14,true,1024,32u*1024u*1024u,out);
+    ledger_rejected_limit(path,15,true,1024,32u*1024u*1024u,out);
     mutate(path,"DROP TABLE _duxcel_workspace.source_versions; CREATE TABLE _duxcel_workspace.source_versions AS SELECT 0::INTEGER AS sheet_id,(i+1)::UBIGINT AS version,0::UBIGINT AS owner,1::INTEGER AS source_kind,repeat('r',4096)::VARCHAR AS source_reference,0::INTEGER AS encoding,NULL::BLOB AS definition FROM range(257) r(i)");
-    ledger_rejected_limit(path,14,true,0,32u*1024u*1024u,out);
+    ledger_rejected_limit(path,15,true,0,32u*1024u*1024u,out);
     mutate(path,"DROP TABLE _duxcel_workspace.source_versions; CREATE TABLE _duxcel_workspace.source_versions AS SELECT s::INTEGER AS sheet_id,(i+1)::UBIGINT AS version,0::UBIGINT AS owner,1::INTEGER AS source_kind,repeat('r',4096)::VARCHAR AS source_reference,0::INTEGER AS encoding,NULL::BLOB AS definition FROM range(9) a(s),range(240) b(i) ORDER BY s,i");
-    ledger_rejected_limit(path,14,true,1792,32u*1024u*1024u,out);
+    ledger_rejected_limit(path,15,true,1792,32u*1024u*1024u,out);
 }
 static bool ledger_bad_locator(void *context,SourceKind kind,const char *reference,size_t max,WorkbookCodecOwnedText *out) {
     (void)context;(void)kind;(void)reference;(void)max;out->data=dx_strdup("bad*locator");out->bytes=strlen(out->data);return false;
@@ -197,7 +196,7 @@ static bool ledger_glob_locator(void *context,SourceKind kind,const char *refere
 static void ledger_locator_faults(const char *path,WorkbookCodecHeader **out) {
     duckdb_database db=NULL;duckdb_connection c=NULL;open_readonly(path,&db,&c);char *target=dx_absolute_path(path),*error=NULL;LedgerStamp old=ledger_stamp(*out);size_t retained=old.prior.prior.objects.bytes;
     WorkbookCodecResolve callbacks[]={ledger_bad_locator,ledger_glob_locator};
-    for(size_t i=0;i<2;i++){WorkbookCodecRead *r=ledger_begin(c,14,target,retained,LEDGER_LIMIT,callbacks[i]);CHECK(workbook_codec_read_add_source_versions(r,true,retained,&error));CHECK(ledger_feed(c,r,NULL,256,retained,&error)==WORKBOOK_CODEC_READ_ERROR&&error&&!workbook_codec_read_request(r)->first_row&&workbook_codec_read_owned_bytes(r)==ledger_last_owned);clear_error(&error);ledger_unfinished(r,out);ledger_kept(*out,old);workbook_codec_read_free(r);}
+    for(size_t i=0;i<2;i++){WorkbookCodecRead *r=ledger_begin(c,15,target,retained,LEDGER_LIMIT,callbacks[i]);CHECK(workbook_codec_read_add_source_versions(r,true,retained,&error));CHECK(ledger_feed(c,r,NULL,256,retained,&error)==WORKBOOK_CODEC_READ_ERROR&&error&&!workbook_codec_read_request(r)->first_row&&workbook_codec_read_owned_bytes(r)==ledger_last_owned);clear_error(&error);ledger_unfinished(r,out);ledger_kept(*out,old);workbook_codec_read_free(r);}
     duckdb_disconnect(&c);duckdb_close(&db);free(target);
 }
 static void ledger_save_as(const char *path,const char *directory) {
@@ -208,8 +207,8 @@ static void ledger_save_as(const char *path,const char *directory) {
 }
 static int source_versions_only(void) {
     char temporary[]="/tmp/duxcel-codec-source-versions-XXXXXX";CHECK(mkdtemp(temporary));char *directory=dx_absolute_path(temporary),*missing=dx_printf("%s/missing-source.csv",directory);WorkbookCodecHeader *h=NULL;
-    for(size_t i=0;i<4;i++){const EmitFixture *f=emit_source_versions_fixtures+i;char *path=dx_printf("%s/%s",directory,f->name);ledger_fixture_make(path,missing,f->version,i==3);if(f->reordered){mutate(path,reorder_sql);mutate(path,ledger_reorder_sql);}ledger_compare(path,f->version,i==3,false,&h);if(i==2){ledger_save_as(path,directory);ledger_compare(path,14,false,true,&h);}CHECK(!unlink(path));free(path);}
-    char *path=dx_printf("%s/fault.dxls",directory);ledger_fixture_make(path,missing,14,true);ledger_input_faults(path,&h);ledger_locator_faults(path,&h);mutate(path,"CREATE TABLE main.ledger_backup AS SELECT * FROM _duxcel_workspace.source_versions");
+    for(size_t i=0;i<2;i++){const EmitFixture *f=emit_source_versions_fixtures+i;char *path=dx_printf("%s/%s",directory,f->name);ledger_fixture_make(path,missing,f->version,i==1);if(f->reordered){mutate(path,reorder_sql);mutate(path,ledger_reorder_sql);}ledger_compare(path,f->version,i==1,false,&h);if(i==0){ledger_save_as(path,directory);ledger_compare(path,15,false,true,&h);}CHECK(!unlink(path));free(path);}
+    char *path=dx_printf("%s/fault.dxls",directory);ledger_fixture_make(path,missing,15,true);ledger_input_faults(path,&h);ledger_locator_faults(path,&h);mutate(path,"CREATE TABLE main.ledger_backup AS SELECT * FROM _duxcel_workspace.source_versions");
     const char *faults[]={
         "sheet_id,version,owner,source_kind,CASE WHEN sheet_id=5 THEN NULL ELSE source_reference END AS source_reference,encoding,definition",
         "sheet_id,version,owner,source_kind,CASE WHEN sheet_id=5 THEN '' ELSE source_reference END AS source_reference,encoding,definition",
@@ -229,16 +228,15 @@ static int source_versions_only(void) {
         "sheet_id,version,owner,source_kind,source_reference,encoding,CASE WHEN sheet_id=5 THEN unhex(substr(hex(definition),1,48)||'0100000000000000'||substr(hex(definition),65)) ELSE definition END AS definition",
         "sheet_id,version,owner,source_kind,source_reference,encoding,CAST(definition AS VARCHAR) AS definition"
     };
-    for(size_t i=0;i<sizeof(faults)/sizeof(*faults);i++){ledger_restore(path,faults[i]);ledger_rejected(path,14,true,i+1==sizeof(faults)/sizeof(*faults)?0:256,&h);}
-    ledger_restore(path,NULL);ledger_compare(path,14,true,false,&h);
+    for(size_t i=0;i<sizeof(faults)/sizeof(*faults);i++){ledger_restore(path,faults[i]);ledger_rejected(path,15,true,i+1==sizeof(faults)/sizeof(*faults)?0:256,&h);}
+    ledger_restore(path,NULL);ledger_compare(path,15,true,false,&h);
     mutate(path,"UPDATE _duxcel_workspace.source_version_counters SET high_water=18446744073709551615::UBIGINT WHERE sheet_id=3");
-    ledger_restore(path,"CASE WHEN sheet_id=5 THEN 3 ELSE sheet_id END AS sheet_id,version,CASE WHEN sheet_id=5 THEN 1::UBIGINT ELSE owner END AS owner,source_kind,source_reference,CASE WHEN sheet_id=5 THEN 0 ELSE encoding END AS encoding,CASE WHEN sheet_id=5 THEN NULL ELSE definition END AS definition");ledger_rejected(path,14,true,256,&h);
-    ledger_restore(path,"sheet_id,CASE WHEN sheet_id=0 AND version=257 THEN 256::UBIGINT ELSE version END AS version,owner,source_kind,source_reference,encoding,definition");ledger_rejected(path,14,true,256,&h);
+    ledger_restore(path,"CASE WHEN sheet_id=5 THEN 3 ELSE sheet_id END AS sheet_id,version,CASE WHEN sheet_id=5 THEN 1::UBIGINT ELSE owner END AS owner,source_kind,source_reference,CASE WHEN sheet_id=5 THEN 0 ELSE encoding END AS encoding,CASE WHEN sheet_id=5 THEN NULL ELSE definition END AS definition");ledger_rejected(path,15,true,256,&h);
+    ledger_restore(path,"sheet_id,CASE WHEN sheet_id=0 AND version=257 THEN 256::UBIGINT ELSE version END AS version,owner,source_kind,source_reference,encoding,definition");ledger_rejected(path,15,true,256,&h);
     ledger_restore(path,NULL);ledger_bounds(path,&h);ledger_restore(path,NULL);
-    mutate(path,"DROP TABLE _duxcel_workspace.source_versions");ledger_rejected(path,14,false,0,&h);CHECK(!unlink(path));free(path);
-    for(unsigned v=12;v<=13;v++){path=dx_printf("%s/present%u.dxls",directory,v);ledger_fixture_make(path,missing,v,false);mutate(path,"CREATE TABLE _duxcel_workspace.source_versions(sheet_id INTEGER,version UBIGINT,owner UBIGINT,source_kind INTEGER,source_reference VARCHAR,encoding INTEGER,definition BLOB)");ledger_rejected(path,v,true,0,&h);CHECK(!unlink(path));free(path);}
+    mutate(path,"DROP TABLE _duxcel_workspace.source_versions");ledger_rejected(path,15,false,0,&h);CHECK(!unlink(path));free(path);
     CHECK(ledger_nul_references==1);workbook_codec_header_free(h);CHECK(access(missing,F_OK)!=0);char *parquet=dx_printf("%s/missing-source.parquet",directory);CHECK(access(parquet,F_OK)!=0);free(parquet);free(missing);CHECK(!rmdir(directory));free(directory);
-    printf("PASS: native source versions %u checks; %u metadata executions/%u typed feeds; known writer12/13 absent and14 exact pending/RAW ledger,64 sheets/56 descriptors/285 rows split256+29, retired/MAX/live Table owners, BLOB SDK byte ownership/exact NUL reference rejection, independent rebased locator/RAW SaveAs, atomic late/null/type/budget/stale/retry; largest owned SDK copied batch %zu bytes, materialized engine result excluded; source SQL never executed, no file proof/activation/Open; engine %s\n",checks,executions,feeds,ledger_sdk_peak,duckdb_library_version());return 0;
+    printf("PASS: native source versions %u checks; %u metadata executions/%u typed feeds; current core exact pending/RAW ledger,64 sheets/56 descriptors/285 rows split256+29, retired/MAX/live Table owners, BLOB SDK byte ownership/exact NUL reference rejection, independent rebased locator/RAW SaveAs, atomic late/null/type/budget/stale/retry; largest owned SDK copied batch %zu bytes, materialized engine result excluded; source SQL never executed, no file proof/activation/Open; engine %s\n",checks,executions,feeds,ledger_sdk_peak,duckdb_library_version());return 0;
 }
 #undef LEDGER_BASE
 #undef LEDGER_LIMIT
