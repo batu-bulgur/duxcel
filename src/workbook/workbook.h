@@ -46,6 +46,9 @@ typedef struct {
 typedef struct {
     Worksheet *sheets;
     WorkbookId id;
+    /* Optional native export provenance; opaque root bytes identify the inspected
+       complete state in the origin document, never a retained dependency. */
+    struct { bool present; WorkbookId document; unsigned char root[32]; } origin;
     uint64_t sheet_high_water; /* Never decremented or restored by Undo. */
     uint64_t command_revision; /* Monotonic clock for admitted C commands only. */
     struct WorkbookLifecycle *lifecycle; /* Owned session-only sheet command journal. */

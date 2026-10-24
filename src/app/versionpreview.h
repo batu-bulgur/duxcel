@@ -36,6 +36,10 @@ void app_preview_cancel(AppVersionPreviewState *state);
    refuses to overwrite an unrelated live owner. Caller restores its UI surface.
    Cancel the worker separately if a request was pending. No implicit discard. */
 AppPreviewOutcome app_preview_return(AppVersionPreviewState *state,AppPreviewContext context,char **error);
+/* Deep snapshot of the displayed state with fresh durable identity and immediate
+   origin provenance; caller supplies an empty Save job and owns its reply only.
+   No preview/Working Head field changes and no filesystem work occurs here. */
+bool app_preview_export_job(AppVersionPreviewState *state,AppPreviewContext context,QueryJob *job,const char *parent,char **error);
 const Workbook *app_preview_working(const AppVersionPreviewState *state);
 const AppVersionState *app_preview_working_versions(const AppVersionPreviewState *state);
 #endif

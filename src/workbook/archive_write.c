@@ -64,6 +64,10 @@ static WorkbookSaveResult inspect(WorkbookArchiveSaveContext *context,duckdb_con
     Workbook previous; workbook_init(&previous); unsigned version=0; WorkbookVersionCoreSet *versions=NULL;
     WorkbookSaveResult result=WORKBOOK_SAVE_FAILED;
     if (!workbook_read_native_core(c,target,&previous,&version,error)) goto done;
+    if ((context->control.protected_document.high || context->control.protected_document.low) &&
+        previous.id.high==context->control.protected_document.high && previous.id.low==context->control.protected_document.low) {
+        fail(error,"Choose an independent destination: the Working Head artifact is protected."); goto done;
+    }
     if (version==DX_VERSIONED_WORKSPACE_VERSION) {
         WorkbookVersionRestoreResult restored=workbook_version_core_set_read(c,context->parent,context->reserved,context->control.inspect,&versions,error);
         if (restored!=VERSION_RESTORE_READY) { if (restored==VERSION_RESTORE_CANCELLED) result=WORKBOOK_SAVE_CANCELLED; goto done; }

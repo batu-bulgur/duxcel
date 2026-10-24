@@ -11,6 +11,10 @@ bool worker_archive_save_job(QueryWorker *worker,QueryJob *job,const WorkbookVer
     WorkbookVersionOwner owner,WorkbookVersionPurpose purpose,const char *parent,uint64_t reserved_bytes,char **error);
 /* Current-head Tag uses the Save lane and owns a copy of the validated label.
    It is not a user Save that silently creates an automatic tag. */
+/* Fresh current-state-only export snapshot; no base roots/tags, ordinary Save
+   adoption or recovery authority. Origin document targets are protected. */
+bool worker_archive_export_job(QueryWorker *worker,QueryJob *job,const char *parent,uint64_t reserved_bytes,char **error);
+bool worker_archive_is_export_reply(const QueryReply *reply);
 bool worker_archive_tag_job(QueryWorker *worker,QueryJob *job,const WorkbookVersionCoreSet *base,
     WorkbookVersionOwner owner,WorkbookVersionText label,const char *parent,uint64_t reserved_bytes,char **error);
 /* Bind a copied same-destination expectation to an already attached Save/Tag.
@@ -28,7 +32,7 @@ bool worker_archive_is_preview_reply(const QueryReply *reply);
    metadata independently. These getters never identify an ordinary Open. */
 const WorkbookVersionPreview *worker_archive_preview(const QueryReply *reply);
 WorkbookVersionPreview *worker_archive_take_preview(QueryReply *reply);
-/* Ordinary Save/Open/Tag only: preview replies cannot enter normal adoption. */
+/* Ordinary Save/Open/Tag only: preview and export replies cannot enter normal adoption. */
 bool worker_archive_is_reply(const QueryReply *reply);
 /* True even when Tag preparation failed/cancelled and has no receipt yet. */
 bool worker_archive_is_tag_reply(const QueryReply *reply);

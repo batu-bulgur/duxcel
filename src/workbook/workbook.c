@@ -602,7 +602,7 @@ bool workbook_hide(Workbook *b,size_t index,bool hidden,char **error) {
 Workbook *workbook_snapshot(const Workbook *b) {
     if (!workbook_identity_valid(b)) return NULL;
     Workbook *out=dx_alloc(sizeof(*out)); workbook_init(out); out->user_scale=b->user_scale; out->reduced_motion=b->reduced_motion;
-    out->path=b->path ? dx_strdup(b->path) : NULL; out->id=b->id;
+    out->path=b->path ? dx_strdup(b->path) : NULL; out->id=b->id; out->origin=b->origin;
     for (size_t i=0;i<b->count;i++) {
         char *error=NULL; SourceVersions versions={0};
         if (!source_versions_valid(&b->sheets[i].source_versions,b->sheets[i].objects.next_id,&error) || !source_versions_copy(&versions,&b->sheets[i].source_versions,&error)) { free(error); workbook_free(out); free(out); return NULL; }
@@ -704,10 +704,13 @@ static bool owner_package_rows_supported(duckdb_connection c,char **error) {
     bool invalid=duckdb_value_boolean(&r,0,0); duckdb_destroy_result(&r);
     if (invalid) error_set(error,"Invalid workspace v13 owner counters or spatial selector metadata."); return !invalid;
 }
+static bool load_export_origin(duckdb_connection c,Workbook *book,char **error);
 static bool source_package_inventory(duckdb_connection c,unsigned package,bool complete,char **error) {
+    Workbook provenance={0};
+    if (package>=15 && !load_export_origin(c,&provenance,error)) return false;
     char *sql=dx_strdup("SELECT count(*),count(*) FILTER(WHERE table_type<>'BASE TABLE' OR table_name NOT IN (");
     for (size_t i=0;i<workbook_codec_table_count(package);i++) dx_append(&sql,"%s'%s'",i ? "," : "",workbook_codec_table_at(package,i)->table);
-    dx_append(&sql,")) FROM information_schema.tables WHERE table_schema='_duxcel_workspace'");
+    dx_append(&sql,")) FROM information_schema.tables WHERE table_schema='_duxcel_workspace' AND (%u<15 OR table_name<>'export_origin')",package);
     duckdb_result r={0}; bool queried=duckdb_query(c,sql,&r)==DuckDBSuccess; free(sql);
     if (!queried) { error_set(error,duckdb_result_error(&r)); duckdb_destroy_result(&r); return false; }
     uint64_t count=duckdb_value_uint64(&r,0,0),unknown=duckdb_value_uint64(&r,1,0); duckdb_destroy_result(&r);
@@ -747,6 +750,8 @@ static bool codec_package_shape(duckdb_connection c,const char *name,char **erro
     return package_shape(c,table->table,table->columns,types,count,error);
 }
 static bool source_package_shape(duckdb_connection c,unsigned package,char **error) {
+    Workbook provenance={0};
+    if (package>=15 && !load_export_origin(c,&provenance,error)) return false;
     WorkbookSchemaProof proof;
     if (!workbook_schema_begin(&proof,package)) return range_fail(error,"Unsupported workbook metadata package.");
     /* One bounded catalog snapshot replaces per-table count/prepare queries.
@@ -755,7 +760,7 @@ static bool source_package_shape(duckdb_connection c,unsigned package,char **err
     char *sql=dx_printf("SELECT encode(CASE WHEN length(t.table_name)<=64 THEN t.table_name END),encode(t.table_type),"
         "encode(CASE WHEN length(c.column_name)<=64 THEN c.column_name END),encode(CASE WHEN length(c.data_type)<=64 THEN c.data_type END) "
         "FROM information_schema.tables t LEFT JOIN information_schema.columns c ON t.table_catalog=c.table_catalog AND t.table_schema=c.table_schema AND t.table_name=c.table_name "
-        "WHERE t.table_schema='_duxcel_workspace' LIMIT %zu",proof.expected_rows+1);
+        "WHERE t.table_schema='_duxcel_workspace' AND (%u<15 OR t.table_name<>'export_origin') LIMIT %zu",package,proof.expected_rows+1);
     duckdb_result result={0}; bool ok=duckdb_query(c,sql,&result)==DuckDBSuccess; free(sql);
     if (!ok) { error_set(error,duckdb_result_error(&result)); duckdb_destroy_result(&result); return false; }
     ok=duckdb_column_count(&result)==4;
@@ -1152,8 +1157,49 @@ static bool source_target_valid(const Workbook *book,const char *target,char **e
     }
     return true;
 }
-/* Ordinal sheet_id remains the archive join key. Stable IDs are an explicit
-   bijection, never inferred from a display name or a physical table position. */
+/* Optional native v15 identity extension. Older files have no table. A present
+   table has an exact bounded typed row; it never changes the core discriminator. */
+static bool save_export_origin(duckdb_connection c,const Workbook *book,char **error) {
+    /* The optional table is absent in ordinary files. The caller has already
+       admitted any existing table before this transaction modifies metadata. */
+    if (!book->origin.present) return exec(c,"DROP TABLE IF EXISTS _duxcel_workspace.export_origin",error);
+    if (!exec(c,"CREATE TABLE IF NOT EXISTS _duxcel_workspace.export_origin(document_high UBIGINT,document_low UBIGINT,root BLOB); DELETE FROM _duxcel_workspace.export_origin",error)) return false;
+    if ((!book->origin.document.high && !book->origin.document.low) ||
+        (book->origin.document.high==book->id.high && book->origin.document.low==book->id.low)) return range_fail(error,"Invalid export origin identity.");
+    duckdb_prepared_statement statement=NULL;
+    bool ok=prepare(c,"INSERT INTO _duxcel_workspace.export_origin VALUES (?,?,?)",&statement,error);
+    if (ok) {
+        duckdb_bind_uint64(statement,1,book->origin.document.high); duckdb_bind_uint64(statement,2,book->origin.document.low);
+        duckdb_bind_blob(statement,3,book->origin.root,32); ok=run(statement,error);
+    }
+    if (statement) duckdb_destroy_prepare(&statement); return ok;
+}
+static bool load_export_origin(duckdb_connection c,Workbook *book,char **error) {
+    duckdb_result r={0}; bool ok=false;
+    if (duckdb_query(c,"SELECT table_type FROM information_schema.tables WHERE table_catalog=current_database() AND table_schema='_duxcel_workspace' AND table_name='export_origin' LIMIT 2",&r)!=DuckDBSuccess || duckdb_row_count(&r)>1) goto done;
+    bool present=duckdb_row_count(&r)!=0;
+    if (present) {
+        char *kind=duckdb_value_varchar(&r,0,0); bool base=kind && !strcmp(kind,"BASE TABLE"); duckdb_free(kind); if (!base) goto done;
+    }
+    duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
+    if (!present) return true;
+    if (duckdb_query(c,"SELECT * FROM _duxcel_workspace.export_origin LIMIT 0",&r)!=DuckDBSuccess || duckdb_column_count(&r)!=3 ||
+        strcmp(duckdb_column_name(&r,0),"document_high") || strcmp(duckdb_column_name(&r,1),"document_low") || strcmp(duckdb_column_name(&r,2),"root") ||
+        duckdb_column_type(&r,0)!=DUCKDB_TYPE_UBIGINT || duckdb_column_type(&r,1)!=DUCKDB_TYPE_UBIGINT || duckdb_column_type(&r,2)!=DUCKDB_TYPE_BLOB) goto done;
+    duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
+    if (duckdb_query(c,"SELECT document_high,document_low,CASE WHEN octet_length(root)=32 THEN root END AS root FROM _duxcel_workspace.export_origin LIMIT 2",&r)!=DuckDBSuccess || duckdb_column_count(&r)!=3 ||
+        duckdb_column_type(&r,0)!=DUCKDB_TYPE_UBIGINT || duckdb_column_type(&r,1)!=DUCKDB_TYPE_UBIGINT || duckdb_column_type(&r,2)!=DUCKDB_TYPE_BLOB || duckdb_row_count(&r)>1) goto done;
+    if (!duckdb_row_count(&r)) { ok=true; goto done; }
+    for (idx_t i=0;i<3;i++) if (duckdb_value_is_null(&r,i,0)) goto done;
+    WorkbookId origin={duckdb_value_uint64(&r,0,0),duckdb_value_uint64(&r,1,0)};
+    if ((!origin.high && !origin.low) || (origin.high==book->id.high && origin.low==book->id.low)) goto done;
+    duckdb_blob blob=duckdb_value_blob(&r,2,0);
+    if (blob.size==32) { book->origin.present=true; book->origin.document=origin; memcpy(book->origin.root,blob.data,32); ok=true; }
+    duckdb_free(blob.data);
+done:
+    duckdb_destroy_result(&r); return ok || range_fail(error,"Invalid optional native export origin metadata.");
+}
+/* Ordinal sheet_id remains the archive join key; stable IDs form a bijection. */
 static bool save_identity_package(duckdb_connection c,const Workbook *book,char **error) {
     if (!exec(c,"CREATE TABLE IF NOT EXISTS _duxcel_workspace.workbook_identity(high UBIGINT,low UBIGINT,sheet_high_water UBIGINT,command_revision UBIGINT);"
         "CREATE TABLE IF NOT EXISTS _duxcel_workspace.sheet_identity(sheet_id INTEGER,stable_id UBIGINT);"
@@ -1328,7 +1374,7 @@ static WorkbookSaveResult save_core(const Workbook *b,const char *path,WorkbookS
         if (!exec(c,sql,error)) goto done;
     }
     if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
-    if (!save_identity_package(c,b,error) || !source_package_shape(c,write_version,error)) goto done;
+    if (!save_identity_package(c,b,error) || !save_export_origin(c,b,error) || !source_package_shape(c,write_version,error)) goto done;
     if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
     if (adapter) {
         WorkbookSaveResult staged=adapter->stage(adapter->context,c,error);
@@ -1889,7 +1935,7 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
         if (!isfinite(v->horizontal)||v->horizontal<0||!isfinite(v->fraction)||v->fraction<0||v->fraction>=1||v->selection>3||v->row>=DX_SHEET_ROWS||v->anchor_row>=DX_SHEET_ROWS||v->end_row>=DX_SHEET_ROWS||v->top>=DX_SHEET_ROWS||v->col>=16384||v->anchor_col>=16384||v->end_col>=16384) { error_set(error,"Invalid worksheet viewport."); goto done; }
     }
     duckdb_destroy_result(&r); memset(&r,0,sizeof(r));
-    if (workspace_version>=15 && !load_identity_package(c,&book,error)) goto done;
+    if (workspace_version>=15 && (!load_identity_package(c,&book,error) || !load_export_origin(c,&book,error))) goto done;
     if (workspace_version>=14 && !source_package_budget(c,&book,error)) goto done;
     if (duckdb_query(c,"SELECT sheet_id,column_id,name,width FROM _duxcel_workspace.columns ORDER BY sheet_id,column_id LIMIT 1048577",&r)!=DuckDBSuccess) { error_set(error,duckdb_result_error(&r)); goto done; }
     if (duckdb_row_count(&r)>1048576) { error_set(error,"Too many workspace columns."); goto done; }

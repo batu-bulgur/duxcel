@@ -1570,7 +1570,35 @@ static void workspace_job_context(App *a,JobKind kind,const char *path,const Wor
     app_worker_submit(a,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
 }
 static void workspace_job(App *a,JobKind kind,const char *path) { workspace_job_context(a,kind,path,NULL,false); }
-static void workspace_save_as(App *a,const char *path) { workspace_job_context(a,JOB_SAVE,path,NULL,true); }
+#ifndef DUXCEL_BROWSER_HOST
+static void history_save_as(App *a,const char *path) {
+    if (!historical(a) || a->busy || a->io_busy || a->history.pending.request) return;
+    WorkbookFormatUsage held={0},shown={0};
+    FormatBudgetStatus admission=workbook_format_usage(app_preview_working(&a->history),NULL,0,&held);
+    if (!admission) admission=workbook_format_usage(&a->book,NULL,0,&shown);
+    size_t coexist=held.retained;
+    if (!admission && !source_format_add(&coexist,shown.current)) admission=FORMAT_BUDGET_OVERFLOW;
+    if (!admission) admission=source_format_budget_status(a,NULL,0,coexist,0,1,0);
+    if (admission) { snprintf(a->history_message,sizeof(a->history_message),"%s",workbook_format_budget_message(admission)); return; }
+    char *requested=workbook_is_path(path) ? dx_strdup(path) : dx_printf("%s.dxls",path);
+    char *absolute=workbook_target_path(requested); free(requested);
+    if (!absolute || recovery_managed_path(a,absolute)) {
+        free(absolute); snprintf(a->history_message,sizeof(a->history_message),"Choose an independent saved workbook location outside local backup storage."); return;
+    }
+    QueryJob *job=dx_alloc(sizeof(*job)); job->id=a->request_id+1; job->kind=JOB_SAVE; job->path=absolute; char *error=NULL;
+    if (!app_preview_export_job(&a->history,(AppPreviewContext){&a->book,&a->versions,&a->worker},job,a->version_root,&error)) {
+        snprintf(a->history_message,sizeof(a->history_message),"%s",error ? error : "Historical export could not start."); free(error); worker_job_free(job); return;
+    }
+    a->request_id=job->id; a->pending_kind=JOB_SAVE; a->busy=a->io_busy=true; a->modal=MODAL_NONE; a->save_is_tag=false;
+    snprintf(a->history_message,sizeof(a->history_message),"Saving inspected state as an independent workbook… Escape cancels."); app_worker_submit(a,job);
+}
+#endif
+static void workspace_save_as(App *a,const char *path) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (historical(a)) { history_save_as(a,path); return; }
+#endif
+    workspace_job_context(a,JOB_SAVE,path,NULL,true);
+}
 #ifndef DUXCEL_BROWSER_HOST
 #include "versions.inc"
 #endif
@@ -2251,6 +2279,11 @@ static void poll_query(App *a) {
     if (r->kind==JOB_SAVE || r->kind==JOB_LOAD) {
         a->io_busy=false;
 #ifndef DUXCEL_BROWSER_HOST
+        if (worker_archive_is_export_reply(r)) {
+            snprintf(a->history_message,sizeof(a->history_message),"%s",r->save_result==WORKBOOK_SAVE_CANCELLED ? "Historical Save As cancelled. Working Head is unchanged." :
+                r->error ? r->error : r->save_result==WORKBOOK_SAVE_COMPLETE ? "Inspected state saved as an independent workbook. Working Head is unchanged." : "Historical Save As failed. Working Head is unchanged.");
+            status(a,a->history_message); reply_free(r); return;
+        }
         bool tagged=worker_archive_is_tag_reply(r);
         if (r->kind==JOB_SAVE && r->save_result==WORKBOOK_SAVE_CANCELLED) {
             cancel_document_action(a); a->modal=tagged ? MODAL_VERSIONS : MODAL_NONE; status(a,"Save cancelled. Changes still need saving.");
@@ -2468,7 +2501,12 @@ static void open_modal(App *a,Modal modal) {
 #ifdef __APPLE__
     if (modal==MODAL_OPEN || modal==MODAL_SAVE || modal==MODAL_RELINK) {
         a->consume_grid_input=true;
+#ifdef DUXCEL_FEATURE_HISTORY_PREVIEW
+        extern char *dx_test_history_export_destination(void);
+        char *path=modal==MODAL_SAVE && historical(a) ? dx_test_history_export_destination() : modal==MODAL_SAVE ? dx_save_file_panel(a->book.path) : dx_open_file_panel();
+#else
         char *path=modal==MODAL_SAVE ? dx_save_file_panel(a->book.path) : dx_open_file_panel();
+#endif
         if (path) {
             if (modal==MODAL_SAVE) workspace_save_as(a,path);
             else if (modal==MODAL_RELINK) {
@@ -7803,7 +7841,8 @@ static void shortcuts(App *a) {
         return;
     }
     if (historical(a)) {
-        if (a->modal==MODAL_NONE && ui_pressed(KEY_ESCAPE)) history_return(a);
+        if (!a->io_busy && a->modal==MODAL_NONE && (command==DX_COMMAND_SAVE_AS || (ui_pressed(KEY_S) && ui_key_shortcut(KEY_S) && ui_key_shift(KEY_S)))) open_modal(a,MODAL_SAVE);
+        else if (!a->io_busy && a->modal==MODAL_NONE && ui_pressed(KEY_ESCAPE)) history_return(a);
         /* The version widget handles its own keys. Grid navigation stays local
            to the dedicated reader; no authoring command reaches Working state. */
         return;
@@ -8674,11 +8713,15 @@ static void draw_app(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
     if (historical(a)) {
         dx_native_titlebar_height(0);
+        layout_save_progress(a);
         UIHistoryAction action=ui_history_draw(&a->ui,&a->history_view,&a->book,a->history_label,a->history_message,
-            a->modal==MODAL_NONE && !a->history.pending.request && !a->consume_grid_input);
+            a->modal==MODAL_NONE && !a->io_busy && !a->history.pending.request && !a->consume_grid_input);
         if (action==UI_HISTORY_RETURN) history_return(a);
         else if (action==UI_HISTORY_VERSIONS) versions_open(a);
+        else if (action==UI_HISTORY_SAVE_AS) open_modal(a,MODAL_SAVE);
+        draw_save_progress(a);
         if (a->modal==MODAL_VERSIONS) versions_draw(a);
+        else if (a->modal==MODAL_SAVE) draw_modal_presence(a);
         return;
     }
 #endif

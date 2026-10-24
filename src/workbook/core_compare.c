@@ -59,6 +59,19 @@ WorkbookCorePayloadResult workbook_core_payload_equal(const WorkbookCorePayload 
         char *quoted=dx_quote(workbook_core_payload_path(right),'\'');
         char *sql=dx_printf("ATTACH %s AS dx_other (READ_ONLY)",quoted); free(quoted);
         bool ok=query(connection,sql,&compare,&result,error); free(sql); duckdb_destroy_result(&result); if (!ok) goto done;
+        /* Native optional origin metadata is outside the required shared codec
+           inventory. Missing and empty both mean no origin; admitted rows must
+           still participate in complete-core semantic reuse. */
+        if (!query(connection,"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog=current_database() AND table_schema='_duxcel_workspace' AND table_name='export_origin'),EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog='dx_other' AND table_schema='_duxcel_workspace' AND table_name='export_origin')",&compare,&result,error)) goto done;
+        bool left_origin=duckdb_value_boolean(&result,0,0),right_origin=duckdb_value_boolean(&result,1,0);
+        duckdb_destroy_result(&result);
+        if (left_origin || right_origin) {
+            const char *origin_sql=left_origin && right_origin ?
+                "SELECT NOT EXISTS ((SELECT * FROM _duxcel_workspace.export_origin EXCEPT ALL SELECT * FROM dx_other._duxcel_workspace.export_origin) UNION ALL (SELECT * FROM dx_other._duxcel_workspace.export_origin EXCEPT ALL SELECT * FROM _duxcel_workspace.export_origin))" :
+                left_origin ? "SELECT NOT EXISTS(SELECT 1 FROM _duxcel_workspace.export_origin)" : "SELECT NOT EXISTS(SELECT 1 FROM dx_other._duxcel_workspace.export_origin)";
+            if (!query(connection,origin_sql,&compare,&result,error)) goto done;
+            same &= duckdb_value_boolean(&result,0,0); duckdb_destroy_result(&result);
+        }
         size_t count=workbook_codec_table_count(15);
         for (size_t i=0;i<count;i++) {
             compare.table=i; const WorkbookCodecTable *table=workbook_codec_table_at(15,i);

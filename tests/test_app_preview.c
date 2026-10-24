@@ -3,19 +3,31 @@
 #include "app/versionpreview.h"
 #include "workbook/cell_command.h"
 #include "workbook/history.h"
+#include <duckdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 static unsigned checks;
+static bool cancel_publish(void *context,WorkbookSaveProgress progress) {
+    bool *seen=context; if (progress.phase==SAVE_PHASE_PUBLISH) { *seen=true; return false; } return true;
+}
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL App preview:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
+static void sql_file(const char *path,const char *sql) {
+    duckdb_database database=NULL; duckdb_connection connection=NULL; duckdb_result result={0};
+    CHECK(duckdb_open(path,&database)==DuckDBSuccess && duckdb_connect(database,&connection)==DuckDBSuccess);
+    CHECK(duckdb_query(connection,sql,&result)==DuckDBSuccess);
+    duckdb_destroy_result(&result); duckdb_disconnect(&connection); duckdb_close(&database);
+}
 static QueryReply *reply(QueryWorker *w) { QueryReply *r; double deadline=dx_millis()+20000; while (!(r=worker_poll(w))) { CHECK(dx_millis()<deadline); dx_sleep_ms(1); } return r; }
 static QueryJob *job(uint64_t id) { QueryJob *j=dx_alloc(sizeof(*j)); j->id=id; j->kind=JOB_LOAD; j->path=dx_strdup("Historical version"); return j; }
 static void clear(char **error) { CHECK(*error); free(*error); *error=NULL; }
 static WorkbookVersionCoreSet *tag(Workbook *book,const WorkbookVersionCoreSet *base,WorkbookVersionOwner owner,const char *path,const char *parent,const char *label) {
     WorkbookVersionReceipt *receipt=NULL; char *error=NULL;
-    CHECK(workbook_version_tag_save((WorkbookVersionSaveRequest){book,base,owner,VERSION_USER_SAVE,path,parent,UINT64_C(128)*1024*1024},
-        (WorkbookVersionText){label,strlen(label)},(WorkbookVersionSaveControl){0},&receipt,&error)==WORKBOOK_SAVE_COMPLETE && !error);
+    WorkbookSaveResult result=workbook_version_tag_save((WorkbookVersionSaveRequest){book,base,owner,VERSION_USER_SAVE,path,parent,UINT64_C(128)*1024*1024},
+        (WorkbookVersionText){label,strlen(label)},(WorkbookVersionSaveControl){0},&receipt,&error);
+    if (result!=WORKBOOK_SAVE_COMPLETE) fprintf(stderr,"Tag preparation: %s\n",error ? error : "unknown");
+    CHECK(result==WORKBOOK_SAVE_COMPLETE && !error);
     WorkbookVersionCoreSet *next=workbook_version_receipt_take_versions(receipt); workbook_version_receipt_free(receipt); return next;
 }
 static QueryReply *preview_read(AppVersionPreviewState *state,AppPreviewContext context,uint64_t id,WorkbookVersionKey root) {
@@ -51,6 +63,50 @@ int main(void) {
     CHECK(!memcmp(app_preview_working(&state),&original,sizeof(original)) && !memcmp(app_preview_working(&state)->sheets,&sheet,sizeof(sheet)));
     CHECK(!memcmp(app_preview_working_versions(&state),&original_versions,sizeof(original_versions)));
     CHECK(workbook_history_peek(app_preview_working(&state),false,&error).order==undo && workbook_history_peek(app_preview_working(&state),true,&error).order==redo);
+    /* Historical export is a separate receipt intent and deep current-state
+       snapshot. Releasing it cannot adopt a path, index or recovery identity. */
+    char *export_path=dx_printf("%s/export.dxls",parent);
+    QueryJob *export=dx_alloc(sizeof(*export)); export->id=40; export->kind=JOB_SAVE; export->path=dx_strdup(export_path);
+    CHECK(app_preview_export_job(&state,context,export,parent,&error) && !error);
+    CHECK(export->workbook && export->workbook->origin.present && (export->workbook->id.high!=book.id.high || export->workbook->id.low!=book.id.low));
+    CHECK(!memcmp(export->workbook->origin.root,first.bytes,32) && export->workbook->origin.document.high==book.id.high);
+    CHECK(export->workbook->sheets!=book.sheets && !strcmp(cells_get(&export->workbook->sheets[0].cells,9000,30),"R1"));
+    worker_submit(&worker,export); QueryReply *exported=reply(&worker);
+    CHECK(!exported->error && exported->save_result==WORKBOOK_SAVE_COMPLETE && worker_archive_is_export_reply(exported) && !worker_archive_is_reply(exported));
+    const WorkbookVersionIndex *export_index=workbook_version_core_set_index(worker_archive_versions(exported));
+    CHECK(export_index && export_index->root_count==1 && !export_index->tag_count && export_index->saved.present);
+    CHECK(!memcmp(app_preview_working(&state),&original,sizeof(original)) && !memcmp(app_preview_working_versions(&state),&original_versions,sizeof(original_versions)));
+    WorkbookArchiveCandidate *export_candidate=NULL;
+    CHECK(workbook_archive_read(export_path,parent,UINT64_C(128)*1024*1024,(WorkbookArchiveReadControl){0},&export_candidate,&error)==ARCHIVE_READ_READY);
+    Workbook *export_model=workbook_archive_take_book(export_candidate); CHECK(export_model);
+    Workbook exported_book=*export_model; free(export_model); workbook_archive_candidate_free(export_candidate);
+    CHECK(exported_book.origin.present && !memcmp(exported_book.origin.root,first.bytes,32));
+    char *resaved=dx_printf("%s/resaved.dxls",parent); CHECK(workbook_save(&exported_book,resaved,&error));
+    Workbook reloaded; workbook_init(&reloaded); CHECK(workbook_load(&reloaded,resaved,&error));
+    CHECK(reloaded.origin.present && !memcmp(&reloaded.origin,&exported_book.origin,sizeof(reloaded.origin)));
+    bool cancelled=false; WorkbookVersionReceipt *cancelled_receipt=NULL;
+    char *cancel_path=dx_printf("%s/cancel-export.dxls",parent);
+    WorkbookVersionOwner export_owner={exported_book.id.high,exported_book.id.low,80,VERSION_WORKING_HEAD};
+    CHECK(workbook_version_save((WorkbookVersionSaveRequest){&exported_book,NULL,export_owner,VERSION_USER_SAVE,cancel_path,parent,UINT64_C(128)*1024*1024},
+        (WorkbookVersionSaveControl){.archive={.core={cancel_publish,&cancelled}}},&cancelled_receipt,&error)==WORKBOOK_SAVE_CANCELLED);
+    CHECK(cancelled && !cancelled_receipt && access(cancel_path,F_OK)!=0); clear(&error);
+    cancelled=false;
+    CHECK(workbook_version_save((WorkbookVersionSaveRequest){&exported_book,NULL,export_owner,VERSION_USER_SAVE,resaved,parent,UINT64_C(128)*1024*1024},
+        (WorkbookVersionSaveControl){.archive={.core={cancel_publish,&cancelled}}},&cancelled_receipt,&error)==WORKBOOK_SAVE_CANCELLED);
+    CHECK(cancelled && !cancelled_receipt); clear(&error);
+    Workbook after_cancel; workbook_init(&after_cancel); CHECK(workbook_load(&after_cancel,resaved,&error));
+    CHECK(after_cancel.origin.present && !strcmp(cells_get(&after_cancel.sheets[0].cells,9000,30),"R1"));
+    workbook_free(&after_cancel); free(cancel_path);
+    sql_file(resaved,"DROP TABLE _duxcel_workspace.export_origin");
+    CHECK(workbook_load(&reloaded,resaved,&error) && !reloaded.origin.present);
+    Workbook compatible=reloaded;
+    sql_file(resaved,"CREATE TABLE _duxcel_workspace.export_origin(document_high UBIGINT,document_low UBIGINT,root INTEGER)");
+    CHECK(!workbook_load(&reloaded,resaved,&error) && !memcmp(&compatible,&reloaded,sizeof(compatible))); clear(&error);
+    sql_file(resaved,"DROP TABLE _duxcel_workspace.export_origin; CREATE TABLE _duxcel_workspace.export_origin(document_high UBIGINT,document_low UBIGINT,root BLOB); INSERT INTO _duxcel_workspace.export_origin VALUES (1,2,NULL)");
+    CHECK(!workbook_load(&reloaded,resaved,&error) && !memcmp(&compatible,&reloaded,sizeof(compatible))); clear(&error);
+    sql_file(resaved,"DELETE FROM _duxcel_workspace.export_origin; ALTER TABLE _duxcel_workspace.export_origin ADD COLUMN unknown INTEGER");
+    CHECK(!workbook_load(&reloaded,resaved,&error) && !memcmp(&compatible,&reloaded,sizeof(compatible))); clear(&error);
+    workbook_free(&reloaded); workbook_free(&exported_book); reply_free(exported); CHECK(!unlink(resaved) && !unlink(export_path)); free(resaved); free(export_path);
     uint64_t reader=versions.owner.session; versions.owner.session++;
     CHECK(app_preview_return(&state,context,&error)==APP_PREVIEW_STALE && state.active && !strcmp(cells_get(&book.sheets[0].cells,9000,30),"R1")); versions.owner.session=reader;
     r=preview_read(&state,context,5,second); CHECK(app_preview_adopt(&state,context,r,&error)==APP_PREVIEW_APPLIED && state.active); reply_free(r);

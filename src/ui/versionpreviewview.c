@@ -143,6 +143,8 @@ UIHistoryAction ui_history_draw(UIContext *u,UIVersionPreviewView *v,const Workb
     snprintf(title,sizeof(title),"Preview · %s",label ? label : "Saved version"); ui_label(u,title,heading,16,UI_TEXT,false,UI_SEMIBOLD);
     v->back=(Rectangle){w-180*s,12*s,164*s,28*s}; v->versions=(Rectangle){w-280*s,12*s,92*s,28*s};
     bool blocked=u->pointer_blocked; u->pointer_blocked=blocked || !input;
+    v->save_as=(Rectangle){16*s,86*s,92*s,28*s};
+    bool save_as=ui_button(u,v->save_as,"Save As…",false,true);
     bool back=ui_button(u,v->back,"Working Head",true,true),versions=ui_button(u,v->versions,"Versions…",false,true);
     v->previous=(Rectangle){16*s,52*s,28*s,28*s}; v->next=(Rectangle){52*s,52*s,28*s,28*s};
     bool previous=ui_button(u,v->previous,"‹",false,book->count>1),next=ui_button(u,v->next,"›",false,book->count>1);
@@ -151,8 +153,8 @@ UIHistoryAction ui_history_draw(UIContext *u,UIVersionPreviewView *v,const Workb
     if (previous || next) { size_t at=(v->sheet+book->count+(previous ? -1 : 1))%book->count; select_sheet(v,book,at); sheet=book->sheets+v->sheet; }
     char name[4300]; snprintf(name,sizeof(name),"%s%s · %zu/%zu",sheet->name,sheet->hidden ? " (hidden)" : "",v->sheet+1,book->count);
     ui_label(u,name,(Rectangle){92*s,52*s,fmaxf(20*s,w-236*s),28*s},12,UI_TEXT,false,UI_MEDIUM);
-    ui_label(u,"Read only · Your Working Head is kept unchanged.",(Rectangle){16*s,86*s,w-32*s,18*s},11,UI_MUTED,false,UI_REGULAR);
-    v->canvas=(Rectangle){8*s,112*s,w-16*s,fmaxf(1,h-144*s)};
+    ui_label(u,"Read only · Your Working Head is kept unchanged.",(Rectangle){120*s,91*s,fmaxf(20*s,w-136*s),18*s},11,UI_MUTED,false,UI_REGULAR);
+    v->canvas=(Rectangle){8*s,124*s,w-16*s,fmaxf(1,h-156*s)};
     if (v->definitions) {
         Rectangle area=v->canvas; area.x+=10*s; area.width-=20*s; DrawRectangleRec(v->canvas,UI_SURFACE);
         text_lines_layout_sized(&v->lines,u,v->definition_text,area.width,12);
@@ -175,5 +177,5 @@ UIHistoryAction ui_history_draw(UIContext *u,UIVersionPreviewView *v,const Workb
     const char *detail=message && *message ? message : sheet->analysis.kind!=SOURCE_NONE || sheet->objects.count ? "Linked rows / analytical outputs unavailable; see stored Definitions." : "Authored cells and formatting from the retained version.";
     ui_label(u,detail,(Rectangle){16*s,h-26*s,w-32*s,22*s},10,UI_MUTED,false,UI_REGULAR);
     u->pointer_blocked=blocked;
-    return back ? UI_HISTORY_RETURN : versions ? UI_HISTORY_VERSIONS : UI_HISTORY_NONE;
+    return back ? UI_HISTORY_RETURN : versions ? UI_HISTORY_VERSIONS : save_as ? UI_HISTORY_SAVE_AS : UI_HISTORY_NONE;
 }

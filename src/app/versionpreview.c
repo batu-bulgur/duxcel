@@ -75,3 +75,32 @@ AppPreviewOutcome app_preview_return(AppVersionPreviewState *state,AppPreviewCon
     workbook_version_preview_free(state->preview); state->preview=NULL; state->active=false;
     return APP_PREVIEW_APPLIED;
 }
+
+bool app_preview_export_job(AppVersionPreviewState *state,AppPreviewContext context,QueryJob *job,const char *parent,char **error) {
+    if (!context_valid(state,context) || !state->active || !displayed_owner(state,context) || state->pending.request ||
+        !job || job->kind!=JOB_SAVE || !job->id || job->workbook) return fail(error,"Choose a ready inspected state and independent Save As request.");
+    /* Same conservative logical ownership admission as native checkpoint
+       capture. Snapshot current buffers coexist with the protected writer,
+       reader and any still-owned worker format reservations until disposal. */
+    WorkbookFormatUsage shown={0},held={0}; FormatBudget budget;
+    FormatBudgetStatus admission=workbook_format_usage(context.book,NULL,0,&shown);
+    if (!admission) admission=workbook_format_usage(&state->working,NULL,0,&held);
+    WorkerFormatUsage worker=worker_format_usage(context.worker);
+    FormatTransientUsage transient={.adopted_staging=shown.current,.other_staging=held.retained,.collector_owned=worker.active_reserved,.pending_reserved=worker.pending_reserved,.io_snapshots=worker.published_owned};
+    if (!admission) admission=workbook_format_preflight(&shown,&shown,&transient,&budget);
+    if (admission) return fail(error,workbook_format_budget_message(admission));
+    WorkbookId id={0}; bool fresh=false;
+    for (unsigned i=0;i<8 && !fresh;i++) {
+        if (!dx_random_bytes(&id,sizeof(id))) break;
+        fresh=(id.high || id.low) && (id.high!=context.book->id.high || id.low!=context.book->id.low);
+    }
+    if (!fresh) return fail(error,"Cannot prepare an independent export document identity.");
+    Workbook *snapshot=workbook_snapshot(context.book);
+    if (!snapshot) return fail(error,"Cannot snapshot the inspected historical state.");
+    snapshot->origin.present=true; snapshot->origin.document=context.book->id;
+    memcpy(snapshot->origin.root,workbook_version_preview_root(state->preview)->bytes,32);
+    snapshot->id=id; snapshot->command_revision=0; free(snapshot->path); snapshot->path=NULL; snapshot->dirty=false;
+    job->workbook=snapshot;
+    if (worker_archive_export_job(context.worker,job,parent,DX_APP_VERSION_BYTES,error)) return true;
+    job->workbook=NULL; workbook_free(snapshot); free(snapshot); return false;
+}

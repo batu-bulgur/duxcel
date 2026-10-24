@@ -15,7 +15,7 @@ struct WorkbookNativeIO {
     WorkbookArchiveCandidate *loaded;
     WorkbookVersionPreview *preview;
     WorkbookVersionKey preview_root;
-    bool preview_requested,expects_target;
+    bool preview_requested,export_requested,expects_target;
     SourceFileIdentity expected_target;
     WorkerNativeFileControl control; /* Borrowed only while execute runs. */
     WorkerNativeRetirement retirement;
@@ -93,7 +93,7 @@ static WorkbookSaveResult execute(WorkbookNativeIO *c,JobKind kind,const Workboo
     if (kind==JOB_SAVE) {
         WorkbookVersionSaveRequest request={.head=snapshot,.base=c->base,.owner=c->owner,.purpose=c->purpose,.path=path,.parent=c->parent,.reserved_bytes=c->reserved};
         WorkbookVersionSaveControl controls={.capture=capture,.compare={compare_cancel,c},.archive={
-            .core={publish_update,c},.inspect={inspect_cancel,c},.stage={stage_cancel,c},.prepare={prepare_cancel,c},.expected_target=c->expects_target ? &c->expected_target : NULL,.expected_index=c->expects_target ? workbook_version_core_set_index(c->base) : NULL}};
+            .core={publish_update,c},.inspect={inspect_cancel,c},.stage={stage_cancel,c},.prepare={prepare_cancel,c},.expected_target=c->expects_target ? &c->expected_target : NULL,.expected_index=c->expects_target ? workbook_version_core_set_index(c->base) : NULL,.protected_document=c->export_requested ? snapshot->origin.document : (WorkbookId){0}}};
         return c->label ? workbook_version_tag_save(request,(WorkbookVersionText){c->label,c->label_bytes},controls,&c->saved,error) : workbook_version_save(request,controls,&c->saved,error);
     }
     WorkbookArchiveReadResult read=workbook_archive_read(path,c->parent,c->reserved,(WorkbookArchiveReadControl){load_cancel,c},&c->loaded,error);
@@ -107,7 +107,8 @@ static WorkbookSaveResult execute(WorkbookNativeIO *c,JobKind kind,const Workboo
 static WorkbookNativeIO *context(const QueryReply *r) {
     return r && r->native_file.context && r->native_file.execute==execute && r->native_file.dispose==retire ? r->native_file.context : NULL;
 }
-bool worker_archive_is_reply(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c && !c->preview_requested; }
+bool worker_archive_is_reply(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c && !c->preview_requested && !c->export_requested; }
+bool worker_archive_is_export_reply(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c && c->export_requested; }
 bool worker_archive_is_preview_reply(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c && c->preview_requested; }
 const WorkbookVersionPreview *worker_archive_preview(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c && c->preview_requested ? c->preview : NULL; }
 WorkbookVersionPreview *worker_archive_take_preview(QueryReply *r) {
@@ -147,6 +148,15 @@ static bool attach(QueryWorker *w,QueryJob *job,const WorkbookVersionCoreSet *ba
 bool worker_archive_save_job(QueryWorker *w,QueryJob *job,const WorkbookVersionCoreSet *base,WorkbookVersionOwner owner,
     WorkbookVersionPurpose purpose,const char *parent,uint64_t reserved,char **error) {
     return (job && job->kind==JOB_SAVE) ? attach(w,job,base,owner,purpose,parent,reserved,false,error) : fail(error,"Capture a Save job before attaching its native context.");
+}
+bool worker_archive_export_job(QueryWorker *w,QueryJob *job,const char *parent,uint64_t reserved,char **error) {
+    if (!job || job->kind!=JOB_SAVE || !job->workbook || !job->workbook->origin.present ||
+        (!job->workbook->origin.document.high && !job->workbook->origin.document.low) ||
+        (job->workbook->id.high==job->workbook->origin.document.high && job->workbook->id.low==job->workbook->origin.document.low)) return fail(error,"Prepare an independent export snapshot with origin provenance.");
+    WorkbookVersionOwner owner={job->workbook->id.high,job->workbook->id.low,0,VERSION_WORKING_HEAD};
+    if (!dx_random_bytes(&owner.session,sizeof(owner.session)) || !owner.session) return fail(error,"Cannot prepare the independent export owner.");
+    if (!attach(w,job,NULL,owner,VERSION_USER_SAVE,parent,reserved,false,error)) return false;
+    WorkbookNativeIO *c=job->native_file.context; c->export_requested=true; return true;
 }
 bool worker_archive_tag_job(QueryWorker *w,QueryJob *job,const WorkbookVersionCoreSet *base,WorkbookVersionOwner owner,
     WorkbookVersionText label,const char *parent,uint64_t reserved,char **error) {

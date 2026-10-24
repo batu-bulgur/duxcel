@@ -3,9 +3,14 @@
 static unsigned hp_stage,hp_wait,hp_checks;
 static int hp_result;
 static bool hp_painted;
+static const char *hp_export="build/tests/generated/history-preview-export.dxls";
+static bool hp_destination_cancel;
+char *dx_test_history_export_destination(void) { return hp_destination_cancel ? NULL : dx_strdup(hp_export); }
 static const char *hp_path="build/tests/generated/history-preview.dxls";
 static Workbook hp_working;
 static AppVersionState hp_versions;
+static WorkbookJournalSession *hp_journal;
+static JournalSessionState hp_recovery;
 static Cell *hp_page;
 static float *hp_widths;
 static GridLocation hp_location;
@@ -93,7 +98,7 @@ static void history_preview_test_frame(AppSession *session) {
         HP_CHECK(historical(a) && a->modal==MODAL_NONE && !a->book.path && !a->book.dirty);
         HP_CHECK(!strcmp(cells_get(&a->book.sheets[0].cells,0,0),"Version one") && !strcmp(cells_get(&a->book.sheets[0].cells,9000,30),"Offscreen retained"));
         HP_CHECK(format_at(&a->book.sheets[0].formats,0,0).flags & FORMAT_BOLD);
-        hp_working=*app_preview_working(&a->history); hp_versions=*app_preview_working_versions(&a->history); hp_sql=a->worker.sql_executed;
+        hp_working=*app_preview_working(&a->history); hp_versions=*app_preview_working_versions(&a->history); hp_journal=a->journal; hp_recovery=workbook_journal_session_state(a->journal,app_preview_working(&a->history)); hp_sql=a->worker.sql_executed;
         HP_CHECK(a->page.cells==hp_page && a->grid.widths==hp_widths && !memcmp(&a->query_editor,&hp_editor,sizeof(hp_editor)));
         ui_note_key_press(KEY_F2,0); ui_note_key_press(KEY_Z,DX_MOD_SUPER); ui_note_key_press(KEY_S,DX_MOD_SUPER); ui_note_key_press(KEY_END,DX_MOD_SUPER); break;
     case 6:
@@ -101,9 +106,39 @@ static void history_preview_test_frame(AppSession *session) {
         HP_CHECK(hp_text_visible(a,9000,30) && hp_working_location(a));
         HP_CHECK(historical(a) && a->modal==MODAL_NONE && !a->busy && !a->io_busy);
         HP_CHECK(!memcmp(app_preview_working(&a->history),&hp_working,sizeof(hp_working)));
-        workspace_save_as(a,"build/tests/generated/forbidden-preview-save.dxls");
-        HP_CHECK(!a->io_busy && historical(a)); versions_create(a); run_action(a,ACTION_BOLD);
-        hp_click(a->history_view.next); break;
+        hp_destination_cancel=true; hp_click(a->history_view.save_as); hp_stage=29; break;
+    case 30:
+        HP_CHECK(!a->io_busy && historical(a) && !memcmp(app_preview_working(&a->history),&hp_working,sizeof(hp_working)));
+        { size_t retained=a->source_format.bytes; a->source_format.bytes=SIZE_MAX;
+          workspace_save_as(a,hp_export); HP_CHECK(!a->io_busy && strstr(a->history_message,"overflowed")); a->source_format.bytes=retained; }
+        hp_destination_cancel=false; workspace_save_as(a,hp_path); break;
+    case 31:
+        HP_CHECK(!a->io_busy && historical(a) && strstr(a->history_message,"protected"));
+        HP_CHECK(!memcmp(app_preview_working(&a->history),&hp_working,sizeof(hp_working)) && !memcmp(app_preview_working_versions(&a->history),&hp_versions,sizeof(hp_versions)));
+        remove(hp_export); hp_click(a->history_view.save_as); break;
+    case 32: {
+        HP_CHECK(!a->io_busy && historical(a) && strstr(a->history_message,"independent workbook"));
+        HP_CHECK(!memcmp(app_preview_working(&a->history),&hp_working,sizeof(hp_working)) && !memcmp(app_preview_working_versions(&a->history),&hp_versions,sizeof(hp_versions)));
+        JournalSessionState recovery=workbook_journal_session_state(a->journal,app_preview_working(&a->history));
+        HP_CHECK(a->journal==hp_journal && recovery.generation.high==hp_recovery.generation.high && recovery.generation.low==hp_recovery.generation.low &&
+            recovery.parent.high==hp_recovery.parent.high && recovery.parent.low==hp_recovery.parent.low);
+        HP_CHECK(workbook_history_peek(app_preview_working(&a->history),false,&error).order==hp_undo && workbook_history_peek(app_preview_working(&a->history),true,&error).order==hp_redo);
+        WorkbookArchiveCandidate *candidate=NULL;
+        HP_CHECK(workbook_archive_read(hp_export,a->version_root,DX_APP_VERSION_BYTES,(WorkbookArchiveReadControl){0},&candidate,&error)==ARCHIVE_READ_READY);
+        Workbook *exported=workbook_archive_take_book(candidate);
+        const WorkbookVersionIndex *index=workbook_version_core_set_index(workbook_archive_versions(candidate));
+        HP_CHECK(exported && exported->origin.present && exported->origin.document.high==hp_working.id.high && exported->origin.document.low==hp_working.id.low);
+        HP_CHECK(exported->id.high!=hp_working.id.high || exported->id.low!=hp_working.id.low);
+        HP_CHECK(!memcmp(exported->origin.root,workbook_version_preview_root(a->history.preview)->bytes,32));
+        HP_CHECK(index && index->root_count==1 && index->saved.present && !index->tag_count);
+        HP_CHECK(!strcmp(cells_get(&exported->sheets[0].cells,0,0),"Version one") && !strcmp(cells_get(&exported->sheets[0].cells,9000,30),"Offscreen retained"));
+        HP_CHECK((format_at(&exported->sheets[0].formats,0,0).flags & FORMAT_BOLD) && exported->sheets[1].objects.count==1);
+        char *reference=workbook_relative_path(exported->path,a->book.sheets[1].analysis.path);
+        char *expected=workbook_source_path(exported->path,reference); free(reference);
+        HP_CHECK(!strcmp(exported->sheets[1].analysis.path,expected) && !strcmp(exported->sheets[1].analysis.query,"SELECT * FROM source WHERE amount > 10")); free(expected);
+        workbook_free(exported); free(exported); workbook_archive_candidate_free(candidate);
+        versions_create(a); run_action(a,ACTION_BOLD); hp_click(a->history_view.next); hp_stage=6; break;
+    }
     case 7:
         HP_CHECK(a->history_view.sheet==1 && a->book.active==0 && a->book.sheets[1].analysis.kind==SOURCE_PARQUET);
         HP_CHECK(a->book.sheets[1].objects.count==1 && a->worker.sql_executed==hp_sql);
@@ -163,7 +198,7 @@ void app_test_history_preview_cleanup(void) {
 }
 void app_test_history_preview_finished(void) {
     if (hp_gate.ready) { dx_cond_destroy(&hp_gate.condition); dx_mutex_destroy(&hp_gate.mutex); }
-    if (hp_result==1) printf("PASS: native historical preview workflow (20 stages, %u checks)\n",hp_checks);
+    if (hp_result==1) printf("PASS: native historical preview workflow (23 stages, %u checks)\n",hp_checks);
 }
 
 static void history_preview_test_painted(App *a) {

@@ -13,9 +13,9 @@ typedef struct {
     TextLines lines;
     int text_scroll;
     double wheel;
-    Rectangle back,versions,previous,next,definition,canvas;
+    Rectangle back,versions,save_as,previous,next,definition,canvas;
 } UIVersionPreviewView;
-typedef enum { UI_HISTORY_NONE,UI_HISTORY_RETURN,UI_HISTORY_VERSIONS } UIHistoryAction;
+typedef enum { UI_HISTORY_NONE,UI_HISTORY_RETURN,UI_HISTORY_VERSIONS,UI_HISTORY_SAVE_AS } UIHistoryAction;
 /* A read-only surface reusing the actual Grid and formatted-value painters.
    It owns navigation/definition layout only; no source query or authoring callback
    exists. Working App pages/grid/editor state are never supplied or overwritten. */

@@ -82,6 +82,11 @@ int main(void) {
     char *field=s->objects.items[1].pivot.fields[PIVOT_ROWS][0].name; s->objects.items[1].pivot.fields[PIVOT_ROWS][0].name="Region";
     changed(&book,parent,base); s->objects.items[1].pivot.fields[PIVOT_ROWS][0].name=field;
     s->source_versions.high_water=2; changed(&book,parent,base); s->source_versions.high_water=1;
+    book.origin.present=true; book.origin.document=(WorkbookId){1,2}; book.origin.root[0]=7;
+    changed(&book,parent,base); WorkbookCorePayload *origin=capture(&book,parent);
+    WorkbookCorePayload *same_origin=capture(&book,parent); compare(origin,same_origin,true); workbook_core_payload_free(same_origin);
+    book.origin.root[31]=1; changed(&book,parent,origin); memset(&book.origin,0,sizeof(book.origin));
+    workbook_core_payload_free(origin);
     book.command_revision=UINT64_C(9007199254740993); changed(&book,parent,base); book.command_revision=0;
     book.user_scale=1.25f; changed(&book,parent,base); book.user_scale=1;
     WorkbookId id=book.id; book.id.low^=1; changed(&book,parent,base); book.id=id;

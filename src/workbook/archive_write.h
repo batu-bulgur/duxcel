@@ -15,6 +15,8 @@ typedef struct {
     /* Optional paired admitted index for current-file writes. Even a newly
        observed file stamp cannot bless another writer's different v16 index. */
     const WorkbookVersionIndex *expected_index;
+    /* Historical exports must never replace any artifact of their live origin. */
+    WorkbookId protected_document;
 } WorkbookArchiveWriteControl;
 /* Native v16 transactional writer. Borrow immutable authored head/index/leaves
    and an existing staging parent. reserved_bytes bounds each admitted core set
