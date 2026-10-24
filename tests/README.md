@@ -236,3 +236,11 @@ objects; generated inputs and core-before-workbook execution ordering are intact
 compatibility, exact stored text and byte-preserved constrained-write failure.
 The pure proof's type mapping and real-engine alias check are separate; alias
 support does not relax numeric signedness or row-value validation.
+
+`test_version_index.c` exercises the pure borrowed version-index controller:
+full-width opaque payload identities, explicit absent/present saved references,
+UTF-8 tag metadata, dangling/duplicate/overflow/capacity rejection, unchanged Save,
+private checkpoint/export policy and stale write-owner publication fences.
+The `version-index` gate runs only its actual module/header in optimized and
+ASan/UBSan configurations. Payload decoding/integrity/closure, native IO and GUI
+publication belong to W11a2/W11a3 and are explicitly deferred interactions.

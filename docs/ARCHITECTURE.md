@@ -73,6 +73,17 @@ Physical copies can share an identity but their runtime fences remain separate.
 The shared partial browser decoder still rejects v15; browser Workbook Open/Save
 and final staged-model activation remain incomplete.
 
+`src/workbook/version_index.c` owns pure version metadata admission and
+publication planning. It borrows immutable index descriptors and returns an
+owned value plan; it performs no allocation, IO, payload decoding or App mutation.
+Complete-payload identities are opaque32-byte values, with presence separate
+from key bytes. Index generations order metadata publications and do not identify
+document content. A transient write-owner token separates physical runtime
+owners sharing durable document IDs. User Save can move one Latest Saved pointer;
+private checkpoints/exports preserve it, and historical owners can only export.
+The native adapter must retain and verify complete assets before publication.
+Payload codecs and App adoption remain W11a2/W11a3; native files remain v15.
+
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain
 it and prune/cap operations advance a lost-history floor. Stable IDs identify the

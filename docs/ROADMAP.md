@@ -158,9 +158,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10c3 · P0 · Complete | Recovery crash/restart and foundation milestone regression; W10c2. | Kill only private TEST instances, verify committed recovery and active-instance exclusion, then run the registered major-milestone regression. No per-slice human approval flag. |
 | W10c3a · P0 · Complete | Archive compatibility and bounded schema proof; W10c2. | Preserve strict v15 and genuine legacy upgrades, byte-for-byte failed-overwrite protection and exact typed metadata; batch catalog proof without relaxing row validation. Focused schema/Save gate plus explicit archive matrix. |
 | W10c3b · P0 · Complete | Final foundation integration and native lifecycle/Open; W10c3a. | Exercise the registered native milestone coverage, verify owned crash/restart, lifecycle/Finder entry and hidden TEST boundaries, and record command/runtime limits before W11. |
-| W11 · P1 · Queued | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
-| W11a · P1 · Queued | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
-| W11a1 · P1 · Queued | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
+| W11 · P1 · In progress | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
+| W11a · P1 · In progress | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
+| W11a1 · P1 · Complete | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
 | W11a2 · P1 · Queued | Immutable supported-state payload closure and native version codec; W11a1. | Archive every advertised root independently of the editable head, without recursive history copies. Reject missing/invalid payloads and preserve non-writing legacy Open/safe upgrade. Scoped archive gate; no tag UI claim. |
 | W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
@@ -183,6 +183,18 @@ must also remain unambiguous across independent Save As artifacts that share a
 durable document ID. A flat current
 root plus an old dangling saved ID is insufficient. W11a2 establishes this
 closure before W11a3 publishes user-visible saved metadata.
+
+W11a1 complete: the pure borrowed version-index controller validates opaque
+32-byte root identities, explicit absent/present saved references, UTF-8 tag
+metadata, reachability and bounded counters/capacity without decoding payloads.
+Owned value plans separate user Save from checkpoint/export and fence publication
+by transient write owner plus immutable index generation, independently of R+1
+data edits. Same-root Save allocates no entry; failure preserves inputs/output.
+The registered `version-index` gate passes229 checks per optimized/ASan/UBSan
+configuration in2.433s (1.192s build);54 runner/catalog/web-inventory contracts
+pass. Its test TU depends only on its real header/module. Native codec, asset
+closure, Tag UI and Save/recovery adoption remain W11a2/W11a3/W11b; no new file
+format or user-visible version history is claimed.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

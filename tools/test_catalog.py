@@ -64,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-index": Feature(("version_index",), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py feature --feature workbook-archive"),
+        ("src/workbook/version_index.c", "src/workbook/version_index.h", "tests/test_version_index.c")),
     "stats-budget": Feature(("statsview_input",), "stats-budget",
         ("python3 tools/test.py native --scenario layout --config sanitize",),
         ("src/app/app.c: Statistics to format-budget interaction",)),
