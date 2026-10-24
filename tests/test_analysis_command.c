@@ -99,6 +99,31 @@ static void limits_and_sources(void) {
     CHECK(!workbook_prepare_analysis_transform(&c,0,&t,NULL)); c.live->schema=dx_strdup("main"); c.live->table=dx_strdup("Sales"); t=target(&c,0); p=plan(c.live);
     CHECK(workbook_apply_analysis_transform_recorded(&c,&t,&p,NULL,NULL).status==ANALYSIS_TRANSFORM_APPLIED); workbook_free(&b);
 }
+static void transform_definitions(void) {
+    Workbook b=book(); uint64_t epoch=1; AnalysisCommandContext c={&b,&b.sheets[0].analysis,&epoch,SIZE_MAX,true,false}; AnalysisTransformTarget t=target(&c,0);
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id}; WorkbookHistoryStream *s=NULL;
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){4,DX_HISTORY_STREAM_DEFAULT_BYTES},&s)==HISTORY_STREAM_OK);
+    WorkbookHistoryDefinitionRecorder recorder=workbook_history_stream_definition_recorder(s); Analysis p=analysis_copy(c.live);
+    CHECK(analysis_query_set(&p,"SELECT City, Amount, Value FROM input",NULL));
+    CHECK(analysis_filter_set(&p,"City",FILTER_EQUAL,"Ankara",NULL) && analysis_filter_set(&p,"Value",FILTER_EQUAL,"",NULL));
+    CHECK(analysis_sort_set(&p,"Amount",true,false,NULL) && analysis_sort_set(&p,"City",false,true,NULL));
+    CHECK(workbook_apply_analysis_transform_recorded(&c,&t,&p,&recorder,NULL).status==ANALYSIS_TRANSFORM_APPLIED);
+    WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(s,&event)==HISTORY_STREAM_OK);
+    const WorkbookHistoryEventInfo *info=workbook_history_event_info(event); DefinitionEvent decoded={0};
+    CHECK(definition_event_decode(workbook_history_event_payload(event),info->bytes,SIZE_MAX,&decoded)==DEFINITION_EVENT_OK);
+    CHECK(!decoded.before_primary.query && !decoded.before_primary.filter_column && !decoded.before_primary.sort_column &&
+        !strcmp(decoded.after_primary.query,"SELECT City, Amount, Value FROM input") && !strcmp(decoded.after_primary.filter_column,"City") &&
+        decoded.after_primary.filter_count==1 && decoded.after_primary.filters[0].value && !*decoded.after_primary.filters[0].value &&
+        decoded.after_primary.sort_count==1 && decoded.after_primary.descending && !strcmp(decoded.after_primary.sorts[0].column,"City"));
+    definition_event_free(&decoded); CHECK(workbook_history_stream_complete(s,&event)==HISTORY_STREAM_OK);
+    t=target(&c,0); p=analysis_copy(c.live); p.filter_number=(NumberType){NUM_DECIMAL,38,4}; p.filters[0].number=(NumberType){NUM_I128,0,0};
+    CHECK(workbook_apply_analysis_transform_recorded(&c,&t,&p,&recorder,NULL).status==ANALYSIS_TRANSFORM_NOOP && b.command_revision==1 && !workbook_history_stream_state(s).pending);
+    t=target(&c,0); p=analysis_copy(c.live); CHECK(analysis_filter_move(&p,0,1));
+    CHECK(workbook_apply_analysis_transform_recorded(&c,&t,&p,&recorder,NULL).status==ANALYSIS_TRANSFORM_APPLIED && !strcmp(c.live->filter_column,"Value") && b.command_revision==2);
+    t=target(&c,0); p=analysis_copy(c.live); CHECK(analysis_sort_move(&p,0,1));
+    CHECK(workbook_apply_analysis_transform_recorded(&c,&t,&p,&recorder,NULL).status==ANALYSIS_TRANSFORM_APPLIED && !strcmp(c.live->sort_column,"City") && b.command_revision==3);
+    CHECK(workbook_history_stream_free(&s,true)==HISTORY_STREAM_OK); workbook_free(&b);
+}
 static void stream(void) {
     Workbook b=book(); uint64_t epoch=1; AnalysisCommandContext c={&b,&b.sheets[0].analysis,&epoch,SIZE_MAX,true,false}; target(&c,0);
     WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id}; WorkbookHistoryStream *s=NULL;
@@ -119,4 +144,4 @@ static void stream(void) {
     reject(&c,t,&p,&recorder,ANALYSIS_TRANSFORM_LIMIT); analysis_free(&p); CHECK(!workbook_history_stream_state(s).owned_bytes && !workbook_history_stream_state(s).current.action_high_water);
     CHECK(workbook_history_stream_free(&s,false)==HISTORY_STREAM_OK); workbook_free(&b);
 }
-int main(void) { basic(); callbacks(); limits_and_sources(); stream(); printf("PASS: %u fenced primary Analysis command checks\n",checks); return 0; }
+int main(void) { basic(); callbacks(); limits_and_sources(); transform_definitions(); stream(); printf("PASS: %u fenced primary Analysis command checks\n",checks); return 0; }

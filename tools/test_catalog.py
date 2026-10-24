@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "primary-transforms": ("build/tests/test_primary_transforms-gui", "PASS: native primary sort/filter workflow",
+                           r"^PASS: native primary sort/filter workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "analysis-command": ("build/tests/test_analysis_command-gui", "PASS: native primary transform workflow",
                          r"^PASS: native primary transform workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "format-plan": ("build/tests/test_format_plan-gui", "PASS: native cancellable format workflow",
@@ -74,6 +76,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "primary-filter-sort": Feature(("analysis_command", "history_definition"), "primary-transforms",
+        ("python3 tools/test.py feature --feature analysis-command", "python3 tools/test.py native --scenario sort filter"),
+        ("src/app/app.c: primary transform admission/sort/filter adapters", "tests/support/primary_transforms_app.inc", "tests/test_primary_transforms_gui.c")),
     "analysis-command": Feature(("analysis_command", "history_definition", "workbook_history"), "analysis-command",
         ("python3 tools/test.py native --scenario unique", "python3 tools/test.py feature --feature source-result-format"),
         ("src/workbook/analysis_command.c", "src/workbook/analysis_command.h", "src/app/app.c: primary Remove duplicates adapter", "tests/test_analysis_command.c", "tests/support/analysis_command_app.inc", "tests/test_journal_session.c: primary transform checkpoint rotation"), ("journal_session",)),

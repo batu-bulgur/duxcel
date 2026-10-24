@@ -1321,6 +1321,27 @@ static void remember(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
 #include "source_format.inc"
 #endif
+static bool primary_transform_budget(App *a,const Analysis *proposal,size_t *validation,char **error) {
+    if (!workbook_analysis_transform_scratch(active_sheet(a),&a->analysis,proposal,validation,error)) return false;
+#ifndef DUXCEL_BROWSER_HOST
+    if (source_format_budget_status(a,NULL,analysis_bytes(proposal),*validation,0,0,0)) {
+        if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Primary transformation exceeds the current memory budget."); }
+        return false;
+    }
+#endif
+    return true;
+}
+static bool primary_transform_adopt(App *a,Analysis *owned,size_t validation,bool *changed,char **error) {
+    AnalysisCommandContext context={.book=&a->book,.live=&a->analysis,.source_epoch=&a->analysis_revision,.validation_reserved=validation,
+        .ready=!a->busy && !a->io_busy && !a->query_loading && !a->refresh_plans && !a->page_stale && !a->fetch_failed && a->page.column_count>0,.read_only=history_locked(a)};
+    AnalysisTransformTarget target={0};
+    if (!workbook_prepare_analysis_transform(&context,a->book.active,&target,error)) return false;
+    AnalysisTransformResult r=workbook_apply_analysis_transform_recorded(&context,&target,owned,NULL,error);
+    if (r.status!=ANALYSIS_TRANSFORM_APPLIED && r.status!=ANALYSIS_TRANSFORM_NOOP) return false;
+    *changed=r.status==ANALYSIS_TRANSFORM_APPLIED;
+    if (*changed) SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
+    return true;
+}
 static void request_page(App *a,bool reset) {
     if (a->refresh_plans) SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
     SOURCE_FORMAT_REQUEST(a);
@@ -2411,8 +2432,15 @@ static void apply_sort_order(App *a,const Analysis *order) {
         a->sort_object=-1; return;
     }
     if (analysis_sorts_equal(&a->analysis,order)) return;
-    remember(a); analysis_sorts_clear(&a->analysis);
-    for (size_t i=0;i<order->sort_count+(order->sort_column ? 1 : 0);i++) { AnalysisSort sort=analysis_sort_at(order,i); analysis_sort_set(&a->analysis,sort.column,sort.descending,true,NULL); }
+    Analysis next=analysis_copy(&a->analysis); analysis_sorts_clear(&next); char *error=NULL; bool changed=false; size_t validation=0;
+    for (size_t i=0;i<order->sort_count+(order->sort_column ? 1 : 0);i++) {
+        AnalysisSort sort=analysis_sort_at(order,i);
+        if (!analysis_sort_set(&next,sort.column,sort.descending,true,&error)) { status(a,error); free(error); analysis_free(&next); return; }
+    }
+    if (!primary_transform_budget(a,&next,&validation,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+        status(a,error); free(error); analysis_free(&next); return;
+    }
+    free(error); if (!changed) return;
     a->new_schema=false; cache_pipeline(a);
     size_t column=a->grid.col; float horizontal=a->grid.horizontal; a->count_paused=false; request_page(a,true);
     grid_select_cell(&a->grid,0,column,false); a->grid.horizontal=horizontal;
@@ -2601,8 +2629,11 @@ static void set_source_filter(App *a,const char *column,FilterOp op,const char *
     if (clear) analysis_filter_remove(&next,column);
     else if (!analysis_filter_set(&next,column,op,value,&error)) { status(a,error); free(error); analysis_free(&next); return; }
     for (size_t c=0;c<a->page.column_count;c++) if (!strcmp(a->page.columns[c].name,column)) analysis_filter_number(&next,column,a->page.columns[c].number_type);
-    remember(a); analysis_free(&a->analysis); a->analysis=next;
-    a->modal=MODAL_NONE; change_analysis(a,false);
+    bool changed=false; size_t validation=0;
+    if (!primary_transform_budget(a,&next,&validation,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+        status(a,error); free(error); analysis_free(&next); return;
+    }
+    free(error); a->modal=MODAL_NONE; if (changed) change_analysis(a,false);
 }
 #ifndef DUXCEL_BROWSER_HOST
 static void apply_filter(App *a) {
@@ -2650,20 +2681,12 @@ static bool set_unique_rows(App *a,int index,bool unique) {
         /* Admit candidate coexistence/grammar before copying the authoritative
            primary. Connection replacement and Table composites keep their owner. */
         Analysis proposal=a->analysis; proposal.unique_rows=unique; size_t validation=0; char *error=NULL;
-        bool measured=workbook_analysis_transform_scratch(active_sheet(a),&a->analysis,&proposal,&validation,&error);
-        if (!measured) { status(a,error); free(error); return false; }
-#ifndef DUXCEL_BROWSER_HOST
-        if (source_format_budget_status(a,NULL,analysis_bytes(&proposal),validation,0,0,0)) return false;
-#endif
-        AnalysisCommandContext context={.book=&a->book,.live=&a->analysis,.source_epoch=&a->analysis_revision,.validation_reserved=validation,
-            .ready=!a->refresh_plans && !a->page_stale && !a->fetch_failed && a->page.column_count>0,.read_only=history_locked(a)};
-        AnalysisTransformTarget target={0};
-        if (!workbook_prepare_analysis_transform(&context,a->book.active,&target,&error)) { status(a,error); free(error); return false; }
-        Analysis next=analysis_copy(&proposal);
-        AnalysisTransformResult result=workbook_apply_analysis_transform_recorded(&context,&target,&next,NULL,&error);
+        if (!primary_transform_budget(a,&proposal,&validation,&error)) { status(a,error); free(error); return false; }
+        Analysis next=analysis_copy(&proposal); bool changed=false;
+        bool applied=primary_transform_adopt(a,&next,validation,&changed,&error);
         analysis_free(&next);
-        if (result.status!=ANALYSIS_TRANSFORM_APPLIED && result.status!=ANALYSIS_TRANSFORM_NOOP) { status(a,error); free(error); return false; }
-        free(error); if (result.status==ANALYSIS_TRANSFORM_APPLIED) change_analysis(a,false);
+        if (!applied) { status(a,error); free(error); return false; }
+        free(error); if (changed) change_analysis(a,false);
     }
     a->consume_grid_input=true;
     status(a,unique ? "Duplicate rows removed across all source columns. Undo restores them." : "Duplicate rows restored. Other transformations are retained."); return true;
@@ -15459,6 +15482,9 @@ static void format_plan_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_ANALYSIS_COMMAND
 static void analysis_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_TRANSFORMS
+static void primary_transforms_test_frame(AppSession *session);
+#endif
 struct AppSession {
     App app;
     AppOptions options;
@@ -16307,6 +16333,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_ANALYSIS_COMMAND
     analysis_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_TRANSFORMS
+    primary_transforms_test_frame(session);
+#endif
 #ifdef DUXCEL_BROWSER_HOST
     bool file_before_shortcuts=a->file_menu;
 #endif
@@ -16544,6 +16573,9 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_ANALYSIS_COMMAND
 #include "../../tests/support/analysis_command_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_PRIMARY_TRANSFORMS
+#include "../../tests/support/primary_transforms_app.inc"
 #endif
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY

@@ -245,14 +245,16 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.2b.2 · P1 · Complete | Closed compound packet and event handoff; W12c.3c.2b.1. | Budget all required constituent graphs/validation before allocation, capture their complete before/after payloads and source union, reject mismatched effects/no-op/owner bindings and hand off one immutable event before mutation. |
 | W12c.3c.2b.2a · P1 · Complete | Compound format/source graph preflight; W12c.3c.2b.1. | Inspect format before/after framing/owned/uniqueness scratch and source-row header/order/owned needs before any constituent allocation. Full semantic decode remains mandatory. |
 | W12c.3c.2b.2b · P1 · Complete | Atomic compound capture/decode and stream adapter; W12c.3c.2b.2a. | Bind exact changed family pairs and one source union, enforce effect/owner/grammar/budget closure, and hand off one immutable event without partial mutation or intermediate full-asset copies. |
-| W12c.3c.3 · P1 · Queued | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
-| W12c.3c.3a · P1 · Queued | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
+| W12c.3c.3 · P1 · In progress | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
+| W12c.3c.3a · P1 · In progress | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
 | W12c.3c.3a.1 · P1 · Complete | Resolved-relation event admission; W12c.3c.2. | Reject retained events containing unresolved DATABASE primary/Table definitions before reservation; preserve legacy/core packet compatibility and distinguish NULL default selection from invalid empty identifiers. |
 | W12c.3c.3a.2 · P1 · Queued | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
-| W12c.3c.3b · P1 · Queued | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
+| W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
-| W12c.3c.3b.3 · P1 · Queued | Remaining primary same-connection adapters; W12c.3c.3b.2. | Prepare sort/filter/group/reset/query after-plans before adoption; preserve schema/readiness and source-format budget ownership. Prove each migrated lane with focused module/input coverage. |
+| W12c.3c.3b.3 · P1 · In progress | Remaining primary same-connection adapters; W12c.3c.3b.2. | Prepare sort/filter/group/reset/query after-plans before adoption; preserve schema/readiness and source-format budget ownership. Prove each migrated lane with focused module/input coverage. |
+| W12c.3c.3b.3a · P1 · Complete | Primary sort/filter command adapters; W12c.3c.3b.2. | Share typed budget/adoption helpers with unique rows; prepare complete sort/filter plans, preserve runtime query/selection behavior and prove real ribbon input, no-op Redo, Undo/Redo and Save/Open. |
+| W12c.3c.3b.3b · P1 · Queued | Primary group/reset/query adapters; W12c.3c.3b.3a. | Prepare complete after-plans for grouping, reset/clear and validated source queries, rejecting stale/unready input and preserving drafts and source identity. |
 | W12c.3c.3b.4 · P1 · Queued | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1432,3 +1434,19 @@ before Save R (the initial simultaneous resize correctly preserved newer dirty
 state). Receipts: ignored `w12c3-analysis-command-app*.log` and run summaries.
 Retained App history/durable Undo remains inactive; broader interactions are
 registered but deferred. Next: remaining primary same-connection adapters.
+
+
+W12c.3c.3b.3a complete: primary sort and per-column filter edits now prepare
+independent definitions and share explicit budget/adoption helpers with duplicate
+transforms. Failed admission keeps the candidate/live history unchanged; accepted
+plans record one command, while sort/filter no-op preserves query clocks and
+Redo. The222-case optimized/ASan/UBSan command suite additionally proves complete
+query/filter/multi-sort event bytes, empty-text preservation, derived-type no-op
+and authored filter/sort reordering. Its narrow hidden TEST GUI passes11 stages/
+25 checks including actual Sort ribbon input, DuckDB order/filter values,
+Cmd-Z/Redo, clearing transforms and v16 Save/Open (15.866s gate). The named shared
+unique/recovery interaction passes19.204s (10 GUI stages;216 native journal
+checks/config);50 tool contracts pass2.514s. Receipts: ignored
+`w12c3-primary-filter-sort*.log` and run summaries. Broader sort/filter scenarios
+remain registered for milestone coverage. Group/reset/validated-query migration
+is the next primary lane; retained App history remains inactive.
