@@ -1501,13 +1501,14 @@ planner,1,046-case object asset and74-case intent optimized/ASan/UBSan gate pass
 `w12c3-object-source-plan*.log` and run summaries. No App adoption or retained
 history activation is claimed; fenced Table adoption is next.
 
-Primary-producer packaging boundary: source3aea461 has a signed native bundle,
-compiled commit provenance and verified absence of private feature/review hooks.
-The normal shared-C Wasm application compiles/links in28.825s;54 affected sources
-rebuilt. Receipts: ignored `w12c3-primary-producers-bundle.log`,
+Primary-producer packaging boundary: sourceb88c3b5 has a signed native bundle
+(8.099s), compiled commit provenance and verified absence of private feature/review
+hooks. The normal shared-C Wasm application compiles/links in24.294s;28 affected
+sources rebuilt. Receipts: ignored `w12c3-primary-producers-bundle.log`,
 `w12c3-primary-producers-package.json` and `w12c3-primary-producers-web.log`.
 No user app was launched/closed and no browser runtime/Open/Save acceptance is
-inferred from compilation. Later Table planner code is scoped component work.
+inferred from compilation. Table planning/adoption primitives compile in both
+targets; their App command integration remains queued.
 
 
 W12c.3c.3b.3d complete: a narrow GUI regression reproduced rejection of a valid
