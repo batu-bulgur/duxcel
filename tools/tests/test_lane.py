@@ -46,14 +46,14 @@ class LaneTests(unittest.TestCase):
         entered, release, second = [self.base / name for name in ("entered", "release", "second")]
         program = ("import pathlib,time,sys; pathlib.Path(sys.argv[1]).touch(); "
                    "\nwhile not pathlib.Path(sys.argv[2]).exists(): time.sleep(.01)")
-        first = subprocess.Popen(self.argv(self.main, "--", sys.executable, "-c", program, str(entered), str(release)),
+        first = subprocess.Popen(self.argv(self.main, "--build", "--", sys.executable, "-c", program, str(entered), str(release)),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.addCleanup(lambda: first.poll() is None and first.kill())
         deadline = time.monotonic() + 5
         while not entered.exists() and time.monotonic() < deadline:
             time.sleep(.01)
         self.assertTrue(entered.exists())
-        follower = subprocess.Popen(self.argv(self.other, "--", sys.executable, "-c",
+        follower = subprocess.Popen(self.argv(self.other, "--build", "--", sys.executable, "-c",
                                              "import pathlib,sys; pathlib.Path(sys.argv[1]).touch()", str(second)),
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.addCleanup(lambda: follower.poll() is None and follower.kill())
@@ -68,13 +68,30 @@ class LaneTests(unittest.TestCase):
         receipts = list(self.other.glob("build/tests/results/lanes/*.json"))
         self.assertEqual(json.loads(receipts[0].read_text())["checkout"], str(self.other))
 
+    def test_isolated_execution_overlaps_another_worktree_compilation(self):
+        # Compilation ownership must not delay an already-built private command.
+        with workspace.FileLock(workspace.repository_lock_path(self.main), "held build"):
+            result = self.run_lane(self.other, "--", sys.executable, "-c", "print('isolated execution')", timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("isolated execution", result.stdout)
+
+    def test_inherited_build_and_checkout_leases_are_reentrant(self):
+        program = ("import pathlib,sys;sys.path.insert(0,'tools');import workspace; "
+                   "\nwith workspace.operation_lease(pathlib.Path.cwd()), workspace.operation_lease(pathlib.Path.cwd(),compilation=True): print('nested ownership')")
+        result = self.run_lane(self.other, "--build", "--", sys.executable, "-c", program, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("nested ownership", result.stdout)
+        result = self.run_lane(self.other, "--build", "--", sys.executable, "tools/test.py", "feature")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("compilation only", result.stderr)
+
     def test_cancellation_preserves_lock_until_child_exits(self):
         ready, cancelled, release = [self.base / name for name in ("ready", "cancelled", "release")]
         program = ("import pathlib,signal,sys,time; "
                    "signal.signal(signal.SIGTERM,lambda *a:pathlib.Path(sys.argv[2]).touch()); "
                    "pathlib.Path(sys.argv[1]).touch(); "
                    "\nwhile not pathlib.Path(sys.argv[3]).exists(): time.sleep(.01)")
-        process = subprocess.Popen(self.argv(self.main, "--", sys.executable, "-c", program,
+        process = subprocess.Popen(self.argv(self.main, "--build", "--", sys.executable, "-c", program,
                                               str(ready), str(cancelled), str(release)),
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.addCleanup(lambda: process.poll() is None and process.kill())

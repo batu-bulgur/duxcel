@@ -17,6 +17,69 @@ SPEC.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
+    def test_build_lease_ends_before_isolated_command_execution(self):
+        import workspace
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            args = runner.parser().parse_args(["fast", "--modules", "build_info"])
+            instance = runner.Runner(args, root)
+            lock = workspace.repository_lock_path(root)
+            def built(*args, **kwargs):
+                with self.assertRaises(RuntimeError):
+                    with workspace.FileLock(lock, "competing compilation"):
+                        pass
+                return {"status": "passed", "name": "build"}
+            with mock.patch.object(instance, "command", side_effect=built), contextlib.redirect_stdout(io.StringIO()):
+                instance.build(["build/tests/test_build_info"])
+            with workspace.FileLock(lock, "build lease released"):
+                pass
+
+    def test_only_shared_native_resources_take_desktop_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "desktop.lock"
+            with mock.patch.object(runner, "native_lock_path", return_value=path):
+                for layout in ((216,250), (250,266), (474,500)):
+                    with runner.native_resource_guard(layout=layout):
+                        with self.assertRaises(RuntimeError):
+                            with runner.FileLock(path, "competing clipboard"):
+                                pass
+                for layout in ((867,882), (882,911), (921,936), (936,950)):
+                    with runner.native_resource_guard(layout=layout), runner.FileLock(path, "independent hidden GUI"):
+                        pass
+                for scenario in ("clipboard", "pivot", "sort", "table", "layout"):
+                    with runner.native_resource_guard(scenario=scenario):
+                        with self.assertRaises(RuntimeError):
+                            with runner.FileLock(path, "competing OS services"):
+                                pass
+                with runner.native_resource_guard(scenario="icon"), runner.FileLock(path, "independent icon GUI"):
+                    pass
+                for arguments in ({"layout": (950,955)}, {"scenario": "future-shared-service"}, {"standalone": "future-native-feature"}):
+                    with runner.native_resource_guard(**arguments):
+                        with self.assertRaises(RuntimeError):
+                            with runner.FileLock(path, "unknown resource must serialize"):
+                                pass
+                for name in runner.PRIVATE_STANDALONE_GUI:
+                    with runner.native_resource_guard(standalone=name), runner.FileLock(path, "reviewed standalone GUI"):
+                        pass
+
+    def test_pinned_test_binary_owns_independent_bytes_and_lane_receipt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            args = runner.parser().parse_args(["native", "--scenario", "icon", "--config", "release"])
+            instance = runner.Runner(args, root)
+            source = root / instance.native_build_target(); source.parent.mkdir(parents=True); source.write_bytes(b"private executable")
+            source.chmod(0o755)
+            with mock.patch.dict(os.environ, {"DUXCEL_LANE": "PINNED"}):
+                instance.pin_native_binary()
+            pinned = root / instance.native_binary()
+            self.assertIn("build/tests/lanes/PINNED/", str(pinned))
+            self.assertIn("duxcel-TEST-PINNED", pinned.name)
+            self.assertNotEqual(source.stat().st_ino, pinned.stat().st_ino)
+            source.write_bytes(b"later compilation")
+            self.assertEqual(pinned.read_bytes(), b"private executable")
+            self.assertEqual(instance.summary["test_executable"]["sha256"], runner.sha256(pinned))
+            self.assertEqual(instance.summary["test_executable"]["checkout"], str(root))
+
     def test_recursive_make_inspection_modes_do_not_launch_tests(self):
         for flags,result in (("n -j8",0),("t",0),("q",1)):
             with mock.patch.dict(os.environ,{"MAKEFLAGS":flags,"MAKELEVEL":"1"}), mock.patch.object(runner,"Runner") as build, contextlib.redirect_stdout(io.StringIO()):
@@ -542,7 +605,7 @@ class RunnerTests(unittest.TestCase):
                     path = root / binary; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(binary)
             with mock.patch.object(instance, "build", side_effect=build), mock.patch.object(runner, "validate_native_contract"):
                 instance.prepare_native()
-            self.assertEqual(instance.summary["binaries"], runner.fingerprint([root / name for name in expected[:2]]))
+            self.assertEqual(instance.summary["binaries"], runner.fingerprint([root / name for name in [*expected[:2], instance.native_binary()]]))
             self.assertEqual((instance.summary["edit"], instance.summary["app_config"], instance.summary["app_optimization"]),
                              (True, "edit-sanitize", "-O0"))
             self.assertEqual(runner.configurations(args.config), ("release", "sanitize"))
@@ -562,7 +625,8 @@ class RunnerTests(unittest.TestCase):
                 def completed(name, command, marker=None, **kwargs):
                     self.assertNotEqual(command[0], "make")
                     if name == "native-icon":
-                        self.assertEqual(command[0], "./build/edit-sanitize/duxcel")
+                        self.assertEqual(command[0], "./" + instance.native_binary())
+                        self.assertIn("duxcel-TEST-", command[0])
                         self.assertEqual(command[1:4], ["--icon-smoke", "--frames", "500"])
                         self.assertEqual((kwargs["native"], kwargs["stages"]), (True, 8))
                         if replace: binary.write_text("replaced edit binary")
@@ -573,7 +637,7 @@ class RunnerTests(unittest.TestCase):
                      contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                     self.assertEqual(instance.run(), 0 if present and not replace else 1)
                 self.assertTrue((root / "build/locks/test-runner.lock").is_file())
-                self.assertEqual((root / "desktop.lock").exists(), present)
+                self.assertFalse((root / "desktop.lock").exists())
                 self.assertEqual(command.call_count, 2 if present else 0)
                 if not present:
                     self.assertIn("Missing test binary", instance.summary["error"])

@@ -3,6 +3,8 @@
 
 import argparse
 import concurrent.futures
+import contextlib
+import shutil
 import datetime
 import json
 import os
@@ -15,7 +17,7 @@ import time
 
 from test_catalog import FEATURE_FIXTURES, FEATURES, STANDALONE_GUI, ENGINE_PROCESS_CHECKS, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
-                       utc_now, sha256, fingerprint, ensure_unchanged, make_jobserver_fds)
+                       utc_now, sha256, fingerprint, ensure_unchanged, make_jobserver_fds, operation_lease, inherited_lease_fds)
 FAST_MODULES = (
     "build_info", "workbook_lifecycle", "workbook_history", "workbook_identity", "cell_command", "format_command", "source_format_command", "analysis_command", "primary_replacement", "object_source_plan", "table_command", "table_replacement", "object_name_command", "object_presentation_command", "object_pivot_command", "object_binding_command", "object_delete_command", "object_move_command", "object_create_command", "object_import_draft", "object_layout_command", "object_marks_command", "cell_delta", "cell_delta_codec", "cellreadout", "filterlabel", "grid", "selection_ladder", "selection", "cell_regions", "source_scope", "source_versions_codec", "workbook_codec", "workbook_schema", "version_index", "history_window", "history_anchors", "history_path", "history_stream", "history_format", "analysis_asset", "pivot_asset", "marks_asset", "objects_asset", "definition_dependencies", "definition_state", "definition_baseline", "definition_event", "history_definition", "version_tag", "version_chunks", "workbook_codec_read", "objects", "brand", "format", "format_delta_codec", "format_dependencies", "chartview", "chartencoding",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
@@ -96,6 +98,44 @@ NATIVE = (
     ("unique", 32, 3600, "PASS: structured unique rows on primary and independent sources"),
 )
 SANITIZER_FAILURE = re.compile(r"ERROR: (?:AddressSanitizer|LeakSanitizer)|runtime error:|SUMMARY: (?:AddressSanitizer|UndefinedBehaviorSanitizer)")
+
+
+# These layout checkpoints perform real OS clipboard access (including the
+# preceding injected Copy gesture). Other layout input is process-local injection.
+CLIPBOARD_LAYOUT_RANGES = ((225,227), (235,237), (252,254), (259,261), (479,481))
+# Explicitly reviewed process-local checkpoints. Unknown/new ranges remain
+# conservative until their input, clipboard, panels and settings are reviewed.
+PRIVATE_LAYOUT_RANGES = {
+    (0,45), (0,64), (0,148), (311,335), (357,400), (400,426),
+    (426,458), (458,474), (500,522), (510,540), (522,950),
+    (540,555), (555,596), (596,620), (620,638), (638,665),
+    (665,675), (675,687), (687,714), (687,716), (687,730),
+    (730,734), (730,950), (734,764), (764,800), (800,824),
+    (824,846), (846,861), (861,867), (861,882), (867,882),
+    (882,898), (882,911), (882,950), (911,921), (921,936), (936,950),
+}
+PRIVATE_NATIVE_SCENARIOS = {"base", "workspace", "filter", "export", "count", "navigation", "nyc", "document", "chart", "statistics", "icon", "query", "unique"}
+PRIVATE_STANDALONE_GUI = {
+    "object-move-command", "object-delete-command", "object-binding-command",
+    "primary-replacement", "table-replacement", "object-pivot-command",
+    "object-layout-command", "object-marks-command", "object-presentation-command",
+    "object-name-command", "table-command", "primary-steps", "primary-query",
+    "primary-transforms", "analysis-command", "format-plan", "history-preview-sanitize",
+    "history-preview", "version-controls", "recovery-menu", "recovery", "workbook-save",
+    "journal-session", "workbook-lifecycle", "workbook-history", "workbook-identity", "cell-command",
+}
+
+
+def native_resource_guard(*, layout=None, scenario=None, standalone=None):
+    shared = True
+    if layout is not None:
+        start, end = layout
+        shared = layout not in PRIVATE_LAYOUT_RANGES or any(start < stop and begin < end for begin, stop in CLIPBOARD_LAYOUT_RANGES)
+    elif scenario is not None:
+        shared = scenario not in PRIVATE_NATIVE_SCENARIOS
+    elif standalone is not None:
+        shared = standalone not in PRIVATE_STANDALONE_GUI
+    return FileLock(native_lock_path(), "Native shared OS services", blocking=True) if shared else contextlib.nullcontext()
 
 
 def configurations(name):
@@ -199,7 +239,7 @@ class Runner:
                 stream.flush()
                 process = subprocess.run(command, cwd=self.root, env=env, stdout=stream, stderr=subprocess.STDOUT,
                                          timeout=self.args.timeout if not native else max(self.args.timeout, 900),
-                                         pass_fds=make_jobserver_fds(env) if command[0]=="make" else ())
+                                         pass_fds=tuple(set(inherited_lease_fds(env) + (make_jobserver_fds(env) if command[0]=="make" else ()))))
             result["exit_code"] = process.returncode
             validate_output(log.read_text(errors="replace"), process.returncode, marker, native, base, completion_pattern)
             result["status"] = "passed"
@@ -217,7 +257,8 @@ class Runner:
 
     def build(self, targets, name="build"):
         if not self.args.no_build:
-            self.record(self.command(name, ["make", *dict.fromkeys(targets)]))
+            with operation_lease(self.root, compilation=True):
+                self.record(self.command(name, ["make", *dict.fromkeys(targets)]))
 
     def retain_binaries(self, binaries):
         paths = [self.root / binary for binary in dict.fromkeys(binaries)]
@@ -252,6 +293,9 @@ class Runner:
             raise RuntimeError(f"{len(failures)} headless check(s) failed; see summary.json")
 
     def native_binary(self):
+        return getattr(self, "_pinned_native", self.native_build_target())
+
+    def native_build_target(self):
         if self.args.edit:
             return "build/edit-sanitize/duxcel"
         return "build/bin/duxcel" if self.args.config == "release" else "build/bin/duxcel-debug"
@@ -281,7 +325,7 @@ class Runner:
 
     def prepare_native(self, full=False, background=True):
         validate_native_contract(self.root)
-        targets = [self.native_binary()]
+        targets = [self.native_build_target()]
         if background:
             targets.append("build/tests/test_background-native-debug")
         targets.append("design-fixture")
@@ -298,7 +342,41 @@ class Runner:
         (self.root / "build/tests/generated/workspace-new").mkdir(parents=True, exist_ok=True)
         if not (self.root / "build/tests/generated/design-definition.dxls").is_file():
             raise RuntimeError("Missing canonical design fixture; omit --no-build")
-        self.retain_binaries([self.native_binary()] + (["build/tests/test_background-native-debug"] if background else []) + (["build/tests/test_paint-native-debug"] if full else []))
+        self.retain_binaries([self.native_build_target()] + (["build/tests/test_background-native-debug"] if background else []) + (["build/tests/test_paint-native-debug"] if full else []))
+
+        self.pin_native_binary()
+
+    def pin_native_binary(self):
+        """Copy one immutable test executable; never launch the ordinary app path."""
+        self._pinned_native = self.pin_test_binary(self.native_build_target(), "duxcel")
+        self.summary["test_executable"] = self.summary["test_executables"][-1]
+
+    def pin_test_binary(self, binary, label=None):
+        """Pin App-bearing feature helpers with the same lane identity as smoke."""
+        source = self.root / binary
+        lane = os.environ.get("DUXCEL_LANE", "local")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,31}", lane):
+            raise RuntimeError("Invalid TEST executable lane identity")
+        folder = self.root / "build/tests/lanes" / lane / self.log_dir.name
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / ((label or source.name) + "-TEST-" + lane + ("-debug" if label and self.args.config != "release" else ""))
+        before = sha256(source)
+        if target.exists():
+            raise RuntimeError("Pinned TEST executable already exists: " + str(target))
+        with source.open("rb") as incoming, target.open("xb") as outgoing:
+            shutil.copyfileobj(incoming, outgoing)
+        target.chmod(source.stat().st_mode & 0o777)
+        if sha256(target) != before or sha256(source) != before:
+            target.unlink()
+            raise RuntimeError("Native binary changed during TEST executable capture")
+        assets = self.root / "assets"
+        if assets.is_dir() and not (folder / "assets").exists():
+            (folder / "assets").symlink_to(assets, target_is_directory=True)
+        pinned = str(target.relative_to(self.root))
+        self.summary.setdefault("test_executables", []).append({"path": str(target), "source": str(source),
+                                           "sha256": before, "lane": lane, "checkout": str(self.root)})
+        self.retain_binaries([pinned])
+        return pinned
 
     def background_check(self):
         self.record(self.command("background-sanitize", ["./build/tests/test_background-native-debug"], "PASS: 477 background native checks"))
@@ -310,9 +388,9 @@ class Runner:
         binary = "build/tests/test_about-native-debug"
         self.build([binary], "build-about")
         self.retain_binaries([binary])
-        with FileLock(native_lock_path(), "Native feature tests"):
-            self.record(self.command("about-native", ["./" + binary], "PASS: native About and test identity",
-                completion_pattern=r"^PASS: native About and test identity \([1-9]\d* checks\)$"))
+        binary = self.pin_test_binary(binary)
+        self.record(self.command("about-native", ["./" + binary], "PASS: native About and test identity",
+            completion_pattern=r"^PASS: native About and test identity \([1-9]\d* checks\)$"))
 
     def standalone_gui_check(self,name):
         if name == "workbook-identity":
@@ -321,9 +399,10 @@ class Runner:
         binary, marker, completion, stages = STANDALONE_GUI[name]
         self.build([binary], "build-feature-gui")
         self.retain_binaries([binary])
+        binary = self.pin_test_binary(binary)
         (self.root / "build/tests/generated").mkdir(parents=True,exist_ok=True)
         (self.root / "build/tests/results" / name).mkdir(parents=True,exist_ok=True)
-        with FileLock(native_lock_path(), "Native feature tests"):
+        with native_resource_guard(standalone=name):
             self.record(self.command(name+"-native",["./"+binary],marker,native=True,
                                      completion_pattern=completion,stages=stages))
 
@@ -385,7 +464,7 @@ class Runner:
             try:
                 self.prepare_native(background=False)
                 start, end, marker = LAYOUT_PROFILES[plan["gui"]]
-                with FileLock(native_lock_path(), "Native feature tests"):
+                with native_resource_guard(layout=(start, end)):
                     self.record(self.command("feature-" + plan["gui"],
                         ["./" + self.native_binary(), "--layout-smoke", "--frames", str(max(1200,(end-start+10)*48)),
                          "--screenshot", str(self.log_dir / "final.png")], marker, native=True,
@@ -400,7 +479,7 @@ class Runner:
         self.prepare_native()
         start, end, marker = LAYOUT_PROFILES[self.args.feature]
         frames = max(1200, (end - start + 10) * 48)
-        with FileLock(native_lock_path(), "Native desktop tests"):
+        with native_resource_guard(layout=(start, end)):
             ensure_unchanged(self.summary["binaries"])
             self.background_check()
             self.record(self.command("layout-" + self.args.feature,
@@ -476,13 +555,12 @@ class Runner:
                                              completion_pattern=r"^PASS: native format rows \d+ checks;"))
                     ensure_unchanged(self.summary["binaries"])
                 self.engine_process_check(module,config,binary)
-        with FileLock(native_lock_path(), "Native desktop tests"):
-            self.background_check()
-            self.record(self.command("gpu-sanitize", ["./build/tests/test_paint-native-debug"], "PASS: 110 native paint checks"))
-            self.native_scenarios([row[0] for row in NATIVE])
+        self.background_check()
+        self.record(self.command("gpu-sanitize", ["./build/tests/test_paint-native-debug"], "PASS: 110 native paint checks"))
+        self.native_scenarios([row[0] for row in NATIVE])
 
     def native_scenarios(self, names):
-        """Caller owns the desktop lock; keep scenarios and clipboard serial."""
+        """Keep local scenarios ordered; lock only their shared OS services."""
         data = self.root / "data/downloads/yellow_tripdata_2025-01.parquet"
         inventory = {row[0]: row for row in NATIVE}
         for selected in dict.fromkeys(names):
@@ -495,7 +573,8 @@ class Runner:
                 continue
             ensure_unchanged(self.summary["binaries"])
             flag = "--smoke" if name == "base" else f"--{name}-smoke"
-            self.record(self.command("native-" + name,
+            with native_resource_guard(scenario=name):
+                self.record(self.command("native-" + name,
                                      ["./" + self.native_binary(), flag, "--frames", str(frames),
                                       "--screenshot", str(self.log_dir / (name + ".png"))], marker,
                                      native=True, base=name == "base", stages=stages,
@@ -516,14 +595,13 @@ class Runner:
             self.build([binary], "build-table-fixtures")
             self.retain_binaries([binary])
             self.record(self.command("prepare-table-fixtures", ["./" + binary], "PASS:"))
-        with FileLock(native_lock_path(), "Native desktop tests"):
-            self.background_check()
-            self.native_scenarios(self.args.scenario)
+        self.background_check()
+        self.native_scenarios(self.args.scenario)
 
     def run(self):
         print("Logs: " + str(self.log_dir), flush=True)
         try:
-            with FileLock(self.root / "build/locks/test-runner.lock", "Tests in this worktree"):
+            with operation_lease(self.root):
                 if self.args.tier == "fast":
                     self.headless(self.args.modules or FAST_MODULES)
                 elif self.args.tier == "feature":

@@ -135,12 +135,60 @@ def checkout_gate_path(root=None):
 
 def repository_lock_path(root):
     """One stable OS advisory lock for all worktrees of this Git repository."""
-    result = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root,
-                            text=True, capture_output=True, check=True)
-    common = (Path(root) / result.stdout.strip()).resolve()
+    try:
+        result = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root,
+                                text=True, capture_output=True, check=True)
+        common = (Path(root) / result.stdout.strip()).resolve()
+    except (OSError, subprocess.CalledProcessError):
+        # Source archives have no sibling Git worktrees; isolate by source root.
+        common = Path(root).resolve()
     identity = hashlib.sha256(os.fsencode(common)).hexdigest()[:20]
     return Path("/tmp") / f"duxcel-operations-{os.getuid()}-{identity}.lock"
 
+
+def inherited_lease_fds(env=None):
+    env = os.environ if env is None else env
+    descriptors = []
+    for key in ("DUXCEL_CHECKOUT_LEASE_FD", "DUXCEL_COMPILE_LEASE_FD"):
+        try:
+            descriptor = int(env.get(key, ""))
+            os.fstat(descriptor)
+            descriptors.append(descriptor)
+        except (ValueError, OSError):
+            pass
+    return tuple(descriptors)
+
+
+@contextlib.contextmanager
+def operation_lease(root, *, compilation=False):
+    """Borrow verified inherited ownership, or acquire one cooperating lease.
+
+    Checkout ownership protects binaries for the complete run. Repository-wide
+    ownership bounds compilation only; isolated test executions do not take it.
+    Inherited descriptors keep recursive orchestration from acquiring itself.
+    """
+    path = repository_lock_path(root) if compilation else Path(root) / "build/locks/test-runner.lock"
+    key = "DUXCEL_COMPILE_LEASE_FD" if compilation else "DUXCEL_CHECKOUT_LEASE_FD"
+    try:
+        descriptor = int(os.environ.get(key, ""))
+        held, expected = os.fstat(descriptor), path.stat()
+        borrowed = (held.st_dev, held.st_ino) == (expected.st_dev, expected.st_ino)
+    except (ValueError, OSError):
+        borrowed = False
+    if borrowed:
+        yield
+        return
+    purpose = "Cross-worktree compilation" if compilation else "Tests/build in this worktree"
+    with FileLock(path, purpose, blocking=True) as lease:
+        previous = os.environ.get(key)
+        os.environ[key] = str(lease.stream.fileno())
+        try:
+            yield
+        finally:
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
 
 def native_lock_path():
     # gettempdir() can differ between Terminal, Codex and worktrees (TMPDIR).

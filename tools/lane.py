@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Serialize lane build/test commands across worktrees; keep all output private.
+"""Run isolated lane tests; serialize only explicitly selected compilation.
 
 Initialize once with --checkout PATH --lane NAME --init, then use the same
 arguments followed by -- COMMAND ARG... . The existing test runner continues to
 own suite selection, fixture order, hidden launches and the desktop lock.
 """
 import argparse
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -15,7 +16,8 @@ import subprocess
 import sys
 import time
 
-from workspace import FileLock, checkout_gate_path, make_jobserver_fds, repository_lock_path, utc_now
+from workspace import (FileLock, checkout_gate_path, make_jobserver_fds, repository_lock_path,
+                       utc_now, operation_lease, inherited_lease_fds)
 
 
 def private_outputs(root):
@@ -32,7 +34,7 @@ def private_outputs(root):
                 for child in folders + files:
                     path = Path(directory) / child
                     if path.is_symlink() and not path.resolve().is_relative_to(folder.resolve()):
-                        if (path in asset_links and path.resolve() == root / "assets"
+                        if ((path in asset_links or (path.name == "assets" and path.is_relative_to(root / "build/tests/lanes"))) and path.resolve() == root / "assets"
                                 and not (root / "assets").is_symlink()):
                             continue
                         raise RuntimeError(f"Lane output points outside its private directory: {path}")
@@ -52,7 +54,7 @@ def run_command(command, root, env):
     # Keep ownership until the command exits even when the wrapper is cancelled.
     # A separate group lets cancellation reach recursive Make/test descendants.
     child = subprocess.Popen(command, cwd=root, env=env, start_new_session=True,
-                             pass_fds=make_jobserver_fds(env))
+                             pass_fds=tuple(set(make_jobserver_fds(env) + inherited_lease_fds(env))))
     def forward(number, frame):
         try:
             os.killpg(child.pid, number)
@@ -66,7 +68,7 @@ def run_command(command, root, env):
             signal.signal(number, handler)
 
 
-def execute(root, lane, command, initialize=False):
+def execute(root, lane, command, initialize=False, build=False):
     expected = identity(root, lane)
     marker = root / "build/lane.json"
     with FileLock(checkout_gate_path(root), "Lane operation", shared=True):
@@ -76,12 +78,16 @@ def execute(root, lane, command, initialize=False):
             marker.parent.mkdir(parents=True, exist_ok=True)
             marker.write_text(json.dumps(expected, indent=2) + "\n")
             return 0
+        if command and Path(command[0]).name in {"make", "gmake", "clang", "cc", "gcc"} and not build:
+            raise RuntimeError("Direct compilation requires --build; use tools/test.py for mixed build/test workflows")
+        if build and (any("test.py" == Path(arg).name for arg in command) or any(arg.startswith("test-") for arg in command[1:])):
+            raise RuntimeError("--build accepts compilation only; test workflows acquire their own build leases")
         if not command:
             raise RuntimeError("Supply a command after --")
         if not marker.is_file() or json.loads(marker.read_text()) != expected:
             raise RuntimeError("Missing or mismatched lane marker; initialize this checkout first")
         queued = utc_now()
-        with FileLock(expected["repository_lock"], "Cross-worktree build/test", blocking=True):
+        with operation_lease(root), (operation_lease(root, compilation=True) if build else contextlib.nullcontext()):
             private_outputs(root)
             if json.loads(marker.read_text()) != expected:
                 raise RuntimeError("Lane marker changed while waiting for operation ownership")
@@ -89,7 +95,7 @@ def execute(root, lane, command, initialize=False):
             env.update(DUXCEL_TEST_INSTANCE="1", DUXCEL_TEST_VISIBLE="0",
                        DUXCEL_BUILD_LANE=lane, DUXCEL_LANE=lane, BUILD_JOBS="8")
             receipt = dict(expected, command=command, pid=os.getpid(), queued_utc=queued,
-                           started_utc=utc_now(), test_instance=True, build_jobs=8)
+                           started_utc=utc_now(), test_instance=True, build_jobs=8, compilation=build)
             result_dir = root / "build/tests/results/lanes"
             result_dir.mkdir(parents=True, exist_ok=True)
             output = result_dir / f"{lane}-{os.getpid()}-{time.time_ns()}.json"
@@ -110,11 +116,12 @@ def main():
     parser.add_argument("--checkout", type=Path, required=True)
     parser.add_argument("--lane", required=True)
     parser.add_argument("--init", action="store_true")
+    parser.add_argument("--build", action="store_true", help="Hold the repository lease for a compilation-only command")
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     try:
-        return execute(args.checkout.resolve(), args.lane, command, args.init)
+        return execute(args.checkout.resolve(), args.lane, command, args.init, args.build)
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
         print(str(error), file=sys.stderr)
         return 1
