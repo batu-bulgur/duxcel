@@ -28,4 +28,8 @@ WorkbookSaveResult workbook_save_controlled(const Workbook *book,const char *pat
    imported. This does not capture history, Data Model assets or analytical
    output outside the current codec, nor publish a user version/index. */
 WorkbookSaveResult workbook_save_core_payload(const Workbook *book,const char *path,WorkbookSaveControl control,char **error);
+/* Strict native leaf admission: exact v15 core, stored absolute locators and
+   no unrelated tables or nested version schema. Reads an independent candidate
+   and preserves out on failure. Ordinary workbook_load retains legacy support. */
+bool workbook_load_core_payload(Workbook *out,const char *path,char **error);
 #endif

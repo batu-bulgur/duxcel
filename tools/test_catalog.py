@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "core-restore": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui"),
+        ("src/workbook/core_payload.c: streamed restore", "src/workbook/save.h", "src/workbook/workbook.c: strict leaf reader", "tests/test_core_restore.c"),
+        ("core_restore", "core_payload", "workbook_payload")),
     "version-metadata": Feature((), "",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui"),
         ("src/workbook/version_read.c", "src/workbook/version_read.h", "src/workbook/version_codec.c", "src/workbook/version_sql.c", "tests/test_version_read.c"),

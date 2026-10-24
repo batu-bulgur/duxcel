@@ -96,6 +96,12 @@ int main(void) {
     char *offline_resolved=workbook_source_path(absolute_ordinary,offline_relative);
     verify(ordinary,&book,primary.path,table.path,offline_resolved);
     CHECK(!rename(core,moved)); verify(moved,&book,primary.path,table.path,offline);
+    Workbook guarded; workbook_init(&guarded); CHECK(workbook_add(&guarded,"Keep live model",&(Analysis){0},&error));
+    WorkbookId guard_id=guarded.id;
+    CHECK(!workbook_load_core_payload(&guarded,ordinary,&error)); clear_error(&error);
+    CHECK(guarded.id.high==guard_id.high && guarded.id.low==guard_id.low && !strcmp(guarded.sheets[0].name,"Keep live model"));
+    CHECK(workbook_load_core_payload(&guarded,moved,&error) && !error && guarded.id.high==book.id.high && guarded.id.low==book.id.low);
+    workbook_free(&guarded);
     reference(moved,primary_sql,primary.path); reference(moved,table_sql,table.path); reference(moved,ledger_sql,primary.path);
     FILE *f=fopen(sentinel,"wb"); CHECK(f && fwrite("sentinel",1,8,f)==8 && !fclose(f));
     /* Unbind while testing locator admission independently of binding equality. */

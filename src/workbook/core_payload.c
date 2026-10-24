@@ -75,13 +75,8 @@ static void cleanup_capture(WorkbookCorePayload *p) {
         dx_remove_temp_directory(p->directory);
     }
 }
-WorkbookCorePayloadResult workbook_core_payload_capture(const Workbook *book,const char *parent,
-    WorkbookCorePayloadControl control,WorkbookCorePayload **out,char **error) {
-    if (!book || !parent || !*parent || !out || *out) { fail(error,"Choose an immutable workbook, existing staging folder and empty payload handle."); return CORE_PAYLOAD_FAILED; }
-#if !defined(__APPLE__) || defined(__EMSCRIPTEN__)
-    (void)control; fail(error,"Core payload sealing requires the native macOS SDK."); return CORE_PAYLOAD_UNSUPPORTED;
-#endif
-    WorkbookCorePayload *p=dx_alloc(sizeof(*p)); WorkbookCorePayloadResult result=CORE_PAYLOAD_FAILED;
+static WorkbookCorePayload *create(const char *parent,char **error) {
+    WorkbookCorePayload *p=dx_alloc(sizeof(*p));
     char *resolved=dx_absolute_path(parent);
     if (!resolved || dx_path_kind(resolved)!=DX_PATH_DIRECTORY) { free(resolved); fail(error,"The core payload staging folder is unavailable."); goto done; }
     p->directory=dx_private_directory(resolved); free(resolved);
@@ -90,15 +85,75 @@ WorkbookCorePayloadResult workbook_core_payload_capture(const Workbook *book,con
     if (dx_file_lease_acquire(p->lease_path,true,&p->lease,error)!=DX_FILE_LEASE_ACQUIRED) goto done;
     char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
     if (source_file_identity(p->lease_path,&p->lease_identity,detail)!=SOURCE_DIGEST_OK) { fail(error,detail); goto done; }
-    WorkbookSaveResult saved=workbook_save_core_payload(book,p->path,control.save,error);
-    if (saved!=WORKBOOK_SAVE_COMPLETE) { result=saved==WORKBOOK_SAVE_CANCELLED ? CORE_PAYLOAD_CANCELLED : CORE_PAYLOAD_FAILED; goto done; }
-    SourceDigestStatus status=source_digest_file(p->path,control.cancelled,control.context,&p->digest,detail);
-    if (status!=SOURCE_DIGEST_OK) { fail(error,detail); result=status==SOURCE_DIGEST_CANCELLED ? CORE_PAYLOAD_CANCELLED : status==SOURCE_DIGEST_UNSUPPORTED ? CORE_PAYLOAD_UNSUPPORTED : CORE_PAYLOAD_FAILED; goto done; }
-    if (!p->digest.bytes || p->digest.identity.links!=1) { fail(error,"A core payload requires closed independent bytes."); goto done; }
-    p->info=(WorkbookCorePayloadInfo){.document=book->id,.bytes=p->digest.bytes,.encoding=workbook_codec_min_write_version(book)};
-    memcpy(p->info.sha256,p->digest.sha256,DX_SOURCE_DIGEST_BYTES); p->sealed=true;
-    if (!identities(p,error) || !inventory(p,error)) goto done;
-    *out=p; return CORE_PAYLOAD_READY;
+    return p;
 done:
+    cleanup_capture(p); workbook_core_payload_free(p); return NULL;
+}
+static WorkbookCorePayloadResult seal(WorkbookCorePayload *p,WorkbookId document,unsigned encoding,
+    SourceDigestCancel cancelled,void *context,char **error) {
+    char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+    SourceDigestStatus status=source_digest_file(p->path,cancelled,context,&p->digest,detail);
+    if (status!=SOURCE_DIGEST_OK) { fail(error,detail); return status==SOURCE_DIGEST_CANCELLED ? CORE_PAYLOAD_CANCELLED : status==SOURCE_DIGEST_UNSUPPORTED ? CORE_PAYLOAD_UNSUPPORTED : CORE_PAYLOAD_FAILED; }
+    if (!p->digest.bytes || p->digest.identity.links!=1) { fail(error,"A core payload requires closed independent bytes."); return CORE_PAYLOAD_FAILED; }
+    p->info=(WorkbookCorePayloadInfo){.document=document,.bytes=p->digest.bytes,.encoding=encoding};
+    memcpy(p->info.sha256,p->digest.sha256,DX_SOURCE_DIGEST_BYTES); p->sealed=true;
+    return identities(p,error) && inventory(p,error) ? CORE_PAYLOAD_READY : CORE_PAYLOAD_FAILED;
+}
+WorkbookCorePayloadResult workbook_core_payload_capture(const Workbook *book,const char *parent,
+    WorkbookCorePayloadControl control,WorkbookCorePayload **out,char **error) {
+    if (!book || !parent || !*parent || !out || *out) { fail(error,"Choose an immutable workbook, existing staging folder and empty payload handle."); return CORE_PAYLOAD_FAILED; }
+#if !defined(__APPLE__) || defined(__EMSCRIPTEN__)
+    (void)control; fail(error,"Core payload sealing requires the native macOS SDK."); return CORE_PAYLOAD_UNSUPPORTED;
+#endif
+    WorkbookCorePayload *p=create(parent,error); if (!p) return CORE_PAYLOAD_FAILED;
+    WorkbookSaveResult saved=workbook_save_core_payload(book,p->path,control.save,error);
+    WorkbookCorePayloadResult result=saved==WORKBOOK_SAVE_COMPLETE ? seal(p,book->id,workbook_codec_min_write_version(book),control.cancelled,control.context,error) :
+        saved==WORKBOOK_SAVE_CANCELLED ? CORE_PAYLOAD_CANCELLED : CORE_PAYLOAD_FAILED;
+    if (result==CORE_PAYLOAD_READY) { *out=p; return result; }
+    cleanup_capture(p); p->sealed=false; workbook_core_payload_free(p); return result;
+}
+typedef struct { WorkbookCorePayloadInput input; WorkbookCoreRestorePhase phase; bool stopped; } Restore;
+static bool restore_cancel(void *context,uint64_t bytes) {
+    Restore *r=context;
+    if (!r->stopped && r->input.cancelled) r->stopped=r->input.cancelled(r->input.context,r->phase,bytes);
+    return r->stopped;
+}
+WorkbookCorePayloadResult workbook_core_payload_restore(const WorkbookCorePayloadInfo *expected,const char *parent,
+    uint64_t reserved,WorkbookCorePayloadInput input,WorkbookCorePayload **out,char **error) {
+    if (!expected || !expected->bytes || expected->bytes>reserved || expected->encoding!=15 ||
+        (!expected->document.high && !expected->document.low) || !parent || !*parent || !input.read || !out || *out) {
+        fail(error,"Choose a bounded supported core descriptor, sequential input and empty owned result."); return CORE_PAYLOAD_FAILED;
+    }
+#if !defined(__APPLE__) || defined(__EMSCRIPTEN__)
+    fail(error,"Core payload restoration requires the native macOS SDK."); return CORE_PAYLOAD_UNSUPPORTED;
+#endif
+    WorkbookCorePayload *p=create(parent,error); if (!p) return CORE_PAYLOAD_FAILED;
+    WorkbookCorePayloadResult result=CORE_PAYLOAD_FAILED; FILE *file=fopen(p->path,"wb");
+    Restore restore={.input=input,.phase=CORE_RESTORE_COPY};
+    Workbook staged; workbook_init(&staged);
+    if (!file) { fail(error,"Cannot create the private core restore file."); goto done; }
+    unsigned char buffer[DX_SOURCE_DIGEST_BUFFER_BYTES]; uint64_t offset=0;
+    while (offset<expected->bytes) {
+        if (restore_cancel(&restore,offset)) { fail(error,"Core restoration was cancelled."); result=CORE_PAYLOAD_CANCELLED; goto done; }
+        uint64_t remaining=expected->bytes-offset; size_t bytes=remaining>sizeof(buffer) ? sizeof(buffer) : (size_t)remaining;
+        if (!input.read(input.context,offset,buffer,bytes,error)) { if (!error || !*error) fail(error,"The encoded core input failed."); goto done; }
+        if (fwrite(buffer,1,bytes,file)!=bytes) { fail(error,"Cannot write the private core restore file."); goto done; }
+        offset+=bytes;
+    }
+    int closed=fclose(file); file=NULL; if (closed) { fail(error,"Cannot close the private core restore file."); goto done; }
+    restore.phase=CORE_RESTORE_VERIFY;
+    result=seal(p,expected->document,expected->encoding,restore_cancel,&restore,error);
+    if (result!=CORE_PAYLOAD_READY) goto done;
+    result=CORE_PAYLOAD_FAILED;
+    if (p->info.bytes!=expected->bytes || memcmp(p->info.sha256,expected->sha256,DX_SOURCE_DIGEST_BYTES)) { fail(error,"The restored core failed its exact size/hash proof."); goto done; }
+    restore.phase=CORE_RESTORE_ADMIT;
+    if (restore_cancel(&restore,0)) { fail(error,"Core admission was cancelled."); result=CORE_PAYLOAD_CANCELLED; goto done; }
+    if (!workbook_load_core_payload(&staged,p->path,error)) goto done;
+    if (staged.id.high!=expected->document.high || staged.id.low!=expected->document.low) { fail(error,"The restored core belongs to another document."); goto done; }
+    restore.phase=CORE_RESTORE_RECHECK;
+    result=workbook_core_payload_verify(p,restore_cancel,&restore,error);
+    if (result==CORE_PAYLOAD_READY) { workbook_free(&staged); *out=p; return result; }
+done:
+    if (file) fclose(file); workbook_free(&staged);
     cleanup_capture(p); p->sealed=false; workbook_core_payload_free(p); return result;
 }

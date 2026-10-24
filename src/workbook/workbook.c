@@ -1942,6 +1942,27 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
  done:
     duckdb_destroy_result(&r); workbook_free(&book); return ok;
 }
+bool workbook_load_core_payload(Workbook *out,const char *path,char **error) {
+    if (!out || !path || !*path) return range_fail(error,"Choose a core payload and an owned workbook result.");
+    char *target=dx_absolute_path(path); if (!target) return range_fail(error,"Core payload file is missing or inaccessible.");
+    Workbook staged; workbook_init(&staged);
+    duckdb_database db=NULL; duckdb_connection c=NULL; char *temporary=NULL; int workspace_version=0; duckdb_result r={0};
+    bool ok=open_metadata(target,true,&db,&c,&temporary,error) && version(c,true,&workspace_version,error);
+    if (ok && workspace_version!=15) ok=range_fail(error,"A version leaf requires the exact v15 core encoding.");
+    if (ok) ok=read_workbook(c,target,workspace_version,&staged,error);
+    /* Full core admission has already rejected views/incompatible row shapes.
+       Inspect original stored locators, before their resolved spelling can
+       conceal a relative reference tied to this private staging directory. */
+    if (ok) {
+        const char *sql="SELECT EXISTS(SELECT 1 FROM (SELECT path AS ref FROM _duxcel_workspace.sheets UNION ALL SELECT path FROM _duxcel_workspace.table_sources UNION ALL SELECT source_reference FROM _duxcel_workspace.source_versions) refs WHERE ref<>'' AND NOT (substr(ref,1,1) IN ('/',chr(92)) OR substr(ref,2,1)=':')) OR EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog=current_database() AND table_schema<>'_duxcel_workspace') OR EXISTS(SELECT 1 FROM information_schema.schemata WHERE catalog_name=current_database() AND lower(schema_name)='_duxcel_versions')";
+        if (duckdb_query(c,sql,&r)!=DuckDBSuccess) ok=range_fail(error,duckdb_result_error(&r));
+        else if (duckdb_row_count(&r)!=1 || duckdb_value_is_null(&r,0,0) || duckdb_value_boolean(&r,0,0)) ok=range_fail(error,"A core leaf contains relative locators, unrelated tables or recursive version metadata.");
+    }
+    duckdb_destroy_result(&r);
+    if (c) duckdb_disconnect(&c); if (db) duckdb_close(&db); dx_remove_temp_directory(temporary); free(temporary); free(target);
+    if (ok) { workbook_free(out); *out=staged; workbook_init(&staged); }
+    workbook_free(&staged); return ok;
+}
 bool workbook_load(Workbook *out,const char *path,char **error) {
     char *target=dx_absolute_path(path); if (!target) { error_set(error,"Workspace file is missing or inaccessible."); return false; }
     duckdb_database db=NULL; duckdb_connection c=NULL; char *temporary=NULL; int workspace_version=0;

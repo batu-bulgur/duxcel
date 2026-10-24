@@ -111,7 +111,13 @@ NULL/length/count observations, then copies typed roots/tags into an owned
 immutable metadata handle and validates references/generations/storage bounds.
 Its transaction proof is shared with the encoder. Metadata READY is deliberately
 separate from chunk/hash/embedded-model closure; no live model is adopted.
-Archive closure and App adoption remain W11a2/W11a3; native files remain v15.
+`workbook_core_payload_restore` reconstructs bounded sequential input in a new
+leased child, checks exact bytes/hash, admits the embedded model through
+`workbook_load_core_payload`, then rechecks integrity. The strict reader requires
+v15, original absolute source locators and no unrelated tables/nested version
+schema; failures preserve the independent output. Ordinary legacy Open remains
+unchanged. Copy/hash/admission/recheck have explicit cancellation phases.
+Whole root-set closure and App adoption remain W11a2/W11a3; native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

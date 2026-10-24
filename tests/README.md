@@ -290,3 +290,11 @@ beyond SQL result lifetime and cancellation without replacing out. The
 `version-metadata` gate also reruns staging after its shared inventory/transaction
 extraction. Missing chunks remain an explicit later closure gate, never an
 accepted complete workbook/root.
+
+`test_core_restore.c` feeds fixed blocks through the real owned leaf factory,
+covering exact text/offline source recovery, independent bytes/lease, phase
+cancellation, failed/truncated/corrupted input, wrong digest/document/reservation/
+encoding and rehashed relative/nested/unrelated/legacy core files. The
+`core-restore` gate also runs ownership/relocation modules after the factory
+refactor; the strict leaf reader preserves a prior model on rejection. These are
+native component checks, not user-facing version Open/Save acceptance.

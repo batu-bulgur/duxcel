@@ -819,7 +819,7 @@ distclean:
 # Legacy module-test recipes compile whole source lists and some execution goals
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
-PARALLEL_NATIVE_GOALS = build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
+PARALLEL_NATIVE_GOALS = build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
 	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_version_index build/tests/test_version_index-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
@@ -1235,6 +1235,15 @@ build/tests/test_journal_performance: $(JOURNAL_PERF_OBJECTS) | build/tests
 build/tests/test_journal_performance-debug: $(JOURNAL_PERF_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_PERF_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_PERF_OBJECTS:.o=.d) $(JOURNAL_PERF_SAN_OBJECTS:.o=.d)
+
+CORE_RESTORE_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c tests/test_core_restore.c
+CORE_RESTORE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE_RESTORE_SOURCES))))
+CORE_RESTORE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE_RESTORE_SOURCES))))
+build/tests/test_core_restore: $(CORE_RESTORE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(CORE_RESTORE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_core_restore-debug: $(CORE_RESTORE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(CORE_RESTORE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(CORE_RESTORE_OBJECTS:.o=.d) $(CORE_RESTORE_SAN_OBJECTS:.o=.d)
 
 VERSION_READ_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c tests/test_version_read.c
 VERSION_READ_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(VERSION_READ_SOURCES))))

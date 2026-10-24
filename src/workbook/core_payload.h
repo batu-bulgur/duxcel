@@ -3,6 +3,7 @@
 #include "save.h"
 #include "../data/source_digest.h"
 typedef struct WorkbookCorePayload WorkbookCorePayload;
+typedef enum { CORE_RESTORE_COPY,CORE_RESTORE_VERIFY,CORE_RESTORE_ADMIT,CORE_RESTORE_RECHECK } WorkbookCoreRestorePhase;
 typedef struct {
     WorkbookId document;
     uint64_t bytes;
@@ -26,6 +27,22 @@ typedef enum { CORE_PAYLOAD_READY,CORE_PAYLOAD_FAILED,CORE_PAYLOAD_CANCELLED,COR
    macOS SDK hashing is validated; other hosts fail explicitly unsupported. */
 WorkbookCorePayloadResult workbook_core_payload_capture(const Workbook *book,const char *parent,
     WorkbookCorePayloadControl control,WorkbookCorePayload **out,char **error);
+typedef struct {
+    /* Fill exactly bytes at the next sequential offset. buffer is borrowed for
+       this call; no pointer escapes. False aborts restoration, preserving out. */
+    bool (*read)(void *context,uint64_t offset,void *buffer,size_t bytes,char **error);
+    bool (*cancelled)(void *context,WorkbookCoreRestorePhase phase,uint64_t bytes);
+    void *context;
+} WorkbookCorePayloadInput;
+/* Reconstruct an untrusted encoded leaf under explicit disk reservation. Fixed
+   64 KiB input blocks, private lease/closed file, exact hash/length, strict v15
+   core/document/absolute-locator/nonrecursive admission, then post-load proof.
+   No source query is executed. Input may not mutate the staged file/model or
+   reenter payload APIs. Failure/cancel keeps out unchanged and cleans ordinary
+   private staging. It does not certify retained assets outside the core codec. */
+WorkbookCorePayloadResult workbook_core_payload_restore(const WorkbookCorePayloadInfo *expected,
+    const char *parent,uint64_t reserved_bytes,WorkbookCorePayloadInput input,
+    WorkbookCorePayload **out,char **error);
 /* Borrowed immutable values/paths, valid until retirement/free. No mutable
    database connection escapes capture. Consumers must keep the handle alive,
    use read-only access and verify immediately before consuming the file. The
