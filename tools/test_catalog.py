@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "history-preview": ("build/tests/test_history_preview-gui", "PASS: native historical preview workflow",
+                        r"^PASS: native historical preview workflow \(20 stages, [1-9]\d* checks\)$", 20),
     "version-controls": ("build/tests/test_version_controls-gui", "PASS: native version controls workflow",
                          r"^PASS: native version controls workflow \(26 stages, [1-9]\d* checks\)$", 26),
     "recovery-menu": ("build/tests/test_recovery_process-debug", "PASS: native recovery choice workflow",
@@ -66,6 +68,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-preview": Feature((), "history-preview",
+        ("python3 tools/test.py feature --feature version-controls", "python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-versions"),
+        ("src/app/versions.inc: read-only preview orchestration", "src/ui/versionpreviewview.c", "src/ui/versionpreviewview.h", "src/app/app.c: historical capability fences", "tests/support/history_preview_app.inc", "tests/test_history_preview_gui.c"),
+        ("app_preview",)),
     "app-preview": Feature((), "",
         ("python3 tools/test.py feature --feature version-controls", "python3 tools/test.py feature --feature recovery-versions"),
         ("src/app/versionpreview.c", "src/app/versionpreview.h", "tests/test_app_preview.c"),

@@ -144,9 +144,15 @@ Saves keep older named states intact. Invalid/duplicate names or failed/cancelle
 writes leave the previous artifact and list intact.
 
 The compact list shows Latest Saved separately from explicit names. Scroll or use
-Home/End and arrows with the list focused. Tab cycles the name field, Create,
-Close and list; Escape closes the view. The current control lists retained states;
-opening an older state directly is the next roadmap slice. Current snapshots retain
+Home/End and arrows with the list focused. Home selects Latest Saved. Tab cycles
+the name field, Create, Open version, Close and list; Escape closes the list.
+Select a tag or Latest Saved and choose **Open version** (or Enter while the list
+is focused). The separate read-only viewer has previous/next sheet controls and
+**Definitions** for stored queries, filters and analytical definitions. It also
+allows inspecting hidden sheets without changing their visibility. **Working Head**
+or Escape returns to the exact current draft and its session Undo/Redo. Closing
+or quitting from preview first restores that draft and applies its normal unsaved
+changes prompt. Historical Save As is not yet available. Current snapshots retain
 authored cells, formatting, sheet/layout state and analytical definitions. Linked
 source bytes and complete cached analytical outputs are not yet embedded by this
 feature, and session Undo is not made durable by a tag.

@@ -365,3 +365,8 @@ internal cancellation versus final publication, independent R+1 edits, real v16
 reopen and transferred store lifetime after worker shutdown. `worker-archive`
 also runs protocol/ordered Save modules. Hooks exist only in feature-specific
 adapter/test objects; production/native and Wasm inventories exclude them.
+
+`tests/test_history_preview_gui.c` consumes the private C workflow in
+`tests/support/history_preview_app.inc`. Its versioned workbook, deliberately
+unavailable source locator and captures are generated under ignored `build/`;
+no external source is queried during historical inspection.

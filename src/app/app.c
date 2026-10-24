@@ -4,6 +4,8 @@
 #ifndef DUXCEL_BROWSER_HOST
 #include "../workbook/journal_session.h"
 #include "versionstate.h"
+#include "versionpreview.h"
+#include "../ui/versionpreviewview.h"
 #include "../workbook/save_fence.h"
 #include "../workbook/recovery_worker.h"
 #include "../ui/recoveryview.h"
@@ -166,6 +168,9 @@ typedef struct {
     Workbook book;
 #ifndef DUXCEL_BROWSER_HOST
     AppVersionState versions;
+    AppVersionPreviewState history;
+    UIVersionPreviewView history_view;
+    char history_label[DX_VERSION_LABEL_BYTES+1],history_pending_label[DX_VERSION_LABEL_BYTES+1],history_message[512];
     UIVersionView version_view;
     char version_message[512];
     bool save_is_tag;
@@ -674,6 +679,20 @@ static void open_command_group(App *a,int group,int focus);
 static bool ribbon_more_available(App *a);
 static void popup_capture(App *a,Rectangle panel);
 static bool popup_modal(Modal modal);
+static bool historical(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    return a->history.active;
+#else
+    (void)a; return false;
+#endif
+}
+static bool history_locked(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    return historical(a) || a->history.pending.request;
+#else
+    (void)a; return false;
+#endif
+}
 static bool passive_control(App *a,bool enabled) { return enabled || (popup_modal(a->modal) && !a->io_busy); }
 static void begin_values(App *a);
 static void cancel_values(App *a);
@@ -839,7 +858,12 @@ static void end_step_preview(App *a) {
     step_preview_free(&a->step_preview); a->active_readout.value.valid=false; a->consume_grid_input=true; status(a,"Current result restored.");
     statistics_line(a);
 }
-static float active_canvas_zoom(App *a) { return a->step_preview.active ? a->step_preview.grid.zoom : a->grid.zoom; }
+static float active_canvas_zoom(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (historical(a)) return a->history_view.grid.zoom;
+#endif
+    return a->step_preview.active ? a->step_preview.grid.zoom : a->grid.zoom;
+}
 static void schedule_step_preview(App *a) {
     if (!a->step_preview.active || a->busy || a->io_busy || a->modal!=MODAL_NONE) return;
     QueryJob *job=step_preview_job(&a->step_preview,a->request_id+1,false); if (!job) return;
@@ -1256,6 +1280,7 @@ static uint64_t workbook_history_stamp(const Workbook *book) {
 #define close_journal(a,discard) ((void)0)
 #endif
 static void capture_sheet(App *a) {
+    if (historical(a)) return;
     Worksheet *sheet=active_sheet(a); if (!sheet) return;
     analysis_free(&sheet->analysis); sheet->analysis=analysis_copy(&a->analysis);
     if (!a->restore_view) {
@@ -1374,6 +1399,7 @@ static void workspace_job_context(App *a,JobKind kind,const char *path,const Wor
     if (tag) { status(a,"Browser workbook versions are not connected yet."); return; }
 #endif
 #ifndef DUXCEL_BROWSER_HOST
+    if (historical(a) || a->history.pending.request) { status(a,"Return to Working Head before saving or opening a workbook."); return; }
     if (kind==JOB_SAVE && !source_format_save_ready(a)) return;
 #endif
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by the workbook file operation.");
@@ -1417,6 +1443,9 @@ static void workspace_save_as(App *a,const char *path) { workspace_job_context(a
 #include "versions.inc"
 #endif
 static void open_source(App *a,const char *path,bool demo) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (!history_return(a)) return;
+#endif
     end_step_preview(a);
     if (a->modal==MODAL_SOURCE_QUERY) cancel_source_validation(a);
     if (a->io_busy) return;
@@ -1506,6 +1535,9 @@ static void continue_document_action(App *a) {
     else finish_document_action(a);
 }
 static void request_document_action(App *a,DocumentAction action,const char *path) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (!history_return(a)) return;
+#endif
     if (a->document_action==DOCUMENT_QUIT && action!=DOCUMENT_QUIT) return;
 #ifndef DUXCEL_BROWSER_HOST
     if (action!=DOCUMENT_RECOVER) { recovery_dismiss(a); recovery_candidate_free(a,a->recovery_staged); a->recovery_staged=NULL; }
@@ -1956,6 +1988,7 @@ static void poll_query(App *a) {
     if (r->id!=a->request_id) { reply_free(r); return; }
     a->busy=false;
 #ifndef DUXCEL_BROWSER_HOST
+    if (worker_archive_is_preview_reply(r)) { history_reply(a,r); reply_free(r); return; }
     if (source_format_reply(a,r)) { reply_free(r); return; }
 #endif
     if (r->kind==JOB_STEP_PREVIEW) { step_preview_reply(&a->step_preview,r); reply_free(r); return; }
@@ -2135,7 +2168,7 @@ static void poll_query(App *a) {
                 free(backup_error);
             }
             if (tagged && a->document_action==DOCUMENT_NONE) {
-                a->modal=MODAL_VERSIONS; a->version_view.focus=3;
+                a->modal=MODAL_VERSIONS; a->version_view.focus=4;
                 const WorkbookVersionIndex *index=workbook_version_core_set_index(a->versions.store);
                 a->version_view.selected=index->tag_count ? index->tag_count-1 : 0;
                 input_set(&a->input,"");
@@ -7373,6 +7406,16 @@ static void shortcuts(App *a) {
     if (ui_pressed(KEY_F4) && ui_key_alt(KEY_F4)) { request_document_action(a,DOCUMENT_QUIT,NULL); return; }
 #endif
 #ifndef DUXCEL_BROWSER_HOST
+    if (a->history.pending.request) {
+        if (ui_pressed(KEY_ESCAPE)) history_cancel(a);
+        return;
+    }
+    if (historical(a)) {
+        if (a->modal==MODAL_NONE && ui_pressed(KEY_ESCAPE)) history_return(a);
+        /* The version widget handles its own keys. Grid navigation stays local
+           to the dedicated reader; no authoring command reaches Working state. */
+        return;
+    }
     if (a->modal==MODAL_RECOVERY) return;
 #endif
     if (keytip_input(a,command)) return;
@@ -7639,6 +7682,7 @@ static bool command_active(App *a,int command) {
     }
 }
 static void run_action(App *a,UIAction action) {
+    if (historical(a)) return;
     REVIEW_ACTION(a,action);
     if (a->step_preview.active && action==ACTION_BROWSE) { end_step_preview(a); return; }
     if (!action_enabled(a,action)) return;
@@ -8235,6 +8279,17 @@ static void draw_save_progress(App *a) {
 }
 #endif
 static void draw_app(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (historical(a)) {
+        dx_native_titlebar_height(0);
+        UIHistoryAction action=ui_history_draw(&a->ui,&a->history_view,&a->book,a->history_label,a->history_message,
+            a->modal==MODAL_NONE && !a->history.pending.request && !a->consume_grid_input);
+        if (action==UI_HISTORY_RETURN) history_return(a);
+        else if (action==UI_HISTORY_VERSIONS) versions_open(a);
+        if (a->modal==MODAL_VERSIONS) versions_draw(a);
+        return;
+    }
+#endif
 #ifndef DUXCEL_BROWSER_HOST
     layout_save_progress(a);
 #endif
@@ -15342,6 +15397,9 @@ static void record_frame(App *a,double started) {
 #ifdef DUXCEL_FEATURE_RECOVERY
 static void recovery_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_HISTORY_PREVIEW
+static void history_preview_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_VERSION_CONTROLS
 static void version_controls_test_frame(AppSession *session);
 #endif
@@ -15613,17 +15671,17 @@ bool app_frame(AppSession *session) {
     if (review_capture) { dx_take_magnification(); ui_review_discard_input(); dx_review_input_quarantine(true); }
     if (!review_capture) {
 #endif
-    if (a->count_deferred && !a->grid.scrollbar && !a->busy && (!a->page_stale || a->waiting_count_page)) { a->count_deferred=false; publish_count(a,a->deferred_total); }
-    watch_statistics(a);
+    if (!history_locked(a) && a->count_deferred && !a->grid.scrollbar && !a->busy && (!a->page_stale || a->waiting_count_page)) { a->count_deferred=false; publish_count(a,a->deferred_total); }
+    if (!history_locked(a)) watch_statistics(a);
     poll_query(a);
-    SOURCE_FORMAT_TICK(a);
+    if (!history_locked(a)) SOURCE_FORMAT_TICK(a);
 #ifdef DUXCEL_BROWSER_HOST
     /* Owned chooser replies publish only during ordinary App dispatch, after
        pending worker work; frozen review never mutates the captured workbook. */
     process_browser_file(a);
     process_browser_clipboard(a);
 #endif
-    watch_statistics(a);
+    if (!history_locked(a)) watch_statistics(a);
     if (window_close_requested() || dx_native_quit_requested()) { DocumentAction action=dx_native_quit_requested() ? DOCUMENT_QUIT : DOCUMENT_CLOSE; dx_native_acknowledge_quit(); request_document_action(a,action,NULL); }
     continue_document_action(a);
     if (a->exit_ready) goto finished;
@@ -16181,6 +16239,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_RECOVERY
     recovery_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_HISTORY_PREVIEW
+    history_preview_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_VERSION_CONTROLS
     version_controls_test_frame(session);
 #endif
@@ -16228,11 +16289,11 @@ bool app_frame(AppSession *session) {
 #endif
     a->render_ms[a->frames%600]=dx_millis()-draw_start;
     if (session->applied_cursor!=a->ui.cursor) { SetMouseCursor(a->ui.cursor); session->applied_cursor=a->ui.cursor; }
-    dx_native_context(a->modal!=MODAL_NONE,a->pivot_search_focus,selected_pivot(a)!=NULL,a->key_tips);
+    dx_native_context(a->modal!=MODAL_NONE,!historical(a) && a->pivot_search_focus,!historical(a) && selected_pivot(a)!=NULL,!historical(a) && a->key_tips);
     EndDrawing();
     /* Legacy UI producers record atomically inside the frame. Retire every
        abandoned cross-sheet Redo payload before accepting the next frame. */
-    workbook_history_sync(&a->book);
+    if (!historical(a)) workbook_history_sync(&a->book);
 #ifndef DUXCEL_BROWSER_HOST
     workbook_journal_session_poll(a->journal);
 #endif
@@ -16274,6 +16335,7 @@ bool app_frame(AppSession *session) {
         smoke_snapshot("build/tests/results/workspace-layout/native-context-opening-mid.png"); pane_motion_evidence|=1024;
     }
 #endif /* native scenario evidence */
+    if (history_locked(a)) { record_frame(a,frame); return true; }
     process_sheet_action(a);
     if (a->pending_new_sheet) { a->pending_new_sheet=false; a->pending_sheet=a->pending_relation=false; new_sheet(a); }
     else if (a->pending_sheet) { a->pending_sheet=false; a->pending_relation=false; activate_sheet(a,a->pending_sheet_index,true); }
@@ -16332,6 +16394,9 @@ int app_finish(AppSession *session) {
     if (!session) return 1;
     App *a=&session->app; const AppOptions *options=&session->options;
     bool automated=session->automated;
+#ifndef DUXCEL_BROWSER_HOST
+    history_return(a); ui_history_free(&a->history_view);
+#endif
     int layout_start=session->layout_start,layout_target=session->layout_target;
     DxPresentation presentation={0};
     if (options->screenshot) {
@@ -16454,4 +16519,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_VERSION_CONTROLS
 #include "../../tests/support/version_controls_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_HISTORY_PREVIEW
+#include "../../tests/support/history_preview_app.inc"
 #endif

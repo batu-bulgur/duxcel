@@ -85,7 +85,7 @@ static void version_controls_test_frame(AppSession *session) {
         VERSION_GUI_CHECK(index->tag_count==6 && index->root_count==3 && a->version_view.selected==5 && a->version_view.scroll>0 && l->scrollbar.width>0);
         ui_note_key_press(KEY_HOME,0); break;
     case 15:
-        VERSION_GUI_CHECK(a->version_view.selected==0 && !a->version_view.scroll); ui_note_key_press(KEY_END,0); break;
+        VERSION_GUI_CHECK(a->version_view.selected==SIZE_MAX && !a->version_view.scroll); ui_note_key_press(KEY_END,0); break;
     case 16:
         VERSION_GUI_CHECK(a->version_view.selected==5 && a->version_view.scroll>0 && l->scrollbar.width>0); smoke_snapshot("build/tests/results/version-controls/list-150.png"); ui_note_key_press(KEY_ESCAPE,0); break;
     case 17:

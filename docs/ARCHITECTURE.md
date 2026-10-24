@@ -192,7 +192,7 @@ owned Tag job through the existing Save lane. File/access-key and native menu
 commands reach the same C adapter; cancel/failure preserves the name and prior
 state. Successful publication returns to the list unless another document action
 is pending. The panel adapts to list length/viewport; the ten-row File geometry
-retains normal Quit visibility. Read-only historical preview remains W11d.
+retains normal Quit visibility. The same widget selects explicit tags or Latest Saved for read-only historical opening.
 
 `version_preview.c` projects a selected opaque root from an admitted immutable
 store into a separate owned core model under an explicit historical reader.
@@ -211,7 +211,19 @@ suspension at adoption. It does not clone away Undo/Redo or allocate new draft
 identities. Historical models can switch while the same working owner stays
 protected; return restores its original ownership and rejects a mismatched live
 reader. App owns job readiness/cancellation and presentation surface preservation.
-Visible read-only capabilities and UI/recovery integration remain W11d.4.
+`ui/versionpreviewview.c` owns a separate read-only Grid/Page and stored-definition
+layout, using the existing grid/value/text painters. It never receives the Working
+App's Pages, grid or query editor. `app/versions.inc` admits only idle source work,
+submits the reader job, adopts through that controller and restores Working Head
+before document Close/New/Open/Quit. Frame dispatch fences normal authoring,
+source scheduling, format publication and history synchronization while a reader
+is active; journal queue polling continues. Cancel invalidates the request epoch.
+A historical model has no Save destination; current preview blocks Save/Tag/Save
+As (historical fork is W13). Missing linked rows/analytical output values stay
+explicitly unavailable and stored definitions are never re-executed. Changing the
+preview sheet affects its dedicated viewer only, including inspection of hidden
+sheets. Working Undo/Redo, dirty state, target identities, layout and recovery
+ownership remain untouched.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

@@ -219,3 +219,11 @@ contract proves that unrelated UI headers trigger no rebuild, a local workbook
 assertion edit rebuilds only its test TU, and real shared headers invalidate both
 consumers. Mutable fixture execution remains serial; compiler parallelism does
 not change the core-before-workbook contract.
+
+The `history-preview` feature gate runs optimized/sanitized `app_preview` ownership
+checks and a private hidden TEST App with 20 stages. It uses actual retained-root
+jobs, keyboard/pointer version opening, sheet/definition navigation, offline-source
+placeholders, mutation fences, exact Working Head/grid/editor/Undo/Redo restoration,
+Close's dirty guard and a deterministic cancel-at-ready worker barrier. GUI hooks
+are compile/link excluded from production; selected interactions remain separately
+registered in `tools/test_catalog.py`.
