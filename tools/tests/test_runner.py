@@ -17,6 +17,78 @@ SPEC.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
+    def test_timed_out_build_drains_ignoring_child_and_grandchild_before_unlock(self):
+        import subprocess
+        import workspace
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            script = root / "make"
+            script.write_text("#!" + runner.sys.executable + "\n" +
+                "import os,pathlib,signal,subprocess,sys,time\n"
+                "signal.signal(signal.SIGTERM,signal.SIG_IGN)\n"
+                "with pathlib.Path('descendant-pids').open('a') as f: f.write(str(os.getpid())+'\\n')\n"
+                "depth=int(sys.argv[1])\n"
+                "if depth<2: subprocess.Popen([sys.executable,__file__,str(depth+1)])\n"
+                "time.sleep(60)\n")
+            script.chmod(0o755)
+            args = runner.parser().parse_args(["fast", "--modules", "build_info"])
+            args.timeout = .6
+            instance = runner.Runner(args, root)
+            with mock.patch.dict(os.environ, {"PATH": str(root) + os.pathsep + os.environ["PATH"]}), contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(RuntimeError, "timed out"):
+                    instance.build(["0"])
+            pids = (root / "descendant-pids").read_text().splitlines()
+            self.assertEqual(len(pids), 3)
+            # Ownership can now move to another build: none of the old fake
+            # Make/compiler descendants may still execute under the new owner.
+            with workspace.FileLock(workspace.repository_lock_path(root), "next compilation"):
+                states = subprocess.run(["ps", "-o", "stat=", "-p", ",".join(pids)], capture_output=True, text=True).stdout
+                self.assertTrue(all(line.strip().startswith("Z") for line in states.splitlines()), states)
+            self.assertEqual(instance.summary["results"][-1]["status"], "failed")
+
+    def test_keyboard_interrupt_stops_owned_process_before_lease_release(self):
+        import workspace
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            real_popen = runner.subprocess.Popen
+            children = []
+            def launch(*args, **kwargs):
+                process = real_popen(*args, **kwargs)
+                if args[0][0] == "ps":
+                    return process
+                children.append(process)
+                wait = process.wait
+                first = True
+                def interrupted(*args, **kwargs):
+                    nonlocal first
+                    if first:
+                        first = False
+                        raise KeyboardInterrupt()
+                    return wait(*args, **kwargs)
+                process.wait = interrupted
+                return process
+            with workspace.operation_lease(root, compilation=True), mock.patch.object(runner.subprocess, "Popen", side_effect=launch):
+                with self.assertRaises(KeyboardInterrupt):
+                    runner.run_owned_process([runner.sys.executable, "-c", "import time;time.sleep(60)"], timeout=5)
+            with workspace.FileLock(workspace.repository_lock_path(root), "next build after interruption"):
+                self.assertIsNotNone(children[0].poll())
+
+    def test_recovery_driver_receives_pinned_app_binary_and_can_reuse_pin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory); (root / "Makefile").write_text("")
+            binary = "build/tests/test_recovery_process-debug"
+            source = root / binary; source.parent.mkdir(parents=True); source.write_bytes(b"test recovery App")
+            args = runner.parser().parse_args(["feature", "--feature", "recovery-crash"])
+            instance = runner.Runner(args, root)
+            with mock.patch.dict(os.environ, {"DUXCEL_LANE": "RECOVERY"}):
+                already = instance.pin_test_binary(binary)
+                with mock.patch.object(instance, "command", return_value={"name": "driver", "status": "passed"}) as command:
+                    instance.engine_process_check("recovery_process", "sanitize", binary)
+            argv = command.call_args.args[1]
+            self.assertEqual(argv[argv.index("--binary")+1], already)
+            self.assertIn("test_recovery_process-debug-TEST-RECOVERY", already)
+            self.assertEqual(len(instance.summary["test_executables"]), 1)
+
     def test_build_lease_ends_before_isolated_command_execution(self):
         import workspace
         with tempfile.TemporaryDirectory() as directory:
@@ -222,7 +294,7 @@ class RunnerTests(unittest.TestCase):
 
                 with mock.patch.object(instance, "headless"), mock.patch.object(instance, "prepare_native"), \
                      mock.patch.object(instance, "background_check"), mock.patch.object(runner, "FileLock"), \
-                     mock.patch.object(runner.subprocess, "run", side_effect=child), contextlib.redirect_stdout(io.StringIO()):
+                     mock.patch.object(runner, "run_owned_process", side_effect=child), contextlib.redirect_stdout(io.StringIO()):
                     if completion == valid:
                         instance.affected()
                     else:
@@ -287,7 +359,7 @@ class RunnerTests(unittest.TestCase):
                     self.assertTrue(pathlib.Path(kwargs["env"]["DUXCEL_TEST_RECOVERY_ROOT"]).is_dir())
                     kwargs["stdout"].write("PASS: final\nDuxcel frames=10 mean=1.0 ms smoke=0\n")
                     return mock.Mock(returncode=0)
-                with mock.patch.dict(runner.os.environ,{"DUXCEL_TEST_VISIBLE":"1","DUXCEL_TEST_RECOVERY_ROOT":"/must-not-inherit"}), mock.patch.object(runner.subprocess,"run",side_effect=child), contextlib.redirect_stdout(io.StringIO()):
+                with mock.patch.dict(runner.os.environ,{"DUXCEL_TEST_VISIBLE":"1","DUXCEL_TEST_RECOVERY_ROOT":"/must-not-inherit"}), mock.patch.object(runner,"run_owned_process",side_effect=child), contextlib.redirect_stdout(io.StringIO()):
                     result=instance.command("hidden-native",["test-owned-process"],"PASS: final",native=True)
                 self.assertEqual(result["status"],"passed")
                 self.assertEqual(instance.summary["native_visibility"],"visible" if visible else "hidden")
@@ -431,7 +503,8 @@ class RunnerTests(unittest.TestCase):
                     check=runner.ENGINE_PROCESS_CHECKS[module]
                     config="sanitize" if binary.endswith("-debug") else "release"
                     extra=["--output",str(instance.log_dir / f"{module}-{config}-metrics.json")] if check.primary else []
-                    expected.append([runner.sys.executable,check.script,"--binary",binary,*check.arguments,*extra])
+                    process_binary = instance.pin_test_binary(binary) if module == "recovery_process" else binary
+                    expected.append([runner.sys.executable,check.script,"--binary",process_binary,*check.arguments,*extra])
             self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
 
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
@@ -681,7 +754,7 @@ class RunnerTests(unittest.TestCase):
                 kwargs["stdout"].write("PASS: final\nDuxcel frames=10 mean=1.0 ms smoke=0\n")
                 return mock.Mock(returncode=0)
             with mock.patch.dict(runner.os.environ, {"DUXCEL_TEST_VISIBLE": "1"}), \
-                 mock.patch.object(runner.subprocess, "run", side_effect=child), contextlib.redirect_stdout(io.StringIO()):
+                 mock.patch.object(runner, "run_owned_process", side_effect=child), contextlib.redirect_stdout(io.StringIO()):
                 result = instance.command("edit-native", ["./" + instance.native_binary()], "PASS: final", native=True)
             self.assertEqual(result["status"], "passed")
             self.assertEqual(instance.summary["native_visibility"], "hidden")

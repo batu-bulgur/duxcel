@@ -5,6 +5,8 @@ import argparse
 import concurrent.futures
 import contextlib
 import shutil
+import signal
+import threading
 import datetime
 import json
 import os
@@ -138,6 +140,56 @@ def native_resource_guard(*, layout=None, scenario=None, standalone=None):
     return FileLock(native_lock_path(), "Native shared OS services", blocking=True) if shared else contextlib.nullcontext()
 
 
+def stop_process_group(process):
+    """Stop and drain our process group before releasing build ownership."""
+    for number in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(process.pid, number)
+        except ProcessLookupError:
+            pass
+        if number == signal.SIGTERM:
+            try:
+                process.wait(timeout=.25)
+            except subprocess.TimeoutExpired:
+                pass
+    process.wait()
+    # Orphaned grandchildren are reaped by the OS, not waitpid in this process.
+    # A zombie has stopped executing; retain ownership until no live member is
+    # left, even when the immediate Make/driver process exited earlier.
+    while True:
+        inventory = subprocess.run(["ps", "-axo", "pgid=,stat="], capture_output=True,
+                                   text=True, check=True, timeout=5).stdout
+        live = any(int(fields[0]) == process.pid and not fields[1].startswith("Z")
+                   for line in inventory.splitlines() if len(fields := line.split()) >= 2)
+        if not live:
+            return
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        time.sleep(.01)
+
+
+def run_owned_process(command, *, timeout, **kwargs):
+    """Own one session so timeout/interruption cannot leave compiler children."""
+    process = subprocess.Popen(command, start_new_session=True, **kwargs)
+    previous = None
+    main = threading.current_thread() is threading.main_thread()
+    if main:
+        def terminated(number, frame):
+            raise KeyboardInterrupt("Owned command terminated")
+        previous = signal.signal(signal.SIGTERM, terminated)
+    try:
+        try:
+            return subprocess.CompletedProcess(command, process.wait(timeout=timeout))
+        except BaseException:
+            stop_process_group(process)
+            raise
+    finally:
+        if main:
+            signal.signal(signal.SIGTERM, previous)
+
+
 def configurations(name):
     return ("release", "sanitize") if name == "both" else (name,)
 
@@ -237,7 +289,7 @@ class Runner:
             with log.open("w", encoding="utf-8") as stream:
                 stream.write("Command: " + json.dumps(command) + "\n")
                 stream.flush()
-                process = subprocess.run(command, cwd=self.root, env=env, stdout=stream, stderr=subprocess.STDOUT,
+                process = run_owned_process(command, cwd=self.root, env=env, stdout=stream, stderr=subprocess.STDOUT,
                                          timeout=self.args.timeout if not native else max(self.args.timeout, 900),
                                          pass_fds=tuple(set(inherited_lease_fds(env) + (make_jobserver_fds(env) if command[0]=="make" else ()))))
             result["exit_code"] = process.returncode
@@ -362,7 +414,11 @@ class Runner:
         target = folder / ((label or source.name) + "-TEST-" + lane + ("-debug" if label and self.args.config != "release" else ""))
         before = sha256(source)
         if target.exists():
-            raise RuntimeError("Pinned TEST executable already exists: " + str(target))
+            prior = next((entry for entry in self.summary.get("test_executables", [])
+                          if entry["path"] == str(target) and entry["source"] == str(source)), None)
+            if prior and prior["sha256"] == before == sha256(target):
+                return str(target.relative_to(self.root))
+            raise RuntimeError("Pinned TEST executable already exists or changed: " + str(target))
         with source.open("rb") as incoming, target.open("xb") as outgoing:
             shutil.copyfileobj(incoming, outgoing)
         target.chmod(source.stat().st_mode & 0o777)
@@ -425,6 +481,10 @@ class Runner:
         if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(self.args.feature):
             check = ENGINE_PROCESS_CHECKS[module]
             extra = ["--output", str(self.log_dir / f"{module}-{config}-metrics.json")] if check.primary else []
+            # The recovery driver launches real hidden App processes. Journal
+            # performance/fault/process drivers link headless engine helpers.
+            if module == "recovery_process":
+                binary = self.pin_test_binary(binary)
             self.record(self.command(f"{module}-{config}-process", [sys.executable, check.script, "--binary", binary, *check.arguments, *extra],
                                      check.marker, completion_pattern=check.completion))
             ensure_unchanged(self.summary["binaries"])
