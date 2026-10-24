@@ -51,8 +51,9 @@ static bool same_column(const char *a,const char *b) {
     return *a==*b;
 }
 static bool same_text(const char *a,const char *b) { return a && b ? !strcmp(a,b) : a==b; }
-bool analysis_same_result(const Analysis *a,const Analysis *b) {
-    if (!analysis_query_valid(a,NULL) || !analysis_query_valid(b,NULL) || !analysis_filters_valid(a,NULL) || !analysis_filters_valid(b,NULL) || !analysis_sorts_valid(a,NULL) || !analysis_sorts_valid(b,NULL)) return false;
+bool analysis_same_result_measured(const Analysis *a,const Analysis *b) {
+    if (!a || !b || a->filter_count>=DX_ANALYSIS_FILTERS || b->filter_count>=DX_ANALYSIS_FILTERS ||
+        a->sort_count>=DX_ANALYSIS_SORTS || b->sort_count>=DX_ANALYSIS_SORTS) return false;
     if (a->kind!=b->kind || a->unique_rows!=b->unique_rows || !same_text(a->path,b->path) || !same_text(a->schema,b->schema) || !same_text(a->table,b->table) || !same_text(a->query,b->query) ||
         !same_text(a->group_column,b->group_column) || !same_text(a->measure_column,b->measure_column) || (a->group_column && a->aggregate!=b->aggregate) || !analysis_sorts_equal(a,b)) return false;
     size_t count=a->filter_column ? a->filter_count+1 : 0,other=b->filter_column ? b->filter_count+1 : 0;
@@ -69,6 +70,10 @@ bool analysis_same_result(const Analysis *a,const Analysis *b) {
         if (!found) return false;
     }
     return true;
+}
+bool analysis_same_result(const Analysis *a,const Analysis *b) {
+    if (!analysis_query_valid(a,NULL) || !analysis_query_valid(b,NULL) || !analysis_filters_valid(a,NULL) || !analysis_filters_valid(b,NULL) || !analysis_sorts_valid(a,NULL) || !analysis_sorts_valid(b,NULL)) return false;
+    return analysis_same_result_measured(a,b);
 }
 AnalysisSort analysis_sort_at(const Analysis *a,size_t index) {
     return !index && a->sort_column ? (AnalysisSort){a->sort_column,a->descending} : index && index<=a->sort_count ? a->sorts[index-1] : (AnalysisSort){0};

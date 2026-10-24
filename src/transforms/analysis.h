@@ -51,6 +51,10 @@ void analysis_sorts_clear(Analysis *analysis);
 bool analysis_sorts_valid(const Analysis *analysis,char **error);
 bool analysis_sorts_equal(const Analysis *left,const Analysis *right);
 /* Filter display order and derived type bindings do not change the result. */
+/* Trusted shape-measured definitions only: no filter JSON/SQL grammar parsing
+   or allocations. Used before the caller admits parser scratch; full validation
+   must precede ownership/publication. Source versions remain separate identity. */
+bool analysis_same_result_measured(const Analysis *left,const Analysis *right);
 bool analysis_same_result(const Analysis *left,const Analysis *right);
 SourceKind source_kind(const char *path);
 const char *filter_label(FilterOp op);

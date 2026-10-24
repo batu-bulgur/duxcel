@@ -80,5 +80,33 @@ class FixtureTests(unittest.TestCase):
             self.assertFalse(output.exists())
 
 
+class SourceConnectionTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("duckdb"), "existing DuckDB CLI required")
+    def test_finite_relations_and_failure_before_publication(self):
+        with tempfile.TemporaryDirectory(prefix="duxcel connections ' ") as directory:
+            output = pathlib.Path(directory)
+            targets = fixture.create_source_connections(output)
+            self.assertEqual(len(targets), 2)
+            for index, path in enumerate(targets):
+                rows = fixture.execute(shutil.which("duckdb"), path,
+                    "SELECT (SELECT count(*) FROM alpha) AS a,(SELECT count(*) FROM beta_view) AS b,"
+                    "(SELECT sum(Amount) FROM beta) AS amount;")
+                self.assertEqual(rows, [{"a": 3, "b": 2, "amount": "300.00" if not index else "3000.00"}])
+            before = [path.read_bytes() for path in targets]
+            original = fixture.execute
+            calls = 0
+            def fail_second(*args, **kwargs):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise RuntimeError("second candidate failed")
+                return original(*args, **kwargs)
+            with mock.patch.object(fixture, "execute", side_effect=fail_second):
+                with self.assertRaisesRegex(RuntimeError, "second candidate failed"):
+                    fixture.create_source_connections(output)
+            self.assertEqual([path.read_bytes() for path in targets], before)
+            self.assertFalse(list(output.glob(".source-connections-*")))
+
+
 if __name__ == "__main__":
     unittest.main()

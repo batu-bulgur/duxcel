@@ -9,7 +9,7 @@ beside the reusable tools.
 | Files | Responsibility / interface |
 | --- | --- |
 | `workspace.py` | Output/cache/input retention, build-local operation locks, OS-temp cleanup gate and source/binary fingerprints |
-| `create_workbook.py` | Python synthetic data/Parquet/fixed workbook generation via the existing DuckDB CLI; no C generator |
+| `create_workbook.py` | Python synthetic data/Parquet/fixed workbook and finite connection/relation fixture generation via the existing DuckDB CLI; no C generator |
 | `test.py` | Focused/native/full test orchestration; process exits/completion, sanitizer diagnostics and fixture ordering |
 | `test_app_lifecycle.py`, `test_native_review.py` | Hidden native workflow drivers through compiled C binaries and bounded reports |
 | `test_open_documents.py` | Real hidden LaunchServices cold/warm workbook Open in a private bundle; test-only native-alert rejection with negative control, exact framebuffer comparison, source-file retention and owned-process/registration cleanup |

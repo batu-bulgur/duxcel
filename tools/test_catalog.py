@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "table-replacement": ("build/tests/test_table_replacement-gui", "PASS: native Table replacement workflow",
+                          r"^PASS: native Table replacement workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "object-pivot-command": ("build/tests/test_object_pivot_command-gui", "PASS: native object Pivot workflow",
                              r"^PASS: native object Pivot workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "object-layout-command": ("build/tests/test_object_layout_command-gui", "PASS: native object layout workflow",
@@ -92,6 +94,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "table-replacement": Feature(("table_replacement", "table_command", "object_source_plan", "history_definition"), "table-replacement",
+        ("python3 tools/test.py feature --feature source-result-format", "python3 tools/test.py feature --feature table-command"),
+        ("src/transforms/analysis.c: shape-measured result comparison before grammar admission", "src/workbook/object_source_plan.c: explicit connection/binding replacement projection", "src/workbook/table_command.c: replacement transaction", "src/app/app.c: Table replacement admission", "tests/test_table_replacement.c", "tests/support/table_replacement_app.inc", "tools/create_workbook.py: finite source connection fixtures"), fixtures=("source-connections",)),
     "object-pivot-command": Feature(("object_pivot_command", "history_definition", "pivot_asset", "objects"), "object-pivot-command",
         ("python3 tools/test.py feature --feature object-layout-command", "python3 tools/test.py native --scenario chart filter"),
         ("src/workbook/object_pivot_command.c", "src/workbook/object_pivot_command.h", "src/workbook/objects.c: shared measure selection remapping", "src/app/app.c: field/filter definition adapters", "tests/test_object_pivot_command.c", "tests/support/object_pivot_command_app.inc")),
@@ -461,7 +466,8 @@ FEATURES = {
 def plan(name):
     feature = FEATURES[name]
     return {"feature": name, "modules": list(feature.modules), "gui": feature.gui or None,
-            "tool_tests": ["tools.tests.test_build_info"] if name == "about" else
+            "tool_tests": ["tools.tests.test_create_workbook.SourceConnectionTests"] if name == "table-replacement" else
+            ["tools.tests.test_build_info"] if name == "about" else
                           ["tools.tests.test_runner", "tools.tests.test_feature_catalog", "tools.tests.test_web_build"] if name == "test-infrastructure" else [],
             "engine_modules": list(feature.engine_modules), "fixtures": list(feature.fixtures),
             "process_support_targets": sorted({target for module in feature.engine_modules if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(name) for target in ENGINE_PROCESS_CHECKS[module].support}),
@@ -470,4 +476,4 @@ def plan(name):
             "limits": "A focused pass covers this boundary; it does not establish whole-application or browser acceptance."}
 
 
-FEATURE_FIXTURES = {"journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}
+FEATURE_FIXTURES = {"source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}

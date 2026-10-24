@@ -1009,28 +1009,18 @@ static bool set_table_source(App *a,size_t index,const Analysis *source) {
     SOURCE_FORMAT_ADJUST(a,store->items[index].id,&adjusted); source=&adjusted;
     uint64_t previous=store->items[index].revision;
     ObjectSourcePlanInfo info={0}; ObjectSourcePlanStatus measured=objects_source_transform_measure(store,store->items[index].id,source,&info);
-    bool changed=false;
-    if (measured==OBJECT_SOURCE_PLAN_PROTECTED) {
-        /* Connection/binding replacement and default-relation completion keep
-           their existing owner until complete composite admission is installed. */
-        const Analysis *old=&store->items[index].source; bool same=analysis_same_result(old,source);
-        for (size_t i=0;same && i<old->filter_count+(old->filter_column ? 1 : 0);i++) {
-            const char *before=i ? old->filters[i-1].column : old->filter_column,*after=i ? source->filters[i-1].column : source->filter_column;
-            same=before && after && !strcmp(before,after);
-        }
-        if (!objects_set_source(store,index,source,&error)) { status(a,error); free(error); return false; }
-        changed=!same; if (changed) worksheet_record(active_sheet(a),EDIT_OBJECTS);
-    } else {
-        if (measured!=OBJECT_SOURCE_PLAN_OK && measured!=OBJECT_SOURCE_PLAN_NOOP) { status(a,"The Table definition is invalid or its query revision is exhausted."); return false; }
-        if (measured==OBJECT_SOURCE_PLAN_OK && !table_transform_budget(a,&info,source,&error)) { status(a,error); free(error); return false; }
-        TableCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
-            .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)};
-        TableTransformTarget target;
-        if (!workbook_prepare_table_transform(&context,a->book.active,store->items[index].id,&target,&error)) { status(a,error); free(error); return false; }
-        TableTransformResult result=workbook_apply_table_transform_recorded(&context,&target,source,NULL,&error);
-        if (result.status!=TABLE_TRANSFORM_APPLIED && result.status!=TABLE_TRANSFORM_NOOP) { status(a,error); free(error); return false; }
-        free(error); changed=result.status==TABLE_TRANSFORM_APPLIED;
-    }
+    bool replacement=measured==OBJECT_SOURCE_PLAN_PROTECTED;
+    if (replacement) measured=objects_source_replacement_measure(store,store->items[index].id,source,&info);
+    if (measured!=OBJECT_SOURCE_PLAN_OK && measured!=OBJECT_SOURCE_PLAN_NOOP) { status(a,"The Table connection/definition is invalid, unresolved or its query revision is exhausted."); return false; }
+    if (measured==OBJECT_SOURCE_PLAN_OK && !table_transform_budget(a,&info,source,&error)) { status(a,error); free(error); return false; }
+    TableCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)};
+    TableTransformTarget target;
+    if (!workbook_prepare_table_transform(&context,a->book.active,store->items[index].id,&target,&error)) { status(a,error); free(error); return false; }
+    TableTransformResult result=replacement ? workbook_apply_table_replacement_recorded(&context,&target,source,NULL,&error) :
+        workbook_apply_table_transform_recorded(&context,&target,source,NULL,&error);
+    if (result.status!=TABLE_TRANSFORM_APPLIED && result.status!=TABLE_TRANSFORM_NOOP) { status(a,error); free(error); return false; }
+    free(error); bool changed=result.status==TABLE_TRANSFORM_APPLIED;
     if (changed) {
         a->book.dirty=true;
         if (store->items[index].revision!=previous) {
@@ -15638,6 +15628,9 @@ static void primary_query_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
 static void primary_steps_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_TABLE_REPLACEMENT
+static void table_replacement_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
 static void table_command_test_frame(AppSession *session);
 #endif
@@ -16513,6 +16506,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
     primary_steps_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_TABLE_REPLACEMENT
+    table_replacement_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
     table_command_test_frame(session);
 #endif
@@ -16831,4 +16827,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_PIVOT_COMMAND
 #include "../../tests/support/object_pivot_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_TABLE_REPLACEMENT
+#include "../../tests/support/table_replacement_app.inc"
 #endif

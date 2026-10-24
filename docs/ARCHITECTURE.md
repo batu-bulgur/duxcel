@@ -1101,3 +1101,16 @@ aggregate/date checks, job cancellation and focus. Caller definitions remain
 borrowed in the controller; the selected-object adapter consumes its owned draft.
 Retained event writing, source binding replacement and format composites remain
 separate roadmap boundaries.
+
+
+Table replacement is an explicit mode of the existing source planner/transaction.
+It permits changed connection and source-version identity while requiring resolved
+DATABASE endpoints. The same full runtime fence, complete object/source union,
+reservation-before-eviction and ownership move apply; version changes invalidate
+results even when query text matches. App rebind/relation adapters use this owner,
+keeping schema/default completion, native budgeting and target/dependent query
+invalidation separate from model ownership. Formats and the immutable ledger are
+preserved. `analysis_same_result_measured` performs allocation-free comparison
+only after bounded shape measurement; full grammar still follows scratch admission.
+Primary replacement, analytical source_id edits and source/format composite
+publication remain separate roadmap work; metadata closure is not dataset retention.

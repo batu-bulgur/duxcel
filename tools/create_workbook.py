@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate finite transaction acceptance inputs using the existing DuckDB CLI.
+"""Generate finite workbook/source acceptance inputs using the existing DuckDB CLI.
 
 Python owns synthetic data and fixture files. The SQL is an explicit v12 test
 input, not another application serializer. Native product assertions stay in
@@ -114,6 +114,27 @@ def create_journal_paste(output, *, duckdb=None):
     return target
 
 
+def create_source_connections(output, *, duckdb=None):
+    """Finite resolved relations; native C owns connection/history acceptance."""
+    executable = duckdb or shutil.which("duckdb")
+    if not executable:
+        raise RuntimeError("The existing DuckDB CLI is required to generate fixtures")
+    output.mkdir(parents=True, exist_ok=True)
+    sql = (ROOT / "tests/fixtures/workbook/source-connections.sql").read_text()
+    targets = []
+    with tempfile.TemporaryDirectory(prefix=".source-connections-", dir=output) as temporary:
+        stages = []
+        for label, scale in (("a", 1), ("b", 10)):
+            stage = Path(temporary) / ("source-connection-" + label + ".duckdb")
+            execute(executable, stage, sql.replace("@SCALE@", str(scale)))
+            stages.append(stage)
+        for stage in stages:
+            target = output / stage.name
+            os.replace(stage, target)
+            targets.append(target)
+    return targets
+
+
 def create(output, *, large=False, duckdb=None):
     executable = duckdb or shutil.which("duckdb")
     if not executable:
@@ -147,9 +168,14 @@ def main():
     mode.add_argument("--large", action="store_true")
     mode.add_argument("--identity-only", action="store_true")
     mode.add_argument("--journal-paste-only", action="store_true")
+    mode.add_argument("--source-connections-only", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/tests/generated")
     options = parser.parse_args()
     with FileLock(ROOT / "build/locks/fixture-inputs.lock", "Fixture generation"):
+        if options.source_connections_only:
+            targets = create_source_connections(options.output_dir.resolve())
+            print(f"PASS: source connection fixtures: {targets[0]}, {targets[1]}")
+            return
         if options.journal_paste_only:
             target = create_journal_paste(options.output_dir.resolve())
             print(f"PASS: journal paste fixture: {target}")

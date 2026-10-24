@@ -30,4 +30,13 @@ bool workbook_prepare_table_transform(TableCommandContext *context,size_t sheet,
 TableTransformResult workbook_apply_table_transform_recorded(TableCommandContext *context,
     const TableTransformTarget *target,const Analysis *proposal,
     const WorkbookHistoryDefinitionRecorder *recorder,char **error);
+/* Explicit Table connection/binding replacement; prepare with the same full
+   Table fence. Both DATABASE endpoints must have resolved relations. Preserve
+   unrelated objects, formats and the immutable source ledger; prove the union
+   of old/new source dependencies before reservation. No format mutation/source
+   issuance/default enrichment is hidden in this event. The App separately
+   owns invalidation, source-proof retirement and independent composite work. */
+TableTransformResult workbook_apply_table_replacement_recorded(TableCommandContext *context,
+    const TableTransformTarget *target,const Analysis *proposal,
+    const WorkbookHistoryDefinitionRecorder *recorder,char **error);
 #endif

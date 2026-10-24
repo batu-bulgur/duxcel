@@ -341,7 +341,8 @@ class RunnerTests(unittest.TestCase):
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
                        for module in runner.ENGINE_MODULES]
             self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))
-            expected=[[runner.sys.executable, "tools/create_workbook.py", "--journal-paste-only"]]
+            expected=[[runner.sys.executable, "tools/create_workbook.py", "--journal-paste-only"],
+                      [runner.sys.executable, "tools/create_workbook.py", "--source-connections-only"]]
             for binary in engines:
                 module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
                 check=runner.ENGINE_PROCESS_CHECKS.get(module)

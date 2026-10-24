@@ -36,11 +36,11 @@ static TableTransformStatus plan_status(ObjectSourcePlanStatus status) {
     return status==OBJECT_SOURCE_PLAN_NOOP ? TABLE_TRANSFORM_NOOP : status==OBJECT_SOURCE_PLAN_LIMIT ? TABLE_TRANSFORM_LIMIT :
         status==OBJECT_SOURCE_PLAN_PROTECTED ? TABLE_TRANSFORM_PROTECTED : TABLE_TRANSFORM_INVALID;
 }
-TableTransformResult workbook_apply_table_transform_recorded(TableCommandContext *c,const TableTransformTarget *t,const Analysis *proposal,
-    const WorkbookHistoryDefinitionRecorder *recorder,char **error) {
+static TableTransformResult apply(TableCommandContext *c,const TableTransformTarget *t,const Analysis *proposal,
+    const WorkbookHistoryDefinitionRecorder *recorder,char **error,bool replacement) {
     TableTransformResult r=check(c,t,error); if (r.status!=TABLE_TRANSFORM_READY) return r;
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id); ObjectSourcePlanInfo info={0};
-    ObjectSourcePlanStatus status=objects_source_transform_measure(&s->objects,t->object,proposal,&info);
+    ObjectSourcePlanStatus status=replacement ? objects_source_replacement_measure(&s->objects,t->object,proposal,&info) : objects_source_transform_measure(&s->objects,t->object,proposal,&info);
     if (status!=OBJECT_SOURCE_PLAN_OK) {
         r.status=plan_status(status); if (r.status!=TABLE_TRANSFORM_NOOP) fail(error,"Invalid, exhausted or changed Table connection; no transformation was applied."); return r;
     }
@@ -48,7 +48,7 @@ TableTransformResult workbook_apply_table_transform_recorded(TableCommandContext
     if (workbook_history_peek(b,false,NULL).status==WORKBOOK_HISTORY_INVALID || !source_versions_valid(&s->source_versions,s->objects.next_id,error)) {
         r.status=TABLE_TRANSFORM_INVALID; if (!error || !*error) fail(error,"Worksheet history or source ownership is incomplete."); return r;
     }
-    ObjectSnapshot after={0}; status=objects_plan_source_transform(&s->objects,t->object,proposal,c->plan_reserved,&after,&info);
+    ObjectSnapshot after={0}; status=replacement ? objects_plan_source_replacement(&s->objects,t->object,proposal,c->plan_reserved,&after,&info) : objects_plan_source_transform(&s->objects,t->object,proposal,c->plan_reserved,&after,&info);
     if (status!=OBJECT_SOURCE_PLAN_OK) { r.status=plan_status(status); fail(error,"Table planning exceeds its admitted budget or definition constraints."); return r; }
     ObjectSnapshot before={s->objects.items,s->objects.count}; DefinitionDependencySelection dependencies={0};
     if (definition_dependencies_select(s->id,(DefinitionDependencyView){NULL,&before},(DefinitionDependencyView){NULL,&after},&s->source_versions,s->objects.next_id,&dependencies)!=DEFINITION_DEPENDENCIES_OK) {
@@ -77,3 +77,6 @@ cancelled:
     if (ticket) recorder->cancel(recorder->context,ticket);
     objects_snapshot_free(&after); return r;
 }
+
+TableTransformResult workbook_apply_table_transform_recorded(TableCommandContext *c,const TableTransformTarget *t,const Analysis *proposal,const WorkbookHistoryDefinitionRecorder *recorder,char **error) { return apply(c,t,proposal,recorder,error,false); }
+TableTransformResult workbook_apply_table_replacement_recorded(TableCommandContext *c,const TableTransformTarget *t,const Analysis *proposal,const WorkbookHistoryDefinitionRecorder *recorder,char **error) { return apply(c,t,proposal,recorder,error,true); }

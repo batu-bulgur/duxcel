@@ -26,4 +26,13 @@ ObjectSourcePlanStatus objects_source_transform_measure(const ObjectStore *store
    dependency/geometry/composite closure and reserve an event BEFORE adoption. */
 ObjectSourcePlanStatus objects_plan_source_transform(const ObjectStore *store,uint64_t owner,
     const Analysis *source,size_t reserved,ObjectSnapshot *out,ObjectSourcePlanInfo *info);
+/* Explicit connection/binding replacement shares complete graph planning, but
+   permits changed kind/path/schema/table/source_version. Both DATABASE ends
+   must be resolved: worker default completion is not a user replacement. A
+   version change invalidates results even with identical query text. Ledger,
+   format coexistence and source ownership remain command/composite admission. */
+ObjectSourcePlanStatus objects_source_replacement_measure(const ObjectStore *store,uint64_t owner,
+    const Analysis *source,ObjectSourcePlanInfo *info);
+ObjectSourcePlanStatus objects_plan_source_replacement(const ObjectStore *store,uint64_t owner,
+    const Analysis *source,size_t reserved,ObjectSnapshot *out,ObjectSourcePlanInfo *info);
 #endif
