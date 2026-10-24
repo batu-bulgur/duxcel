@@ -1622,3 +1622,13 @@ rename rejection, request-epoch rebase, Table/Pivot/Chart Page/job preservation,
 pass2.715s. Receipts: ignored `w12c3-object-name-app*.log` and run summaries.
 No full regression or retained App history activation is claimed. Remaining
 presentation/Marks/representation producers stay under W12c.3c.3b.4b.
+
+
+Table/rename packaging boundary: product sourceba5f8c9 produces the signed native
+bundle in6.964s; compiled commit provenance and exclusion of private feature/review
+symbols pass. The normal shared-C Wasm application compiles/links in24.873s with31
+affected sources rebuilt. Receipts: ignored `w12c3-table-name-bundle.log`,
+`w12c3-table-name-package.json` and `w12c3-table-name-web.log`. No user app was
+launched/closed, no broad regression was run, and browser runtime/Open/Save or
+retained-history activation is not inferred. Next: W12c.3c.3b.4b.3 chart mark/
+measure admission, followed by Marks bindings and representation/sizing.
