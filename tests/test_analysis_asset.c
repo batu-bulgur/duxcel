@@ -12,7 +12,13 @@ static size_t skip_text(const unsigned char *data,size_t at) {
 static unsigned char *encode(const Analysis *a,size_t *bytes,AnalysisAssetMeasure *measure) {
     CHECK(analysis_asset_measure(UINT64_MAX,7,a,7,measure)==ANALYSIS_ASSET_OK);
     unsigned char *data=dx_alloc(measure->bytes); *bytes=123;
-    CHECK(analysis_asset_encode(UINT64_MAX,7,a,7,measure->validation_scratch,data,measure->bytes,bytes)==ANALYSIS_ASSET_OK && *bytes==measure->bytes); return data;
+    CHECK(analysis_asset_encode(UINT64_MAX,7,a,7,measure->validation_scratch,data,measure->bytes,bytes)==ANALYSIS_ASSET_OK && *bytes==measure->bytes);
+    DefinitionAssetInfo info={0}; CHECK(analysis_asset_preflight(data,*bytes,7,&info)==ANALYSIS_ASSET_OK && info.sheet==UINT64_MAX && info.owner==7 &&
+        info.measure.bytes==measure->bytes && info.measure.owned==measure->owned && info.measure.validation_scratch==measure->validation_scratch);
+    DefinitionAssetInfo before=info;
+    CHECK(analysis_asset_preflight(data,31,7,&info)==ANALYSIS_ASSET_INVALID && !memcmp(&before,&info,sizeof(before)));
+    CHECK(analysis_asset_preflight(data,*bytes,7,NULL)==ANALYSIS_ASSET_INVALID);
+    return data;
 }
 static void reject(const void *data,size_t bytes,size_t budget,AnalysisAsset *out,AnalysisAssetStatus expected) {
     AnalysisAsset before=*out; CHECK(analysis_asset_decode(data,bytes,7,budget,out)==expected && !memcmp(&before,out,sizeof(before)));
@@ -93,7 +99,9 @@ static void grammar_budgets_and_limits(void) {
     CHECK(analysis_asset_decode(data,bytes,7,m.owned+m.validation_scratch,&out)==ANALYSIS_ASSET_OK);
     unsigned char *corrupt=dx_alloc(bytes); memcpy(corrupt,data,bytes);
     size_t value_at=48; for (size_t i=0;i<5;i++) value_at=skip_text(data,value_at);
-    corrupt[value_at+4]='x'; reject(corrupt,bytes,m.owned+m.validation_scratch,&out,ANALYSIS_ASSET_INVALID); free(corrupt);
+    corrupt[value_at+4]='x'; DefinitionAssetInfo framed={0};
+    CHECK(analysis_asset_preflight(corrupt,bytes,7,&framed)==ANALYSIS_ASSET_OK && framed.measure.owned==m.owned);
+    reject(corrupt,bytes,m.owned+m.validation_scratch,&out,ANALYSIS_ASSET_INVALID); free(corrupt);
     char *malformed="[\"one\"]"; a.filter_value=malformed;
     CHECK(analysis_asset_measure(1,0,&a,0,&m)==ANALYSIS_ASSET_OK);
     CHECK(analysis_asset_encode(1,0,&a,0,m.validation_scratch,other,bytes,&written)==ANALYSIS_ASSET_INVALID && written==77 && other[0]==0xa5);

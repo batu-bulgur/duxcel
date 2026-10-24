@@ -78,19 +78,25 @@ static bool body(DefinitionWireReader *r,Analysis *out) {
     return r->ok && r->at==r->bytes;
 }
 void analysis_asset_free(AnalysisAsset *a) { if (a) { analysis_free(&a->definition); *a=(AnalysisAsset){0}; } }
-AnalysisAssetStatus analysis_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,AnalysisAsset *out) {
+AnalysisAssetStatus analysis_asset_preflight(const void *data,size_t bytes,uint64_t owners,DefinitionAssetInfo *out) {
     if (!data || !out || bytes<DX_ANALYSIS_ASSET_HEADER_BYTES || bytes>DX_ANALYSIS_ASSET_MAX_BYTES || memcmp(data,"DXAN",4)) return ANALYSIS_ASSET_INVALID;
     DefinitionWireReader r={.data=data,.bytes=bytes,.at=4,.owned=sizeof(Analysis),.owned_limit=DX_ANALYSIS_ASSET_OWNED_BYTES,.ok=true};
     unsigned encoding=(unsigned)definition_wire_get(&r,2); if (encoding!=DX_ANALYSIS_ASSET_ENCODING) return ANALYSIS_ASSET_UNSUPPORTED;
     unsigned flags=(unsigned)definition_wire_get(&r,2); uint64_t sheet=definition_wire_get(&r,8),owner=definition_wire_get(&r,8); size_t n=(size_t)definition_wire_get(&r,4); unsigned zero=(unsigned)definition_wire_get(&r,4);
     if (flags || zero || !sheet || owner>owners || n!=bytes-DX_ANALYSIS_ASSET_HEADER_BYTES) return ANALYSIS_ASSET_INVALID;
-    DefinitionWireReader start=r;
     if (!body(&r,NULL)) return ANALYSIS_ASSET_INVALID;
-    if (r.owned>reserved || r.scratch>reserved-r.owned) return ANALYSIS_ASSET_LIMIT;
-    AnalysisAsset next={.sheet=sheet,.owner=owner}; r=start;
-    bool ok=body(&r,&next.definition); AnalysisAssetMeasure measured={0};
-    ok=ok && analysis_asset_measure(sheet,owner,&next.definition,owners,&measured)==ANALYSIS_ASSET_OK &&
-        measured.bytes==bytes && measured.owned==r.owned && measured.validation_scratch==r.scratch && analysis_filters_valid(&next.definition,NULL);
+    *out=(DefinitionAssetInfo){sheet,owner,{bytes,r.owned,r.scratch}}; return ANALYSIS_ASSET_OK;
+}
+AnalysisAssetStatus analysis_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,AnalysisAsset *out) {
+    if (!out) return ANALYSIS_ASSET_INVALID;
+    DefinitionAssetInfo info={0}; AnalysisAssetStatus status=analysis_asset_preflight(data,bytes,owners,&info);
+    if (status!=ANALYSIS_ASSET_OK) return status;
+    if (info.measure.owned>reserved || info.measure.validation_scratch>reserved-info.measure.owned) return ANALYSIS_ASSET_LIMIT;
+    AnalysisAsset next={.sheet=info.sheet,.owner=info.owner};
+    DefinitionWireReader r={.data=data,.bytes=bytes,.at=DX_ANALYSIS_ASSET_HEADER_BYTES,.owned=sizeof(Analysis),.owned_limit=DX_ANALYSIS_ASSET_OWNED_BYTES,.ok=true};
+    AnalysisAssetMeasure m={0};
+    bool ok=body(&r,&next.definition) && analysis_asset_measure(info.sheet,info.owner,&next.definition,owners,&m)==ANALYSIS_ASSET_OK &&
+        m.bytes==bytes && m.owned==r.owned && m.validation_scratch==r.scratch && analysis_filters_valid(&next.definition,NULL);
     if (!ok) { analysis_asset_free(&next); return ANALYSIS_ASSET_INVALID; }
     analysis_asset_free(out); *out=next; return ANALYSIS_ASSET_OK;
 }

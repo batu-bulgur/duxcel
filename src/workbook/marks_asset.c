@@ -50,17 +50,26 @@ static bool body(DefinitionWireReader *r,MarkDefinition *out) {
     return r->ok && r->at==r->bytes;
 }
 void marks_asset_free(MarksAsset *a) { if (a) { marks_free(&a->definition); *a=(MarksAsset){0}; } }
-MarksAssetStatus marks_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,MarksAsset *out) {
+MarksAssetStatus marks_asset_preflight(const void *data,size_t bytes,uint64_t owners,DefinitionAssetInfo *out) {
     if (!data || !out || bytes<DX_MARKS_ASSET_HEADER_BYTES || bytes>DX_MARKS_ASSET_MAX_BYTES || memcmp(data,"DXMK",4)) return MARKS_ASSET_INVALID;
     DefinitionWireReader r={.data=data,.bytes=bytes,.at=4,.owned=sizeof(MarkDefinition),.owned_limit=DX_MARKS_ASSET_OWNED_BYTES,.ok=true};
     unsigned encoding=(unsigned)definition_wire_get(&r,2); if (encoding!=DX_MARKS_ASSET_ENCODING) return MARKS_ASSET_UNSUPPORTED;
     unsigned flags=(unsigned)definition_wire_get(&r,2); uint64_t sheet=definition_wire_get(&r,8),owner=definition_wire_get(&r,8);
     size_t n=(size_t)definition_wire_get(&r,4); unsigned zero=(unsigned)definition_wire_get(&r,4);
     if (flags || zero || !sheet || !owner || owner>owners || n!=bytes-DX_MARKS_ASSET_HEADER_BYTES) return MARKS_ASSET_INVALID;
-    DefinitionWireReader start=r; if (!body(&r,NULL)) return MARKS_ASSET_INVALID;
-    if (r.owned>reserved) return MARKS_ASSET_LIMIT;
-    MarksAsset next={.sheet=sheet,.owner=owner}; r=start; MarksAssetMeasure m={0};
-    bool ok=body(&r,&next.definition) && marks_asset_measure(sheet,owner,&next.definition,owners,&m)==MARKS_ASSET_OK && m.bytes==bytes && m.owned==r.owned;
+    if (!body(&r,NULL)) return MARKS_ASSET_INVALID;
+    *out=(DefinitionAssetInfo){sheet,owner,{bytes,r.owned,r.scratch}}; return MARKS_ASSET_OK;
+}
+MarksAssetStatus marks_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,MarksAsset *out) {
+    if (!out) return MARKS_ASSET_INVALID;
+    DefinitionAssetInfo info={0}; MarksAssetStatus status=marks_asset_preflight(data,bytes,owners,&info);
+    if (status!=MARKS_ASSET_OK) return status;
+    if (info.measure.owned>reserved || info.measure.validation_scratch>reserved-info.measure.owned) return MARKS_ASSET_LIMIT;
+    MarksAsset next={.sheet=info.sheet,.owner=info.owner};
+    DefinitionWireReader r={.data=data,.bytes=bytes,.at=DX_MARKS_ASSET_HEADER_BYTES,.owned=sizeof(MarkDefinition),.owned_limit=DX_MARKS_ASSET_OWNED_BYTES,.ok=true};
+    MarksAssetMeasure m={0};
+    bool ok=body(&r,&next.definition) && marks_asset_measure(info.sheet,info.owner,&next.definition,owners,&m)==MARKS_ASSET_OK &&
+        m.bytes==bytes && m.owned==r.owned && m.validation_scratch==r.scratch;
     if (!ok) { marks_asset_free(&next); return MARKS_ASSET_INVALID; }
     marks_asset_free(out); *out=next; return MARKS_ASSET_OK;
 }

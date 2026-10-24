@@ -31,6 +31,13 @@ AnalysisAssetStatus analysis_asset_measure(uint64_t sheet,uint64_t owner,const A
    separate from borrowed model/output bytes and must cover measured scratch. */
 AnalysisAssetStatus analysis_asset_encode(uint64_t sheet,uint64_t owner,const Analysis *definition,uint64_t object_high_water,
     size_t validation_reserved,void *arena,size_t capacity,size_t *written);
+/* Allocation-free framing/text/enum and owned/scratch inspection for a
+   composed owner's aggregate budget BEFORE allocating any nested graph. This
+   does NOT prove full definition grammar/duplicate/query rules or owner/source
+   closure. Only successful decode provides the complete family validation.
+   Input remains immutable throughout the composed preflight/decode; failure
+   preserves info. */
+AnalysisAssetStatus analysis_asset_preflight(const void *data,size_t bytes,uint64_t object_high_water,DefinitionAssetInfo *info);
 /* Two-pass framing/owned+scratch preflight before any string allocation. out
    owns an independent asset or is zero. Failure preserves it; success owns all
    texts independently and clears derived NumberType caches for later rebinding.

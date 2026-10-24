@@ -7,7 +7,13 @@ static unsigned checks;
 static void put(unsigned char *p,uint64_t value,unsigned n) { for (unsigned i=0;i<n;i++) { p[i]=(unsigned char)value; value>>=8; } }
 static unsigned char *encode(const MarkDefinition *d,size_t *bytes,MarksAssetMeasure *m) {
     CHECK(marks_asset_measure(UINT64_MAX,7,d,7,m)==MARKS_ASSET_OK); unsigned char *data=dx_alloc(m->bytes);
-    CHECK(marks_asset_encode(UINT64_MAX,7,d,7,data,m->bytes,bytes)==MARKS_ASSET_OK && *bytes==m->bytes); return data;
+    CHECK(marks_asset_encode(UINT64_MAX,7,d,7,data,m->bytes,bytes)==MARKS_ASSET_OK && *bytes==m->bytes);
+    DefinitionAssetInfo info={0}; CHECK(marks_asset_preflight(data,*bytes,7,&info)==MARKS_ASSET_OK && info.sheet==UINT64_MAX && info.owner==7 &&
+        info.measure.bytes==m->bytes && info.measure.owned==m->owned && info.measure.validation_scratch==m->validation_scratch);
+    DefinitionAssetInfo before=info;
+    CHECK(marks_asset_preflight(data,31,7,&info)==MARKS_ASSET_INVALID && !memcmp(&before,&info,sizeof(before)));
+    CHECK(marks_asset_preflight(data,*bytes,7,NULL)==MARKS_ASSET_INVALID);
+    return data;
 }
 static void reject(const void *data,size_t bytes,size_t budget,MarksAsset *out,MarksAssetStatus status) {
     MarksAsset before=*out; CHECK(marks_asset_decode(data,bytes,7,budget,out)==status && !memcmp(&before,out,sizeof(before)));

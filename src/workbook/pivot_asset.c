@@ -54,17 +54,25 @@ static bool body(DefinitionWireReader *r,PivotDefinition *out) {
     return r->ok && r->at==r->bytes;
 }
 void pivot_asset_free(PivotAsset *a) { if (a) { pivot_free(&a->definition); *a=(PivotAsset){0}; } }
-PivotAssetStatus pivot_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,PivotAsset *out) {
+PivotAssetStatus pivot_asset_preflight(const void *data,size_t bytes,uint64_t owners,DefinitionAssetInfo *out) {
     if (!data || !out || bytes<DX_PIVOT_ASSET_HEADER_BYTES || bytes>DX_PIVOT_ASSET_MAX_BYTES || memcmp(data,"DXPV",4)) return PIVOT_ASSET_INVALID;
     DefinitionWireReader r={.data=data,.bytes=bytes,.at=4,.owned=sizeof(PivotDefinition),.owned_limit=DX_DEFINITION_OWNED_BYTES,.ok=true};
     unsigned encoding=(unsigned)definition_wire_get(&r,2); if (encoding!=DX_PIVOT_ASSET_ENCODING) return PIVOT_ASSET_UNSUPPORTED;
     unsigned flags=(unsigned)definition_wire_get(&r,2); uint64_t sheet=definition_wire_get(&r,8),owner=definition_wire_get(&r,8);
     size_t n=(size_t)definition_wire_get(&r,4); unsigned zero=(unsigned)definition_wire_get(&r,4);
     if (flags || zero || !sheet || !owner || owner>owners || n!=bytes-DX_PIVOT_ASSET_HEADER_BYTES) return PIVOT_ASSET_INVALID;
-    DefinitionWireReader start=r; if (!body(&r,NULL)) return PIVOT_ASSET_INVALID;
-    if (r.owned>reserved || r.scratch>reserved-r.owned) return PIVOT_ASSET_LIMIT;
-    PivotAsset next={.sheet=sheet,.owner=owner}; r=start; PivotAssetMeasure m={0};
-    bool ok=body(&r,&next.definition) && pivot_asset_measure(sheet,owner,&next.definition,owners,&m)==PIVOT_ASSET_OK &&
+    if (!body(&r,NULL)) return PIVOT_ASSET_INVALID;
+    *out=(DefinitionAssetInfo){sheet,owner,{bytes,r.owned,r.scratch}}; return PIVOT_ASSET_OK;
+}
+PivotAssetStatus pivot_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,PivotAsset *out) {
+    if (!out) return PIVOT_ASSET_INVALID;
+    DefinitionAssetInfo info={0}; PivotAssetStatus status=pivot_asset_preflight(data,bytes,owners,&info);
+    if (status!=PIVOT_ASSET_OK) return status;
+    if (info.measure.owned>reserved || info.measure.validation_scratch>reserved-info.measure.owned) return PIVOT_ASSET_LIMIT;
+    PivotAsset next={.sheet=info.sheet,.owner=info.owner};
+    DefinitionWireReader r={.data=data,.bytes=bytes,.at=DX_PIVOT_ASSET_HEADER_BYTES,.owned=sizeof(PivotDefinition),.owned_limit=DX_DEFINITION_OWNED_BYTES,.ok=true};
+    PivotAssetMeasure m={0};
+    bool ok=body(&r,&next.definition) && pivot_asset_measure(info.sheet,info.owner,&next.definition,owners,&m)==PIVOT_ASSET_OK &&
         m.bytes==bytes && m.owned==r.owned && m.validation_scratch==r.scratch && pivot_valid(&next.definition,NULL);
     if (!ok) { pivot_asset_free(&next); return PIVOT_ASSET_INVALID; }
     pivot_asset_free(out); *out=next; return PIVOT_ASSET_OK;

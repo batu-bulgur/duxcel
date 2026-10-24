@@ -890,3 +890,11 @@ measure/date-grain rules, exact UTF-8 names and latent aggregate values survive
 independently of current chart capabilities. Decode preflights exact inline/text
 ownership before allocation and replaces an independent graph atomically. Outer
 Object/source/representation binding and result caches remain separate owners.
+
+
+Analysis/Pivot/Marks assets expose allocation-free `*_asset_preflight` inspection
+of exact sheet/owner headers, closed framing/text and owned/parser-scratch needs.
+A composed object owner can admit its complete graph budget before allocating any
+nested definition. Each ordinary decoder reuses that same inspection boundary.
+Preflight is not semantic/grammar/source admission: full decode remains required,
+and a well-framed but invalid filter can pass inspection while decode rejects it.

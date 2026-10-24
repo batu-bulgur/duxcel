@@ -25,6 +25,13 @@ PivotAssetStatus pivot_asset_measure(uint64_t sheet,uint64_t owner,const PivotDe
    covers parser scratch separately from input/output ownership. */
 PivotAssetStatus pivot_asset_encode(uint64_t sheet,uint64_t owner,const PivotDefinition *definition,uint64_t object_high_water,
     size_t validation_reserved,void *arena,size_t capacity,size_t *written);
+/* Allocation-free framing/text/enum and owned/scratch inspection for a
+   composed owner's aggregate budget BEFORE allocating any nested graph. This
+   does NOT prove full definition grammar/duplicate/query rules or owner/source
+   closure. Only successful decode provides the complete family validation.
+   Input remains immutable throughout the composed preflight/decode; failure
+   preserves info. */
+PivotAssetStatus pivot_asset_preflight(const void *data,size_t bytes,uint64_t object_high_water,DefinitionAssetInfo *info);
 /* Two-pass owned+scratch preflight; atomic independent graph replacement.
    reserved includes sizeof(PivotDefinition), text terminators and grammar scratch.
    No IO, output materialization, live adoption or App/file-profile activation. */

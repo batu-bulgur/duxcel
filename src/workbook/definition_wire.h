@@ -7,6 +7,7 @@
    capacity; integer widths are in1..8. Readers fail closed without advancing
    beyond input. Text lengths distinguish NULL from empty; UTF-8 forbids NUL. */
 typedef struct { size_t bytes,owned,validation_scratch; } DefinitionWireMeasure;
+typedef struct { uint64_t sheet,owner; DefinitionWireMeasure measure; } DefinitionAssetInfo;
 typedef struct { unsigned char *p; } DefinitionWireWriter;
 typedef struct { const unsigned char *data; size_t bytes,at,owned,scratch,owned_limit; bool ok; } DefinitionWireReader;
 bool definition_wire_text_measure(const char *text,DefinitionWireMeasure *measure,size_t owned_limit,size_t *length);

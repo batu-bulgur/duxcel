@@ -26,6 +26,13 @@ MarksAssetStatus marks_asset_measure(uint64_t sheet,uint64_t owner,const MarkDef
 /* Fresh disjoint arena. Every failure preserves arena and written. */
 MarksAssetStatus marks_asset_encode(uint64_t sheet,uint64_t owner,const MarkDefinition *definition,uint64_t object_high_water,
     void *arena,size_t capacity,size_t *written);
+/* Allocation-free framing/text/enum and owned/scratch inspection for a
+   composed owner's aggregate budget BEFORE allocating any nested graph. This
+   does NOT prove full definition grammar/duplicate/query rules or owner/source
+   closure. Only successful decode provides the complete family validation.
+   Input remains immutable throughout the composed preflight/decode; failure
+   preserves info. */
+MarksAssetStatus marks_asset_preflight(const void *data,size_t bytes,uint64_t object_high_water,DefinitionAssetInfo *info);
 /* Two-pass framing/owned preflight before copying any name. out is zero or owns
    an independent valid asset; failure preserves it, success replaces atomically. */
 MarksAssetStatus marks_asset_decode(const void *data,size_t bytes,uint64_t object_high_water,size_t reserved,MarksAsset *out);

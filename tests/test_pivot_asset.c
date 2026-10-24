@@ -7,7 +7,13 @@ static unsigned checks;
 static void put(unsigned char *p,uint64_t value,unsigned n) { for (unsigned i=0;i<n;i++) { p[i]=(unsigned char)value; value>>=8; } }
 static unsigned char *encode(const PivotDefinition *p,size_t *bytes,PivotAssetMeasure *m) {
     CHECK(pivot_asset_measure(UINT64_MAX,3,p,3,m)==PIVOT_ASSET_OK); unsigned char *data=dx_alloc(m->bytes);
-    CHECK(pivot_asset_encode(UINT64_MAX,3,p,3,m->validation_scratch,data,m->bytes,bytes)==PIVOT_ASSET_OK && *bytes==m->bytes); return data;
+    CHECK(pivot_asset_encode(UINT64_MAX,3,p,3,m->validation_scratch,data,m->bytes,bytes)==PIVOT_ASSET_OK && *bytes==m->bytes);
+    DefinitionAssetInfo info={0}; CHECK(pivot_asset_preflight(data,*bytes,3,&info)==PIVOT_ASSET_OK && info.sheet==UINT64_MAX && info.owner==3 &&
+        info.measure.bytes==m->bytes && info.measure.owned==m->owned && info.measure.validation_scratch==m->validation_scratch);
+    DefinitionAssetInfo before=info;
+    CHECK(pivot_asset_preflight(data,31,3,&info)==PIVOT_ASSET_INVALID && !memcmp(&before,&info,sizeof(before)));
+    CHECK(pivot_asset_preflight(data,*bytes,3,NULL)==PIVOT_ASSET_INVALID);
+    return data;
 }
 static void reject(const void *data,size_t bytes,size_t budget,PivotAsset *out,PivotAssetStatus status) {
     PivotAsset before=*out; CHECK(pivot_asset_decode(data,bytes,3,budget,out)==status && !memcmp(&before,out,sizeof(before)));
