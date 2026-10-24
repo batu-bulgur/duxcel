@@ -47,7 +47,8 @@ bool workbook_schema_offer(WorkbookSchemaProof *p,WorkbookSchemaText table,Workb
     for (size_t i=0;i<field;i++) { if (!*types) return reject(p,WORKBOOK_SCHEMA_STRUCTURE); types++; while (*types==' ') types++; }
     const char *expected=type_name(*types);
     /* DuckDB exposes JSON as VARCHAR through the C type API used by the
-       previous per-table proof. Preserve that physical-type compatibility. */
+       C metadata API. JSON remains the same physical string type, independently
+       of file-version compatibility. */
     if (!expected || (!exact(type,expected) && !(*types=='T' && exact(type,"JSON")))) return reject(p,WORKBOOK_SCHEMA_COLUMN_TYPES);
     p->seen[index]|=UINT64_C(1)<<field; p->rows++; return true;
 }

@@ -32,7 +32,7 @@ static void complete_package(unsigned package,bool reversed,bool upper) {
 }
 static bool offer(WorkbookSchemaProof *p,const char *table,const char *kind,const char *column,const char *value) { return workbook_schema_offer(p,text(table),text(kind),text(column),text(value)); }
 int main(void) {
-    for (unsigned version=12;version<=15;version++) { complete_package(version,false,false); complete_package(version,true,true); }
+    for (unsigned version=15;version<=15;version++) { complete_package(version,false,false); complete_package(version,true,true); }
     WorkbookSchemaProof p,unchanged; memset(&p,0x5a,sizeof(p)); unchanged=p;
     CHECK(!workbook_schema_begin(&p,0) && !memcmp(&p,&unchanged,sizeof(p))); CHECK(!workbook_schema_begin(&p,16) && !memcmp(&p,&unchanged,sizeof(p)));
     CHECK(!workbook_schema_begin(NULL,15) && !workbook_schema_complete(NULL));
@@ -52,7 +52,8 @@ int main(void) {
     CHECK(workbook_schema_begin(&p,15));
     CHECK(!workbook_schema_offer(&p,text("meta"),text("BASE TABLE"),(WorkbookSchemaText){"version",SIZE_MAX},text("INTEGER")));
     CHECK(workbook_schema_begin(&p,15) && !offer(&p,"meta","BASE TABLE","version","DOUBLE") && p.error==WORKBOOK_SCHEMA_COLUMN_TYPES);
-    CHECK(workbook_schema_begin(&p,14) && !offer(&p,"workbook_identity","BASE TABLE","high","UBIGINT"));
+    CHECK(!workbook_schema_begin(&p,14));
+    for (unsigned version=1;version<15;version++) CHECK(!workbook_schema_begin(&p,version));
     CHECK(workbook_schema_begin(&p,15) && offer(&p,"cells","BASE TABLE","text","JSON"));
     CHECK(workbook_schema_begin(&p,15) && !offer(&p,"meta","BASE TABLE","version","JSON") && p.error==WORKBOOK_SCHEMA_COLUMN_TYPES);
     CHECK(workbook_schema_begin(&p,15) && !workbook_schema_complete(&p)); p=(WorkbookSchemaProof){0}; CHECK(!workbook_schema_complete(&p));
