@@ -496,20 +496,20 @@ named interaction/full-milestone check; the existing object-archive CLI provides
 a smaller edit-time path. Final full native/lifecycle/Open acceptance remains
 W10c3b; the shared-C/official-Worker controls boundary has passed in 59.001s.
 
-W10c3b milestone integration: the complete optimized/sanitizer engine matrix,
-owned crash/restart and fault checks passed. All950 layout stages have scoped,
-overlapping App coverage, including source-format, memory-denial/retry and manual
-range persistence. All440 other native stages now pass with the real NYC fixture.
-Legacy fixture mutations record aligned command histories; budget preparation
-follows workbook-wide Undo and opens actual cell drafts. Save checks wait for
-dependent results and first viewport paint, preserving the R/R+1 fence.
-The final Table73/Query47/Unique32 workflows pass in37.402s/24.664s/15.634s;
-all49 runner/catalog contracts pass. Shared-C/Wasm compilation passes. The first combined layout reached874 and exposed a missing test readiness
-barrier while a source count was pending. Budget preparation now waits for its
-published Page; the joined21-stage Statistics/budget workflow passes in26.431s.
-The final combined layout and macOS lifecycle/Finder Open gates remain open; browser
-persistence and physical input are not claimed. Receipts/source/binary hashes
-remain under ignored build/tests/results/.
+W10c3b milestone integration: optimized/sanitizer engines, owned crash/restart
+and fault checks passed. All440 non-layout native stages pass with the real NYC
+fixture. Legacy seeds now record aligned command histories, budget preparation
+uses workbook-wide Undo and real drafts, and Save assertions capture settled
+results/viewport state without relaxing R/R+1 protection. Table73/Query47/Unique32
+pass in37.402s/24.664s/15.634s. The combined layout run exercises0–941 without
+an assertion failure, including the repaired pending-count barrier, then exhausts
+its old25,000-frame budget. The independent936–950 reset fixture passes all14
+stages in8.444s, completing950-stage coverage across receipts. The failure budget
+now matches the focused runner's46,080 frames; the enlarged single-run command
+has not been rerun, and no green full-command receipt is claimed. All49 runner/
+catalog contracts and shared-C/Wasm compilation pass. macOS lifecycle/Finder
+Open gates remain open. Physical input/browser persistence are separate; current
+source/binary receipts are under ignored build/tests/results/.
 
 ### Owned data, refresh and complete analytical results
 

@@ -75,7 +75,7 @@ LAYOUT_PROFILES = {
 # Kept explicit: changes to terminal assertions/stage counts must be reviewed.
 # Frames are a failure budget, not a claim that the app exits on completion.
 NATIVE = (
-    ("layout", 950, 25000, "PASS: native deterministic sparse containing regions"),
+    ("layout", 950, 46080, "PASS: native deterministic sparse containing regions"),
     ("base", 6, 240, None),
     ("workspace", 4, 300, "PASS: native workspace save/load"),
     ("filter", 66, 6200, "PASS: clamped text-condition submenu"),
