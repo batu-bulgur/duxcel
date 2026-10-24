@@ -159,7 +159,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W10c3a · P0 · Complete | Archive compatibility and bounded schema proof; W10c2. | Preserve strict v15 and genuine legacy upgrades, byte-for-byte failed-overwrite protection and exact typed metadata; batch catalog proof without relaxing row validation. Focused schema/Save gate plus explicit archive matrix. |
 | W10c3b · P0 · Complete | Final foundation integration and native lifecycle/Open; W10c3a. | Exercise the registered native milestone coverage, verify owned crash/restart, lifecycle/Finder entry and hidden TEST boundaries, and record command/runtime limits before W11. |
 | W11 · P1 · In progress | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
-| W11a · P1 · In progress | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
+| W11a · P1 · Complete | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
 | W11a1 · P1 · Complete | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
 | W11a2 · P1 · Complete | Immutable supported-state payload closure and native version codec; W11a1. | Archive every advertised root independently of the editable head, without recursive history copies. Reject missing/invalid payloads and preserve non-writing legacy Open/safe upgrade. Scoped archive gate; no tag UI claim. |
 | W11a2.1 · P1 · Complete | Relocatable core snapshot references; W11a1. | Preserve resolved primary/Table/ledger locators across private payload relocation, including offline sources. Reject unresolved inputs before modifying a destination; retain controlled cancellation and ordinary Save behavior. Native payload/Save modules plus narrow Save GUI. |
@@ -196,6 +196,11 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11c.1 · P1 · Complete | Owned Tag worker/App publication boundary; W11b. | Copy UI label before ordered Save work, distinguish Tag receipts and fence full generation/label/root publication. |
 | W11c.2 · P1 · Complete | Compact version list and Create Tag flow; W11c.1. | File entry, unique-label feedback, first destination, one Latest Saved plus explicit tags, narrow physical input/Save/reopen gate. |
 | W11d · P1 · In progress | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
+| W11d.1 · P1 · Complete | Isolated owned historical core projection; W11c. | Select an admitted opaque root, verify/read/recheck it into an independent model with a historical reader and no Save path. Preserve working Undo/Redo and cancel without adoption. |
+| W11d.2 · P1 · In progress | Owned historical read jobs/replies; W11d.1. | Retain protected roots through ordered worker reads, cooperative cancellation and late replies; no working-state adoption yet. |
+| W11d.3 · P1 · Queued | Working Head suspension and return controller; W11d.2. | Move the actual owned book/history and runtime write owner rather than copying away Undo; preserve recovery and reject cancelled/wrong-owner preview adoption. |
+| W11d.4 · P1 · Queued | Read-only preview UI and return; W11d.3. | Inspect retained authored sheets/cells/styles/definitions, block all mutation/publication routes and return to the exact Working Head. External results not retained by the current core remain explicitly unavailable. |
+| W11e · P1 · Queued | Version milestone compatibility/regression gate; W11d. | Migrate App-produced-file assertions to explicit full-archive readers while preserving v15 fixture/legacy tests. Run the broad milestone gate once, plus package/shared-browser checks; record actual coverage and limits. No silent head-only legacy fallback. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
@@ -873,3 +878,17 @@ passes, along with54 runner/catalog/web contracts in10.876s. Browser workbook UI
 remains unavailable. Evidence uses ignored `build/tests/results/w11c2` outputs.
 Older-state opening is W11d; current tags retain the supported authored core,
 not external source bytes, durable Undo or future full analytical outputs.
+
+W11d.1 complete: `version_preview` accepts only an admitted opaque root and a
+matching historical reader owner, retains its protected store, verifies bytes
+before/after strict decoding and returns a separate model without a Save path.
+It executes no external source query and never receives the Working Head.
+Model/store lifetimes are independent; cancellation at each phase or inside
+hashing preserves output and current ownership. Decoder SQL is cooperatively
+cancellable before/after its call, not between every internal query. The registered
+`version-preview` gate passes55 checks per optimized/ASan/UBSan build in7.341s,
+including offline definitions, offscreen data, exact working Undo/Redo/draft-target
+state, deletion of the original named file and independent returned models.
+Worker/App/visible adoption remains W11d.2–W11d.4. Evidence: ignored
+`build/tests/results/w11d1-version-preview.log`. W11e explicitly owns broad
+version-format consumer migration/regression after preview integration.

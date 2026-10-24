@@ -183,6 +183,15 @@ state. Successful publication returns to the list unless another document action
 is pending. The panel adapts to list length/viewport; the ten-row File geometry
 retains normal Quit visibility. Read-only historical preview remains W11d.
 
+`version_preview.c` projects a selected opaque root from an admitted immutable
+store into a separate owned core model under an explicit historical reader.
+It verifies the leaf before/after strict decoding, executes no source query,
+clears the model's Save target and retains the protected roots independently of
+model transfer. Cancellation never publishes a partial candidate. The decoder
+has cooperative before/after cancellation; no per-query interruption is claimed.
+This reader does not receive or suspend the live Working Head. Ordered worker
+handoff, exact working-state transfer and the read-only UI remain W11d.2–W11d.4.
+
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain
 it and prune/cap operations advance a lost-history floor. Stable IDs identify the

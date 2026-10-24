@@ -66,6 +66,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-preview": Feature((), "",
+        ("python3 tools/test.py feature --feature tag-worker", "python3 tools/test.py feature --feature version-controls"),
+        ("src/workbook/version_preview.c", "src/workbook/version_preview.h", "tests/test_version_preview.c"),
+        ("version_preview",)),
     "version-controls": Feature(("keytips", "choiceview"), "version-controls",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-versions", "python3 tools/test.py feature --feature tag-worker"),
         ("src/app/versions.inc", "src/ui/versionview.c", "src/ui/versionview.h", "src/app/app.c: Tag readiness/Save completion", "src/ui/keytips.c: File Versions", "src/ui/choiceview.h: ten bounded File rows", "src/platform/macos.m: native Versions menu adapter", "tests/test_app_lifecycle_native.m: narrow Versions bridge", "tests/support/version_controls_app.inc", "tests/test_version_controls_gui.c")),
