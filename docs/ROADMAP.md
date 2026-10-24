@@ -1729,15 +1729,24 @@ selection remapping keeps the legacy model and admitted producer consistent.
 App field authoring and the separate filter editor now use this owner; only the
 changed object's result is invalidated. Native memory admission includes caller
 proposal staging; render/input owners re-resolve pointers after adoption.
-The234-case command,290-case recorder,383-case Pivot asset and318-case object
+The 234-case command, 290-case recorder, 383-case Pivot asset and 318-case object
 modules pass optimized/ASan/UBSan. The hidden TEST App passes18 stages/39 checks
-(GUI9.550s; combined19.056s): actual Alt-Left reorder, aggregate/delete keys,
+(GUI 9.550s; combined 19.056s): actual Alt-Left reorder, aggregate/delete keys,
 filter Apply, month/year authoring, no-op Redo, Cmd-Z/Redo, unrelated Table/Pivot
-Page preservation and150% v16 Save/Open. The finite eight-row Date/City/Amount
-fixture proves the filtered yearly average is65 before and after reopen. Resize
+Page preservation and 150% v16 Save/Open. The finite eight-row Date/City/Amount
+fixture proves the filtered yearly average is 65 before and after reopen. Resize
 settles before Save so subsequent viewport publication is not mistaken for a
-failed save of the captured state. Fifty tool contracts pass2.348s. Packaging
+failed save of the captured state. Fifty tool contracts pass in 2.348s. Packaging
 evidence follows below. Receipts: ignored `w12c3-object-pivot-app.log`,
 `w12c3-object-pivot-tools.log` and run summary. No broad regression or retained
 App writer activation is claimed. Next: W12c.3c.3b.4d source connection/binding
 replacement, retaining the separate complete format-composite boundary.
+
+
+Pivot packaging boundary: product source 9b69891 produces the signed native
+bundle in 6.897s and the normal shared-C Wasm application in 29.389s wall time.
+Strict signature, compiled commit provenance and private feature/review symbol
+exclusions pass. Receipts: ignored `w12c3-object-pivot-bundle.log`,
+`w12c3-object-pivot-package.json` and `w12c3-object-pivot-web.log`. No user App was
+launched/closed. Compile/link evidence does not establish browser runtime,
+browser workbook Open/Save, durable history or broad regression acceptance.
