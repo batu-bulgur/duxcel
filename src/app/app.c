@@ -11,6 +11,7 @@
 #include "../workbook/object_create_command.h"
 #include "../workbook/object_import_draft.h"
 #include "../workbook/object_move_command.h"
+#include "../workbook/range_command.h"
 #include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
@@ -370,6 +371,7 @@ typedef struct {
     SheetRange replace_range;
     size_t replace_sheet;
     uint64_t replace_cells_revision,replace_formats_revision,replace_analysis_revision;
+    RangeCommandTarget *replace_manual_target;
     int64_t replace_dr;
     int replace_dc,replace_focus;
     bool replace_reveal;
@@ -5390,7 +5392,44 @@ static bool move_single_object(App *a,uint64_t id,uint64_t row,size_t column,cha
     ObjectMoveResult result=workbook_apply_object_move_recorded(&context,&target,row,column,NULL,error);
     return result.status==OBJECT_MOVE_APPLIED || result.status==OBJECT_MOVE_NOOP;
 }
-static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replace,char **error) {
+static bool manual_range_owner(const App *a,const Worksheet *s) {
+    return s && a->analysis.kind==SOURCE_NONE && s->analysis.kind==SOURCE_NONE && !s->objects.count && !s->formats.source_aware && !s->formats.scope_count;
+}
+static RangeCommandContext manual_range_context(App *a) {
+    return (RangeCommandContext){.command={.book=&a->book,.request_epoch=&a->request_id,.ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)},
+        .primary=&a->analysis,.primary_epoch=&a->analysis_revision};
+}
+#ifndef DUXCEL_BROWSER_HOST
+typedef struct { App *app; size_t captured; } RangeAdmission;
+static bool admit_manual_range(void *context,const FormatStore *formats,size_t adopted,size_t scratch,char **error) {
+    RangeAdmission *capture=context; App *a=capture->app; WorkbookFormatReplacement replacement={.sheet=a->book.active,.formats=formats};
+    if (scratch<=SIZE_MAX-capture->captured && !source_format_budget_status(a,&replacement,adopted,scratch+capture->captured,0,0,0)) return true;
+    if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Range exceeds the current memory budget."); } return false;
+}
+#endif
+static bool move_manual_range(App *a,RangeCommand command,const RangeCommandTarget *captured,char **error) {
+    RangeCommandContext context=manual_range_context(a); RangeCommandPlanInfo info={0};
+    RangeCommandStatus measured=workbook_range_command_measure(&context,a->book.active,command,&info,error);
+    if (measured==RANGE_COMMAND_NOOP) {
+        if (!captured) return true;
+        return workbook_apply_range_command_recorded(&context,captured,command,NULL,error).status==RANGE_COMMAND_NOOP;
+    }
+    if (measured!=RANGE_COMMAND_READY) return false;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { if (error) *error=dx_strdup("Range planning reservation overflow."); return false; }
+#ifndef DUXCEL_BROWSER_HOST
+    size_t draft=captured ? sizeof(*captured) : 0;
+    if (info.validation_scratch>SIZE_MAX-draft || source_format_budget_status(a,NULL,info.owned,info.validation_scratch+draft,0,0,0)) {
+        if (error) *error=dx_strdup(a->message ? a->message : "Range exceeds the current memory budget."); return false;
+    }
+    RangeAdmission admission={a,draft}; context.admit=admit_manual_range; context.admission_context=&admission;
+#endif
+    context.command.plan_reserved=info.owned+info.validation_scratch; context.command.validation_reserved=info.validation_scratch;
+    RangeCommandTarget target;
+    if (!captured) { if (!workbook_prepare_range_command(&context,a->book.active,&target,error)) return false; captured=&target; }
+    RangeCommandResult result=workbook_apply_range_command_recorded(&context,captured,command,NULL,error);
+    return result.status==RANGE_COMMAND_APPLIED || result.status==RANGE_COMMAND_NOOP;
+}
+static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replace,const RangeCommandTarget *captured,char **error) {
     Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); SheetRange range;
     grid_bounds(g,&range.r0,&range.r1,&range.c0,&range.c1);
     if (!range_can_move(a,range,error)) return false;
@@ -5410,7 +5449,9 @@ static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replac
         const SheetCell *cell=sheet->cells.cells+i;
         if (cell->row>=range.r0 && cell->row<=range.r1 && cell->col>=range.c0 && cell->col<=range.c1) single=0;
     }
-    bool moved=single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
+    bool manual=manual_range_owner(a,sheet);
+    if (captured && !manual) { if (error) *error=dx_strdup("The manual range owner changed. Review the destination again."); return false; }
+    bool moved=manual ? move_manual_range(a,(RangeCommand){range,dr,dc,replace},captured,error) : single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
         replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
         worksheet_move_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error);
     if (!moved) return false;
@@ -5423,7 +5464,7 @@ static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replac
     return true;
 }
 static bool move_selection(App *a,int64_t dr,int dc,bool reveal,char **error) {
-    return move_selection_mode(a,dr,dc,reveal,false,error);
+    return move_selection_mode(a,dr,dc,reveal,false,NULL,error);
 }
 static bool request_range_move(App *a,int64_t dr,int dc,bool reveal,char **error) {
     SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1);
@@ -5432,13 +5473,22 @@ static bool request_range_move(App *a,int64_t dr,int dc,bool reveal,char **error
     SheetMoveStatus check=worksheet_check_move(s,range,dr,dc,source_rows(a),a->page.column_count,error);
     if (check==SHEET_MOVE_INVALID) return false;
     if (check==SHEET_MOVE_READY) return move_selection(a,dr,dc,reveal,error);
+    free(a->replace_manual_target); a->replace_manual_target=NULL;
+    if (manual_range_owner(a,s)) {
+#ifndef DUXCEL_BROWSER_HOST
+        if (source_format_budget_status(a,NULL,sizeof(RangeCommandTarget),0,0,0,0)) return false;
+#endif
+        RangeCommandContext context=manual_range_context(a); RangeCommandTarget *target=dx_alloc(sizeof(*target));
+        if (!workbook_prepare_range_command(&context,a->book.active,target,error)) { free(target); return false; }
+        a->replace_manual_target=target;
+    }
     a->replace_range=range; a->replace_dr=dr; a->replace_dc=dc; a->replace_reveal=reveal;
     a->replace_sheet=a->book.active; a->replace_cells_revision=s->cells.revision;
     a->replace_formats_revision=s->formats.revision; a->replace_analysis_revision=a->analysis_revision;
     a->replace_focus=0; a->modal=MODAL_REPLACE_RANGE; a->consume_grid_input=true;
     return false;
 }
-static void cancel_range_replace(App *a) { a->modal=MODAL_NONE; a->consume_grid_input=true; }
+static void cancel_range_replace(App *a) { free(a->replace_manual_target); a->replace_manual_target=NULL; a->modal=MODAL_NONE; a->consume_grid_input=true; }
 static bool confirm_range_replace(App *a) {
     if (a->modal!=MODAL_REPLACE_RANGE) return false;
     SheetRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1);
@@ -5447,7 +5497,7 @@ static bool confirm_range_replace(App *a) {
         s->formats.revision==a->replace_formats_revision && a->analysis_revision==a->replace_analysis_revision &&
         range.r0==expected.r0 && range.r1==expected.r1 && range.c0==expected.c0 && range.c1==expected.c1;
     char *error=NULL;
-    bool moved=same && move_selection_mode(a,a->replace_dr,a->replace_dc,a->replace_reveal,true,&error);
+    bool moved=same && move_selection_mode(a,a->replace_dr,a->replace_dc,a->replace_reveal,true,a->replace_manual_target,&error);
     cancel_range_replace(a);
     status(a,moved ? "Range moved. Undo restores the source and replaced destination." :
         error ? error : "The worksheet changed. Move the range again to review its destination.");
@@ -15922,6 +15972,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_RANGE_COMMAND
+static void range_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
 static void object_create_command_test_frame(AppSession *session);
 #endif
@@ -16815,6 +16868,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_RANGE_COMMAND
+    range_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
     object_create_command_test_frame(session);
 #endif
@@ -17029,6 +17085,7 @@ int app_finish(AppSession *session) {
 #endif
     SOURCE_FORMAT_RESET(a);
     object_import_draft_free(&a->object_import);
+    free(a->replace_manual_target); a->replace_manual_target=NULL;
     cancel_values(a);
 #ifndef DUXCEL_BROWSER_HOST
     close_journal(a,a->discard_journal || !a->book.dirty);
@@ -17170,4 +17227,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
 #include "../../tests/support/object_create_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_RANGE_COMMAND
+#include "../../tests/support/range_command_app.inc"
 #endif

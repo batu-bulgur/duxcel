@@ -1,4 +1,5 @@
 #include "cells.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 static size_t locate(const CellStore *s,uint64_t row,size_t col) {
@@ -6,8 +7,8 @@ static size_t locate(const CellStore *s,uint64_t row,size_t col) {
     while (lo<hi) { size_t m=lo+(hi-lo)/2; SheetCell *c=&s->cells[m]; if (c->row<row || (c->row==row && c->col<col)) lo=m+1; else hi=m; }
     return lo;
 }
-static void snapshot_free(CellSnapshot *s) { for (size_t i=0;i<s->count;i++) free(s->cells[i].text); free(s->cells); memset(s,0,sizeof(*s)); }
-static void clear_stack(CellSnapshot *stack,size_t *count) { while (*count) snapshot_free(&stack[--*count]); }
+void cells_snapshot_free(CellSnapshot *s) { for (size_t i=0;i<s->count;i++) free(s->cells[i].text); free(s->cells); memset(s,0,sizeof(*s)); }
+static void clear_stack(CellSnapshot *stack,size_t *count) { while (*count) cells_snapshot_free(&stack[--*count]); }
 static CellSnapshot snapshot(const CellStore *s) {
     CellSnapshot out={.count=s->count,.bytes=s->bytes}; out.cells=dx_alloc(s->count*sizeof(SheetCell));
     for (size_t i=0;i<s->count;i++) { out.cells[i]=s->cells[i]; out.cells[i].text=dx_strdup(s->cells[i].text); } return out;
@@ -16,13 +17,18 @@ static void push(CellSnapshot *stack,size_t *count,CellSnapshot state) {
     size_t bytes=state.bytes;
     for (size_t i=0;i<*count;i++) bytes+=stack[i].bytes;
     while (*count && (*count==32 || bytes>8*1024*1024)) {
-        bytes-=stack[0].bytes; snapshot_free(&stack[0]); memmove(stack,stack+1,(--*count)*sizeof(*stack));
+        bytes-=stack[0].bytes; cells_snapshot_free(&stack[0]); memmove(stack,stack+1,(--*count)*sizeof(*stack));
     }
     stack[(*count)++]=state;
 }
 static void remember(CellStore *s) { clear_stack(s->redo,&s->redo_count); push(s->undo,&s->undo_count,snapshot(s)); s->revision++; }
+void cells_adopt_range(CellStore *s,CellSnapshot *owned) {
+    assert(s && owned && (!owned->count || owned->cells) && owned->cells!=s->cells && s->revision<UINT64_MAX && s->undo_count<=32 && s->redo_count<=32);
+    clear_stack(s->redo,&s->redo_count); push(s->undo,&s->undo_count,(CellSnapshot){s->cells,s->count,s->bytes});
+    s->cells=owned->cells; s->count=s->capacity=owned->count; s->bytes=owned->bytes; s->revision++; *owned=(CellSnapshot){0};
+}
 void cells_free(CellStore *s) {
-    CellSnapshot data={s->cells,s->count,s->bytes}; snapshot_free(&data);
+    CellSnapshot data={s->cells,s->count,s->bytes}; cells_snapshot_free(&data);
     clear_stack(s->undo,&s->undo_count); clear_stack(s->redo,&s->redo_count); memset(s,0,sizeof(*s));
 }
 void cells_copy(CellStore *to,const CellStore *from) {
@@ -108,7 +114,7 @@ bool cells_paste_checked(CellStore *s,uint64_t row,size_t col,const char *tsv,si
     bool same=s->count==merged.count;
     for (size_t i=0;same && i<s->count;i++) same=!order(&s->cells[i],&merged.cells[i]) && !strcmp(s->cells[i].text,merged.cells[i].text);
     if (!same) {
-        remember(s); CellSnapshot previous={s->cells,s->count,s->bytes}; snapshot_free(&previous);
+        remember(s); CellSnapshot previous={s->cells,s->count,s->bytes}; cells_snapshot_free(&previous);
         s->cells=merged.cells; s->count=merged.count; s->capacity=merged.capacity; s->bytes=merged.bytes; memset(&merged,0,sizeof(merged));
     }
     *rows=r+1; *columns=width; ok=true;
@@ -186,7 +192,7 @@ bool cells_history(CellStore *s,bool redo) {
 void cells_trim_history(CellStore *s,bool redo,size_t keep) {
     CellSnapshot *stack=redo ? s->redo : s->undo; size_t *count=redo ? &s->redo_count : &s->undo_count;
     if (keep>=*count) return;
-    size_t drop=*count-keep; for (size_t i=0;i<drop;i++) snapshot_free(&stack[i]);
+    size_t drop=*count-keep; for (size_t i=0;i<drop;i++) cells_snapshot_free(&stack[i]);
     memmove(stack,stack+drop,keep*sizeof(*stack)); memset(stack+keep,0,drop*sizeof(*stack)); *count=keep;
 }
 typedef struct { uint64_t r0,r1; size_t c0,c1; } CellRegion;
