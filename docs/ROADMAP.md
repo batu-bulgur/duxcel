@@ -197,8 +197,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11c.2 · P1 · Complete | Compact version list and Create Tag flow; W11c.1. | File entry, unique-label feedback, first destination, one Latest Saved plus explicit tags, narrow physical input/Save/reopen gate. |
 | W11d · P1 · In progress | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W11d.1 · P1 · Complete | Isolated owned historical core projection; W11c. | Select an admitted opaque root, verify/read/recheck it into an independent model with a historical reader and no Save path. Preserve working Undo/Redo and cancel without adoption. |
-| W11d.2 · P1 · In progress | Owned historical read jobs/replies; W11d.1. | Retain protected roots through ordered worker reads, cooperative cancellation and late replies; no working-state adoption yet. |
-| W11d.3 · P1 · Queued | Working Head suspension and return controller; W11d.2. | Move the actual owned book/history and runtime write owner rather than copying away Undo; preserve recovery and reject cancelled/wrong-owner preview adoption. |
+| W11d.2 · P1 · Complete | Owned historical read jobs/replies; W11d.1. | Retain protected roots through ordered worker reads, cooperative cancellation and late replies; no working-state adoption yet. |
+| W11d.3 · P1 · In progress | Working Head suspension and return controller; W11d.2. | Move the actual owned book/history and runtime write owner rather than copying away Undo; preserve recovery and reject cancelled/wrong-owner preview adoption. |
 | W11d.4 · P1 · Queued | Read-only preview UI and return; W11d.3. | Inspect retained authored sheets/cells/styles/definitions, block all mutation/publication routes and return to the exact Working Head. External results not retained by the current core remain explicitly unavailable. |
 | W11e · P1 · Queued | Version milestone compatibility/regression gate; W11d. | Migrate App-produced-file assertions to explicit full-archive readers while preserving v15 fixture/legacy tests. Run the broad milestone gate once, plus package/shared-browser checks; record actual coverage and limits. No silent head-only legacy fallback. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -892,3 +892,16 @@ state, deletion of the original named file and independent returned models.
 Worker/App/visible adoption remains W11d.2–W11d.4. Evidence: ignored
 `build/tests/results/w11d1-version-preview.log`. W11e explicitly owns broad
 version-format consumer migration/regression after preview integration.
+
+W11d.2 complete: historical Load contexts retain an admitted store/root and copy
+a matching reader owner without receiving a Working Head or resolving a user
+path. The worker returns an independent model plus protected reader metadata;
+preview predicates/getters are distinct from ordinary Open/Save/Tag, so normal
+App adoption rejects them. Cancellation suppresses late publication and background
+retirement releases abandoned roots before subsequent work. Taken model/store
+ownership survives reply and worker shutdown. The registered `preview-worker`
+gate passes private historical worker and existing real Save/Open/Tag worker tests
+under optimized/ASan/UBSan in19.651s. It proves cancelled-root retirement, non-file
+path handling, ordinary-Open rejection and protected post-stop ownership. No UI
+or Working Head suspension claim yet. Evidence: ignored
+`build/tests/results/w11d2-preview-worker.log`.

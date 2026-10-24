@@ -66,6 +66,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "preview-worker": Feature((), "",
+        ("python3 tools/test.py feature --feature version-controls", "python3 tools/test.py feature --feature recovery-versions"),
+        ("src/data/worker_archive.c: protected historical read contexts", "src/data/worker_archive.h", "tests/test_preview_worker.c"),
+        ("preview_worker", "worker_archive")),
     "version-preview": Feature((), "",
         ("python3 tools/test.py feature --feature tag-worker", "python3 tools/test.py feature --feature version-controls"),
         ("src/workbook/version_preview.c", "src/workbook/version_preview.h", "tests/test_version_preview.c"),

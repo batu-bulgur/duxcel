@@ -189,8 +189,13 @@ It verifies the leaf before/after strict decoding, executes no source query,
 clears the model's Save target and retains the protected roots independently of
 model transfer. Cancellation never publishes a partial candidate. The decoder
 has cooperative before/after cancellation; no per-query interruption is claimed.
-This reader does not receive or suspend the live Working Head. Ordered worker
-handoff, exact working-state transfer and the read-only UI remain W11d.2–W11d.4.
+This reader does not receive or suspend the live Working Head. Native preview jobs now carry an admitted store/root and historical owner through
+the ordered Load lane without resolving the job's diagnostic path or creating a
+new working folder. Reply model ownership is separate from protected preview
+metadata. Preview replies deliberately fail the ordinary archive-Open predicate,
+preventing accidental live replacement; cancellation and retirement use the same
+worker ownership boundary. Exact Working Head transfer and read-only UI remain
+W11d.3–W11d.4.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

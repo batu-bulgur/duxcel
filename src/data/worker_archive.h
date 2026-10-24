@@ -2,6 +2,7 @@
 #define DUXCEL_WORKER_ARCHIVE_H
 #include "worker.h"
 #include "../workbook/version_save.h"
+#include "../workbook/version_preview.h"
 /* UI-side preparation is memory/refcount only. Job already owns its path and
    Save snapshot; failure leaves it unchanged/caller-owned. The worker object
    outlives attached jobs/replies, including their deferred disposal. Native
@@ -13,6 +14,17 @@ bool worker_archive_save_job(QueryWorker *worker,QueryJob *job,const WorkbookVer
 bool worker_archive_tag_job(QueryWorker *worker,QueryJob *job,const WorkbookVersionCoreSet *base,
     WorkbookVersionOwner owner,WorkbookVersionText label,const char *parent,uint64_t reserved_bytes,char **error);
 bool worker_archive_load_job(QueryWorker *worker,QueryJob *job,const char *parent,uint64_t reserved_bytes,char **error);
+/* A preview Load carries a non-file diagnostic path, no input Workbook and an
+   explicit historical reader/root. It retains admitted bytes without creating
+   working folders or treating the named artifact as the authority. */
+bool worker_archive_preview_job(QueryWorker *worker,QueryJob *job,const WorkbookVersionCoreSet *store,
+    WorkbookVersionKey root,WorkbookVersionOwner reader,char **error);
+bool worker_archive_is_preview_reply(const QueryReply *reply);
+/* Reply owns the decoded workbook; this candidate retains reader/root/store
+   metadata independently. These getters never identify an ordinary Open. */
+const WorkbookVersionPreview *worker_archive_preview(const QueryReply *reply);
+WorkbookVersionPreview *worker_archive_take_preview(QueryReply *reply);
+/* Ordinary Save/Open/Tag only: preview replies cannot enter normal adoption. */
 bool worker_archive_is_reply(const QueryReply *reply);
 /* True even when Tag preparation failed/cancelled and has no receipt yet. */
 bool worker_archive_is_tag_reply(const QueryReply *reply);

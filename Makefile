@@ -819,7 +819,7 @@ distclean:
 # Legacy module-test recipes compile whole source lists and some execution goals
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
-PARALLEL_NATIVE_GOALS = build/tests/test_version_preview build/tests/test_version_preview-debug build/tests/test_version_controls-gui build/tests/test_version_tag_save build/tests/test_version_tag_save-debug build/tests/test_version_tag build/tests/test_version_tag-debug build/tests/test_version_checkpoint build/tests/test_version_checkpoint-debug build/tests/test_app_versions build/tests/test_app_versions-debug build/tests/test_worker_archive build/tests/test_worker_archive-debug build/tests/test_version_seed build/tests/test_version_seed-debug build/tests/test_worker_native build/tests/test_worker_native-debug build/tests/test_record_selection_worker build/tests/test_record_selection_worker-debug build/tests/test_worker_source_digest build/tests/test_worker_source_digest-debug build/tests/test_version_lifetime build/tests/test_version_lifetime-debug build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
+PARALLEL_NATIVE_GOALS = build/tests/test_preview_worker build/tests/test_preview_worker-debug build/tests/test_version_preview build/tests/test_version_preview-debug build/tests/test_version_controls-gui build/tests/test_version_tag_save build/tests/test_version_tag_save-debug build/tests/test_version_tag build/tests/test_version_tag-debug build/tests/test_version_checkpoint build/tests/test_version_checkpoint-debug build/tests/test_app_versions build/tests/test_app_versions-debug build/tests/test_worker_archive build/tests/test_worker_archive-debug build/tests/test_version_seed build/tests/test_version_seed-debug build/tests/test_worker_native build/tests/test_worker_native-debug build/tests/test_record_selection_worker build/tests/test_record_selection_worker-debug build/tests/test_worker_source_digest build/tests/test_worker_source_digest-debug build/tests/test_version_lifetime build/tests/test_version_lifetime-debug build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
 	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_version_index build/tests/test_version_index-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
@@ -1252,7 +1252,7 @@ build/obj/feature-archive-worker-sanitize/adapter.o: src/data/worker_archive.c b
 	$(call compile_object,$(APP_SANITIZE_FLAGS) -DDUXCEL_FEATURE_ARCHIVE_WORKER)
 build/obj/feature-archive-worker-sanitize/test.o: tests/test_worker_archive.c build/obj/sanitize/app/compile.flags
 	$(call compile_object,$(APP_SANITIZE_FLAGS) -DDUXCEL_FEATURE_ARCHIVE_WORKER)
-WORKER_ARCHIVE_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/core_compare.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c src/workbook/archive_read.c src/workbook/archive_write.c src/workbook/version_save.c src/workbook/version_seed.c
+WORKER_ARCHIVE_SOURCES = src/workbook/version_preview.c $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/core_compare.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c src/workbook/archive_read.c src/workbook/archive_write.c src/workbook/version_save.c src/workbook/version_seed.c
 WORKER_ARCHIVE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(WORKER_ARCHIVE_SOURCES)))) build/obj/feature-archive-worker/adapter.o build/obj/feature-archive-worker/test.o
 WORKER_ARCHIVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(WORKER_ARCHIVE_SOURCES)))) build/obj/feature-archive-worker-sanitize/adapter.o build/obj/feature-archive-worker-sanitize/test.o
 build/tests/test_worker_archive: $(WORKER_ARCHIVE_OBJECTS) | build/tests
@@ -1260,6 +1260,23 @@ build/tests/test_worker_archive: $(WORKER_ARCHIVE_OBJECTS) | build/tests
 build/tests/test_worker_archive-debug: $(WORKER_ARCHIVE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(WORKER_ARCHIVE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(WORKER_ARCHIVE_OBJECTS:.o=.d) $(WORKER_ARCHIVE_SAN_OBJECTS:.o=.d)
+
+build/obj/feature-preview-worker/adapter.o: src/data/worker_archive.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_PREVIEW_WORKER)
+build/obj/feature-preview-worker/test.o: tests/test_preview_worker.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_PREVIEW_WORKER)
+build/obj/feature-preview-worker-sanitize/adapter.o: src/data/worker_archive.c build/obj/sanitize/app/compile.flags
+	$(call compile_object,$(APP_SANITIZE_FLAGS) -DDUXCEL_FEATURE_PREVIEW_WORKER)
+build/obj/feature-preview-worker-sanitize/test.o: tests/test_preview_worker.c build/obj/sanitize/app/compile.flags
+	$(call compile_object,$(APP_SANITIZE_FLAGS) -DDUXCEL_FEATURE_PREVIEW_WORKER)
+PREVIEW_WORKER_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(WORKER_ARCHIVE_SOURCES) src/app/versionstate.c))) build/obj/feature-preview-worker/adapter.o build/obj/feature-preview-worker/test.o
+PREVIEW_WORKER_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(WORKER_ARCHIVE_SOURCES) src/app/versionstate.c))) build/obj/feature-preview-worker-sanitize/adapter.o build/obj/feature-preview-worker-sanitize/test.o
+build/tests/test_preview_worker: $(PREVIEW_WORKER_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(PREVIEW_WORKER_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_preview_worker-debug: $(PREVIEW_WORKER_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(PREVIEW_WORKER_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(PREVIEW_WORKER_OBJECTS:.o=.d) $(PREVIEW_WORKER_SAN_OBJECTS:.o=.d)
+
 
 APP_VERSION_SOURCES = $(WORKER_ARCHIVE_SOURCES) src/data/worker_archive.c src/app/versionstate.c
 APP_VERSION_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(APP_VERSION_SOURCES)))) build/obj/release/app/tests/test_app_versions.o
