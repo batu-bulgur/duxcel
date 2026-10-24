@@ -418,6 +418,10 @@ FEATURES = {
     "workbook-schema": Feature(("workbook_schema",), "workbook-save",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-ui", "python3 tools/test.py feature --feature workbook-identity"),
         ("src/workbook/schema.c", "src/workbook/schema.h", "src/workbook/workbook.c: bounded catalog proof")),
+    "current-fixture": Feature((), "",
+        ("python3 tools/test.py feature --feature workbook-save", "python3 tools/test.py native --scenario workspace document --config sanitize"),
+        ("tools/create_workbook.py", "tests/fixtures/workbook/transactions.sql", "tests/fixtures/workbook/current-container.sql", "tests/test_fixture.c", "Makefile: fixture archive dependency closure"),
+        ("fixture",), ("transactions", "transactions-large")),
     "current-core": Feature((), "",
         ("python3 tools/test.py feature --feature workbook-save", "python3 tools/test.py feature --feature workbook-identity"),
         ("src/workbook/workbook.c: exact current core admission and transactional save", "tests/test_workbook.c", "tests/test_workbook_identity_native.c"),
@@ -538,4 +542,4 @@ def plan(name):
             "limits": "A focused pass covers this boundary; it does not establish whole-application or browser acceptance."}
 
 
-FEATURE_FIXTURES = {"source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}
+FEATURE_FIXTURES = {"transactions": (("tools/create_workbook.py",), "PASS: Python transaction fixture,", "build/tests/generated/design-definition.dxls"), "transactions-large": (("tools/create_workbook.py", "--large"), "PASS: Python transaction fixture,", "build/tests/generated/design-large.dxls"), "source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}

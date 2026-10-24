@@ -1,6 +1,6 @@
--- Finite v12 four-sheet acceptance input, not a general workbook serializer.
+-- Finite current v15 core input, not a general workbook serializer.
 -- Consumer: tools/create_workbook.py; verified through tests/test_fixture.c.
--- Only the relative Parquet source token varies between canonical/large data.
+-- The absolute final Parquet locator and document low word vary by fixture.
 BEGIN TRANSACTION;
 CREATE SCHEMA IF NOT EXISTS _duxcel_workspace;
 CREATE TABLE _duxcel_workspace.cells(sheet_id INTEGER, row_id UBIGINT, column_id INTEGER, "text" VARCHAR, PRIMARY KEY(sheet_id, row_id, column_id));
@@ -34,7 +34,7 @@ CREATE TABLE _duxcel_workspace.marks(sheet_id INTEGER, object_id UBIGINT, "role"
 INSERT INTO _duxcel_workspace.marks VALUES(0,1,2,0,'Amount (USD)','true',0,0);
 INSERT INTO _duxcel_workspace.marks VALUES(0,1,3,0,'Account','false',0,0);
 CREATE TABLE _duxcel_workspace.meta("version" INTEGER, active_sheet UBIGINT, user_scale DOUBLE);
-INSERT INTO _duxcel_workspace.meta VALUES(12,0,1.0);
+INSERT INTO _duxcel_workspace.meta VALUES(15,0,1.0);
 CREATE TABLE _duxcel_workspace.objects(sheet_id INTEGER, id UBIGINT, "name" VARCHAR, row_id UBIGINT, column_id INTEGER, height UBIGINT, width INTEGER, kind INTEGER DEFAULT(0), mark INTEGER DEFAULT(0), source_id UBIGINT DEFAULT(0), chart_measure INTEGER DEFAULT(0), PRIMARY KEY(sheet_id, id));
 INSERT INTO _duxcel_workspace.objects VALUES(0,1,'Cash flow by category',0,12,32,8,0,0,0,0);
 CREATE TABLE _duxcel_workspace.pivot_fields(sheet_id INTEGER, object_id UBIGINT, "role" INTEGER, "position" INTEGER, "name" VARCHAR, "aggregate" INTEGER, filter_op INTEGER, "value" VARCHAR, grain INTEGER DEFAULT(0), PRIMARY KEY(sheet_id, object_id, "role", "position"));
@@ -58,4 +58,23 @@ CREATE TABLE _duxcel_workspace.source_options(sheet_id INTEGER, object_id UBIGIN
 CREATE TABLE _duxcel_workspace.table_filters(sheet_id INTEGER, object_id UBIGINT, "position" INTEGER, "name" VARCHAR, op INTEGER, "value" VARCHAR, PRIMARY KEY(sheet_id, object_id, "position"));
 CREATE TABLE _duxcel_workspace.table_sorts(sheet_id INTEGER, object_id UBIGINT, "position" INTEGER, "name" VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, object_id, "position"));
 CREATE TABLE _duxcel_workspace.table_sources(sheet_id INTEGER, object_id UBIGINT, kind INTEGER, path VARCHAR, source_schema VARCHAR, source_table VARCHAR, filter_column VARCHAR, filter_value VARCHAR, filter_op INTEGER, group_column VARCHAR, measure_column VARCHAR, "aggregate" INTEGER, sort_column VARCHAR, descending BOOLEAN, PRIMARY KEY(sheet_id, object_id));
+CREATE TABLE _duxcel_workspace.workbook_identity(high UBIGINT,low UBIGINT,sheet_high_water UBIGINT,command_revision UBIGINT);
+INSERT INTO _duxcel_workspace.workbook_identity VALUES(4923925674580705281,__DOCUMENT_LOW__,4,0);
+CREATE TABLE _duxcel_workspace.sheet_identity(sheet_id INTEGER,stable_id UBIGINT);
+INSERT INTO _duxcel_workspace.sheet_identity VALUES(0,1),(1,2),(2,3),(3,4);
+CREATE TABLE _duxcel_workspace.object_counters(sheet_id INTEGER PRIMARY KEY,high_water UBIGINT);
+INSERT INTO _duxcel_workspace.object_counters VALUES(0,1),(1,0),(2,0),(3,0);
+CREATE TABLE _duxcel_workspace.format_scopes(sheet_id INTEGER,scope_id INTEGER,owner UBIGINT,encoding INTEGER,definition BLOB,PRIMARY KEY(sheet_id,scope_id));
+CREATE TABLE _duxcel_workspace.format_selectors(sheet_id INTEGER,position INTEGER,kind INTEGER,PRIMARY KEY(sheet_id,position));
+INSERT INTO _duxcel_workspace.format_selectors SELECT sheet_id,position,0 FROM _duxcel_workspace.formats;
+CREATE TABLE _duxcel_workspace.format_guards(sheet_id INTEGER,position INTEGER,guard_position INTEGER,scope_id INTEGER,PRIMARY KEY(sheet_id,position,guard_position));
+CREATE TABLE _duxcel_workspace.format_state(sheet_id INTEGER PRIMARY KEY,source_aware BOOLEAN);
+INSERT INTO _duxcel_workspace.format_state VALUES(0,true),(1,true),(2,true),(3,true);
+CREATE TABLE _duxcel_workspace.source_version_counters(sheet_id INTEGER PRIMARY KEY,high_water UBIGINT);
+INSERT INTO _duxcel_workspace.source_version_counters VALUES(0,0),(1,0),(2,0),(3,0);
+CREATE TABLE _duxcel_workspace.source_versions(sheet_id INTEGER,version UBIGINT,owner UBIGINT,source_kind INTEGER,source_reference VARCHAR,encoding INTEGER,definition BLOB,PRIMARY KEY(sheet_id,version));
+CREATE TABLE _duxcel_workspace.source_bindings(sheet_id INTEGER,owner UBIGINT,version UBIGINT,PRIMARY KEY(sheet_id,owner));
+INSERT INTO _duxcel_workspace.source_bindings VALUES(0,0,0),(1,0,0),(2,0,0),(3,0,0);
+CREATE TABLE _duxcel_workspace.format_records(sheet_id INTEGER,position INTEGER,member_position INTEGER,record_id UBIGINT,PRIMARY KEY(sheet_id,position,member_position));
+CREATE TABLE _duxcel_workspace.format_fields(sheet_id INTEGER,position INTEGER,field_position INTEGER,source_ordinal INTEGER,PRIMARY KEY(sheet_id,position,field_position));
 COMMIT;

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Generate finite workbook/source acceptance inputs using the existing DuckDB CLI.
 
-Python owns synthetic data and fixture files. The SQL is an explicit v12 test
-input, not another application serializer. Native product assertions stay in
-tests/test_fixture.c and exercise the real loader, PIVOT and save/reload path.
+Python owns synthetic data and fixture files. Finite SQL authors the current
+v15 core and v16 container; it is not a general application serializer. Native
+product assertions stay in tests/test_fixture.c and exercise the real loader,
+PIVOT and save/reload path.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -85,20 +87,6 @@ def execute(executable, database, sql):
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
-def create_identity(output, *, duckdb=None):
-    """Finite legacy input only; product C owns migration and new-format saving."""
-    executable = duckdb or shutil.which("duckdb")
-    if not executable:
-        raise RuntimeError("The existing DuckDB CLI is required to generate fixtures")
-    output.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".identity-", dir=output) as temporary:
-        stage = Path(temporary) / "identity-legacy.dxls"
-        execute(executable, stage, (ROOT / "tests/fixtures/workbook/identity-legacy.sql").read_text())
-        target = output / stage.name
-        os.replace(stage, target)
-    return target
-
-
 def create_journal_paste(output, *, duckdb=None):
     """Finite TSV input; C owns paste, checkpoint and recovery assertions."""
     executable = duckdb or shutil.which("duckdb")
@@ -155,7 +143,16 @@ def create(output, *, large=False, duckdb=None):
             FROM read_parquet({quote(parquet)});''')[0]
         if stats["rows"] != (48216 if large else 310) or not all(stats[key] for key in ("nulls", "empty_text", "literal_null", "exact_decimal")):
             raise RuntimeError("Transaction fixture lost rows, typed NULL/text or exact DECIMAL")
-        execute(executable, book, TEMPLATE.read_text().replace("'__TRANSACTIONS_SOURCE__'", quote(parquet.name)))
+        core = stage / "current-core.dxls"
+        sql = TEMPLATE.read_text().replace("'__TRANSACTIONS_SOURCE__'", quote((output / parquet.name).resolve()))
+        execute(executable, core, sql.replace("__DOCUMENT_LOW__", "2" if large else "1"))
+        payload = core.read_bytes()
+        digest = hashlib.sha256(payload).hexdigest()
+        shutil.copyfile(core, book)
+        sql = (ROOT / "tests/fixtures/workbook/current-container.sql").read_text()
+        sql = sql.replace("__ROOT_SHA256__", digest).replace("__ROOT_BYTES__", str(len(payload)))
+        sql = sql.replace("__ROOT_CHUNKS__", str((len(payload) + 65535) // 65536))
+        execute(executable, book, sql.replace("'__CORE_PATH__'", quote(core)))
         # Nothing reaches the accepted paths until every candidate is complete.
         for candidate in (csv, parquet, book):
             candidate.replace(output / candidate.name)
@@ -166,7 +163,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--large", action="store_true")
-    mode.add_argument("--identity-only", action="store_true")
     mode.add_argument("--journal-paste-only", action="store_true")
     mode.add_argument("--source-connections-only", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/tests/generated")
@@ -179,10 +175,6 @@ def main():
         if options.journal_paste_only:
             target = create_journal_paste(options.output_dir.resolve())
             print(f"PASS: journal paste fixture: {target}")
-            return
-        if options.identity_only:
-            target = create_identity(options.output_dir.resolve())
-            print(f"PASS: identity migration fixture: {target}")
             return
         stats = create(options.output_dir.resolve(), large=options.large)
     print(f"PASS: Python transaction fixture, {stats['rows']} rows; NULL/empty/literal NULL and DECIMAL preserved")

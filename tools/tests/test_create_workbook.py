@@ -1,5 +1,6 @@
 """Finite synthetic inputs, real DuckDB conversion and failure publication."""
 import csv
+import hashlib
 from decimal import Decimal
 import pathlib
 import shutil
@@ -40,7 +41,23 @@ class FixtureTests(unittest.TestCase):
                 records = fixture.execute(shutil.which("duckdb"), book,
                     "SELECT version,(SELECT count(*) FROM _duxcel_workspace.sheets) AS sheets,"
                     "(SELECT path FROM _duxcel_workspace.sheets WHERE id=0) AS source FROM _duxcel_workspace.meta;")
-                self.assertEqual(records, [{"version": 12, "sheets": 4, "source": prefix + ".parquet"}])
+                self.assertEqual(records, [{"version": 16, "sheets": 4, "source": str((output / (prefix + ".parquet")).resolve())}])
+                archive = fixture.execute(shutil.which("duckdb"), book,
+                    "SELECT (SELECT count(*) FROM information_schema.tables WHERE table_schema='_duxcel_workspace') AS tables,"
+                    "codec,generation,saved_generation,hex(saved_key) AS saved FROM _duxcel_versions.meta")[0]
+                self.assertEqual((archive["tables"], archive["codec"], int(archive["generation"]), int(archive["saved_generation"])), (28, 1, 1, 1))
+                chunks = fixture.execute(shutil.which("duckdb"), book,
+                    "SELECT position,hex(data) AS data FROM _duxcel_versions.chunks ORDER BY position")
+                payload = b"".join(bytes.fromhex(chunk["data"]) for chunk in chunks)
+                self.assertEqual(hashlib.sha256(payload).hexdigest().upper(), archive["saved"])
+                self.assertEqual([int(chunk["position"]) for chunk in chunks], list(range(len(chunks))))
+                self.assertTrue(all(len(bytes.fromhex(chunk["data"])) == 65536 for chunk in chunks[:-1]))
+                core = output / "admitted-current-core.dxls"
+                core.write_bytes(payload)
+                inner = fixture.execute(shutil.which("duckdb"), core,
+                    "SELECT version,(SELECT path FROM _duxcel_workspace.sheets WHERE id=0) AS source FROM _duxcel_workspace.meta")
+                self.assertEqual(inner, [{"version": 15, "source": str((output / (prefix + ".parquet")).resolve())}])
+                core.unlink()
                 self.assertFalse(list(output.glob(".transactions-*")))
 
     def test_failed_candidate_never_replaces_existing_inputs(self):
@@ -56,21 +73,22 @@ class FixtureTests(unittest.TestCase):
             self.assertFalse(list(output.glob(".transactions-*")))
 
     @unittest.skipUnless(shutil.which("duckdb"), "existing DuckDB CLI required")
-    def test_identity_only_fixture_and_failed_publication(self):
-        with tempfile.TemporaryDirectory(prefix="duxcel identity ' ") as directory:
+    def test_failed_container_never_replaces_existing_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
             output = pathlib.Path(directory)
-            target = fixture.create_identity(output)
-            before = target.read_bytes()
-            records = fixture.execute(shutil.which("duckdb"), target,
-                "SELECT version,(SELECT count(*) FROM _duxcel_workspace.sheets) AS sheets,"
-                "(SELECT text FROM _duxcel_workspace.cells WHERE row_id=1 AND column_id=1) AS value "
-                "FROM _duxcel_workspace.meta")
-            self.assertEqual(records, [{"version": 12, "sheets": 1, "value": "Legacy original"}])
-            with mock.patch.object(fixture, "execute", side_effect=RuntimeError("candidate failed")):
-                with self.assertRaisesRegex(RuntimeError, "candidate failed"):
-                    fixture.create_identity(output, duckdb="existing-duckdb")
-            self.assertEqual(target.read_bytes(), before)
-            self.assertFalse(list(output.glob(".identity-*")))
+            paths = [output / ("design-definition" + suffix) for suffix in (".csv", ".parquet", ".dxls")]
+            for path in paths:
+                path.write_bytes(b"accepted")
+            original = fixture.execute
+            def fail_container(executable, database, sql):
+                if "CREATE SCHEMA _duxcel_versions" in sql:
+                    raise RuntimeError("container failed")
+                return original(executable, database, sql)
+            with mock.patch.object(fixture, "execute", side_effect=fail_container):
+                with self.assertRaisesRegex(RuntimeError, "container failed"):
+                    fixture.create(output)
+            self.assertTrue(all(path.read_bytes() == b"accepted" for path in paths))
+            self.assertFalse(list(output.glob(".transactions-*")))
 
     def test_missing_cli_fails_before_creating_outputs(self):
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(fixture.shutil, "which", return_value=None):

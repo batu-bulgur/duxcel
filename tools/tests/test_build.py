@@ -78,7 +78,7 @@ sys.exit(result)
 ''')
         settings = ["BREW_PREFIX=", "RAYLIB_CFLAGS=", "RAYLIB_LIBS=", "DUCKDB_CFLAGS=-Igenerated -Isrc",
                     "DUCKDB_LIBS=-lm", "CPPFLAGS=-Igenerated -Isrc", "LDLIBS=-lm", "THREAD_LIBS=",
-                    "CC=python3 tools/compiler.py", "SRC=src/first.c src/main.c", "CORE=src/first.c",
+                    "CC=python3 tools/compiler.py", "SRC=src/first.c src/main.c", "CORE=src/first.c", "FIXTURE_PERSISTENCE=",
                     "ICON_INPUTS=inputs/source.svg tools/generate_icons.py",
                     "ICON_OUTPUTS=generated/brand.h generated/icon.bin"]
 
