@@ -250,7 +250,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3a.1 · P1 · Complete | Resolved-relation event admission; W12c.3c.2. | Reject retained events containing unresolved DATABASE primary/Table definitions before reservation; preserve legacy/core packet compatibility and distinguish NULL default selection from invalid empty identifiers. |
 | W12c.3c.3a.2 · P1 · In progress | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
 | W12c.3c.3a.2a · P1 · Complete | Immutable working-origin model; W12c.3c.3a.1 and canonical definition/source/format assets. | Exact runtime/request/primary/Table fences admit only default-relation completion while OPEN, then one canonical arena seals ADMITTED. No user action, mutation of Saved roots or App activation. |
-| W12c.3c.3a.2b · P1 · In progress | Origin-owned baseline bridge and precise memory admission; W12c.3c.3a.2a. | Derive open/epoch proof from the actual opaque owner, normalize before sealing, budget all owned assets/parser scratch and retain terminal origin bytes. App reply integration and new-primary publication stay explicit. |
+| W12c.3c.3a.2b · P1 · Complete | Origin-owned baseline bridge and precise memory admission; W12c.3c.3a.2a. | Derive open/epoch proof from the actual opaque owner, normalize before sealing, budget all owned assets/parser scratch and retain terminal origin bytes. App reply integration and new-primary publication stay explicit. |
+| W12c.3c.3a.2c · P1 · In progress | Native default-reply and verified baseline adapters; W12c.3c.3a.2b. | Charge every live OPEN/ADMITTED origin, including suspended Working Head ownership, and route primary/loaded-Table completions and legacy baseline through the actual typed owner before sealing. New-primary pending publication remains separate. |
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
@@ -2040,3 +2041,14 @@ gate passes 240 origin and 24 baseline assertions per optimized/ASan/UBSan build
 in 4.852s, zero App stages. Receipt: `runs/20261024T143049-feature-56008/summary.json`.
 The actual origin-to-baseline bridge, App adapters and new-source publication
 remain dependency work; this does not activate retained-history IO.
+
+
+W12c.3c.3a.2b integrated: `6e0e634` derives baseline phase/epoch from the actual
+opaque origin, refreshes that same OPEN preimage after atomic normalization and
+seals only the final canonical state. ADMITTED rejects preparation/adoption;
+explicit schema identity cannot be replaced by default completion. Exact seal
+measurement and read-only prospective ownership support governor admission.
+Combined `definition-origin` passes 275 origin, 136 baseline and 24 readiness
+checks per optimized/ASan/UBSan build in 7.621s, zero App stages; receipt
+`build/tests/results/runs/20261024T143406-feature-59079/summary.json`.
+App adapters and remaining origin publication are not claimed by this model gate.
