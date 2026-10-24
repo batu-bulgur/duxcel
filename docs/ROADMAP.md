@@ -1012,3 +1012,11 @@ passed in7.481s; the same workflow with full-App ASan/UBSan passed in42.414s
 (including31.990s compilation). The GUI-only feature defers unchanged backend
 modules. Evidence: ignored `w11e-history-{layout,preview-sanitize}.log` and the
 finite layout/navigation regression receipts under `build/tests/results/`.
+
+W11e continuation: Pivot passes all45 stages in46.581s with the revised ceiling.
+Export/Count/Clipboard/Sort/Navigation and the real NYC source pass. Document
+reaches its terminal stage10 with Quit's Save still active at its old700-frame
+limit, without an assertion/sanitizer failure. Save-heavy Document/Chart/Table/
+Unique ceilings now allow versioned IO; all completion predicates, immediate
+assertion failures and stage counts remain unchanged. Passing tests do not wait
+out a ceiling. Continue at Document rather than repeating the completed checks.

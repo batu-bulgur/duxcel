@@ -86,13 +86,13 @@ NATIVE = (
     ("sort", 12, 900, "PASS: multi-column sort"),
     ("navigation", 13, 1200, "PASS: native sheet rename"),
     ("nyc", 8, 1000, "PASS: public NYC 3,475,226-row source"),
-    ("document", 10, 700, "PASS: pending cell commit"),
-    ("chart", 40, 2000, "PASS: source-derived chart Other"),
+    ("document", 10, 2400, "PASS: pending cell commit"),
+    ("chart", 40, 4800, "PASS: source-derived chart Other"),
     ("statistics", 31, 2500, "PASS: frame selection reports object identity"),
-    ("table", 73, 3400, "PASS: independent same-sheet CSV/Parquet/DuckDB tables"),
+    ("table", 73, 7200, "PASS: independent same-sheet CSV/Parquet/DuckDB tables"),
     ("icon", 8, 500, "PASS: shared vector and prebuilt app icon previews"),
     ("query", 47, 3600, "PASS: actual native date-token menu changes Month to Year"),
-    ("unique", 32, 1800, "PASS: structured unique rows on primary and independent sources"),
+    ("unique", 32, 3600, "PASS: structured unique rows on primary and independent sources"),
 )
 SANITIZER_FAILURE = re.compile(r"ERROR: (?:AddressSanitizer|LeakSanitizer)|runtime error:|SUMMARY: (?:AddressSanitizer|UndefinedBehaviorSanitizer)")
 

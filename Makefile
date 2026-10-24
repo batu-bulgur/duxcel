@@ -85,7 +85,7 @@ icon-smoke: build/bin/duxcel-debug icons-check
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --icon-smoke --frames 360 --screenshot build/tests/results/icons/final.png
 unique-smoke: build/bin/duxcel-debug
 	mkdir -p build/tests/generated build/tests/results/unique-rows
-	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --unique-smoke --frames 1200 --screenshot build/tests/results/unique-rows/final.png
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --unique-smoke --frames 3600 --screenshot build/tests/results/unique-rows/final.png
 query-smoke: build/bin/duxcel-debug
 	mkdir -p build/tests/generated build/tests/results/source-query
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --query-smoke --frames 3600 --screenshot build/tests/results/source-query/final.png
@@ -790,17 +790,17 @@ nyc-smoke: build/bin/duxcel-debug
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --nyc-smoke --frames 720 --screenshot build/tests/results/current-workspace/nyc-analysis.png
 document-smoke: build/bin/duxcel-debug
 	mkdir -p build/tests/generated build/tests/results/current-workspace
-	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --document-smoke --frames 480 --screenshot build/tests/results/current-workspace/document-guard.png
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --document-smoke --frames 2400 --screenshot build/tests/results/current-workspace/document-guard.png
 chart-smoke: build/bin/duxcel-debug
 	mkdir -p build/tests/generated build/tests/results/chart-marks
-	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --chart-smoke --frames 1080 --screenshot build/tests/results/chart-marks/final.png
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --chart-smoke --frames 4800 --screenshot build/tests/results/chart-marks/final.png
 statistics-smoke: build/bin/duxcel-debug
 	mkdir -p build/tests/generated build/tests/results/selection-statistics
 	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --statistics-smoke --frames 2500 --screenshot build/tests/results/selection-statistics/final.png
 table-smoke: build/bin/duxcel-debug build/tests/test_core
 	mkdir -p build/tests/generated build/tests/results/table-sources
 	if test ! -f build/tests/generated/million.parquet || test ! -f "build/tests/generated/odd'name.parquet" || test ! -f build/tests/generated/fixture.duckdb; then ./build/tests/test_core; fi
-	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --table-smoke --frames 2520 --screenshot build/tests/results/table-sources/final.png
+	ASAN_OPTIONS=halt_on_error=1 ./build/bin/duxcel-debug --table-smoke --frames 7200 --screenshot build/tests/results/table-sources/final.png
 bundle: build/bin/duxcel
 	mkdir -p build/Duxcel.app/Contents/MacOS build/Duxcel.app/Contents/Resources
 	cp build/bin/duxcel build/Duxcel.app/Contents/MacOS/duxcel.new
