@@ -19,7 +19,7 @@ EM_JS(void, report_queries,(int ok,unsigned checks,unsigned fixtures,unsigned he
     const at=normal>>>2,rows=first_rows>>>2,physical=physical_rows>>>2;
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'queries',checks,fixtures,headers,queries:requests,rejections,stale,
         peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+6)),familyExecutions:{meta,sheets,objects,queries:definitions,describe},
+        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+4)),familyExecutions:{meta,sheets,objects,queries:definitions,describe},
         acceptedFeeds:{objects256:object256,queries256:query256,queries64:query64},objectSplitGroups:object_groups,validSplitGroups:groups,
         rejectedFeeds:rejected,schemaRejections:schema_rejections,rejectedFirstRows:Array.from(HEAPU32.subarray(rows,rows+6)),
         physicalRejectedFirstRows:Array.from(HEAPU32.subarray(physical,physical+2)),physicalInvalidAsNull:physical_nulls,poisonedQueryResults:poisoned,
@@ -185,11 +185,11 @@ static bool queries_feed_result(void) {
 static bool queries_restart(void) {clear_input();d.fault++;objects_wire=false;queries_wire=false;return queries_begin();}
 static bool queries_next_fixture(void) {
     clear_input();page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.objects_schema);page_free(&d.queries_schema);
-    objects_wire=false;queries_wire=false;d.fixture++;CHECK(d.fixture<6,"Owner fixture inventory exhausted");d.phase=0;return true;
+    objects_wire=false;queries_wire=false;d.fixture++;CHECK(d.fixture<4,"Owner fixture inventory exhausted");d.phase=0;return true;
 }
 static bool queries_tick_body(void) {
     if(d.phase==0){
-        CHECK(d.fixture<6,"Query fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
+        CHECK(d.fixture<4,"Query fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
         char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",queries_files[d.fixture]);
         fixture_start(d.cookie,d.ticket,queries_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=401;return true;
     }
@@ -235,18 +235,18 @@ static bool queries_tick_body(void) {
         clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete query Header could not move");
         CHECK(queries_header_contents(d.header,queries_versions[d.fixture],&d.key),"Completed owned query Header differs from native fixture");d.headers++;
         if(!d.fault){
-            if(d.fixture<5)return queries_next_fixture();d.fault=1;CHECK(queries_begin(),"Query negative candidate begin failed");d.phase=406;return true;
+            if(d.fixture<3)return queries_next_fixture();d.fault=1;CHECK(queries_begin(),"Query negative candidate begin failed");d.phase=406;return true;
         }
         if(d.fault==8){CHECK(queries_restart(),"Final query recovery begin failed");d.phase=406;return true;}
-        CHECK(d.fault==9&&d.fixtures==6&&d.headers==6&&d.queries==85&&d.rejections==9&&d.stale==1&&d.meta_queries==15&&d.sheets_queries==15&&queries.object_queries==15&&queries.query_queries==15&&d.describe_queries==25,"Query terminal metadata workload changed");
-        CHECK(queries.object256==120&&queries.object_groups==15&&queries.query256==72&&queries.query64==6&&queries.groups==6&&queries.rejected_feeds==8&&queries.schema_rejections==1&&queries.physical_nulls==2&&queries.poisoned==6&&queries.proofs==511,"Query complete/prefix/rejection/proof inventory changed");
-        const unsigned expected[]={0,0,0,0,2048,0};for(size_t i=0;i<6;i++){CHECK(queries.rejected_first[i]==expected[i],"Synthetic query failure prefix changed");CHECK(d.normal_queries[i]==8,"Normal query fixture workload changed");}
+        CHECK(d.fault==9&&d.fixtures==4&&d.headers==4&&d.queries==69&&d.rejections==9&&d.stale==1&&d.meta_queries==13&&d.sheets_queries==13&&queries.object_queries==13&&queries.query_queries==13&&d.describe_queries==17,"Query terminal metadata workload changed");
+        CHECK(queries.object256==104&&queries.object_groups==13&&queries.query256==56&&queries.query64==4&&queries.groups==4&&queries.rejected_feeds==8&&queries.schema_rejections==1&&queries.physical_nulls==2&&queries.poisoned==4&&queries.proofs==511,"Query complete/prefix/rejection/proof inventory changed");
+        const unsigned expected[]={0,0,0,0,2048,0};for(size_t i=0;i<6;i++)CHECK(queries.rejected_first[i]==expected[i],"Synthetic query failure prefix changed");for(size_t i=0;i<4;i++)CHECK(d.normal_queries[i]==8,"Normal query fixture workload changed");
         CHECK(queries.physical_first[0]==2048&&queries.physical_first[1]==2048,"Physical invalid-query failure lost its accepted prefix");
         d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
     if(d.phase==9&&d.fixture_ready){
         clear_input();page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.objects_schema);page_free(&d.queries_schema);workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;
-        d.done=true;printf("PASS: browser-codec-queries %u checks,6 native files,6 Headers,85 queries,8 codec/1 schema rejections,1 stale callback; raw definitions only, no Workbook publication\n",d.checks);queries_report(true,NULL);emscripten_cancel_main_loop();return true;
+        d.done=true;printf("PASS: browser-codec-queries %u checks,4 current native files,4 Headers,69 queries,8 codec/1 schema rejections,1 stale callback; raw definitions only, no Workbook publication\n",d.checks);queries_report(true,NULL);emscripten_cancel_main_loop();return true;
     }
     return true;
 }

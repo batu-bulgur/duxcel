@@ -18,7 +18,7 @@ EM_JS(void, report_objects,(int ok,unsigned checks,unsigned fixtures,unsigned he
     const at=normal>>>2,rows=first_rows>>>2;
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'objects',checks,fixtures,headers,queries,rejections,stale,
         peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+4)),familyExecutions:{meta,sheets,objects:registry,describe},
+        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+2)),familyExecutions:{meta,sheets,objects:registry,describe},
         acceptedFeeds:{rows256:accepted},rejectedFeeds:rejected,validSplitGroups:groups,
         rejectedFirstRows:Array.from(HEAPU32.subarray(rows,rows+7)),wireRejections:wire_rejections,schemaRejections:schema_rejections,
         requiredNullRejected:Boolean(proofs&1),duplicateIdRejected:Boolean(proofs&2),geometryRejected:Boolean(proofs&4),
@@ -151,7 +151,7 @@ static bool objects_feed_result(void) {
 static bool objects_restart(void) {clear_input();d.fault++;objects_wire=false;return objects_begin();}
 static bool objects_tick_body(void) {
     if(d.phase==0){
-        CHECK(d.fixture<4,"Object fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
+        CHECK(d.fixture<2,"Object fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
         char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",objects_files[d.fixture]);
         fixture_start(d.cookie,d.ticket,objects_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=301;return true;
     }
@@ -199,19 +199,19 @@ static bool objects_tick_body(void) {
         clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete object Header could not move");
         CHECK(objects_header_contents(d.header,objects_versions[d.fixture],&d.key),"Completed owned object Header differs from native fixture");d.headers++;
         if(!d.fault){
-            d.fixture++;if(d.fixture<4){page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.objects_schema);d.phase=0;return true;}
-            d.fixture=3;d.fault=1;objects_wire=false;CHECK(objects_begin(),"Object negative candidate begin failed");d.phase=305;return true;
+            d.fixture++;if(d.fixture<2){page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.objects_schema);d.phase=0;return true;}
+            d.fixture=1;d.fault=1;objects_wire=false;CHECK(objects_begin(),"Object negative candidate begin failed");d.phase=305;return true;
         }
         if(d.fault==10){CHECK(objects_restart(),"Final object recovery begin failed");d.phase=305;return true;}
-        CHECK(d.fault==11&&d.fixtures==4&&d.headers==6&&d.queries==58&&d.rejections==9&&d.stale==1&&d.meta_queries==15&&d.sheets_queries==15&&objects.queries==15&&d.describe_queries==13,"Object terminal metadata workload changed");
-        CHECK(objects.accepted256==77&&objects.rejected_feeds==7&&objects.groups==6&&objects.proofs==511&&objects.wire_rejections==1&&objects.schema_rejections==1,"Object accepted-prefix/rejection/proof inventory changed");
+        CHECK(d.fault==11&&d.fixtures==2&&d.headers==4&&d.queries==46&&d.rejections==9&&d.stale==1&&d.meta_queries==13&&d.sheets_queries==13&&objects.queries==13&&d.describe_queries==7,"Object terminal metadata workload changed");
+        CHECK(objects.accepted256==61&&objects.rejected_feeds==7&&objects.groups==4&&objects.proofs==511&&objects.wire_rejections==1&&objects.schema_rejections==1,"Object accepted-prefix/rejection/proof inventory changed");
         const unsigned first_rows[]={0,0,1792,1792,1792,2048,0};for(size_t i=0;i<7;i++)CHECK(objects.rejected_first[i]==first_rows[i],"Failed object batch lost its accepted-prefix boundary");
-        for(size_t i=0;i<4;i++)CHECK(d.normal_queries[i]==6,"Normal object fixture query workload changed");
+        for(size_t i=0;i<2;i++)CHECK(d.normal_queries[i]==6,"Normal object fixture query workload changed");
         d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
     if(d.phase==9&&d.fixture_ready){
         clear_input();page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.objects_schema);workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;
-        d.done=true;printf("PASS: browser-codec-objects %u checks,4 native fixtures,6 Headers,58 queries,7 codec/1 wire/1 schema rejections,1 stale callback; no Workbook publication\n",d.checks);objects_report(true,NULL);emscripten_cancel_main_loop();return true;
+        d.done=true;printf("PASS: browser-codec-objects %u checks,2 current native fixtures,4 Headers,46 queries,7 codec/1 wire/1 schema rejections,1 stale callback; no Workbook publication\n",d.checks);objects_report(true,NULL);emscripten_cancel_main_loop();return true;
     }
     return true;
 }

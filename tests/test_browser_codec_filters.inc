@@ -21,7 +21,7 @@ EM_JS(void, report_filters,(int ok,unsigned checks,unsigned fixtures,unsigned he
     const families=a=>({objects:a[0],queries:a[1],sourceOptions:a[2],sorts:a[3],filters:a[4]});
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'primary-filters',checks,fixtures,headers,queries:requests,rejections,stale,
         peakOwnedInput:peak,maximumCompletedHeaderOwned:header_peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:read(normal,4),familyExecutions:{meta,sheets,...families(e),describe},
+        normalFixtureQueries:read(normal,2),familyExecutions:{meta,sheets,...families(e),describe},
         acceptedFeeds:{objectsEmpty:f[0],queries:f[1],sourceOptions:f[2],sorts:f[3],filters256:f[4],filters29:f[5],filters3:f[6],filters4:f[7]},
         completedResults:families(g),poisonedResults:families(p),rejectedFeeds:rejected,primaryRejections:primary_rejections,schemaRejections:schema_rejections,
         rejectedFirstRows:read(first_rows,5),largePrimaryExact:Boolean(large_primary),largeSecondaryExact:Boolean(large_secondary),
@@ -45,7 +45,7 @@ static bool filters_repeated(const char *text,char byte) {
     if(!text||strlen(text)!=65537)return false;for(size_t i=0;i<65537;i++)if(text[i]!=byte)return false;return true;
 }
 static bool filters_header_contents(const WorkbookCodecHeader *h,unsigned fixture,const WorkbookCodecKey *expected) {
-    size_t count=fixture==3?19:1;const WorkbookCodecKey *key=workbook_codec_header_key(h);static const char *const values[]={NULL,"","NULL"};
+    size_t count=fixture==1?19:1;const WorkbookCodecKey *key=workbook_codec_header_key(h);static const char *const values[]={NULL,"","NULL"};
     CHECK(h&&workbook_codec_header_filters_ready(h)&&workbook_codec_header_sorts_ready(h)&&workbook_codec_header_objects_ready(h)&&workbook_codec_header_queries_ready(h)&&workbook_codec_header_source_options_ready(h),"Primary-filter composed Header readiness changed");
     CHECK(!workbook_codec_header_preferences_ready(h)&&!workbook_codec_header_table_sources_ready(h)&&!workbook_codec_header_pivot_marks_ready(h),"Unrequested metadata families became ready");
     CHECK(workbook_codec_header_version(h)==filters_versions[fixture]&&workbook_codec_header_sheet_count(h)==count&&workbook_codec_header_active_sheet(h)==count-1&&workbook_codec_header_user_scale(h)==1.25f,"Primary-filter package/count/scale changed");
@@ -58,14 +58,14 @@ static bool filters_header_contents(const WorkbookCodecHeader *h,unsigned fixtur
         CHECK(workbook_codec_header_query(h,sheet,0,&stored)&&stored==a->query&&same(stored,query),"Stored source query bytes/UTF-8/trailing spaces changed");
         CHECK(same(a->group_column,"Group 'İ'")&&same(a->measure_column,"Measure 'İ'")&&a->aggregate==AGG_AVG&&same(a->filter_column,"Primary 'İ'")&&a->filter_op==FILTER_CONTAINS,"Primary group/aggregate/filter changed");
         CHECK(!a->filter_number.kind&&!a->filter_number.precision&&!a->filter_number.scale,"Primary filter fabricated numeric source metadata");
-        if(fixture==2&&!sheet){CHECK(filters_repeated(a->filter_value,'p'),"65537-byte primary value was truncated or borrowed");filters.large_primary=true;}
+        if(fixture==0&&!sheet){CHECK(filters_repeated(a->filter_value,'p'),"65537-byte primary value was truncated or borrowed");filters.large_primary=true;}
         else CHECK(same(a->filter_value,values[sheet%3]),"Primary SQL NULL/empty/literal NULL changed");
-        size_t secondary=fixture==3?15:fixture==2?4:3;CHECK(a->filter_count==secondary,"Secondary filter count changed");
+        size_t secondary=fixture==1?15:fixture==0?4:3;CHECK(a->filter_count==secondary,"Secondary filter count changed");
         for(size_t f=0;f<secondary;f++) {
             const AnalysisFilter *field=a->filters+f;snprintf(name,sizeof(name),"Filter 'İ' %zu",f);
-            CHECK(same(field->column,name)&&field->op==(fixture==3&&f==14?FILTER_BETWEEN:FILTER_CONTAINS)&&!field->number.kind&&!field->number.precision&&!field->number.scale,"Secondary name/operator/number metadata changed");
-            if(fixture==2&&f==3){CHECK(filters_repeated(field->value,'x'),"65537-byte secondary value was truncated or borrowed");filters.large_secondary=true;}
-            else CHECK(same(field->value,fixture==3&&f==14?"[\"10\",\"20\"]":values[f%3]),"Secondary SQL NULL/empty/literal/JSON value changed");
+            CHECK(same(field->column,name)&&field->op==(fixture==1&&f==14?FILTER_BETWEEN:FILTER_CONTAINS)&&!field->number.kind&&!field->number.precision&&!field->number.scale,"Secondary name/operator/number metadata changed");
+            if(fixture==0&&f==3){CHECK(filters_repeated(field->value,'x'),"65537-byte secondary value was truncated or borrowed");filters.large_secondary=true;}
+            else CHECK(same(field->value,fixture==1&&f==14?"[\"10\",\"20\"]":values[f%3]),"Secondary SQL NULL/empty/literal/JSON value changed");
         }
         CHECK(same(a->sort_column,"Sort 'İ' 0")&&a->descending==(sheet%2!=0)&&a->sort_count==7,"Primary and secondary sort composition changed");
         for(size_t n=0;n<7;n++){snprintf(name,sizeof(name),"Sort 'İ' %zu",n+1);CHECK(same(a->sorts[n].column,name)&&a->sorts[n].descending==((n+1)%2!=0),"Secondary sort field/order/direction changed");}
@@ -135,7 +135,7 @@ static bool filters_poison(unsigned index) {
     if(d.atoms)memset(d.atoms,0,d.atom_bytes);if(index>=3||(index==2&&d.page.row_count))filters.poisoned[index-2]++;return true;
 }
 static bool filters_feed(unsigned index) {
-    size_t sheets=d.fixture==3?19:1,rows=index==0?1:index==1?sheets:index==2?0:index==3?sheets:index==4?sheets/2:index==5?sheets*7:d.fixture==3?285:d.fixture==2?4:3;
+    size_t sheets=d.fixture==1?19:1,rows=index==0?1:index==1?sheets:index==2?0:index==3?sheets:index==4?sheets/2:index==5?sheets*7:d.fixture==1?285:d.fixture==0?4:3;
     CHECK(filters_atoms(index,rows),"Primary-filter atom adaptation failed");bool reject=index==6&&d.fault>=1&&d.fault<=5;size_t failed=d.fault==5?0:256;
     if(reject&&d.fault==5){size_t current=retained()+workbook_codec_read_owned_bytes(d.read);CHECK(current<HEADER_LIMIT-1u,"Primary-filter concrete budget fixture has no headroom");d.pressure_bytes=HEADER_LIMIT-current-1u;d.pressure=dx_alloc(d.pressure_bytes);memset(d.pressure,0,d.pressure_bytes);CHECK(filters_observe(0),"Primary-filter pressure exceeds input budget");}
     for(size_t first=0;first<rows||(!rows&&!first);) {
@@ -155,7 +155,7 @@ static bool filters_feed(unsigned index) {
 static void filters_free_schemas(void) {for(unsigned i=0;i<7;i++)page_free(filters_schema(i));}
 static bool filters_restart(void) {clear_input();d.fault++;filters_wire=sorts_wire=objects_wire=queries_wire=options_wire=false;return filters_begin();}
 static bool filters_tick_body(void) {
-    if(!d.phase){CHECK(d.fixture<4,"Primary-filter fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",filters_files[d.fixture]);fixture_start(d.cookie,d.ticket,filters_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=801;return true;}
+    if(!d.phase){CHECK(d.fixture<2,"Primary-filter fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",filters_files[d.fixture]);fixture_start(d.cookie,d.ticket,filters_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=801;return true;}
     if(d.phase==801){if(!d.fixture_ready)return true;d.phase=802;return filters_send(dx_strdup("DESCRIBE SELECT * FROM _duxcel_workspace.meta"),NULL,256,false,0);}if(d.waiting)return true;
     if(d.phase>=802&&d.phase<=808) {
         unsigned index=d.phase-802;CHECK(d.ready&&!d.error,d.error?d.error:"Original primary-filter DESCRIBE absent");Page schema={0};CHECK(browser_schema_from_describe(&schema,&d.page,&d.error),d.error?d.error:"Original primary-filter schema invalid");CHECK(filters_observe(schema.bytes),"Primary-filter schema exceeds admission");
@@ -184,11 +184,11 @@ static bool filters_tick_body(void) {
     if(d.phase==816) {
         if(d.fault==8&&!filters.held_released){if(!d.held_ready)return true;CHECK(!d.ready,"Held actual filter result entered reader early");d.cookie++;cancel_candidate();d.waiting=false;filters.held_released=true;unsigned stale=d.stale;release_held();CHECK(d.stale==stale+1&&!d.ready&&filters_prior_unchanged(),"Stale filter callback decoded input or changed independent Header");const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);CHECK(request&&request->family==WORKBOOK_CODEC_FILTERS&&!request->first_row&&request->sql==filters.pending_sql&&workbook_codec_read_owned_bytes(d.read)==filters.pending_owned,"Stale filters changed accepted prerequisite ownership/cursor");return filters_send_family(6,false);}
         CHECK(d.ready&&!d.error,d.error?d.error:"Primary filters result absent");CHECK(filters_feed(6),"Primary filters feed failed");if(d.fault>=1&&d.fault<=5){CHECK(filters_restart(),"Secondary primary-filter rejection recovery failed");d.phase=809;return true;}clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete primary-filter Header could not move");filters.output_fixture=d.fixture;CHECK(filters_header_contents(d.header,d.fixture,&d.key),"Owned primary definitions differ from native fixture");d.headers++;size_t bytes=workbook_codec_header_owned_bytes(d.header);CHECK(bytes<=HEADER_LIMIT,"Completed primary-filter Header exceeds its limit");if(bytes>filters.maximum_header)filters.maximum_header=bytes;
-        if(!d.fault){d.fixture++;if(d.fixture<4){filters_free_schemas();d.phase=0;return true;}d.fixture=3;d.fault=1;CHECK(filters_begin(),"Primary-filter negative candidate begin failed");d.phase=809;return true;}if(d.fault==8){CHECK(filters_restart(),"Final primary-filter recovery begin failed");d.phase=809;return true;}
-        CHECK(d.fault==9&&d.fixtures==4&&d.headers==6&&d.queries==113&&d.rejections==7&&d.stale==1&&d.meta_queries==12&&d.sheets_queries==12&&d.describe_queries==29,"Primary-filter terminal request inventory changed");
-        const unsigned expected_feeds[]={12,12,12,12,7,3,2,1},first[]={256,256,256,256,0};for(size_t i=0;i<5;i++){CHECK(filters.executions[i]==12&&filters.groups[i]==(i==4?6u:12u)&&filters.poisoned[i]==(i==0?0u:i==4?6u:12u),"Primary-filter completed/poisoned inventory changed");CHECK(filters.first_rows[i]==first[i],"Primary-filter rejection accepted-prefix changed");}for(size_t i=0;i<8;i++)CHECK(filters.feeds[i]==expected_feeds[i],"Primary-filter accepted-feed inventory changed");for(size_t i=0;i<4;i++)CHECK(d.normal_queries[i]==14,"Normal primary-filter fixture query count changed");
+        if(!d.fault){d.fixture++;if(d.fixture<2){filters_free_schemas();d.phase=0;return true;}d.fixture=1;d.fault=1;CHECK(filters_begin(),"Primary-filter negative candidate begin failed");d.phase=809;return true;}if(d.fault==8){CHECK(filters_restart(),"Final primary-filter recovery begin failed");d.phase=809;return true;}
+        CHECK(d.fault==9&&d.fixtures==2&&d.headers==4&&d.queries==85&&d.rejections==7&&d.stale==1&&d.meta_queries==10&&d.sheets_queries==10&&d.describe_queries==15,"Primary-filter terminal request inventory changed");
+        const unsigned expected_feeds[]={10,10,10,10,7,3,0,1},first[]={256,256,256,256,0};for(size_t i=0;i<5;i++){CHECK(filters.executions[i]==10&&filters.groups[i]==(i==4?4u:10u)&&filters.poisoned[i]==(i==0?0u:i==4?4u:10u),"Primary-filter completed/poisoned inventory changed");CHECK(filters.first_rows[i]==first[i],"Primary-filter rejection accepted-prefix changed");}for(size_t i=0;i<8;i++)CHECK(filters.feeds[i]==expected_feeds[i],"Primary-filter accepted-feed inventory changed");for(size_t i=0;i<2;i++)CHECK(d.normal_queries[i]==14,"Normal primary-filter fixture query count changed");
         CHECK(filters.rejected_feeds==5&&filters.primary_rejections==1&&filters.schema_rejections==1&&filters.proofs==127&&filters.large_primary&&filters.large_secondary,"Primary-filter reasoned proof inventory incomplete");filters.detached_identity=filters_header_identity(d.header);d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
-    if(d.phase==9&&d.fixture_ready){clear_input();filters_free_schemas();CHECK(filters_header_contents(d.header,3,&d.key)&&filters_header_identity(d.header)==filters.detached_identity,"Owned filters/sorts/query bytes changed after all Page/catalog handles closed");workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;d.done=true;printf("PASS: browser-codec-primary-filters %u checks,4 native files,6 Headers,113 queries,5 feed/1 primary/1 schema rejections,1 stale callback; owned definitions only, no source execution or Workbook publication\n",d.checks);filters_report(true,NULL);emscripten_cancel_main_loop();return true;}return true;
+    if(d.phase==9&&d.fixture_ready){clear_input();filters_free_schemas();CHECK(filters_header_contents(d.header,1,&d.key)&&filters_header_identity(d.header)==filters.detached_identity,"Owned filters/sorts/query bytes changed after all Page/catalog handles closed");workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;d.done=true;printf("PASS: browser-codec-primary-filters %u checks,2 current native files,4 Headers,85 queries,5 feed/1 primary/1 schema rejections,1 stale callback; owned definitions only, no source execution or Workbook publication\n",d.checks);filters_report(true,NULL);emscripten_cancel_main_loop();return true;}return true;
 }
 static void filters_tick(void) {if(d.phase==816&&d.fault==8&&d.held_ready&&!filters.held_released)d.waiting=false;filters_tick_body();}

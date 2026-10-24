@@ -21,7 +21,7 @@ EM_JS(void, report_tables,(int ok,unsigned checks,unsigned fixtures,unsigned hea
     const families=a=>({objects:a[0],sourceOptions:a[1],queries:a[2],tableSources:a[3],tableFilters:a[4],tableSorts:a[5]});
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'table-sources',checks,fixtures,headers,queries:requests,rejections,stale,
         peakOwnedInput:peak,maximumCompletedHeaderOwned:header_peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:read(normal,4),familyExecutions:{meta,sheets,...families(e),describe},
+        normalFixtureQueries:read(normal,2),familyExecutions:{meta,sheets,...families(e),describe},
         acceptedFeeds:{objects:f[0],sourceOptions:f[1],queries:f[2],tableSources:f[3],tableFilters256:f[4],tableFiltersTail:f[5],tableSorts256:f[6],tableSorts192:f[7],tableSortsEmpty:f[8]},
         completedResults:families(g),poisonedResults:families(p),rejectedFeeds:rejected,schemaRejections:schema_rejections,rejectedFirstRows:read(first_rows,6),
         requiredNullRejected:Boolean(proofs&1),wrongOwnerRejected:Boolean(proofs&2),sourceKindRejected:Boolean(proofs&4),lateFilterRejected:Boolean(proofs&8),lateSortRejected:Boolean(proofs&16),budgetRejected:Boolean(proofs&32),originalTypeRejected:Boolean(proofs&64),
@@ -32,7 +32,7 @@ static void tables_report(bool ok,const char *error) {
         tables.executions,tables.feeds,tables.groups,tables.poisoned,tables.rejected_feeds,tables.schema_rejections,tables.proofs,tables.rejected_first,error);
 }
 static uint64_t tables_id(unsigned fixture,size_t sheet,size_t index) {
-    return (fixture==3&&sheet==1&&index==31)||(fixture==2&&index==3)?UINT64_MAX:UINT64_C(9007199254740993)+index;
+    return (fixture==1&&sheet==1&&index==31)||(fixture==0&&index==3)?UINT64_MAX:UINT64_C(9007199254740993)+index;
 }
 static bool tables_query_text(const char *text,size_t sheet,size_t index,bool primary) {
     char expected[160];
@@ -41,8 +41,8 @@ static bool tables_query_text(const char *text,size_t sheet,size_t index,bool pr
     CHECK(same(text,expected),"Stored decoy query bytes/quotes/semicolon/trailing spaces changed");return true;
 }
 static bool tables_header_contents(const WorkbookCodecHeader *h,unsigned fixture,const WorkbookCodecKey *expected) {
-    bool large=fixture==3;size_t sheets=large?2:1,count=large?32:4;unsigned version=tables_versions[fixture];const WorkbookCodecKey *key=workbook_codec_header_key(h);
-    CHECK(h&&workbook_codec_header_table_sources_ready(h)&&workbook_codec_header_objects_ready(h)&&workbook_codec_header_queries_ready(h)&&workbook_codec_header_source_options_ready(h)&&!workbook_codec_header_sorts_ready(h)&&!workbook_codec_header_preferences_ready(h),"Table-chain readiness/default families changed");
+    bool large=fixture==1;size_t sheets=large?2:1,count=large?32:4;unsigned version=tables_versions[fixture];const WorkbookCodecKey *key=workbook_codec_header_key(h);
+    CHECK(h&&workbook_codec_header_table_sources_ready(h)&&workbook_codec_header_objects_ready(h)&&workbook_codec_header_queries_ready(h)&&workbook_codec_header_source_options_ready(h)&&!workbook_codec_header_sorts_ready(h)&&!workbook_codec_header_preferences_ready(h),"Table-chain readiness/unrequested families changed");
     CHECK(workbook_codec_header_version(h)==version&&workbook_codec_header_sheet_count(h)==sheets&&workbook_codec_header_active_sheet(h)==sheets-1&&workbook_codec_header_user_scale(h)==1.25f,"Table-chain package/viewport count changed");
     CHECK(key&&key->document_epoch==expected->document_epoch&&key->operation_ticket==expected->operation_ticket&&key->snapshot_generation==expected->snapshot_generation,"Table-chain Header key changed");
     static const char *const refs[]={"missing-source.csv","missing-source.parquet","missing-source.duckdb",""},*const schemas[]={NULL,"","NULL",NULL},*const named_tables[]={NULL,"NULL","","NULL"},*const values[]={NULL,"","NULL"};
@@ -70,7 +70,7 @@ static bool tables_header_contents(const WorkbookCodecHeader *h,unsigned fixture
                 if(j!=1)snprintf(name,sizeof(name),"P 'İ' %zu",j);
                 CHECK(same(a->filter_column,j==1?NULL:name)&&same(a->filter_value,j==0||j==1?NULL:j==2?"":"NULL")&&a->filter_op==(j==0?FILTER_NULL:j==2?FILTER_EQUAL:FILTER_CONTAINS),"Small Table primary filter changed");
                 const char *sort=j==1?"S 'İ' 0":j==2?"NULL":j==3?"S 'İ' 3":NULL;
-                CHECK(same(a->sort_column,sort)&&a->descending==(j==1||j==3)&&!a->sort_count&&a->filter_count==(version==14&&!j?1u:0u),"Small Table sort/filter count changed");
+                CHECK(same(a->sort_column,sort)&&a->descending==(j==1||j==3)&&!a->sort_count&&a->filter_count==(!j?1u:0u),"Small Table sort/filter count changed");
             }
             CHECK(!a->filter_number.kind&&!a->filter_number.precision&&!a->filter_number.scale,"Persisted filter fabricated numeric source schema");
             for(size_t f=0;f<a->filter_count;f++){
@@ -156,11 +156,11 @@ static bool tables_poison(unsigned group) {
     if(d.atoms)memset(d.atoms,0,d.atom_bytes);tables.poisoned[group]++;return true;
 }
 static bool tables_feed_base(unsigned index) {
-    bool meta=index==0;CHECK(tables_atoms(index,meta?1:d.fixture==3?2:1),"Table base adaptation failed");WorkbookCodecBatch batch={d.columns,d.page.column_count,d.atoms,d.page.row_count,0,true};CHECK(tables_observe(0),"Table base coexistence exceeds admission");
+    bool meta=index==0;CHECK(tables_atoms(index,meta?1:d.fixture==1?2:1),"Table base adaptation failed");WorkbookCodecBatch batch={d.columns,d.page.column_count,d.atoms,d.page.row_count,0,true};CHECK(tables_observe(0),"Table base coexistence exceeds admission");
     CHECK(workbook_codec_read_feed(d.read,d.key,meta?WORKBOOK_CODEC_META:WORKBOOK_CODEC_SHEETS,&batch,retained(),&d.error)==WORKBOOK_CODEC_READ_ACCEPTED,d.error?d.error:"Table base metadata rejected");return true;
 }
 static bool tables_feed_family(unsigned index) {
-    bool large=d.fixture==3;size_t rows=index==2?(large?64:4):index==3?(large?33:2):index==4?(large?66:5):index==5?(large?64:4):index==6?(large?512:d.fixture==2?1:0):(large?448:0);
+    bool large=d.fixture==1;size_t rows=index==2?(large?64:4):index==3?(large?33:2):index==4?(large?66:5):index==5?(large?64:4):index==6?(large?512:d.fixture==0?1:0):(large?448:0);
     WorkbookCodecFamily family=index==2?WORKBOOK_CODEC_OBJECTS:index==3?WORKBOOK_CODEC_SOURCE_OPTIONS:index==4?WORKBOOK_CODEC_QUERIES:index==5?WORKBOOK_CODEC_TABLE_SOURCES:index==6?WORKBOOK_CODEC_TABLE_FILTERS:WORKBOOK_CODEC_TABLE_SORTS;
     CHECK(tables_atoms(index,rows),"Table family exact atoms failed");bool rejected=(index==5&&(d.fault==1||d.fault==2||d.fault==3||d.fault==6))||(index==6&&d.fault==4)||(index==7&&d.fault==5);size_t failed_first=index==5?0:256;
     if(index==5&&d.fault==6){size_t current=retained()+workbook_codec_read_owned_bytes(d.read);CHECK(current<HEADER_LIMIT-1u,"Table staging budget fixture has no concrete headroom");d.pressure_bytes=HEADER_LIMIT-current-1u;d.pressure=dx_alloc(d.pressure_bytes);memset(d.pressure,0,d.pressure_bytes);CHECK(tables_observe(0),"Table concrete source staging pressure exceeds input admission");}
@@ -183,7 +183,7 @@ static bool tables_feed_family(unsigned index) {
 static void tables_free_schemas(void) {for(unsigned i=0;i<8;i++)page_free(tables_schema(i));}
 static bool tables_restart(void) {clear_input();d.fault++;tables_wire=0;objects_wire=false;queries_wire=false;options_wire=false;return tables_begin();}
 static bool tables_tick_body(void) {
-    if(d.phase==0){CHECK(d.fixture<4,"Table fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",tables_files[d.fixture]);fixture_start(d.cookie,d.ticket,tables_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=601;return true;}
+    if(d.phase==0){CHECK(d.fixture<2,"Table fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",tables_files[d.fixture]);fixture_start(d.cookie,d.ticket,tables_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=601;return true;}
     if(d.phase==601){if(!d.fixture_ready)return true;d.phase=602;return tables_send(dx_strdup("DESCRIBE SELECT * FROM _duxcel_workspace.meta"),NULL,256,false,0);}
     if(d.waiting)return true;
     if(d.phase>=602&&d.phase<=609){
@@ -211,14 +211,14 @@ static bool tables_tick_body(void) {
     if(d.phase==618){
         if(d.fault==8&&!tables.held_released){if(!d.held_ready)return true;CHECK(!d.ready,"Held Table sort result entered reader early");d.cookie++;cancel_candidate();d.waiting=false;tables.held_released=true;unsigned stale=d.stale;release_held();CHECK(d.stale==stale+1&&!d.ready&&tables_prior_unchanged(),"Superseded Table callback accessed/published staged wire");const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);CHECK(request&&request->family==WORKBOOK_CODEC_TABLE_SORTS&&!request->first_row&&request->sql==tables.pending_sql&&workbook_codec_read_owned_bytes(d.read)==tables.pending_owned,"Stale Table callback changed accepted source/filter ownership");return tables_send_family(WORKBOOK_CODEC_TABLE_SORTS,false);}
         CHECK(d.ready&&!d.error,d.error?d.error:"Table sorts result absent");CHECK(tables_feed_family(7),"Table sorts feed failed");if(d.fault==5){CHECK(tables_restart(),"Late Table sort recovery failed");d.phase=610;return true;}clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete Table source Header did not move");tables.output_fixture=d.fixture;CHECK(tables_header_contents(d.header,d.fixture,&d.key),"Owned Table definitions differ from native fixture");d.headers++;size_t bytes=workbook_codec_header_owned_bytes(d.header);CHECK(bytes<=HEADER_LIMIT,"Completed Table Header exceeds its limit");if(bytes>tables.maximum_header)tables.maximum_header=bytes;
-        if(!d.fault){d.fixture++;if(d.fixture<4){tables_free_schemas();d.phase=0;return true;}d.fixture=3;d.fault=1;CHECK(tables_begin(),"Table negative candidate begin failed");d.phase=610;return true;}
+        if(!d.fault){d.fixture++;if(d.fixture<2){tables_free_schemas();d.phase=0;return true;}d.fixture=1;d.fault=1;CHECK(tables_begin(),"Table negative candidate begin failed");d.phase=610;return true;}
         if(d.fault==8){CHECK(tables_restart(),"Final Table recovery begin failed");d.phase=610;return true;}
-        CHECK(d.fault==9&&d.fixtures==4&&d.headers==6&&d.queries==126&&d.rejections==7&&d.stale==1&&d.meta_queries==13&&d.sheets_queries==13&&d.describe_queries==33,"Table-chain terminal request inventory changed");
-        const unsigned executions[]={13,13,13,12,8,8},feeds[]={13,13,13,8,9,3,4,3,3},groups[]={13,13,13,8,7,6},first[]={0,0,0,256,256,0};
-        for(size_t i=0;i<6;i++)CHECK(tables.executions[i]==executions[i]&&tables.groups[i]==groups[i]&&tables.poisoned[i]==groups[i]&&tables.rejected_first[i]==first[i],"Table family executions/owned poison/failure prefixes changed");for(size_t i=0;i<9;i++)CHECK(tables.feeds[i]==feeds[i],"Table feed inventory changed");for(size_t i=0;i<4;i++)CHECK(d.normal_queries[i]==16,"Normal Table fixture request count changed");
+        CHECK(d.fault==9&&d.fixtures==2&&d.headers==4&&d.queries==94&&d.rejections==7&&d.stale==1&&d.meta_queries==11&&d.sheets_queries==11&&d.describe_queries==17,"Table-chain terminal request inventory changed");
+        const unsigned executions[]={11,11,11,10,6,6},feeds[]={11,11,11,6,9,1,4,3,1},groups[]={11,11,11,6,5,4},first[]={0,0,0,256,256,0};
+        for(size_t i=0;i<6;i++)CHECK(tables.executions[i]==executions[i]&&tables.groups[i]==groups[i]&&tables.poisoned[i]==groups[i]&&tables.rejected_first[i]==first[i],"Table family executions/owned poison/failure prefixes changed");for(size_t i=0;i<9;i++)CHECK(tables.feeds[i]==feeds[i],"Table feed inventory changed");for(size_t i=0;i<2;i++)CHECK(d.normal_queries[i]==16,"Normal Table fixture request count changed");
         CHECK(tables.rejected_feeds==6&&tables.schema_rejections==1&&tables.proofs==127,"Table reasoned rejection evidence incomplete");tables.detached_identity=tables_header_identity(d.header);d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
-    if(d.phase==9&&d.fixture_ready){clear_input();CHECK(tables_header_contents(d.header,3,&d.key)&&tables_header_identity(d.header)==tables.detached_identity,"Complete Table graph changed after Page/catalog close");tables_free_schemas();workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;d.done=true;printf("PASS: browser-codec-table-sources %u checks,4 native files,6 Headers,126 queries,6 codec/1 schema rejections,1 stale callback; complete owned Table metadata only, no source execution or Workbook publication\n",d.checks);tables_report(true,NULL);emscripten_cancel_main_loop();return true;}
+    if(d.phase==9&&d.fixture_ready){clear_input();CHECK(tables_header_contents(d.header,1,&d.key)&&tables_header_identity(d.header)==tables.detached_identity,"Complete Table graph changed after Page/catalog close");tables_free_schemas();workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;d.done=true;printf("PASS: browser-codec-table-sources %u checks,2 current native files,4 Headers,94 queries,6 codec/1 schema rejections,1 stale callback; complete owned Table metadata only, no source execution or Workbook publication\n",d.checks);tables_report(true,NULL);emscripten_cancel_main_loop();return true;}
     return true;
 }
 static void tables_tick(void) {if(d.phase==618&&d.fault==8&&d.held_ready&&!tables.held_released)d.waiting=false;tables_tick_body();}

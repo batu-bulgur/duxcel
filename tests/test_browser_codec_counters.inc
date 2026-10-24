@@ -2,7 +2,7 @@
    normal DXP1 transports two columns, and descriptors retain their explicit
    object envelope. No ObjectStore, issuer or Workbook is published here. */
 typedef struct {
-    unsigned object_queries,counter_queries,objects56,counters32,groups,defaults,poisoned,rejected_feeds,proofs,rejected_first[4];
+    unsigned object_queries,counter_queries,objects56,counters32,groups,poisoned,rejected_feeds,proofs,rejected_first[4];
     unsigned stale_callbacks;
     size_t maximum_header,pending_owned,stale_wire,stale_total;
     uint64_t prior_identity,detached_identity;
@@ -24,24 +24,24 @@ static bool counters_stale(size_t size) {
     CHECK(counters_observe(size+21u),"Stale counter borrowed-buffer reservation exceeds input admission");
     counters.stale_callbacks++;counters.stale_wire=size;counters.stale_total=21;return true;
 }
-EM_JS(void, report_counters,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,size_t header_peak,const unsigned *normal,unsigned meta,unsigned sheets,unsigned objects,unsigned counter_queries,unsigned describe,unsigned object_feeds,unsigned counter_feeds,unsigned groups,unsigned defaults,unsigned poisoned,unsigned rejected,unsigned proofs,const unsigned *first,unsigned stale_callbacks,size_t stale_wire,size_t stale_total,int retired,int maximum,const char *error),{
+EM_JS(void, report_counters,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,size_t header_peak,const unsigned *normal,unsigned meta,unsigned sheets,unsigned objects,unsigned counter_queries,unsigned describe,unsigned object_feeds,unsigned counter_feeds,unsigned groups,unsigned poisoned,unsigned rejected,unsigned proofs,const unsigned *first,unsigned stale_callbacks,size_t stale_wire,size_t stale_total,int retired,int maximum,const char *error),{
     const read=(p,n)=>Array.from(HEAPU32.subarray(p>>>2,(p>>>2)+n));
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'counters',checks,fixtures,headers,queries,rejections,stale,
         peakOwnedInput:peak,maximumCompletedHeaderOwned:header_peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:read(normal,4),familyExecutions:{meta,sheets,objects,objectCounters:counter_queries,describe},
-        acceptedFeeds:{objects56:object_feeds,counters32:counter_feeds},validCounterGroups:groups,v12Defaults:defaults,poisonedCounterResults:poisoned,
-        rejectedFeeds:rejected,rejectedFirstRows:read(first,4),lowHighWaterRejected:Boolean(proofs&1),requiredNullRejected:Boolean(proofs&2),identityRejected:Boolean(proofs&4),budgetRejected:Boolean(proofs&8),stalePreserved:Boolean(proofs&16),freshRecovery:Boolean(proofs&32),v12NoCounterQuery:Boolean(proofs&64),
+        normalFixtureQueries:read(normal,2),familyExecutions:{meta,sheets,objects,objectCounters:counter_queries,describe},
+        acceptedFeeds:{objects56:object_feeds,counters32:counter_feeds},validCounterGroups:groups,poisonedCounterResults:poisoned,
+        rejectedFeeds:rejected,rejectedFirstRows:read(first,4),lowHighWaterRejected:Boolean(proofs&1),requiredNullRejected:Boolean(proofs&2),identityRejected:Boolean(proofs&4),budgetRejected:Boolean(proofs&8),stalePreserved:Boolean(proofs&16),freshRecovery:Boolean(proofs&32),
         exactRetiredCounter:Boolean(retired),exactMaximumCounter:Boolean(maximum),staleCallbacks:stale_callbacks,staleWireReservationBytes:stale_wire,staleTotalReservationBytes:stale_total,
         error:error?UTF8ToString(error):null,boundary:'official-worker/DXP1/shared-C-meta-sheets-descriptors-object-counters Header; no source SQL, ObjectStore adoption, ID issuance, source-version counters/ledger, Workbook publication or browser Save/Open'});
 })
 static void counters_report(bool ok,const char *error) {
-    report_counters(ok,d.checks,d.fixtures,d.headers,d.queries,d.rejections,d.stale,d.peak_input,counters.maximum_header,d.normal_queries,d.meta_queries,d.sheets_queries,counters.object_queries,counters.counter_queries,d.describe_queries,counters.objects56,counters.counters32,counters.groups,counters.defaults,counters.poisoned,counters.rejected_feeds,counters.proofs,counters.rejected_first,counters.stale_callbacks,counters.stale_wire,counters.stale_total,counters.retired_exact,counters.maximum_exact,error);
+    report_counters(ok,d.checks,d.fixtures,d.headers,d.queries,d.rejections,d.stale,d.peak_input,counters.maximum_header,d.normal_queries,d.meta_queries,d.sheets_queries,counters.object_queries,counters.counter_queries,d.describe_queries,counters.objects56,counters.counters32,counters.groups,counters.poisoned,counters.rejected_feeds,counters.proofs,counters.rejected_first,counters.stale_callbacks,counters.stale_wire,counters.stale_total,counters.retired_exact,counters.maximum_exact,error);
 }
 static size_t counters_expected_count(size_t sheet) {size_t role=sheet%8;return role<3?0:role==6?3:1;}
 static uint64_t counters_expected_id(size_t sheet,size_t item) {size_t role=sheet%8;return role==3?1:role==7?UINT64_MAX:UINT64_C(9007199254740993)+item;}
 static uint64_t counters_expected_high_water(unsigned version,size_t sheet) {
     size_t role=sheet%8,count=counters_expected_count(sheet);uint64_t live=count?counters_expected_id(sheet,count-1):0;
-    return version==12?live:role==1||role==5?UINT64_C(9007199254741023):role==2?UINT64_MAX:live;
+    return role==1||role==5?UINT64_C(9007199254741023):role==2?UINT64_MAX:live;
 }
 static bool counters_header_contents(const WorkbookCodecHeader *h,unsigned version,const WorkbookCodecKey *expected) {
     const WorkbookCodecKey *key=workbook_codec_header_key(h);
@@ -55,8 +55,8 @@ static bool counters_header_contents(const WorkbookCodecHeader *h,unsigned versi
         CHECK(!a->query&&!a->source_version&&!a->unique_rows&&!a->filter_column&&!a->filter_value&&!a->filter_count&&!a->group_column&&!a->measure_column&&!a->sort_column&&!a->descending&&!a->sort_count,"Counter workflow loaded/executed unrelated source definitions");
         CHECK(v&&v->row==DX_SHEET_ROWS-1&&v->col==16383&&v->anchor_row==1&&v->anchor_col==2&&v->end_row==3&&v->end_col==4&&v->top==5&&v->horizontal==120.25f&&v->fraction==.25&&v->selection==2&&v->canvas_zoom==1.5f&&!v->columns&&!v->widths&&!v->column_count,"Counter worksheet viewport changed");
         CHECK(workbook_codec_header_object_high_water(h,sheet,&value)&&value==counters_expected_high_water(version,sheet),"Exact max-live/retired/exhausted high-water changed");
-        if(version>=13&&sheet%8==1&&value==UINT64_C(9007199254741023))counters.retired_exact=true;
-        if(version>=13&&sheet%8==2&&value==UINT64_MAX)counters.maximum_exact=true;
+        if(sheet%8==1&&value==UINT64_C(9007199254741023))counters.retired_exact=true;
+        if(sheet%8==2&&value==UINT64_MAX)counters.maximum_exact=true;
         size_t count=counters_expected_count(sheet);total+=count;CHECK(workbook_codec_header_object_count(h,sheet)==count,"Counter object descriptor count changed");
         for(size_t item=0;item<count;item++) {
             WorkbookCodecObjectView o={0};CHECK(workbook_codec_header_object_at(h,sheet,item,&o),"Counter descriptor missing");
@@ -157,34 +157,34 @@ static void counters_free_schemas(void) {page_free(&d.meta_schema);page_free(&d.
 static bool counters_restart(void) {clear_input();d.fault++;objects_wire=false;return counters_begin();}
 static bool counters_complete(void) {
     CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete counter Header could not move");CHECK(counters_header_contents(d.header,counters_versions[d.fixture],&d.key),"Completed counter Header differs from the native fixture");d.headers++;size_t bytes=workbook_codec_header_owned_bytes(d.header);CHECK(bytes<=HEADER_LIMIT,"Completed counter Header exceeds owned admission");if(bytes>counters.maximum_header)counters.maximum_header=bytes;
-    if(!d.fault){d.fixture++;if(d.fixture<4){counters_free_schemas();d.phase=0;return true;}d.fixture=3;d.fault=1;CHECK(counters_begin(),"Counter negative candidate begin failed");d.phase=1206;return true;}
-    CHECK(d.fault==6&&d.fixtures==4&&d.headers==5&&d.queries==54&&d.rejections==4&&d.stale==1&&d.callbacks==53&&d.meta_queries==10&&d.sheets_queries==10&&counters.object_queries==10&&counters.counter_queries==9&&d.describe_queries==15,"Counter terminal execution/header/rejection inventory changed");
-    CHECK(counters.objects56==10&&counters.counters32==11&&counters.groups==4&&counters.defaults==1&&counters.poisoned==4&&counters.rejected_feeds==4&&counters.proofs==127&&counters.stale_callbacks==1&&counters.stale_total==21&&counters.stale_wire&&counters.retired_exact&&counters.maximum_exact,"Counter feed/default/owned-POD/stale proof inventory changed");
-    const unsigned first[]={32,32,32,0},normal[]={6,8,8,8};for(size_t n=0;n<4;n++)CHECK(counters.rejected_first[n]==first[n]&&d.normal_queries[n]==normal[n],"Counter failure prefix/normal workload changed");
+    if(!d.fault){d.fixture++;if(d.fixture<2){counters_free_schemas();d.phase=0;return true;}d.fixture=1;d.fault=1;CHECK(counters_begin(),"Counter negative candidate begin failed");d.phase=1206;return true;}
+    CHECK(d.fault==6&&d.fixtures==2&&d.headers==3&&d.queries==40&&d.rejections==4&&d.stale==1&&d.callbacks==39&&d.meta_queries==8&&d.sheets_queries==8&&counters.object_queries==8&&counters.counter_queries==8&&d.describe_queries==8,"Counter terminal execution/header/rejection inventory changed");
+    CHECK(counters.objects56==8&&counters.counters32==9&&counters.groups==3&&counters.poisoned==3&&counters.rejected_feeds==4&&counters.proofs==63&&counters.stale_callbacks==1&&counters.stale_total==21&&counters.stale_wire&&counters.retired_exact&&counters.maximum_exact,"Counter feed/owned-POD/stale proof inventory changed");
+    const unsigned first[]={32,32,32,0},normal[]={8,8};for(size_t n=0;n<4;n++)CHECK(counters.rejected_first[n]==first[n],"Counter failure prefix/normal workload changed");for(size_t n=0;n<2;n++)CHECK(d.normal_queries[n]==normal[n],"Counter failure prefix/normal workload changed");
     counters.detached_identity=counters_header_identity(d.header);d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
 }
 static bool counters_tick_body(void) {
-    if(d.phase==0){CHECK(d.fixture<4,"Counter fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",counters_files[d.fixture]);fixture_start(d.cookie,d.ticket,counters_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=1201;return true;}
+    if(d.phase==0){CHECK(d.fixture<2,"Counter fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",counters_files[d.fixture]);fixture_start(d.cookie,d.ticket,counters_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=1201;return true;}
     if(d.phase==1201){if(!d.fixture_ready)return true;d.phase=1202;return counters_send(dx_strdup("DESCRIBE SELECT * FROM _duxcel_workspace.meta"),NULL,256,false,false);}
     if(d.waiting)return true;
     if(d.phase>=1202&&d.phase<=1205) {
         unsigned index=d.phase-1202;const char *names[]={"meta","sheets","objects","object_counters"};Page *destinations[]={&d.meta_schema,&d.sheets_schema,&d.objects_schema,&d.counters_schema};size_t counts[]={3,25,11,2};
         CHECK(d.ready&&!d.error,d.error?d.error:"Counter original DESCRIBE absent");Page schema={0};CHECK(browser_schema_from_describe(&schema,&d.page,&d.error),d.error?d.error:"Counter original schema invalid");CHECK(counters_observe(schema.bytes),"Counter original schema coexistence exceeds admission");if(!source_schema(&schema,workbook_codec_table_find(names[index]),counts[index])){page_free(&schema);return false;}page_free(destinations[index]);*destinations[index]=schema;clear_input();
-        unsigned last=counters_versions[d.fixture]==12?2:3;if(index<last){d.phase++;return counters_send(dx_printf("DESCRIBE SELECT * FROM _duxcel_workspace.%s",names[index+1]),NULL,256,false,false);}
+        unsigned last=3;if(index<last){d.phase++;return counters_send(dx_printf("DESCRIBE SELECT * FROM _duxcel_workspace.%s",names[index+1]),NULL,256,false,false);}
         for(unsigned n=0;n<=last;n++)CHECK(canonical_schema(destinations[n],workbook_codec_table_find(names[n]))&&destinations[n]->column_count==counts[n],"Counter canonical schema construction failed");CHECK(counters_begin(),"Counter Header begin failed");d.phase=1206;
     }
     if(d.phase==1206){d.phase=1207;return counters_send_family(WORKBOOK_CODEC_META,false);}
     if(d.phase==1207){CHECK(d.ready&&!d.error,d.error?d.error:"Counter meta result absent");CHECK(counters_feed_base(WORKBOOK_CODEC_META),"Counter meta feed failed");clear_input();d.phase=1208;return counters_send_family(WORKBOOK_CODEC_SHEETS,false);}
     if(d.phase==1208){CHECK(d.ready&&!d.error,d.error?d.error:"Counter sheets result absent");CHECK(counters_feed_base(WORKBOOK_CODEC_SHEETS),"Counter sheets feed failed");clear_input();CHECK(workbook_codec_read_add_objects(d.read,true,&d.error),d.error?d.error:"Counter descriptor continuation failed");d.phase=1209;return counters_send_family(WORKBOOK_CODEC_OBJECTS,false);}
-    if(d.phase==1209){CHECK(d.ready&&!d.error,d.error?d.error:"Counter descriptor result absent");CHECK(counters_feed_objects(),"Counter descriptor feed failed");clear_input();bool present=counters_versions[d.fixture]>=13;unsigned queries=d.queries;CHECK(workbook_codec_read_add_object_counters(d.read,present,&d.error),d.error?d.error:"Counter continuation failed");
-        if(!present){CHECK(!workbook_codec_read_request(d.read)&&d.queries==queries,"v12 defaults submitted a counter query");counters.defaults++;counters.proofs|=64;return counters_complete();}
+    if(d.phase==1209){CHECK(d.ready&&!d.error,d.error?d.error:"Counter descriptor result absent");CHECK(counters_feed_objects(),"Counter descriptor feed failed");clear_input();CHECK(workbook_codec_read_add_object_counters(d.read,true,&d.error),d.error?d.error:"Counter continuation failed");
+
         counters.pending_owned=workbook_codec_read_owned_bytes(d.read);counters.pending_sql=workbook_codec_read_request(d.read)->sql;d.phase=1210;return counters_send_family(WORKBOOK_CODEC_OBJECT_COUNTERS,d.fault==5&&!counters.held_released);
     }
     if(d.phase==1210){
         if(d.fault==5&&!counters.held_released){if(!d.held_ready)return true;CHECK(!d.ready,"Held actual counter result entered C before release");d.cookie++;cancel_candidate();d.waiting=false;counters.held_released=true;unsigned stale=d.stale;release_held();CHECK(d.stale==stale+1&&!d.ready&&counters_prior_unchanged(),"Stale counter callback decoded/published borrowed buffers");const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);CHECK(request&&request->family==WORKBOOK_CODEC_OBJECT_COUNTERS&&!request->first_row&&request->sql==counters.pending_sql&&workbook_codec_read_owned_bytes(d.read)==counters.pending_owned,"Stale counter callback changed pending scalar ownership");counters.proofs|=16;CHECK(counters_restart(),"Whole counter candidate restart after stale callback failed");d.phase=1206;return true;}
         CHECK(d.ready&&!d.error,d.error?d.error:"Counter result absent");CHECK(counters_feed_result(),"Counter feed failed");if(d.fault>=1&&d.fault<=4){CHECK(counters_restart(),"Rejected counter candidate restart failed");d.phase=1206;return true;}clear_input();if(d.fault==6)counters.proofs|=32;return counters_complete();
     }
-    if(d.phase==9&&d.fixture_ready){clear_input();CHECK(counters_header_identity(d.header)==counters.detached_identity&&counters_header_contents(d.header,counters_versions[3],&d.key),"Counter Header ownership changed after catalog close");counters_free_schemas();workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;d.done=true;printf("PASS: browser-codec-object-counters %u checks,4 native archives,5 Headers,54 queries,4 codec rejections,1 stale callback; no Workbook publication\n",d.checks);counters_report(true,NULL);emscripten_cancel_main_loop();return true;}
+    if(d.phase==9&&d.fixture_ready){clear_input();CHECK(counters_header_identity(d.header)==counters.detached_identity&&counters_header_contents(d.header,counters_versions[1],&d.key),"Counter Header ownership changed after catalog close");counters_free_schemas();workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;d.done=true;printf("PASS: browser-codec-object-counters %u checks,2 current native archives,3 Headers,40 queries,4 codec rejections,1 stale callback; no Workbook publication\n",d.checks);counters_report(true,NULL);emscripten_cancel_main_loop();return true;}
     return true;
 }
 static void counters_tick(void) {if(d.phase==1210&&d.fault==5&&d.held_ready&&!counters.held_released)d.waiting=false;counters_tick_body();}

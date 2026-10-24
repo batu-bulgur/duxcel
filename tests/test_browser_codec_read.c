@@ -16,33 +16,33 @@
 
 #define HEADER_LIMIT (2u*1024u*1024u)
 #define INPUT_LIMIT (4u*1024u*1024u)
-static const char *files[]={"v12.dxls","v12-reordered.dxls","v12-legacy24.dxls","v13.dxls","v13-reordered.dxls","v14.dxls","v14-reordered.dxls"};
-static const unsigned versions[]={12,12,12,13,13,14,14};
-static const unsigned layouts[]={25,25,24,25,25,25,25};
-static const char *sorts_files[]={"sorts-v12.dxls","sorts-v13.dxls","sorts-v14.dxls","sorts-v14-reordered.dxls"};
-static const unsigned sorts_versions[]={12,13,14,14};
-static const char *preferences_files[]={"preferences-v12.dxls","preferences-v14-unknown-null.dxls","preferences-v14-unknown-nul.dxls","preferences-v13.dxls","preferences-v14.dxls","preferences-v14-reordered.dxls"};
-static const unsigned preferences_versions[]={12,14,14,13,14,14};
-static const char *objects_files[]={"objects-v12.dxls","objects-v13.dxls","objects-v14.dxls","objects-v14-reordered.dxls"};
-static const unsigned objects_versions[]={12,13,14,14};
-static const char *queries_files[]={"queries-v12.dxls","queries-v14-blank.dxls","queries-v14-nul.dxls","queries-v13.dxls","queries-v14.dxls","queries-v14-reordered.dxls"};
-static const unsigned queries_versions[]={12,14,14,13,14,14};
+static const char *files[]={"v15.dxls","v15-reordered.dxls"};
+static const unsigned versions[]={15,15};
+
+static const char *sorts_files[]={"sorts-v15.dxls","sorts-v15-reordered.dxls"};
+static const unsigned sorts_versions[]={15,15};
+static const char *preferences_files[]={"preferences-v15.dxls","preferences-v15-unknown-null.dxls","preferences-v15-unknown-nul.dxls","preferences-v15-reordered.dxls"};
+static const unsigned preferences_versions[]={15,15,15,15};
+static const char *objects_files[]={"objects-v15.dxls","objects-v15-reordered.dxls"};
+static const unsigned objects_versions[]={15,15};
+static const char *queries_files[]={"queries-v15.dxls","queries-v15-blank.dxls","queries-v15-nul.dxls","queries-v15-reordered.dxls"};
+static const unsigned queries_versions[]={15,15,15,15};
 static bool sorts_mode,sorts_wire,preferences_mode,objects_mode,objects_wire,queries_mode,queries_wire;
-static const char *options_files[]={"options-v12.dxls","options-v13.dxls","options-v14.dxls","options-v14-reordered.dxls"};
-static const unsigned options_versions[]={12,13,14,14};
+static const char *options_files[]={"options-v15.dxls","options-v15-reordered.dxls"};
+static const unsigned options_versions[]={15,15};
 static bool options_mode,options_wire,tables_mode,pm_mode,filters_mode,filters_wire,grid_mode,counters_mode,source_counters_mode,source_versions_mode,source_bindings_mode,source_bindings_wire,format_rows_mode;
-static const char *grid_files[]={"grid-v12.dxls","grid-v13.dxls","grid-v14.dxls","grid-v14-reordered.dxls"};
-static const unsigned grid_versions[]={12,13,14,14};
-static const char *counters_files[]={"counters-v12.dxls","counters-v13.dxls","counters-v14.dxls","counters-v14-reordered.dxls"};
-static const unsigned counters_versions[]={12,13,14,14};
-static const char *source_counters_files[]={"source-counters-v12.dxls","source-counters-v13.dxls","source-counters-v14.dxls","source-counters-v14-reordered.dxls"};
-static const unsigned source_counters_versions[]={12,13,14,14};
-static const char *source_versions_files[]={"source-versions-v12.dxls","source-versions-v13.dxls","source-versions-v14.dxls","source-versions-v14-reordered.dxls"};
-static const unsigned source_versions_versions[]={12,13,14,14};
-static const char *source_bindings_files[]={"source-bindings-v12.dxls","source-bindings-v13.dxls","source-bindings-v14.dxls","source-bindings-v14-reordered.dxls"};
-static const unsigned source_bindings_versions[]={12,13,14,14};
-static const char *format_rows_files[]={"format-rows-v12.dxls","format-rows-v13.dxls","format-rows-v14.dxls","format-rows-v14-reordered.dxls"};
-static const unsigned format_rows_versions[]={12,13,14,14};
+static const char *grid_files[]={"grid-v15.dxls","grid-v15-reordered.dxls"};
+static const unsigned grid_versions[]={15,15};
+static const char *counters_files[]={"counters-v15.dxls","counters-v15-reordered.dxls"};
+static const unsigned counters_versions[]={15,15};
+static const char *source_counters_files[]={"source-counters-v15.dxls","source-counters-v15-reordered.dxls"};
+static const unsigned source_counters_versions[]={15,15};
+static const char *source_versions_files[]={"source-versions-v15.dxls","source-versions-v15-reordered.dxls"};
+static const unsigned source_versions_versions[]={15,15};
+static const char *source_bindings_files[]={"source-bindings-v15.dxls","source-bindings-v15-reordered.dxls"};
+static const unsigned source_bindings_versions[]={15,15};
+static const char *format_rows_files[]={"format-rows-v15.dxls","format-rows-v15-reordered.dxls"};
+static const unsigned format_rows_versions[]={15,15};
 static void format_rows_report(bool ok,const char *error);
 static void format_rows_tick(void);
 static size_t format_rows_retained(void);
@@ -84,22 +84,22 @@ static void grid_report(bool ok,const char *error);
 static void grid_tick(void);
 static size_t grid_retained(void);
 static bool grid_observe(size_t extra);
-static const char *filters_files[]={"filters-v12.dxls","filters-v13.dxls","filters-v14.dxls","filters-v14-reordered.dxls"};
-static const unsigned filters_versions[]={12,13,14,14};
+static const char *filters_files[]={"filters-v15.dxls","filters-v15-reordered.dxls"};
+static const unsigned filters_versions[]={15,15};
 static void filters_report(bool ok,const char *error);
 static void filters_tick(void);
 static size_t filters_retained(void);
 static bool filters_observe(size_t extra);
 static unsigned pm_wire;
-static const char *pm_files[]={"pivot-marks-v12.dxls","pivot-marks-v13.dxls","pivot-marks-v14.dxls","pivot-marks-v14-reordered.dxls"};
-static const unsigned pm_versions[]={12,13,14,14};
+static const char *pm_files[]={"pivot-marks-v15.dxls","pivot-marks-v15-reordered.dxls"};
+static const unsigned pm_versions[]={15,15};
 static void pm_report(bool ok,const char *error);
 static void pm_tick(void);
 static size_t pm_retained(void);
 static bool pm_observe(size_t extra);
 static unsigned tables_wire;
-static const char *tables_files[]={"tables-v12.dxls","tables-v13.dxls","tables-v14.dxls","tables-v14-reordered.dxls"};
-static const unsigned tables_versions[]={12,13,14,14};
+static const char *tables_files[]={"tables-v15.dxls","tables-v15-reordered.dxls"};
+static const unsigned tables_versions[]={15,15};
 static void tables_report(bool ok,const char *error);
 static void tables_tick(void);
 static size_t tables_retained(void);
@@ -142,7 +142,7 @@ typedef struct {
     uint64_t total;
     WorkbookCodecKey key;
     unsigned cookie,ticket,fixture,phase,fault,checks,queries,headers,rejections,stale,callbacks,resolves;
-    unsigned meta_queries,sheets_queries,describe_queries,normal_queries[7],u64_flags,fixtures;
+    unsigned meta_queries,sheets_queries,describe_queries,normal_queries[4],u64_flags,fixtures;
     bool budget_rejected,sentinel_rejected,tiny_negative_proven,tiny_negative_rejected;
     bool waiting,ready,done,failed,fixture_ready,held_ready,stale_released;
 } Driver;
@@ -160,7 +160,7 @@ EM_JS(void, query_start,(unsigned cookie,unsigned ticket,const char *sql,const c
 EM_JS(void, release_held,(void),{Module['dxCodecRelease']();})
 EM_JS(void, report_done,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,const unsigned *normal,unsigned meta,unsigned sheets,unsigned describe,unsigned u64_flags,int budget,int sentinel,int tiny,const char *error),{
     const at=normal>>>2;
-    Module['dxCodecReadTestDone']({ok:Boolean(ok),checks,fixtures,headers,queries,rejections,stale,peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,budgetRejected:Boolean(budget),sentinelRejected:Boolean(sentinel),tinyNegativeRejected:Boolean(tiny),u64Sentinels:[...(u64_flags&1?['9007199254740993']:[]),...(u64_flags&2?['18446744073709551615']:[])],normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+7)),familyExecutions:{meta,sheets,describe},error:error?UTF8ToString(error):null,boundary:'official-worker/shared-C-header-reader; no workbook publication or browser Save/Open'});
+    Module['dxCodecReadTestDone']({ok:Boolean(ok),checks,fixtures,headers,queries,rejections,stale,peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,budgetRejected:Boolean(budget),sentinelRejected:Boolean(sentinel),tinyNegativeRejected:Boolean(tiny),u64Sentinels:[...(u64_flags&1?['9007199254740993']:[]),...(u64_flags&2?['18446744073709551615']:[])],normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+2)),familyExecutions:{meta,sheets,describe},error:error?UTF8ToString(error):null,boundary:'official-worker/shared-C-header-reader; no workbook publication or browser Save/Open'});
 })
 static void report(bool ok,const char *error) {
     report_done(ok,d.checks,d.fixtures,d.headers,d.queries,d.rejections,d.stale,d.peak_input,d.normal_queries,d.meta_queries,d.sheets_queries,d.describe_queries,d.u64_flags,d.budget_rejected,d.sentinel_rejected,d.tiny_negative_rejected,error);
@@ -261,7 +261,7 @@ static bool header_expected(void) {
         const Analysis *a=workbook_codec_header_analysis(h,i);const SheetView *v=workbook_codec_header_view(h,i);
         CHECK(same(workbook_codec_header_name(h,i),names[i]),"UTF-8 worksheet name changed");
         CHECK(a&&v&&a->path&&!*a->path&&!a->query&&!a->source_version&&!a->filter_count&&!a->sort_count&&!a->unique_rows,"Header executed/loaded later source or query state");
-        CHECK(v->row==DX_SHEET_ROWS-1&&v->col==16383&&v->anchor_row==1&&v->anchor_col==2&&v->end_row==3&&v->end_col==4&&v->top==5&&v->horizontal==120.25f&&v->fraction==.25&&v->selection==2&&v->canvas_zoom==(layouts[d.fixture]==24?1:1.5f)&&!v->columns&&!v->column_count,"Exact viewport/canvas metadata changed");
+        CHECK(v->row==DX_SHEET_ROWS-1&&v->col==16383&&v->anchor_row==1&&v->anchor_col==2&&v->end_row==3&&v->end_col==4&&v->top==5&&v->horizontal==120.25f&&v->fraction==.25&&v->selection==2&&v->canvas_zoom==1.5f&&!v->columns&&!v->column_count,"Exact viewport/canvas metadata changed");
         if(!i){const char *ref=workbook_codec_header_reference(h,i);
             CHECK(a->kind==SOURCE_CSV&&same(a->schema,"")&&same(a->table,"NULL")&&same(a->filter_column,"city")&&!a->filter_value&&a->filter_op==FILTER_NULL&&same(a->sort_column,"city")&&a->descending&&!a->group_column&&!a->measure_column,"Primary NULL/empty/literal metadata changed");
             CHECK(same(ref,"missing-source.csv"),"Raw source reference lost; empty locator is a separate browser boundary");
@@ -285,7 +285,7 @@ static bool begin_read(void) {
     d.prior=d.header;d.prior_header_bytes=workbook_codec_header_owned_bytes(d.header);
     if(d.header)d.prior_key=*workbook_codec_header_key(d.header);
     d.key=(WorkbookCodecKey){UINT64_C(9007199254740993),UINT64_C(18446744073709551615)-d.fault,UINT64_C(9007199254740995)+d.fixture};
-    CHECK(workbook_codec_read_begin_with_options(&d.read,d.key,format_rows_mode?format_rows_versions[d.fixture]:source_bindings_mode?source_bindings_versions[d.fixture]:source_versions_mode?source_versions_versions[d.fixture]:source_counters_mode?source_counters_versions[d.fixture]:counters_mode?counters_versions[d.fixture]:grid_mode?grid_versions[d.fixture]:filters_mode?filters_versions[d.fixture]:pm_mode?pm_versions[d.fixture]:tables_mode?tables_versions[d.fixture]:options_mode?options_versions[d.fixture]:queries_mode?queries_versions[d.fixture]:objects_mode?objects_versions[d.fixture]:preferences_mode?preferences_versions[d.fixture]:sorts_mode?sorts_versions[d.fixture]:versions[d.fixture],(WorkbookCodecSheetsLayout)(sorts_mode||preferences_mode||objects_mode||queries_mode||options_mode||tables_mode||pm_mode||filters_mode||grid_mode||counters_mode||source_counters_mode||source_versions_mode||source_bindings_mode||format_rows_mode?25:layouts[d.fixture]),(WorkbookCodecReadOptions){filters_mode},HEADER_LIMIT,resolver,&d,&d.error),d.error?d.error:"Begin shared header reader");
+    CHECK(workbook_codec_read_begin_with_options(&d.read,d.key,format_rows_mode?format_rows_versions[d.fixture]:source_bindings_mode?source_bindings_versions[d.fixture]:source_versions_mode?source_versions_versions[d.fixture]:source_counters_mode?source_counters_versions[d.fixture]:counters_mode?counters_versions[d.fixture]:grid_mode?grid_versions[d.fixture]:filters_mode?filters_versions[d.fixture]:pm_mode?pm_versions[d.fixture]:tables_mode?tables_versions[d.fixture]:options_mode?options_versions[d.fixture]:queries_mode?queries_versions[d.fixture]:objects_mode?objects_versions[d.fixture]:preferences_mode?preferences_versions[d.fixture]:sorts_mode?sorts_versions[d.fixture]:versions[d.fixture],(WorkbookCodecSheetsLayout)(sorts_mode||preferences_mode||objects_mode||queries_mode||options_mode||tables_mode||pm_mode||filters_mode||grid_mode||counters_mode||source_counters_mode||source_versions_mode||source_bindings_mode||format_rows_mode?25:25),(WorkbookCodecReadOptions){filters_mode},HEADER_LIMIT,resolver,&d,&d.error),d.error?d.error:"Begin shared header reader");
     CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error),"Incomplete metadata unexpectedly replaced old Header");
     free(d.error);d.error=NULL;return true;
 }
@@ -393,7 +393,7 @@ static bool next_fault(void) {
 EM_JS(void, cancel_candidate,(void),{Module['dxEngine'].cancel(false);})
 static bool tick_body(void) {
     if(d.phase==0){
-        CHECK(d.fixture<7,"Fixture index exceeded inventory");
+        CHECK(d.fixture<2,"Fixture index exceeded inventory");
         d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
         char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",files[d.fixture]);
         fixture_start(d.cookie,d.ticket,files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=1;return true;
@@ -408,7 +408,7 @@ static bool tick_body(void) {
         CHECK(d.ready&&!d.error,d.error?d.error:"Original DESCRIBE did not arrive");
         Page schema={0};CHECK(browser_schema_from_describe(&schema,&d.page,&d.error),d.error?d.error:"Invalid original metadata DESCRIBE");
         const WorkbookCodecTable *table=workbook_codec_table_find(d.phase==2?"meta":"sheets");
-        if(!source_schema(&schema,table,d.phase==2?3:layouts[d.fixture])){page_free(&schema);return false;}
+        if(!source_schema(&schema,table,d.phase==2?3:25)){page_free(&schema);return false;}
         if(d.phase==2){page_free(&d.meta_schema);d.meta_schema=schema;clear_input();d.phase=3;return send_sql(dx_strdup("DESCRIBE SELECT * FROM _duxcel_workspace.sheets"),NULL,256,false);}
         page_free(&d.sheets_schema);d.sheets_schema=schema;clear_input();
         CHECK(canonical_schema(&d.meta_schema,workbook_codec_table_find("meta"))&&canonical_schema(&d.sheets_schema,workbook_codec_table_find("sheets")),"Canonical metadata schema failed");
@@ -450,12 +450,12 @@ static bool tick_body(void) {
         CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error)&&d.header==saved,"Header was moved twice or old output corrupted");free(d.error);d.error=NULL;
         if(!d.fault){
             d.fixture++;
-            if(d.fixture<7){page_free(&d.meta_schema);page_free(&d.sheets_schema);d.phase=0;return true;}
-            d.fixture=6;d.fault=1;CHECK(begin_read(),"Fault reader setup failed");d.phase=4;return true;
+            if(d.fixture<2){page_free(&d.meta_schema);page_free(&d.sheets_schema);d.phase=0;return true;}
+            d.fixture=1;d.fault=1;CHECK(begin_read(),"Fault reader setup failed");d.phase=4;return true;
         }
         if(d.fault<14){CHECK(next_fault(),"Recovery reader setup failed");d.phase=4;return true;}
-        CHECK(d.fixtures==7&&d.headers==10&&d.rejections==11&&d.stale==1&&d.queries==54&&d.meta_queries==20&&d.sheets_queries==19&&d.describe_queries==15&&d.u64_flags==3&&d.budget_rejected&&d.sentinel_rejected&&d.tiny_negative_rejected,"Terminal fixture/fault/query inventory changed");
-        for(size_t i=0;i<7;i++)CHECK(d.normal_queries[i]==4,"Normal fixture metadata query count changed");
+        CHECK(d.fixtures==2&&d.headers==5&&d.rejections==11&&d.stale==1&&d.queries==34&&d.meta_queries==15&&d.sheets_queries==14&&d.describe_queries==5&&d.u64_flags==3&&d.budget_rejected&&d.sentinel_rejected&&d.tiny_negative_rejected,"Terminal fixture/fault/query inventory changed");
+        for(size_t i=0;i<2;i++)CHECK(d.normal_queries[i]==4,"Normal fixture metadata query count changed");
         d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;
         fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
@@ -469,7 +469,7 @@ static bool tick_body(void) {
     }
     if(d.phase==9&&d.fixture_ready){
         clear_input();page_free(&d.meta_schema);page_free(&d.sheets_schema);workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;
-        d.done=true;printf("PASS browser-codec-read: %u checks, 7 immutable native fixtures, 10 headers, 11 atomic rejections, 1 real stale callback, 54 queries; no Workbook publication\n",d.checks);
+        d.done=true;printf("PASS browser-codec-read: %u checks, 2 immutable current native fixtures, 5 headers, 11 atomic rejections, 1 real stale callback, 34 queries; no Workbook publication\n",d.checks);
         report(true,NULL);emscripten_cancel_main_loop();return true;
     }
     return true;

@@ -19,7 +19,7 @@ EM_JS(void, report_options,(int ok,unsigned checks,unsigned fixtures,unsigned he
     const at=normal>>>2,rows=first_rows>>>2;
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'source-options',checks,fixtures,headers,queries:requests,rejections,stale,
         peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+4)),familyExecutions:{meta,sheets,objects,sourceOptions:source_options,queries:definitions,describe},
+        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+2)),familyExecutions:{meta,sheets,objects,sourceOptions:source_options,queries:definitions,describe},
         acceptedFeeds:{objects256:object256,sourceOptions256:option256,sourceOptions64:option64,queries256:query256,queries64:query64},
         objectSplitGroups:object_groups,sourceOptionsSplitGroups:option_groups,validSplitGroups:query_groups,
         rejectedFeeds:rejected,schemaRejections:schema_rejections,rejectedFirstRows:Array.from(HEAPU32.subarray(rows,rows+6)),
@@ -191,7 +191,7 @@ static bool options_restart(void) {clear_input();d.fault++;objects_wire=false;qu
 static void options_free_schemas(void) {page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.objects_schema);page_free(&d.options_schema);page_free(&d.queries_schema);}
 static bool options_tick_body(void) {
     if(d.phase==0){
-        CHECK(d.fixture<4,"Source-options fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
+        CHECK(d.fixture<2,"Source-options fixture index exceeds inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
         char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",options_files[d.fixture]);fixture_start(d.cookie,d.ticket,options_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=501;return true;
     }
     if(d.phase==501){if(!d.fixture_ready)return true;d.phase=502;return options_send(dx_strdup("DESCRIBE SELECT * FROM _duxcel_workspace.meta"),NULL,256,false,0);}
@@ -228,19 +228,19 @@ static bool options_tick_body(void) {
     if(d.phase==512){
         CHECK(d.ready&&!d.error,d.error?d.error:"Owned-query result after options absent");CHECK(options_feed_queries(),"Actual owned queries after options failed");clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete options/query Header could not move");
         CHECK(options_header_contents(d.header,options_versions[d.fixture],&d.key),"Owned source-options Header differs from native fixture");d.headers++;
-        if(!d.fault){d.fixture++;if(d.fixture<4){options_free_schemas();d.phase=0;return true;}d.fixture=3;d.fault=1;CHECK(options_begin(),"Options negative candidate begin failed");d.phase=507;return true;}
+        if(!d.fault){d.fixture++;if(d.fixture<2){options_free_schemas();d.phase=0;return true;}d.fixture=1;d.fault=1;CHECK(options_begin(),"Options negative candidate begin failed");d.phase=507;return true;}
         if(d.fault==8){CHECK(options_restart(),"Final options recovery begin failed");d.phase=507;return true;}
-        CHECK(d.fault==9&&d.fixtures==4&&d.headers==6&&d.queries==79&&d.rejections==7&&d.stale==1&&d.meta_queries==13&&d.sheets_queries==13&&options.object_queries==13&&options.option_queries==13&&options.query_queries==6&&d.describe_queries==21,"Source-options terminal workload changed");
-        CHECK(options.object256==104&&options.object_groups==13&&options.option256==64&&options.option64==6&&options.option_groups==6&&options.query256==48&&options.query64==6&&options.query_groups==6&&options.rejected_feeds==6&&options.schema_rejections==1&&options.pod_poisoned==6&&options.query_poisoned==6&&options.proofs==127,"Source-options feed/ownership/rejection proof inventory changed");
-        const unsigned expected[]={2048,0,0,0,2048,0};for(size_t index=0;index<6;index++)CHECK(options.rejected_first[index]==expected[index],"Source-options failure prefix changed");for(size_t index=0;index<4;index++)CHECK(d.normal_queries[index]==10,"Normal source-options workload changed");
+        CHECK(d.fault==9&&d.fixtures==2&&d.headers==4&&d.queries==59&&d.rejections==7&&d.stale==1&&d.meta_queries==11&&d.sheets_queries==11&&options.object_queries==11&&options.option_queries==11&&options.query_queries==4&&d.describe_queries==11,"Source-options terminal workload changed");
+        CHECK(options.object256==88&&options.object_groups==11&&options.option256==48&&options.option64==4&&options.option_groups==4&&options.query256==32&&options.query64==4&&options.query_groups==4&&options.rejected_feeds==6&&options.schema_rejections==1&&options.pod_poisoned==4&&options.query_poisoned==4&&options.proofs==127,"Source-options feed/ownership/rejection proof inventory changed");
+        const unsigned expected[]={2048,0,0,0,2048,0};for(size_t index=0;index<6;index++)CHECK(options.rejected_first[index]==expected[index],"Source-options failure prefix changed");for(size_t index=0;index<2;index++)CHECK(d.normal_queries[index]==10,"Normal source-options workload changed");
         CHECK(workbook_codec_header_query(d.header,0,0,&options.detached_primary)&&workbook_codec_header_query(d.header,63,UINT64_MAX,&options.detached_table),"Owned query pointers missing before catalog close");
         d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
     if(d.phase==9&&d.fixture_ready){
-        clear_input();CHECK(options_header_contents(d.header,options_versions[3],&d.key),"Owned definitions changed after Page/catalog close");const char *primary=NULL,*table=NULL;
+        clear_input();CHECK(options_header_contents(d.header,options_versions[1],&d.key),"Owned definitions changed after Page/catalog close");const char *primary=NULL,*table=NULL;
         CHECK(workbook_codec_header_query(d.header,0,0,&primary)&&primary==options.detached_primary&&workbook_codec_header_query(d.header,63,UINT64_MAX,&table)&&table==options.detached_table,"Owned query allocations changed after catalog close");
         options_free_schemas();workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;
-        d.done=true;printf("PASS: browser-codec-source-options %u checks,4 native files,6 Headers,79 queries,6 codec/1 schema rejections,1 stale callback; owned options/raw definitions only, no Workbook publication\n",d.checks);options_report(true,NULL);emscripten_cancel_main_loop();return true;
+        d.done=true;printf("PASS: browser-codec-source-options %u checks,2 current native files,4 Headers,59 queries,6 codec/1 schema rejections,1 stale callback; owned options/raw definitions only, no Workbook publication\n",d.checks);options_report(true,NULL);emscripten_cancel_main_loop();return true;
     }
     return true;
 }

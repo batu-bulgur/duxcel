@@ -80,14 +80,14 @@ if(codecGrid){const target=new URL(url);target.searchParams.set('codec_grid','1'
 // Kept pure so runner mock tests can exercise these actual report guards
 // without starting Chromium, a Worker or the application.
 function validateCodecFormatRowsReport(report,check) {
- check(report.mode==='format-rows'&&report.fixtures===4&&report.headers===5&&report.queries===207&&report.rejections===7&&report.stale===2&&report.callbacks===183,'C format-row fixture/failure/recovery inventory changed');
- check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([18,20,26,26]),'Format archives repeated a family or queried absent legacy metadata');
- const families={meta:13,sheets:13,objects:13,queries:13,sourceOptions:13,tableSources:13,tableFilters:13,tableSorts:13,objectCounters:12,sourceCounters:11,sourceVersions:11,sourceBindings:11,formatRows:13,describe:45};
+ check(report.mode==='format-rows'&&report.fixtures===2&&report.headers===3&&report.queries===169&&report.rejections===7&&report.stale===2&&report.callbacks===147,'C format-row fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([26,26]),'Format archives repeated a family or changed a current metadata query');
+ const families={"meta":11,"sheets":11,"objects":11,"queries":11,"sourceOptions":11,"tableSources":11,"tableFilters":11,"tableSorts":11,"objectCounters":11,"sourceCounters":11,"sourceVersions":11,"sourceBindings":11,"formatRows":11,"describe":26};
  check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed format/dependency SQL inventory changed');
- const feeds={objects56:13,queries21:13,sourceOptionsEmpty:13,tableSources18:13,tableFiltersEmpty:13,tableSortsEmpty:13,objectCounters32:24,sourceCounters32:22,sourceVersions256:10,sourceVersions32:10,sourceVersions8:1,sourceVersionsEof:11,sourceBindings32:22,sourceBindings18:11,formatRows256:10,formatRows29:2,formatRows7:3,formatRowsEof:5};
+ const feeds={"objects56":11,"queries21":11,"sourceOptionsEmpty":11,"tableSources18":11,"tableFiltersEmpty":11,"tableSortsEmpty":11,"objectCounters32":22,"sourceCounters32":22,"sourceVersions256":10,"sourceVersions32":10,"sourceVersions8":1,"sourceVersionsEof":11,"sourceBindings32":22,"sourceBindings18":11,"formatRows256":10,"formatRows29":2,"formatRows7":1,"formatRowsEof":3};
  check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Format bounded feeds or dependency EOF inventory changed');
- const counts={objectDefaults:1,sourceCounterDefaults:2,ledgerDefaults:2,bindingDefaults:2,ledgerStreams:11,matchedLedgerDataCallbacks:21,matchedLedgerEofCallbacks:11,ledgerChunkCallbacks:32,ledgerAcceptedAcks:32,ledgerDoneCallbacks:11,ledgerPoisonedDataChunks:21,completedBindingResults:11,poisonedBindingResults:11,formatStreams:13,matchedFormatDataCallbacks:22,matchedFormatEofCallbacks:5,formatChunkCallbacks:28,formatAcceptedAcks:20,formatDoneCallbacks:13,completedFormatStreams:5,errorFormatStreams:7,poisonedFormatDataChunks:22,staleChunkCallbacks:1,staleDoneCallbacks:1,heldCallbacks:1,cancelledCallbacks:1,rejectedFeeds:7};
- check(Object.entries(counts).every(([key,value])=>report[key]===value),'Format defaults/ownership/cancellation/cleanup inventory changed');
+ const counts={"ledgerStreams":11,"matchedLedgerDataCallbacks":21,"matchedLedgerEofCallbacks":11,"ledgerChunkCallbacks":32,"ledgerAcceptedAcks":32,"ledgerDoneCallbacks":11,"ledgerPoisonedDataChunks":21,"completedBindingResults":11,"poisonedBindingResults":11,"formatStreams":11,"matchedFormatDataCallbacks":20,"matchedFormatEofCallbacks":3,"formatChunkCallbacks":24,"formatAcceptedAcks":16,"formatDoneCallbacks":11,"completedFormatStreams":3,"errorFormatStreams":7,"poisonedFormatDataChunks":20,"staleChunkCallbacks":1,"staleDoneCallbacks":1,"heldCallbacks":1,"cancelledCallbacks":1,"rejectedFeeds":7};
+ check(Object.entries(counts).every(([key,value])=>report[key]===value),'Format ownership/cancellation/cleanup inventory changed');
  check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([256,256,256,256,256,512,0]),'Format rejection changed its accepted prefix');
  for(const proof of ['requiredNullRejected','invalidMaskRejected','losslessFlagsRejected','rangeRejected','positionRejected','sheetLimitRejected','budgetRejected','heldSecondChunkCancelled','wholeCandidateRetry','freshRecovery','exactRawBytes','independentLocators','deferredBindingsRetained','analysisVersionsRemainZero','exactProperties','maximumCoordinateExact','unmaskedPropertiesRetained'])
   check(report[proof]===true,'Missing actual format-row proof '+proof);
@@ -95,93 +95,93 @@ function validateCodecFormatRowsReport(report,check) {
  check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Format C retained-input admission changed');
  check(report.staleWireReservationBytes>0&&report.staleWireReservationBytes<=6291456&&report.staleScalarReservationBytes===42&&report.staleTerminalReservationBytes===2070,'Stale format chunk/completion lost pre-borrow reservation');
  check(report.transport?.held===0&&report.transport?.released===0,'Format gate unexpectedly held an ordinary reply');
- const stream={submissions:24,chunkCallbacks:60,acceptedAcks:52,doneCallbacks:24,held:1,released:1,cancelled:1};
- check(Object.entries(stream).every(([key,value])=>report.transport?.stream?.[key]===value)&&report.transport?.sourceVersionPhysicalChunks===32&&report.transport?.formatRowPhysicalChunks===28,'Host format/dependency stream or physical sidecar inventory changed');
+ const stream={"submissions":22,"chunkCallbacks":56,"acceptedAcks":48,"doneCallbacks":22,"held":1,"released":1,"cancelled":1};
+ check(Object.entries(stream).every(([key,value])=>report.transport?.stream?.[key]===value)&&report.transport?.sourceVersionPhysicalChunks===32&&report.transport?.formatRowPhysicalChunks===24,'Host format/dependency stream or physical sidecar inventory changed');
 }
 function validateCodecSourceBindingsReport(report,check) {
- check(report.mode==='source-bindings'&&report.fixtures===4&&report.headers===5&&report.queries===166&&report.rejections===5&&report.stale===1&&report.callbacks===156,'C binding fixture/failure/recovery inventory changed');
- check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([16,18,24,24]),'Binding archives repeated a family or queried absent legacy metadata');
- const families={meta:11,sheets:11,objects:11,queries:11,sourceOptions:11,tableSources:11,tableFilters:11,tableSorts:11,objectCounters:10,sourceCounters:9,sourceVersions:9,sourceBindings:9,describe:41};
+ check(report.mode==='source-bindings'&&report.fixtures===2&&report.headers===3&&report.queries===132&&report.rejections===5&&report.stale===1&&report.callbacks===122,'C binding fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([24,24]),'Binding archives repeated a family or changed a current metadata query');
+ const families={"meta":9,"sheets":9,"objects":9,"queries":9,"sourceOptions":9,"tableSources":9,"tableFilters":9,"tableSorts":9,"objectCounters":9,"sourceCounters":9,"sourceVersions":9,"sourceBindings":9,"describe":24};
  check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed binding/dependency SQL inventory changed');
- const feeds={objects56:11,queries21:11,sourceOptionsEmpty:11,tableSources18:11,tableFiltersEmpty:11,tableSortsEmpty:11,objectCounters32:20,sourceCounters32:18,sourceVersions256:8,sourceVersions32:8,sourceVersions8:1,sourceVersionsEof:9,sourceBindings32:14,sourceBindings18:3};
+ const feeds={"objects56":9,"queries21":9,"sourceOptionsEmpty":9,"tableSources18":9,"tableFiltersEmpty":9,"tableSortsEmpty":9,"objectCounters32":18,"sourceCounters32":18,"sourceVersions256":8,"sourceVersions32":8,"sourceVersions8":1,"sourceVersionsEof":9,"sourceBindings32":14,"sourceBindings18":3};
  check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Binding bounded-feed and dependency EOF inventory changed');
- const counts={objectDefaults:1,sourceCounterDefaults:2,ledgerDefaults:2,bindingDefaults:2,ledgerStreams:9,matchedLedgerDataCallbacks:17,matchedLedgerEofCallbacks:9,ledgerChunkCallbacks:26,ledgerAcceptedAcks:26,ledgerDoneCallbacks:9,ledgerPoisonedDataChunks:17,completedBindingResults:3,poisonedBindingResults:8,rejectedFeeds:5,staleCallbacks:1};
- check(Object.entries(counts).every(([key,value])=>report[key]===value),'Binding defaults/ownership/cleanup inventory changed');
+ const counts={"ledgerStreams":9,"matchedLedgerDataCallbacks":17,"matchedLedgerEofCallbacks":9,"ledgerChunkCallbacks":26,"ledgerAcceptedAcks":26,"ledgerDoneCallbacks":9,"ledgerPoisonedDataChunks":17,"completedBindingResults":3,"poisonedBindingResults":8,"rejectedFeeds":5,"staleCallbacks":1};
+ check(Object.entries(counts).every(([key,value])=>report[key]===value),'Binding ownership/cleanup inventory changed');
  check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([64,64,64,64,0]),'Binding rejection changed its accepted prefix');
- for(const proof of ['requiredNullRejected','foreignOwnerRejected','missingOwnerRejected','danglingVersionRejected','budgetRejected','stalePreserved','freshRecovery','olderNoBindingQuery','exactRawBytes','independentLocators','deferredBindingsRetained','analysisVersionsRemainZero'])
+ for(const proof of ['requiredNullRejected','foreignOwnerRejected','missingOwnerRejected','danglingVersionRejected','budgetRejected','stalePreserved','freshRecovery','exactRawBytes','independentLocators','deferredBindingsRetained','analysisVersionsRemainZero'])
   check(report[proof]===true,'Missing actual source-binding proof '+proof);
  check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed binding Header exceeds admission');
  check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Binding C retained-input admission changed');
  check(report.staleWireReservationBytes>0&&report.staleWireReservationBytes<=6291456&&report.staleTotalReservationBytes===21,'Stale binding result lost its pre-borrow reservation');
- const stream={submissions:9,chunkCallbacks:26,acceptedAcks:26,doneCallbacks:9,held:0,released:0,cancelled:0};
+ const stream={"submissions":9,"chunkCallbacks":26,"acceptedAcks":26,"doneCallbacks":9,"held":0,"released":0,"cancelled":0};
  check(Object.entries(stream).every(([key,value])=>report.transport?.stream?.[key]===value)&&report.transport?.sourceVersionPhysicalChunks===26,'Host-observed binding dependency stream or physical sidecar changed');
 }
 function validateCodecSourceVersionsReport(report,check) {
- check(report.mode==='source-versions'&&report.fixtures===4&&report.headers===5&&report.queries===98&&report.rejections===8&&report.stale===2&&report.callbacks===86,'C source-ledger fixture/failure/recovery inventory changed');
- check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,8,12,12]),'Source-ledger archives repeated a family or queried an absent legacy family');
- const families={meta:14,sheets:14,objects:14,objectCounters:13,sourceCounters:12,sourceVersions:12,describe:19};
+ check(report.mode==='source-versions'&&report.fixtures===2&&report.headers===3&&report.queries===84&&report.rejections===8&&report.stale===2&&report.callbacks===72,'C source-ledger fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([12,12]),'Source-ledger archives repeated a family or changed a current family query');
+ const families={"meta":12,"sheets":12,"objects":12,"objectCounters":12,"sourceCounters":12,"sourceVersions":12,"describe":12};
  check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed ledger/dependency SQL inventory changed');
- const feeds={objects56:14,objectCounters32:26,sourceCounters32:24,sourceVersions256:10,sourceVersions29:2,sourceVersions5:1,sourceVersionsEof:3};
+ const feeds={"objects56":12,"objectCounters32":24,"sourceCounters32":24,"sourceVersions256":10,"sourceVersions29":2,"sourceVersions5":1,"sourceVersionsEof":3};
  check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Source-ledger bounded feed/EOF inventory changed');
- const counts={objectDefaults:1,sourceCounterDefaults:2,ledgerDefaults:2,sharedDecoderRejections:6,hexAdaptationRejections:2,matchedDataCallbacks:21,matchedEofCallbacks:3,acceptedAcks:16,chunkCallbacks:25,doneCallbacks:12,completedStreams:3,errorStreams:8,poisonedDataChunks:19,staleChunks:1,staleDoneCallbacks:1,heldCallbacks:1,cancelledCallbacks:1};
+ const counts={"sharedDecoderRejections":6,"hexAdaptationRejections":2,"matchedDataCallbacks":21,"matchedEofCallbacks":3,"acceptedAcks":16,"chunkCallbacks":25,"doneCallbacks":12,"completedStreams":3,"errorStreams":8,"poisonedDataChunks":19,"staleChunks":1,"staleDoneCallbacks":1,"heldCallbacks":1,"cancelledCallbacks":1};
  check(Object.entries(counts).every(([key,value])=>report[key]===value),'Ledger decoder/hex/cleanup/cancellation inventory changed');
  check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([256,256,256,256,256,256,256,0]),'Source-ledger rejected batch changed its accepted prefix');
- for(const proof of ['requiredNullRejected','pendingEncodingRejected','malformedRawRejected','resultTagRejected','oddHexRejected','nonHexRejected','emptyBlobRejected','budgetRejected','stalePreserved','freshRecovery','olderNoLedgerQuery','exactRawBytes','independentLocators','archivedOwnersRetained','exactMaximumVersion'])
+ for(const proof of ['requiredNullRejected','pendingEncodingRejected','malformedRawRejected','resultTagRejected','oddHexRejected','nonHexRejected','emptyBlobRejected','budgetRejected','stalePreserved','freshRecovery','exactRawBytes','independentLocators','archivedOwnersRetained','exactMaximumVersion'])
   check(report[proof]===true,'Missing actual source-ledger proof '+proof);
  check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed source-ledger Header exceeds admission');
  check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Source-ledger C retained-input admission changed');
  check(report.staleWireReservationBytes>0&&report.staleWireReservationBytes<=6291456&&report.staleScalarReservationBytes===42&&report.staleTerminalReservationBytes===2070,'Stale ledger chunk/terminal lost its pre-borrow reservation');
- const stream={submissions:12,chunkCallbacks:25,acceptedAcks:16,doneCallbacks:12,held:1,released:1,cancelled:1};
+ const stream={"submissions":12,"chunkCallbacks":25,"acceptedAcks":16,"doneCallbacks":12,"held":1,"released":1,"cancelled":1};
  check(Object.entries(stream).every(([key,value])=>report.transport?.stream?.[key]===value),'Host-observed source-ledger stream inventory changed');
  check(report.transport?.sourceVersionPhysicalChunks===25,'Actual source-ledger chunks lost physical Utf8/original BLOB sidecar observation');
 }
 function validateCodecSourceCountersReport(report,check) {
- check(report.mode==='source-counters'&&report.fixtures===4&&report.headers===5&&report.queries===64&&report.rejections===4&&report.stale===1&&report.callbacks===63,'C source-counter fixture/failure/recovery inventory changed');
- check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,8,10,10]),'Source-counter archives queried absent older counters or repeated a schema/family query');
- const families={meta:10,sheets:10,objects:10,objectCounters:9,sourceCounters:8,describe:17};
+ check(report.mode==='source-counters'&&report.fixtures===2&&report.headers===3&&report.queries===50&&report.rejections===4&&report.stale===1&&report.callbacks===49,'C source-counter fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([10,10]),'Source-counter archives changed a current counter query or repeated a schema/family query');
+ const families={"meta":8,"sheets":8,"objects":8,"objectCounters":8,"sourceCounters":8,"describe":10};
  check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed source/object counter execution inventory changed');
- const feeds={objects56:10,objectCounters32:18,sourceCounters32:9};
+ const feeds={"objects56":8,"objectCounters32":16,"sourceCounters32":9};
  check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Source/object counter bounded feed inventory changed');
- const completed={validObjectCounterGroups:9,validSourceCounterGroups:3,objectCounterDefaults:1,sourceCounterDefaults:2,poisonedObjectCounterResults:9,poisonedSourceCounterResults:3,rejectedFeeds:4,staleCallbacks:1};
- check(Object.entries(completed).every(([key,value])=>report[key]===value),'Source/object counter completion/default/owned-input retirement changed');
+ const completed={"validObjectCounterGroups":8,"validSourceCounterGroups":3,"poisonedObjectCounterResults":8,"poisonedSourceCounterResults":3,"rejectedFeeds":4,"staleCallbacks":1};
+ check(Object.entries(completed).every(([key,value])=>report[key]===value),'Source/object counter completion/owned-input retirement changed');
  check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([32,32,32,0]),'Source-counter rejection changed its accepted prefix');
- for(const proof of ['requiredNullRejected','identityRejected','missingRowRejected','budgetRejected','stalePreserved','freshRecovery','olderNoSourceCounterQuery','exactSourceMaximum','independentDomains'])
+ for(const proof of ['requiredNullRejected','identityRejected','missingRowRejected','budgetRejected','stalePreserved','freshRecovery','exactSourceMaximum','independentDomains'])
   check(report[proof]===true,'Missing actual source-counter proof '+proof);
  check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed source-counter Header exceeds admission');
  check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Source-counter C retained-input admission changed');
  check(report.staleWireReservationBytes>0&&report.staleWireReservationBytes<=6291456&&report.staleTotalReservationBytes===21,'Stale source-counter callback lost its pre-borrow reservation');
 }
 function validateCodecCountersReport(report,check) {
- check(report.mode==='counters'&&report.fixtures===4&&report.headers===5&&report.queries===54&&report.rejections===4&&report.stale===1,'C counter fixture/failure/recovery inventory changed');
- check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,8,8,8]),'Counter archives repeated a schema/family query or queried absent v12 counters');
- const families={meta:10,sheets:10,objects:10,objectCounters:9,describe:15};
+ check(report.mode==='counters'&&report.fixtures===2&&report.headers===3&&report.queries===40&&report.rejections===4&&report.stale===1,'C counter fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([8,8]),'Counter archives repeated a schema/family query or changed a current counter query');
+ const families={"meta":8,"sheets":8,"objects":8,"objectCounters":8,"describe":8};
  check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed counter execution inventory changed');
- check(report.acceptedFeeds?.objects56===10&&report.acceptedFeeds?.counters32===11,'Counter/descriptor bounded feed inventory changed');
- check(report.validCounterGroups===4&&report.v12Defaults===1&&report.poisonedCounterResults===4&&report.rejectedFeeds===4&&report.staleCallbacks===1,'Counter completion/default/retired-input ownership changed');
+ check(report.acceptedFeeds?.objects56===8&&report.acceptedFeeds?.counters32===9,'Counter/descriptor bounded feed inventory changed');
+ check(report.validCounterGroups===3&&report.poisonedCounterResults===3&&report.rejectedFeeds===4&&report.staleCallbacks===1,'Counter completion/retired-input ownership changed');
  check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([32,32,32,0]),'Counter rejected batch changed its accepted prefix');
- for(const proof of ['lowHighWaterRejected','requiredNullRejected','identityRejected','budgetRejected','stalePreserved','freshRecovery','v12NoCounterQuery','exactRetiredCounter','exactMaximumCounter'])
+ for(const proof of ['lowHighWaterRejected','requiredNullRejected','identityRejected','budgetRejected','stalePreserved','freshRecovery','exactRetiredCounter','exactMaximumCounter'])
   check(report[proof]===true,'Missing actual counter proof '+proof);
  check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed counter Header exceeds admission');
  check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Counter C retained-input admission changed');
  check(report.staleWireReservationBytes>0&&report.staleWireReservationBytes<=6291456&&report.staleTotalReservationBytes===21,'Stale counter callback lost its bounded pre-borrow reservation');
 }
 function validateCodecGridReport(report,check) {
- check(report.mode==='grid'&&report.fixtures===4&&report.headers===6&&report.queries===62&&report.rejections===5&&report.stale===2,'C grid fixture/failure/recovery inventory changed');
- check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([8,8,8,8]),'Grid archives repeated an original-schema/canonical family query');
- const families={meta:12,sheets:12,columns:12,cells:10,describe:16};
+ check(report.mode==='grid'&&report.fixtures===2&&report.headers===4&&report.queries===46&&report.rejections===5&&report.stale===2,'C grid fixture/failure/recovery inventory changed');
+ check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([8,8]),'Grid archives repeated an original-schema/canonical family query');
+ const families={"meta":10,"sheets":10,"columns":10,"cells":8,"describe":8};
  check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed grid execution inventory changed');
- const feeds={columns256:9,columns29:7,columns7:3,columnsEof:10,cells256:6,cells29:3,cells7:3,cellsEof:6};
+ const feeds={"columns256":9,"columns29":7,"columns7":1,"columnsEof":8,"cells256":6,"cells29":3,"cells7":1,"cellsEof":4};
  check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Grid stream lost dense bounded data/empty EOF feeds');
- for(const [key,expected] of Object.entries({matchedDataCallbacks:{columns:21,cells:15},matchedEofCallbacks:{columns:10,cells:6},completedStreams:{columns:10,cells:6},errorStreams:{columns:2,cells:3},poisonedDataChunks:{columns:19,cells:12}}))
+ for(const [key,expected] of Object.entries({"matchedDataCallbacks":{"columns":19,"cells":13},"matchedEofCallbacks":{"columns":8,"cells":4},"completedStreams":{"columns":8,"cells":4},"errorStreams":{"columns":2,"cells":3},"poisonedDataChunks":{"columns":17,"cells":10}}))
   check(Object.entries(expected).every(([family,value])=>report[key]?.[family]===value),'Grid stream '+key+' changed');
- const counters={chunkCallbacks:53,acceptedAcks:47,doneCallbacks:22,staleChunkCallbacks:1,staleDoneCallbacks:1,heldCallbacks:1,cancelledCallbacks:1,rejectedFeeds:5,staleScalarReservationBytes:42,staleTerminalReservationBytes:2070};
+ const counters={"chunkCallbacks":45,"acceptedAcks":39,"doneCallbacks":18,"staleChunkCallbacks":1,"staleDoneCallbacks":1,"heldCallbacks":1,"cancelledCallbacks":1,"rejectedFeeds":5,"staleScalarReservationBytes":42,"staleTerminalReservationBytes":2070};
  check(Object.entries(counters).every(([key,value])=>report[key]===value),'Grid ACK/terminal/stale callback ownership changed');
  check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([256,256,256,256,0]),'Grid late failure changed an accepted prefix');
  for(const proof of ['lateWidthRejected','requiredColumnNameRejected','requiredCellTextRejected','duplicateCellRejected','budgetRejected','heldSecondChunkCancelled','wholeCandidateRetry','freshRecovery','longColumnNameExact','maximumCellTextExact','actualEmptyCellPresent','missingCellAbsent'])
   check(report[proof]===true,'Missing actual grid proof '+proof);
  check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed grid Header exceeds admission');
  check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=4194304,'Grid C retained-input admission changed');
- const stream={submissions:22,chunkCallbacks:53,acceptedAcks:47,doneCallbacks:22,held:1,released:1,cancelled:1};
+ const stream={"submissions":18,"chunkCallbacks":45,"acceptedAcks":39,"doneCallbacks":18,"held":1,"released":1,"cancelled":1};
  check(Object.entries(stream).every(([key,value])=>report.transport?.stream?.[key]===value),'Actual stream transport disagrees with C ACK/retirement counters');
 }
 const filters=process.argv.includes('--filters');
@@ -2995,86 +2995,87 @@ try{
   }else if(codecGrid){
    validateCodecGridReport(report,check);
   }else if(codecFilters){
-   check(report.mode==='primary-filters'&&report.fixtures===4&&report.headers===6&&report.queries===113&&report.rejections===7&&report.stale===1,'C primary-filter fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([14,14,14,14]),'Primary-filter archives did not execute each original-schema/canonical family once');
-   const expected={meta:12,sheets:12,objects:12,queries:12,sourceOptions:12,sorts:12,filters:12,describe:29};
+   check(report.mode==='primary-filters'&&report.fixtures===2&&report.headers===4&&report.queries===85&&report.rejections===7&&report.stale===1,'C primary-filter fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([14,14]),'Primary-filter archives did not execute each original-schema/canonical family once');
+   const expected={"meta":10,"sheets":10,"objects":10,"queries":10,"sourceOptions":10,"sorts":10,"filters":10,"describe":15};
    check(Object.entries(expected).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed primary-filter execution inventory changed');
    check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([256,256,256,256,0])&&report.rejectedFeeds===5&&report.schemaRejections===1&&report.primaryRejections===1,'Primary-filter failure changed accepted prefixes');
    for(const proof of ['requiredNullRejected','caseDuplicateRejected','lateJsonRejected','positionRejected','budgetRejected','primaryJsonRejected','originalTypeRejected'])check(report[proof]===true,'Missing primary-filter rejection proof '+proof);
-   const feeds={objectsEmpty:12,queries:12,sourceOptions:12,sorts:12,filters256:7,filters29:3,filters3:2,filters4:1},groups={objects:12,queries:12,sourceOptions:12,sorts:12,filters:6},poisoned={...groups,objects:0};
+   const feeds={"objectsEmpty":10,"queries":10,"sourceOptions":10,"sorts":10,"filters256":7,"filters29":3,"filters3":0,"filters4":1},groups={"objects":10,"queries":10,"sourceOptions":10,"sorts":10,"filters":4},poisoned={"objects":0,"queries":10,"sourceOptions":10,"sorts":10,"filters":4};
    check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Primary-filter results lost their bounded feed boundaries');
    check(Object.entries(groups).every(([key,value])=>report.completedResults?.[key]===value)&&Object.entries(poisoned).every(([key,value])=>report.poisonedResults?.[key]===value),'Primary-filter owned results did not survive poisoning');
    check(report.largePrimaryExact===true&&report.largeSecondaryExact===true,'Primary or secondary 65537-byte value was not checked in full');
    check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed primary-filter Header exceeded admission');
   }else if(codecPivotMarks){
-   check(report.mode==='pivot-marks'&&report.fixtures===4&&report.headers===6&&report.queries===176&&report.rejections===8&&report.stale===1,'C Pivot/Marks fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([20,20,20,20]),'Pivot/Marks archives did not execute each original-schema/canonical family once');
-   const families={meta:14,sheets:14,objects:14,sourceOptions:14,queries:14,tableSources:14,tableFilters:14,tableSorts:14,pivotFields:14,marks:9,describe:41};
+   check(report.mode==='pivot-marks'&&report.fixtures===2&&report.headers===4&&report.queries===136&&report.rejections===8&&report.stale===1,'C Pivot/Marks fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([20,20]),'Pivot/Marks archives did not execute each original-schema/canonical family once');
+   const families={"meta":12,"sheets":12,"objects":12,"sourceOptions":12,"queries":12,"tableSources":12,"tableFilters":12,"tableSorts":12,"pivotFields":12,"marks":7,"describe":21};
    check(Object.entries(families).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed C Pivot/Marks execution inventory changed');
-   const feeds={objects:14,sourceOptions:14,queries:14,tableSources:14,tableFilters:14,tableSorts:14,pivot256:9,pivot32:6,pivot18:3,marks256:5,marks64:3,marks20:3};
+   const feeds={"objects":12,"sourceOptions":12,"queries":12,"tableSources":12,"tableFilters":12,"tableSorts":12,"pivot256":9,"pivot32":6,"pivot18":1,"marks256":5,"marks64":3,"marks20":1};
    check(Object.entries(feeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Pivot/Marks results lost bounded feed boundaries');
    check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([256,0,256,256,256,256,0])&&report.schemaRejections===1&&report.rejectedFeeds===7,'Pivot/Marks failure changed accepted prefixes');
    for(const proof of ['requiredPivotNullRejected','tableOwnerRejected','crossGrainRejected','arityRejected','requiredMarksBooleanRejected','duplicateMarksRejected','budgetRejected','originalTypeRejected'])check(report[proof]===true,'Missing Pivot/Marks rejection proof '+proof);
-   const results={objects:14,sourceOptions:14,queries:14,tableSources:14,tableFilters:14,tableSorts:14,pivotFields:9,marks:6};
-   const poisoned={objects:14,sourceOptions:11,queries:14,tableSources:14,tableFilters:0,tableSorts:0,pivotFields:9,marks:6};
+   const results={"objects":12,"sourceOptions":12,"queries":12,"tableSources":12,"tableFilters":12,"tableSorts":12,"pivotFields":7,"marks":4};
+   const poisoned={"objects":12,"sourceOptions":11,"queries":12,"tableSources":12,"tableFilters":0,"tableSorts":0,"pivotFields":7,"marks":4};
    check(Object.entries(results).every(([key,value])=>report.completedResults?.[key]===value)&&Object.entries(poisoned).every(([key,value])=>report.poisonedResults?.[key]===value),'Pivot/Marks nonempty results did not preserve owned data after poisoning');
    check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed Pivot/Marks Header exceeded admission');
   }else if(codecTables){
-   check(report.mode==='table-sources'&&report.fixtures===4&&report.headers===6&&report.queries===126&&report.rejections===7&&report.stale===1,'C Table-source fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([16,16,16,16]),'Table archives did not execute each original-schema/canonical family request once');
-   const expectedFamilies={meta:13,sheets:13,objects:13,sourceOptions:13,queries:13,tableSources:12,tableFilters:8,tableSorts:8,describe:33};
+   check(report.mode==='table-sources'&&report.fixtures===2&&report.headers===4&&report.queries===94&&report.rejections===7&&report.stale===1,'C Table-source fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([16,16]),'Table archives did not execute each original-schema/canonical family request once');
+   const expectedFamilies={"meta":11,"sheets":11,"objects":11,"sourceOptions":11,"queries":11,"tableSources":10,"tableFilters":6,"tableSorts":6,"describe":17};
    check(Object.entries(expectedFamilies).every(([key,value])=>report.familyExecutions?.[key]===value),'Observed C Table metadata execution inventory changed');
-   const expectedFeeds={objects:13,sourceOptions:13,queries:13,tableSources:8,tableFilters256:9,tableFiltersTail:3,tableSorts256:4,tableSorts192:3,tableSortsEmpty:3};
+   const expectedFeeds={"objects":11,"sourceOptions":11,"queries":11,"tableSources":6,"tableFilters256":9,"tableFiltersTail":1,"tableSorts256":4,"tableSorts192":3,"tableSortsEmpty":1};
    check(Object.entries(expectedFeeds).every(([key,value])=>report.acceptedFeeds?.[key]===value),'Table results lost their bounded feed boundaries');
    check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([0,0,0,256,256,0]),'Table failure changed accepted prefixes');
    for(const proof of ['requiredNullRejected','wrongOwnerRejected','sourceKindRejected','lateFilterRejected','lateSortRejected','budgetRejected','originalTypeRejected'])check(report[proof]===true,'Missing Table rejection proof '+proof);
-   const results={objects:13,sourceOptions:13,queries:13,tableSources:8,tableFilters:7,tableSorts:6};
+   const results={"objects":11,"sourceOptions":11,"queries":11,"tableSources":6,"tableFilters":5,"tableSorts":4};
    check(Object.entries(results).every(([key,value])=>report.completedResults?.[key]===value&&report.poisonedResults?.[key]===value),'Table results did not preserve copied data after caller-owned poisoning');
    check(report.maximumCompletedHeaderOwned>0&&report.maximumCompletedHeaderOwned<=2097152,'Completed Table Header ownership exceeded its admission');
   }else if(codecSourceOptions){
-   check(report.mode==='source-options'&&report.fixtures===4&&report.headers===6&&report.queries===79&&report.rejections===7&&report.stale===1,'C source-options fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([10,10,10,10]),'Options archives did not execute each original-schema/canonical family request once');
-   check(report.familyExecutions?.meta===13&&report.familyExecutions?.sheets===13&&report.familyExecutions?.objects===13&&report.familyExecutions?.sourceOptions===13&&report.familyExecutions?.queries===6&&report.familyExecutions?.describe===21,'Observed C source-options metadata execution inventory changed');
-   check(report.acceptedFeeds?.objects256===104&&report.acceptedFeeds?.sourceOptions256===64&&report.acceptedFeeds?.sourceOptions64===6&&report.acceptedFeeds?.queries256===48&&report.acceptedFeeds?.queries64===6&&report.objectSplitGroups===13&&report.sourceOptionsSplitGroups===6&&report.validSplitGroups===6&&report.rejectedFeeds===6,'Real object/options/query results lost their bounded feed boundaries');
+   check(report.mode==='source-options'&&report.fixtures===2&&report.headers===4&&report.queries===59&&report.rejections===7&&report.stale===1,'C source-options fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([10,10]),'Options archives did not execute each original-schema/canonical family request once');
+   check(report.familyExecutions?.meta===11&&report.familyExecutions?.sheets===11&&report.familyExecutions?.objects===11&&report.familyExecutions?.sourceOptions===11&&report.familyExecutions?.queries===4&&report.familyExecutions?.describe===11,'Observed C source-options metadata execution inventory changed');
+   check(report.acceptedFeeds?.objects256===88&&report.acceptedFeeds?.sourceOptions256===48&&report.acceptedFeeds?.sourceOptions64===4&&report.acceptedFeeds?.queries256===32&&report.acceptedFeeds?.queries64===4&&report.objectSplitGroups===11&&report.sourceOptionsSplitGroups===4&&report.validSplitGroups===4&&report.rejectedFeeds===6,'Real object/options/query results lost their bounded feed boundaries');
    check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([2048,0,0,0,2048,0]),'Source-options rejection changed accepted prefixes');
    check(report.schemaRejections===1&&report.requiredNullRejected&&report.duplicateFalseRejected&&report.wrongKindRejected&&report.foreignOwnerRejected&&report.sentinelRejected&&report.budgetRejected&&report.originalTypeRejected,'Source-options ownership/BOOLEAN/rejection proofs were not observed');
-   check(report.podPoisonedResults===6&&report.poisonedQueryResults===6,'Source-options Header did not retain copied POD and query bytes after caller-owned input poisoning');
+   check(report.podPoisonedResults===4&&report.poisonedQueryResults===4,'Source-options Header did not retain copied POD and query bytes after caller-owned input poisoning');
   }else if(codecQueries){
-   check(report.mode==='queries'&&report.fixtures===6&&report.headers===6&&report.queries===85&&report.rejections===9&&report.stale===1,'C source-query fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([8,8,8,8,8,8]),'Query archives did not execute each original-schema/canonical family request once');
-   check(report.familyExecutions?.meta===15&&report.familyExecutions?.sheets===15&&report.familyExecutions?.objects===15&&report.familyExecutions?.queries===15&&report.familyExecutions?.describe===25,'Observed C source-query metadata execution inventory changed');
-   check(report.acceptedFeeds?.objects256===120&&report.acceptedFeeds?.queries256===72&&report.acceptedFeeds?.queries64===6&&report.objectSplitGroups===15&&report.validSplitGroups===6&&report.rejectedFeeds===8,'Real object/query results did not retain their bounded feed boundaries');
+   check(report.mode==='queries'&&report.fixtures===4&&report.headers===4&&report.queries===69&&report.rejections===9&&report.stale===1,'C source-query fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([8,8,8,8]),'Query archives did not execute each original-schema/canonical family request once');
+   check(report.familyExecutions?.meta===13&&report.familyExecutions?.sheets===13&&report.familyExecutions?.objects===13&&report.familyExecutions?.queries===13&&report.familyExecutions?.describe===17,'Observed C source-query metadata execution inventory changed');
+   check(report.acceptedFeeds?.objects256===104&&report.acceptedFeeds?.queries256===56&&report.acceptedFeeds?.queries64===4&&report.objectSplitGroups===13&&report.validSplitGroups===4&&report.rejectedFeeds===8,'Real object/query results did not retain their bounded feed boundaries');
    check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([0,0,0,0,2048,0])&&JSON.stringify(report.physicalRejectedFirstRows)===JSON.stringify([2048,2048]),'Source-query rejection changed accepted prefixes');
    check(report.physicalInvalidAsNull===2&&report.schemaRejections===1&&report.physicalBlankRejected&&report.physicalNulRejected&&report.requiredNullRejected&&report.duplicateOwnerRejected&&report.wrongKindRejected&&report.foreignOwnerRejected&&report.sentinelRejected&&report.budgetRejected&&report.originalTypeRejected,'Source-query predicate/rejection proofs were not observed');
-   check(report.poisonedQueryResults===6,'Query Header text was not checked after poisoning each successful caller-owned result');
+   check(report.poisonedQueryResults===4,'Query Header text was not checked after poisoning each successful caller-owned result');
   }else if(codecObjects){
-   check(report.mode==='objects'&&report.fixtures===4&&report.headers===6&&report.queries===58&&report.rejections===9&&report.stale===1,'C object descriptor fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6]),'Object archives did not execute each original-schema/canonical family request once');
-   check(report.familyExecutions?.meta===15&&report.familyExecutions?.sheets===15&&report.familyExecutions?.objects===15&&report.familyExecutions?.describe===13,'Observed C object descriptor metadata execution inventory changed');
-   check(report.acceptedFeeds?.rows256===77&&report.rejectedFeeds===7&&report.validSplitGroups===6,'Real2048-row object results did not retain their eight256-row feed boundaries');
+   check(report.mode==='objects'&&report.fixtures===2&&report.headers===4&&report.queries===46&&report.rejections===9&&report.stale===1,'C object descriptor fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6]),'Object archives did not execute each original-schema/canonical family request once');
+   check(report.familyExecutions?.meta===13&&report.familyExecutions?.sheets===13&&report.familyExecutions?.objects===13&&report.familyExecutions?.describe===7,'Observed C object descriptor metadata execution inventory changed');
+   check(report.acceptedFeeds?.rows256===61&&report.rejectedFeeds===7&&report.validSplitGroups===4,'Real2048-row object results did not retain their eight256-row feed boundaries');
    check(JSON.stringify(report.rejectedFirstRows)===JSON.stringify([0,0,1792,1792,1792,2048,0]),'Object descriptor failure changed accepted batch prefixes');
    check(report.wireRejections===1&&report.schemaRejections===1&&report.requiredNullRejected&&report.duplicateIdRejected&&report.geometryRejected&&report.forwardBindingRejected&&report.overlapRejected&&report.sentinelRejected&&report.budgetRejected&&report.wireNulRejected&&report.originalTypeRejected,'Object descriptor rejection reasons were not observed');
   }else if(codecPreferences){
-   check(report.mode==='preferences'&&report.fixtures===6&&report.headers===6&&report.queries===61&&report.rejections===8&&report.stale===1,'C preference-family fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6,6,6]),'Preference archives did not execute each original-schema/canonical family request once');
-   check(report.familyExecutions?.meta===14&&report.familyExecutions?.sheets===14&&report.familyExecutions?.preferences===15&&report.familyExecutions?.describe===18,'Observed C preference metadata execution inventory changed');
-   check(report.acceptedFeeds?.rows32===9&&report.acceptedFeeds?.rows33===6&&report.rejectedFeeds===7&&report.validSplitPairs===6,'Real65-row preference results did not retain their32+33 feed boundaries');
-   check(report.v14PredicateQueries===13&&report.unknownNullRejected&&report.unknownNulRejected&&report.duplicateFalseRejected&&report.activeHiddenRejected&&report.noncanonicalRejected&&report.malformedRejected&&report.sentinelRejected&&report.budgetRejected,'Preference-family predicate/rejection reasons were not observed');
+   check(report.mode==='preferences'&&report.fixtures===4&&report.headers===4&&report.queries===49&&report.rejections===8&&report.stale===1,'C preference-family fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6]),'Preference archives did not execute each original-schema/canonical family request once');
+   check(report.familyExecutions?.meta===12&&report.familyExecutions?.sheets===12&&report.familyExecutions?.preferences===13&&report.familyExecutions?.describe===12,'Observed C preference metadata execution inventory changed');
+   check(report.acceptedFeeds?.rows32===7&&report.acceptedFeeds?.rows33===4&&report.rejectedFeeds===7&&report.validSplitPairs===4,'Real65-row preference results did not retain their32+33 feed boundaries');
+   check(report.predicateQueries===13&&report.unknownNullRejected&&report.unknownNulRejected&&report.duplicateFalseRejected&&report.activeHiddenRejected&&report.noncanonicalRejected&&report.malformedRejected&&report.sentinelRejected&&report.budgetRejected,'Preference-family predicate/rejection reasons were not observed');
   }else if(codecSorts){
-   check(report.mode==='sorts'&&report.fixtures===4&&report.headers===6&&report.queries===49&&report.rejections===6&&report.stale===1,'C sort-family fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6,6,6]),'Sort archive original-schema/canonical requests did not execute once per family');
-   check(report.familyExecutions?.meta===12&&report.familyExecutions?.sheets===12&&report.familyExecutions?.sorts===13&&report.familyExecutions?.describe===12,'Observed C sort metadata execution inventory changed');
-   check(report.acceptedFeeds?.rows256===7&&report.acceptedFeeds?.rows192===6&&report.rejectedFeeds===6&&report.validSplitPairs===6,'Real448-row metadata results did not retain their256+192 feed boundaries');
+   check(report.mode==='sorts'&&report.fixtures===2&&report.headers===4&&report.queries===37&&report.rejections===6&&report.stale===1,'C sort-family fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([6,6]),'Sort archive original-schema/canonical requests did not execute once per family');
+   check(report.familyExecutions?.meta===10&&report.familyExecutions?.sheets===10&&report.familyExecutions?.sorts===11&&report.familyExecutions?.describe===6,'Observed C sort metadata execution inventory changed');
+   check(report.acceptedFeeds?.rows256===5&&report.acceptedFeeds?.rows192===4&&report.rejectedFeeds===6&&report.validSplitPairs===4,'Real448-row metadata results did not retain their256+192 feed boundaries');
    check(report.requiredNullRejected&&report.nameNullRejected&&report.orderRejected&&report.caseDuplicateRejected&&report.sentinelRejected&&report.budgetRejected,'Sort-family rejection reasons were not observed');
   }else{
-   check(report.fixtures===7&&report.headers===10&&report.queries===54&&report.rejections===11&&report.stale===1,'C header fixture/failure/recovery inventory changed');
-   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([4,4,4,4,4,4,4]),'A normal archive did not execute its two original-schema and two canonical metadata requests exactly once');
-   check(report.familyExecutions?.meta===20&&report.familyExecutions?.sheets===19&&report.familyExecutions?.describe===15,'Observed C metadata execution inventory changed');
+   check(report.fixtures===2&&report.headers===5&&report.queries===34&&report.rejections===11&&report.stale===1,'C header fixture/failure/recovery inventory changed');
+   check(JSON.stringify(report.normalFixtureQueries)===JSON.stringify([4,4]),'A normal archive did not execute its two original-schema and two canonical metadata requests exactly once');
+   check(report.familyExecutions?.meta===15&&report.familyExecutions?.sheets===14&&report.familyExecutions?.describe===5,'Observed C metadata execution inventory changed');
    check(report.budgetRejected===true&&report.sentinelRejected===true&&report.tinyNegativeRejected===true,'Actual budget,65th-sheet or original-DOUBLE rejection was not observed');
    check(JSON.stringify(report.u64Sentinels)===JSON.stringify(['9007199254740993','18446744073709551615']),'Exact raw U64 transport proofs changed');
   }
   check(report.headerOwnedLimit===2097152&&report.inputOwnedLimit===4194304&&report.peakOwnedInput>0&&report.peakOwnedInput<=report.inputOwnedLimit,'C header retained-input admission bound changed');
-  const transport=report.transport,fixtureNames=codecFormatRows?['format-rows-v12.dxls','format-rows-v13.dxls','format-rows-v14.dxls','format-rows-v14-reordered.dxls']:codecSourceBindings?['source-bindings-v12.dxls','source-bindings-v13.dxls','source-bindings-v14.dxls','source-bindings-v14-reordered.dxls']:codecSourceVersions?['source-versions-v12.dxls','source-versions-v13.dxls','source-versions-v14.dxls','source-versions-v14-reordered.dxls']:codecSourceCounters?['source-counters-v12.dxls','source-counters-v13.dxls','source-counters-v14.dxls','source-counters-v14-reordered.dxls']:codecCounters?['counters-v12.dxls','counters-v13.dxls','counters-v14.dxls','counters-v14-reordered.dxls']:codecGrid?['grid-v12.dxls','grid-v13.dxls','grid-v14.dxls','grid-v14-reordered.dxls']:codecFilters?['filters-v12.dxls','filters-v13.dxls','filters-v14.dxls','filters-v14-reordered.dxls']:codecPivotMarks?['pivot-marks-v12.dxls','pivot-marks-v13.dxls','pivot-marks-v14.dxls','pivot-marks-v14-reordered.dxls']:codecTables?['tables-v12.dxls','tables-v13.dxls','tables-v14.dxls','tables-v14-reordered.dxls']:codecSourceOptions?['options-v12.dxls','options-v13.dxls','options-v14.dxls','options-v14-reordered.dxls']:codecQueries?['queries-v12.dxls','queries-v14-blank.dxls','queries-v14-nul.dxls','queries-v13.dxls','queries-v14.dxls','queries-v14-reordered.dxls']:codecObjects?['objects-v12.dxls','objects-v13.dxls','objects-v14.dxls','objects-v14-reordered.dxls']:codecPreferences?['preferences-v12.dxls','preferences-v14-unknown-null.dxls','preferences-v14-unknown-nul.dxls','preferences-v13.dxls','preferences-v14.dxls','preferences-v14-reordered.dxls']:codecSorts?['sorts-v12.dxls','sorts-v13.dxls','sorts-v14.dxls','sorts-v14-reordered.dxls']:['v12.dxls','v12-reordered.dxls','v12-legacy24.dxls','v13.dxls','v13-reordered.dxls','v14.dxls','v14-reordered.dxls'];
+  const transport=report.transport,family=codecFormatRows?'format-rows':codecSourceBindings?'source-bindings':codecSourceVersions?'source-versions':codecSourceCounters?'source-counters':codecCounters?'counters':codecGrid?'grid':codecFilters?'filters':codecPivotMarks?'pivot-marks':codecTables?'tables':codecSourceOptions?'options':codecQueries?'queries':codecObjects?'objects':codecPreferences?'preferences':codecSorts?'sorts':'';
+  const base=(family?family+'-':'')+'v15',fixtureNames=codecPreferences?[base+'.dxls',base+'-unknown-null.dxls',base+'-unknown-nul.dxls',base+'-reordered.dxls']:codecQueries?[base+'.dxls',base+'-blank.dxls',base+'-nul.dxls',base+'-reordered.dxls']:[base+'.dxls',base+'-reordered.dxls'];
   check(transport?.schema==='duxcel.codec-read-transport'&&transport.version===1&&transport.held===((codecGrid||codecSourceVersions||codecFormatRows)?0:1)&&transport.released===((codecGrid||codecSourceVersions||codecFormatRows)?0:1),'Held actual callback transport/release receipt changed');
   check(typeof transport.engineVersion==='string'&&transport.engineVersion.length>0&&transport.engineVersion.length<=256,'Initialized official Worker did not report its engine version');
   check(Array.isArray(transport.fixtures)&&transport.fixtures.length===fixtureNames.length&&Array.isArray(transport.queries)&&transport.queries.length===report.queries,'Official transport fixture/request inventory changed');
@@ -3086,7 +3087,7 @@ try{
    const token=actual.engineEpoch+':'+actual.registrationId;check(!tokens.has(token),'Independent fixtures reused a registration token');tokens.add(token);byName.set(actual.name,{...actual,queries:0});
   }
   check(new Set(transport.fixtures.map(item=>item.engineEpoch)).size===1,'Header proof unexpectedly used more than one engine');
-  let lastTicket=0,v14PreferenceQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0,objects:0,queries:0,sourceOptions:0,tableSources:0,tableFilters:0,tableSorts:0,pivotFields:0,marks:0,filters:0,...(codecGrid?{columns:0,cells:0}:{}),...((codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)?{objectCounters:0}:{}),...((codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)?{sourceCounters:0}:{}),...((codecSourceVersions||codecSourceBindings||codecFormatRows)?{sourceVersions:0}:{}),...((codecSourceBindings||codecFormatRows)?{sourceBindings:0}:{}),...(codecFormatRows?{formatRows:0}:{})};
+  let lastTicket=0,preferencePredicateQueries=0;const families={meta:0,sheets:0,describe:0,sorts:0,preferences:0,objects:0,queries:0,sourceOptions:0,tableSources:0,tableFilters:0,tableSorts:0,pivotFields:0,marks:0,filters:0,...(codecGrid?{columns:0,cells:0}:{}),...((codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)?{objectCounters:0}:{}),...((codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)?{sourceCounters:0}:{}),...((codecSourceVersions||codecSourceBindings||codecFormatRows)?{sourceVersions:0}:{}),...((codecSourceBindings||codecFormatRows)?{sourceBindings:0}:{}),...(codecFormatRows?{formatRows:0}:{})};
   for(const request of transport.queries){
    check(Number.isSafeInteger(request.ticket)&&request.ticket>lastTicket&&typeof request.sql==='string'&&request.sql.length<=1048576,'Observed request lost ordered ticket/bounded C SQL');lastTicket=request.ticket;
    check(Array.isArray(request.sourceBindings)&&request.sourceBindings.length===1,'Metadata request did not pin one original registration');
@@ -3094,20 +3095,20 @@ try{
    check(fixture&&binding.engineEpoch===fixture.engineEpoch&&binding.registrationId===fixture.registrationId,'Metadata request changed its captured fixture token');fixture.queries++;
    if(request.sql.startsWith('DESCRIBE '))families.describe++;
    else if((codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.source_bindings')){
-    check(binding.name.startsWith(codecFormatRows?'format-rows-v14':'source-bindings-v14')&&request.purpose==='workbook-owners'&&request.rowLimit===2113&&request.sql.includes('ORDER BY sheet_id,owner LIMIT 2113')&&!/\bOFFSET\b/i.test(request.sql),'Bindings lost their captured one-execution I/U/U owner result');
+    check(binding.name.startsWith(codecFormatRows?'format-rows-v15':'source-bindings-v15')&&request.purpose==='workbook-owners'&&request.rowLimit===2113&&request.sql.includes('ORDER BY sheet_id,owner LIMIT 2113')&&!/\bOFFSET\b/i.test(request.sql),'Bindings lost their captured one-execution I/U/U owner result');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(owner AS VARCHAR) AS owner,CAST(version AS VARCHAR) AS version'),'Bindings bypassed the original-type C canonical projection');families.sourceBindings++;
    }
    else if((codecSourceVersions||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.source_versions')){
-    check(binding.name.startsWith(codecFormatRows?'format-rows-v14':codecSourceBindings?'source-bindings-v14':'source-versions-v14')&&request.purpose==='workbook-metadata-stream'&&request.family==='source-versions'&&request.rowLimit===65537&&request.sql.includes('ORDER BY sheet_id,version LIMIT 65537')&&!/\bOFFSET\b/i.test(request.sql),'Source ledger lost its captured single-execution bound/order');
+    check(binding.name.startsWith(codecFormatRows?'format-rows-v15':codecSourceBindings?'source-bindings-v15':'source-versions-v15')&&request.purpose==='workbook-metadata-stream'&&request.family==='source-versions'&&request.rowLimit===65537&&request.sql.includes('ORDER BY sheet_id,version LIMIT 65537')&&!/\bOFFSET\b/i.test(request.sql),'Source ledger lost its captured single-execution bound/order');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(version AS VARCHAR) AS version,CAST(owner AS VARCHAR) AS owner,CAST(source_kind AS VARCHAR) AS source_kind,CAST(source_reference AS VARCHAR) AS source_reference,CAST(encoding AS VARCHAR) AS encoding,'),'Source ledger bypassed original-type C projection');
     check(request.sql.includes('hex(definition)'),'Source ledger did not project nullable binary bytes to hex');families.sourceVersions++;
    }
    else if((codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.source_version_counters')){
-    check(binding.name.startsWith(codecFormatRows?'format-rows-v14':codecSourceBindings?'source-bindings-v14':codecSourceVersions?'source-versions-v14':'source-counters-v14')&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Source-version counters lost their captured one-execution65-row ordinary policy');
+    check(binding.name.startsWith(codecFormatRows?'format-rows-v15':codecSourceBindings?'source-bindings-v15':codecSourceVersions?'source-versions-v15':'source-counters-v15')&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Source-version counters lost their captured one-execution65-row ordinary policy');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(high_water AS VARCHAR) AS high_water FROM ('),'Source-version counter result bypassed its C original I/U canonical projection');families.sourceCounters++;
    }
    else if((codecCounters||codecSourceCounters||codecSourceVersions||codecSourceBindings||codecFormatRows)&&request.sql.includes('_duxcel_workspace.object_counters')){
-    check((codecFormatRows?!binding.name.startsWith('format-rows-v12'):codecSourceBindings?!binding.name.startsWith('source-bindings-v12'):codecSourceVersions?!binding.name.startsWith('source-versions-v12'):codecSourceCounters?!binding.name.startsWith('source-counters-v12'):!binding.name.startsWith('counters-v12'))&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Counter result lost its one-execution bounded65-row ordinary policy');
+    check(binding.name.startsWith(base)&&request.purpose===undefined&&request.rowLimit===65&&request.sql.includes('ORDER BY sheet_id LIMIT 65')&&!/\bOFFSET\b/i.test(request.sql),'Counter result lost its one-execution bounded65-row ordinary policy');
     check(request.sql.startsWith('SELECT CAST(sheet_id AS VARCHAR) AS sheet_id,CAST(high_water AS VARCHAR) AS high_water FROM ('),'Counter result bypassed the C original I/U canonical projection');families.objectCounters++;
    }
    else if(codecFormatRows&&request.sql.includes('_duxcel_workspace.formats')){
@@ -3156,17 +3157,18 @@ try{
    }
    else if(codecPreferences&&request.sql.includes('_duxcel_workspace.preferences')){
     check(request.purpose===undefined&&request.rowLimit===66&&/LIMIT 66/.test(request.sql),'Preferences did not use the ordinary bounded66-row Page policy');
-    const v14=request.sql.includes('OR name IS NULL OR value IS NULL OR contains(name,chr(0))');
-    check(v14===binding.name.startsWith('preferences-v14'),'Preference query used the wrong version-specific malformed-row predicate');
-    if(v14)v14PreferenceQueries++;families.preferences++;
+    const current=request.sql.includes('OR name IS NULL OR value IS NULL OR contains(name,chr(0))');
+    check(current,'Current preference query omitted malformed-row predicate');
+    if(current)preferencePredicateQueries++;families.preferences++;
    }
    else if(request.sql.includes('_duxcel_workspace.meta'))families.meta++;
    else if(request.sql.includes('_duxcel_workspace.sheets'))families.sheets++;
    else throw new Error('Unexpected nonmetadata SQL in Header request');
   }
   check(Object.entries(families).every(([family,count])=>count===(report.familyExecutions[family]??0)),'Host-observed SQL inventory disagrees with C counters');
-  if(codecPreferences)check(v14PreferenceQueries===report.v14PredicateQueries,'Transport did not observe every v14 malformed-row predicate');
-  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===(codecFormatRows?(i===0?18:i===1?20:i===2?26:143):codecSourceBindings?(i===0?16:i===1?18:i===2?24:108):codecSourceVersions?(i===0?6:i===1?8:i===2?12:72):codecSourceCounters?(i===0?6:i===1?8:i===2?10:40):codecCounters?(i===0?6:i===3?32:8):codecGrid?(i===3?38:8):codecFilters?(i===3?71:14):codecPivotMarks?(i===3?116:20):codecTables?(i===3?78:16):codecSourceOptions?(i===3?49:10):codecQueries?(i===5?45:8):codecObjects?(i===3?40:6):codecPreferences?(i===5?31:6):codecSorts?(i===3?31:6):(i===6?30:4)),'Metadata batching re-executed a fixture query');
+  if(codecPreferences)check(preferencePredicateQueries===report.predicateQueries,'Transport did not observe every current malformed-row predicate');
+  const normalQueries=report.normalFixtureQueries.reduce((sum,count)=>sum+count,0);
+  for(let i=0;i<fixtureNames.length;i++)check(byName.get(fixtureNames[i]).queries===report.normalFixtureQueries[i]+(i===fixtureNames.length-1?report.queries-normalQueries:0),'Metadata batching re-executed a fixture query');
   check(!events.some(event=>event.method==='Runtime.exceptionThrown'),'Uncaught exception in isolated header transport');
   await fs.writeFile(path.join(output,'codec-read-transport.json'),JSON.stringify(transport,null,2));
   await fs.writeFile(path.join(output,'events.json'),JSON.stringify(events,null,2));

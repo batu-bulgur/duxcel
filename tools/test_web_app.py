@@ -5,63 +5,21 @@ from pathlib import Path
 from workspace import FileLock, native_lock_path, source_metadata
 from browser_test_assets import flat_test_module
 ROOT=Path(__file__).resolve().parents[1]
-CODEC_FIXTURES={
-    'v12.dxls':(12,25),'v12-reordered.dxls':(12,25),
-    'v12-legacy24.dxls':(12,24),'v13.dxls':(13,25),
-    'v13-reordered.dxls':(13,25),'v14.dxls':(14,25),
-    'v14-reordered.dxls':(14,25)}
-CODEC_SORTS_FIXTURES={
-    'sorts-v12.dxls':(12,25),'sorts-v13.dxls':(13,25),
-    'sorts-v14.dxls':(14,25),'sorts-v14-reordered.dxls':(14,25)}
-CODEC_PREFERENCES_FIXTURES={
-    'preferences-v12.dxls':(12,25),'preferences-v13.dxls':(13,25),
-    'preferences-v14.dxls':(14,25),'preferences-v14-reordered.dxls':(14,25),
-    'preferences-v14-unknown-null.dxls':(14,25),'preferences-v14-unknown-nul.dxls':(14,25)}
-CODEC_OBJECTS_FIXTURES={
-    'objects-v12.dxls':(12,25),'objects-v13.dxls':(13,25),
-    'objects-v14.dxls':(14,25),'objects-v14-reordered.dxls':(14,25)}
-CODEC_QUERIES_FIXTURES={
-    'queries-v12.dxls':(12,25),'queries-v13.dxls':(13,25),
-    'queries-v14.dxls':(14,25),'queries-v14-reordered.dxls':(14,25),
-    'queries-v14-blank.dxls':(14,25),'queries-v14-nul.dxls':(14,25)}
-CODEC_SOURCE_OPTIONS_FIXTURES={
-    'options-v12.dxls':(12,25),'options-v13.dxls':(13,25),
-    'options-v14.dxls':(14,25),'options-v14-reordered.dxls':(14,25)}
-
-CODEC_TABLES_FIXTURES={
-    'tables-v12.dxls':(12,25),'tables-v13.dxls':(13,25),
-    'tables-v14.dxls':(14,25),'tables-v14-reordered.dxls':(14,25)}
-
-CODEC_PIVOT_MARKS_FIXTURES={
-    'pivot-marks-v12.dxls':(12,25),'pivot-marks-v13.dxls':(13,25),
-    'pivot-marks-v14.dxls':(14,25),'pivot-marks-v14-reordered.dxls':(14,25)}
-
-CODEC_FILTERS_FIXTURES={
-    'filters-v12.dxls':(12,25),'filters-v13.dxls':(13,25),
-    'filters-v14.dxls':(14,25),'filters-v14-reordered.dxls':(14,25)}
-
-CODEC_GRID_FIXTURES={
-    'grid-v12.dxls':(12,25),'grid-v13.dxls':(13,25),
-    'grid-v14.dxls':(14,25),'grid-v14-reordered.dxls':(14,25)}
-
-CODEC_COUNTERS_FIXTURES={
-    'counters-v12.dxls':(12,25),'counters-v13.dxls':(13,25),
-    'counters-v14.dxls':(14,25),'counters-v14-reordered.dxls':(14,25)}
-
-CODEC_SOURCE_COUNTERS_FIXTURES={
-    'source-counters-v12.dxls':(12,25),'source-counters-v13.dxls':(13,25),
-    'source-counters-v14.dxls':(14,25),'source-counters-v14-reordered.dxls':(14,25)}
-
-CODEC_SOURCE_VERSIONS_FIXTURES={
-    'source-versions-v12.dxls':(12,25),'source-versions-v13.dxls':(13,25),
-    'source-versions-v14.dxls':(14,25),'source-versions-v14-reordered.dxls':(14,25)}
-
-CODEC_SOURCE_BINDINGS_FIXTURES={
-    'source-bindings-v12.dxls':(12,25),'source-bindings-v13.dxls':(13,25),
-    'source-bindings-v14.dxls':(14,25),'source-bindings-v14-reordered.dxls':(14,25)}
-CODEC_FORMAT_ROWS_FIXTURES={
-    'format-rows-v12.dxls':(12,25),'format-rows-v13.dxls':(13,25),
-    'format-rows-v14.dxls':(14,25),'format-rows-v14-reordered.dxls':(14,25)}
+CODEC_FIXTURES={'v15.dxls':(15,25),'v15-reordered.dxls':(15,25)}
+CODEC_SORTS_FIXTURES={'sorts-v15.dxls':(15,25),'sorts-v15-reordered.dxls':(15,25)}
+CODEC_PREFERENCES_FIXTURES={'preferences-v15.dxls':(15,25),'preferences-v15-reordered.dxls':(15,25),'preferences-v15-unknown-null.dxls':(15,25),'preferences-v15-unknown-nul.dxls':(15,25)}
+CODEC_OBJECTS_FIXTURES={'objects-v15.dxls':(15,25),'objects-v15-reordered.dxls':(15,25)}
+CODEC_QUERIES_FIXTURES={'queries-v15.dxls':(15,25),'queries-v15-reordered.dxls':(15,25),'queries-v15-blank.dxls':(15,25),'queries-v15-nul.dxls':(15,25)}
+CODEC_SOURCE_OPTIONS_FIXTURES={'options-v15.dxls':(15,25),'options-v15-reordered.dxls':(15,25)}
+CODEC_TABLES_FIXTURES={'tables-v15.dxls':(15,25),'tables-v15-reordered.dxls':(15,25)}
+CODEC_PIVOT_MARKS_FIXTURES={'pivot-marks-v15.dxls':(15,25),'pivot-marks-v15-reordered.dxls':(15,25)}
+CODEC_FILTERS_FIXTURES={'filters-v15.dxls':(15,25),'filters-v15-reordered.dxls':(15,25)}
+CODEC_GRID_FIXTURES={'grid-v15.dxls':(15,25),'grid-v15-reordered.dxls':(15,25)}
+CODEC_COUNTERS_FIXTURES={'counters-v15.dxls':(15,25),'counters-v15-reordered.dxls':(15,25)}
+CODEC_SOURCE_COUNTERS_FIXTURES={'source-counters-v15.dxls':(15,25),'source-counters-v15-reordered.dxls':(15,25)}
+CODEC_SOURCE_VERSIONS_FIXTURES={'source-versions-v15.dxls':(15,25),'source-versions-v15-reordered.dxls':(15,25)}
+CODEC_SOURCE_BINDINGS_FIXTURES={'source-bindings-v15.dxls':(15,25),'source-bindings-v15-reordered.dxls':(15,25)}
+CODEC_FORMAT_ROWS_FIXTURES={'format-rows-v15.dxls':(15,25),'format-rows-v15-reordered.dxls':(15,25)}
 
 def codec_fixture_manifest(directory, emitted, expected=CODEC_FIXTURES):
     """Validate only this invocation's closed, bounded immutable archives."""
@@ -139,7 +97,7 @@ def parse_options(argv=None):
     parser.add_argument('--filters',action='store_true',help='Exercise the real transactions.csv value and date dropdowns')
     parser.add_argument('--busy',action='store_true',help='Require real UI input/rendering before the imported source job completes')
     parser.add_argument('--worker-driver',action='store_true')
-    parser.add_argument('--codec-read-driver',action='store_true',help='Isolated C meta/sheets Header decoding over seven immutable native archives and the official Worker; no App Save/Open')
+    parser.add_argument('--codec-read-driver',action='store_true',help='Isolated C meta/sheets Header decoding over two immutable current native archives and the official Worker; no App Save/Open')
     parser.add_argument('--codec-sorts',action='store_true',help='Separate opt-in saved-sort family proof; requires --codec-read-driver')
     parser.add_argument('--codec-preferences',action='store_true',help='Separate opt-in saved preferences proof; requires --codec-read-driver')
     parser.add_argument('--codec-objects',action='store_true',help='Separate opt-in saved object descriptor proof; requires --codec-read-driver')
@@ -566,7 +524,7 @@ def main():
                 if options.codec_source_bindings:record['profile']='codec-source-bindings-driver'
                 if options.codec_format_rows:record['profile']='codec-format-rows-driver'
                 record['codec_fixture_manifest']=codec_manifest;record['codec_helper_sha256']=codec_helper_hash
-                record['scope']='Isolated C partial '+('meta/sheets/complete current-owner definitions/RAW ledger/bindings/streamed base format properties over four immutable native archives' if options.codec_format_rows else 'meta/sheets/complete current-owner definitions/RAW ledger/source-binding Header decoder over four immutable native archives' if options.codec_source_bindings else 'meta/sheets/object-descriptors/independent counters/RAW source-ledger Header decoder over four immutable native archives' if options.codec_source_versions else 'meta/sheets/object-descriptors/independent-object-and-source-version-counters Header decoder over four immutable native archives' if options.codec_source_counters else 'meta/sheets/object-descriptors/exact-allocation-counters Header decoder over four immutable native archives' if options.codec_counters else 'meta/sheets/ACKed-streamed column presentation and sparse cells Header decoder over four immutable native archives' if options.codec_grid else 'meta/sheets/empty-object-descriptors/queries/options/sorts/full-primary-filter Header decoder over four immutable native archives' if options.codec_filters else 'meta/sheets/objects/queries/options/Table-sources-filters-sorts/Pivot-Marks definitions Header decoder over four immutable native archives' if options.codec_pivot_marks else 'meta/sheets/objects/primary-Table-queries/source-options/complete-Table-sources-filters-sorts Header decoder over four immutable native archives' if options.codec_tables else 'meta/sheets/objects/primary-Table-queries/source-options Header decoder over four immutable native archives' if options.codec_source_options else 'meta/sheets/objects/primary-Table-query Header decoder over six immutable native archives including two deliberately invalid query packages' if options.codec_queries else 'meta/sheets/object-descriptor Header decoder over four immutable native archives' if options.codec_objects else 'meta/sheets/preferences Header decoder over six closed native archives including two deliberately invalid packages' if options.codec_preferences else 'meta/sheets/secondary-sort Header decoder over four immutable native archives' if options.codec_sorts else 'meta/sheets Header decoder over seven immutable native v12/v13/v14 archives')+' through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
+                record['scope']='Isolated C partial '+('meta/sheets/complete current-owner definitions/RAW ledger/bindings/streamed base format properties over two immutable current native archives' if options.codec_format_rows else 'meta/sheets/complete current-owner definitions/RAW ledger/source-binding Header decoder over two immutable current native archives' if options.codec_source_bindings else 'meta/sheets/object-descriptors/independent counters/RAW source-ledger Header decoder over two immutable current native archives' if options.codec_source_versions else 'meta/sheets/object-descriptors/independent-object-and-source-version-counters Header decoder over two immutable current native archives' if options.codec_source_counters else 'meta/sheets/object-descriptors/exact-allocation-counters Header decoder over two immutable current native archives' if options.codec_counters else 'meta/sheets/ACKed-streamed column presentation and sparse cells Header decoder over two immutable current native archives' if options.codec_grid else 'meta/sheets/empty-object-descriptors/queries/options/sorts/full-primary-filter Header decoder over two immutable current native archives' if options.codec_filters else 'meta/sheets/objects/queries/options/Table-sources-filters-sorts/Pivot-Marks definitions Header decoder over two immutable current native archives' if options.codec_pivot_marks else 'meta/sheets/objects/primary-Table-queries/source-options/complete-Table-sources-filters-sorts Header decoder over two immutable current native archives' if options.codec_tables else 'meta/sheets/objects/primary-Table-queries/source-options Header decoder over two immutable current native archives' if options.codec_source_options else 'meta/sheets/objects/primary-Table-query Header decoder over four immutable current native archives including two deliberately invalid query packages' if options.codec_queries else 'meta/sheets/object-descriptor Header decoder over two immutable current native archives' if options.codec_objects else 'meta/sheets/preferences Header decoder over four closed current native archives including two deliberately invalid packages' if options.codec_preferences else 'meta/sheets/secondary-sort Header decoder over two immutable current native archives' if options.codec_sorts else 'meta/sheets Header decoder over two immutable native v15 archives')+' through the official Worker and existing DXP1 Page decoder. No complete Workbook, App publication, browser Save/Open, later-family migration, physical input or live review queue claim.'
             if options.chart_other_only:
                 record['scope']='Actual shared C same-sheet Rows Group/Columns Bucket/SUM Rank/AVG Value/COUNT DISTINCT Customer through real authoring menus and official Worker. Cached source-derived Other7.5/3, exact typed readouts, Bar/Plot/Marks pointer and keyboard actions, presentation-only Undo/Redo and source/manual retention are checked with zero post-publication jobs. No injected analytical state, clipboard activation, report upload, persistence or physical input claim.'
             if options.inspector_sql_only:

@@ -16,7 +16,7 @@ EM_JS(void, report_sorts,(int ok,unsigned checks,unsigned fixtures,unsigned head
     const at=normal>>>2;
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'sorts',checks,fixtures,headers,queries,rejections:rejected,stale,
         peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+4)),familyExecutions:{meta,sheets,sorts:sort_queries,describe:describes},
+        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+2)),familyExecutions:{meta,sheets,sorts:sort_queries,describe:describes},
         acceptedFeeds:{rows256:first,rows192:last},rejectedFeeds:rejected_feeds,validSplitPairs:pairs,
         requiredNullRejected:Boolean(proofs&1),nameNullRejected:Boolean(proofs&2),orderRejected:Boolean(proofs&4),caseDuplicateRejected:Boolean(proofs&8),
         sentinelRejected:Boolean(proofs&16),budgetRejected:Boolean(proofs&32),
@@ -141,7 +141,7 @@ static bool sorts_feed_result(void) {
 static bool sorts_restart(void) {clear_input();d.fault++;sorts_wire=false;return begin_read();}
 static bool sorts_tick_body(void) {
     if(d.phase==0){
-        CHECK(d.fixture<4,"Sorts fixture index out of bounds");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
+        CHECK(d.fixture<2,"Sorts fixture index out of bounds");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
         char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",sorts_files[d.fixture]);
         fixture_start(d.cookie,d.ticket,sorts_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=101;return true;
     }
@@ -175,18 +175,18 @@ static bool sorts_tick_body(void) {
         if(d.fault>=1&&d.fault<=6){CHECK(sorts_restart(),"Sorts negative recovery setup failed");d.phase=105;return true;}
         clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete sorts Header could not move");CHECK(sorts_header_expected(),"Exact sorts Header fixture mismatch");d.headers++;
         if(!d.fault){
-            d.fixture++;if(d.fixture<4){page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.sorts_schema);d.phase=0;return true;}
-            d.fixture=3;d.fault=1;sorts_wire=false;CHECK(begin_read(),"Sorts negative cursor setup failed");d.phase=105;return true;
+            d.fixture++;if(d.fixture<2){page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.sorts_schema);d.phase=0;return true;}
+            d.fixture=1;d.fault=1;sorts_wire=false;CHECK(begin_read(),"Sorts negative cursor setup failed");d.phase=105;return true;
         }
         if(d.fault==7){CHECK(sorts_restart(),"Final sorts recovery setup failed");d.phase=105;return true;}
-        CHECK(d.fault==8&&d.fixtures==4&&d.headers==6&&d.queries==49&&d.rejections==6&&d.stale==1&&d.meta_queries==12&&d.sheets_queries==12&&sorts.queries==13&&d.describe_queries==12,"Sorts terminal query/header/rejection inventory changed");
-        CHECK(sorts.accepted_256==7&&sorts.accepted_192==6&&sorts.rejected_feeds==6&&sorts.valid_splits==6&&sorts.proofs==63,"Sorts observed split/proof inventory changed");
-        for(size_t i=0;i<4;i++)CHECK(d.normal_queries[i]==6,"Sorts normal fixture query workload changed");
+        CHECK(d.fault==8&&d.fixtures==2&&d.headers==4&&d.queries==37&&d.rejections==6&&d.stale==1&&d.meta_queries==10&&d.sheets_queries==10&&sorts.queries==11&&d.describe_queries==6,"Sorts terminal query/header/rejection inventory changed");
+        CHECK(sorts.accepted_256==5&&sorts.accepted_192==4&&sorts.rejected_feeds==6&&sorts.valid_splits==4&&sorts.proofs==63,"Sorts observed split/proof inventory changed");
+        for(size_t i=0;i<2;i++)CHECK(d.normal_queries[i]==6,"Sorts normal fixture query workload changed");
         d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
     if(d.phase==9&&d.fixture_ready){
         clear_input();page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.sorts_schema);workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;
-        d.done=true;printf("PASS browser-codec-sorts: %u checks, 4 native fixtures, 6 Headers, 49 queries, 6 semantic/budget rejections, 1 stale callback; no Workbook publication\n",d.checks);sorts_report(true,NULL);emscripten_cancel_main_loop();return true;
+        d.done=true;printf("PASS browser-codec-sorts: %u checks,2 current native fixtures, 4 Headers, 37 queries, 6 semantic/budget rejections, 1 stale callback; no Workbook publication\n",d.checks);sorts_report(true,NULL);emscripten_cancel_main_loop();return true;
     }
     return true;
 }

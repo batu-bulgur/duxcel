@@ -1,8 +1,8 @@
 /* Preferences-only continuation in the existing official-Worker driver. The
-   two malformed native files exercise the cursor's real v14 WHERE predicates;
+   two malformed native files exercise the cursor's real current WHERE predicates;
    they are not rows injected after that predicate or complete Workbook loads. */
 typedef struct {
-    unsigned queries,first32,last33,rejected_feeds,pairs,proofs,v14_queries;
+    unsigned queries,first32,last33,rejected_feeds,pairs,proofs,predicate_queries;
     bool held_released;
 } PreferencesState;
 static PreferencesState preferences;
@@ -12,12 +12,12 @@ static bool preferences_observe(size_t extra) {
     CHECK(current<=INPUT_LIMIT&&extra<=INPUT_LIMIT-current,"Concrete preferences C buffers exceed admission");
     if(current+extra>d.peak_input)d.peak_input=current+extra;return true;
 }
-EM_JS(void, report_preferences,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,const unsigned *normal,unsigned meta,unsigned sheets,unsigned prefs,unsigned describe,unsigned first,unsigned last,unsigned rejected,unsigned pairs,unsigned proofs,unsigned v14,const char *error),{
+EM_JS(void, report_preferences,(int ok,unsigned checks,unsigned fixtures,unsigned headers,unsigned queries,unsigned rejections,unsigned stale,size_t peak,const unsigned *normal,unsigned meta,unsigned sheets,unsigned prefs,unsigned describe,unsigned first,unsigned last,unsigned rejected,unsigned pairs,unsigned proofs,unsigned predicate,const char *error),{
     const at=normal>>>2;
     Module['dxCodecReadTestDone']({ok:Boolean(ok),mode:'preferences',checks,fixtures,headers,queries,rejections,stale,
         peakOwnedInput:peak,headerOwnedLimit:2097152,inputOwnedLimit:4194304,
-        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+6)),familyExecutions:{meta,sheets,preferences:prefs,describe},
-        acceptedFeeds:{rows32:first,rows33:last},rejectedFeeds:rejected,validSplitPairs:pairs,v14PredicateQueries:v14,
+        normalFixtureQueries:Array.from(HEAPU32.subarray(at,at+4)),familyExecutions:{meta,sheets,preferences:prefs,describe},
+        acceptedFeeds:{rows32:first,rows33:last},rejectedFeeds:rejected,validSplitPairs:pairs,predicateQueries:predicate,
         unknownNullRejected:Boolean(proofs&1),unknownNulRejected:Boolean(proofs&2),duplicateFalseRejected:Boolean(proofs&4),
         activeHiddenRejected:Boolean(proofs&8),noncanonicalRejected:Boolean(proofs&16),malformedRejected:Boolean(proofs&32),
         sentinelRejected:Boolean(proofs&64),budgetRejected:Boolean(proofs&128),
@@ -25,7 +25,7 @@ EM_JS(void, report_preferences,(int ok,unsigned checks,unsigned fixtures,unsigne
 })
 static void preferences_report(bool ok,const char *error) {
     report_preferences(ok,d.checks,d.fixtures,d.headers,d.queries,d.rejections,d.stale,d.peak_input,d.normal_queries,d.meta_queries,d.sheets_queries,preferences.queries,d.describe_queries,
-        preferences.first32,preferences.last33,preferences.rejected_feeds,preferences.pairs,preferences.proofs,preferences.v14_queries,error);
+        preferences.first32,preferences.last33,preferences.rejected_feeds,preferences.pairs,preferences.proofs,preferences.predicate_queries,error);
 }
 static bool preferences_prior_unchanged(void) {
     CHECK(d.header==d.prior&&workbook_codec_header_owned_bytes(d.header)==d.prior_header_bytes,"Old preferences Header ownership changed");
@@ -61,8 +61,8 @@ static bool preferences_send_family(WorkbookCodecFamily family,bool hold) {
         return preferences_send(browser_page_sql(request->sql,schema,0,&d.error),schema,(unsigned)request->row_limit,false);
     }
     CHECK(request->row_limit==66&&request->column_count==2&&request->source_column_count==2,"Preferences cursor envelope changed");
-    if(preferences_versions[d.fixture]==14){
-        CHECK(strstr(request->sql,"OR name IS NULL OR value IS NULL OR contains(name,chr(0))"),"Real v14 unknown-invalid predicate missing");preferences.v14_queries++;
+    {
+        CHECK(strstr(request->sql,"OR name IS NULL OR value IS NULL OR contains(name,chr(0))"),"Real current unknown-invalid predicate missing");preferences.predicate_queries++;
     }
     char *relation=dx_strdup(request->sql);
     if(d.fault==1){
@@ -95,7 +95,7 @@ static bool preferences_atoms(void) {
         if(!column)atom->value.text=(WorkbookCodecText){cell->text,strlen(cell->text)};
         else{CHECK(!strcmp(cell->text,"true")||!strcmp(cell->text,"false"),"Invalid exact BOOLEAN preference text");atom->value.boolean=!strcmp(cell->text,"true");}
     }
-    if(!d.fault&&d.fixture==1)CHECK(same(d.page.cells[0].text,"a")&&d.page.cells[1].is_null,"Unknown NULL native archive row did not survive real v14 WHERE");
+    if(!d.fault&&d.fixture==1)CHECK(same(d.page.cells[0].text,"a")&&d.page.cells[1].is_null,"Unknown NULL native archive row did not survive real current WHERE");
     return true;
 }
 static bool preferences_feed_result(void) {
@@ -131,7 +131,7 @@ static bool preferences_next_fixture(void) {
 static bool preferences_restart(void) {clear_input();d.fault++;return begin_read();}
 static bool preferences_tick_body(void) {
     if(d.phase==0){
-        CHECK(d.fixture<6,"Preferences fixture index exceeded inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
+        CHECK(d.fixture<4,"Preferences fixture index exceeded inventory");d.cookie++;d.ticket++;d.waiting=true;d.fixture_ready=false;
         char *attach=dx_printf("ATTACH '%s' AS codec_fixture (READ_ONLY); USE codec_fixture",preferences_files[d.fixture]);fixture_start(d.cookie,d.ticket,preferences_files[d.fixture],attach,"USE memory; DETACH codec_fixture");free(attach);d.phase=201;return true;
     }
     if(d.phase==201){if(!d.fixture_ready)return true;d.phase=202;return preferences_send(dx_strdup("DESCRIBE SELECT * FROM _duxcel_workspace.meta"),NULL,256,false);}
@@ -160,7 +160,7 @@ static bool preferences_tick_body(void) {
         CHECK(d.ready,"Preferences result missing");
         if(!d.fault&&d.fixture==2){
             CHECK(d.error&&strstr(d.error,"NUL"),"Actual unknown-NUL archive row was incorrectly omitted or accepted by wire");
-            const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);CHECK(request&&request->family==WORKBOOK_CODEC_PREFERENCES&&!request->first_row&&strstr(request->sql,"contains(name,chr(0))"),"Unknown-NUL failure changed cursor or did not use v14 predicate");
+            const WorkbookCodecRequest *request=workbook_codec_read_request(d.read);CHECK(request&&request->family==WORKBOOK_CODEC_PREFERENCES&&!request->first_row&&strstr(request->sql,"contains(name,chr(0))"),"Unknown-NUL failure changed cursor or did not use current predicate");
             CHECK(preferences_prior_unchanged(),"Unknown-NUL archive changed old Header");CHECK(!workbook_codec_read_finish(d.read,&d.header,&d.error)&&d.header==d.prior,"Incomplete unknown-NUL candidate replaced old Header");preferences.proofs|=2;d.rejections++;return preferences_next_fixture();
         }
         CHECK(!d.error,d.error?d.error:"Preferences transport failed");CHECK(preferences_feed_result(),"Actual preference atoms failed");
@@ -168,17 +168,17 @@ static bool preferences_tick_body(void) {
         if(d.fault>=1&&d.fault<=6){CHECK(preferences_restart(),"Preferences negative recovery setup failed");d.phase=205;return true;}
         clear_input();CHECK(workbook_codec_read_finish(d.read,&d.header,&d.error),d.error?d.error:"Complete preferences Header move failed");CHECK(preferences_header_expected(),"Exact preferences Header mismatch");d.headers++;
         if(!d.fault){
-            if(d.fixture<5)return preferences_next_fixture();d.fault=1;CHECK(begin_read(),"Preferences synthetic negative setup failed");d.phase=205;return true;
+            if(d.fixture<3)return preferences_next_fixture();d.fault=1;CHECK(begin_read(),"Preferences synthetic negative setup failed");d.phase=205;return true;
         }
         if(d.fault==7){CHECK(preferences_restart(),"Final preferences recovery setup failed");d.phase=205;return true;}
-        CHECK(d.fault==8&&d.fixtures==6&&d.headers==6&&d.queries==61&&d.rejections==8&&d.stale==1&&d.meta_queries==14&&d.sheets_queries==14&&preferences.queries==15&&d.describe_queries==18,"Preferences terminal workload changed");
-        CHECK(preferences.first32==9&&preferences.last33==6&&preferences.rejected_feeds==7&&preferences.pairs==6&&preferences.proofs==255&&preferences.v14_queries==13,"Preferences split/predicate/proof inventory changed");
-        for(size_t i=0;i<6;i++)CHECK(d.normal_queries[i]==6,"Preferences fixture query workload changed");
+        CHECK(d.fault==8&&d.fixtures==4&&d.headers==4&&d.queries==49&&d.rejections==8&&d.stale==1&&d.meta_queries==12&&d.sheets_queries==12&&preferences.queries==13&&d.describe_queries==12,"Preferences terminal workload changed");
+        CHECK(preferences.first32==7&&preferences.last33==4&&preferences.rejected_feeds==7&&preferences.pairs==4&&preferences.proofs==255&&preferences.predicate_queries==13,"Preferences split/predicate/proof inventory changed");
+        for(size_t i=0;i<4;i++)CHECK(d.normal_queries[i]==6,"Preferences fixture query workload changed");
         d.phase=9;d.ticket++;d.waiting=true;d.fixture_ready=false;fixture_start(d.cookie,d.ticket,"","","USE memory; DETACH codec_fixture");return true;
     }
     if(d.phase==9&&d.fixture_ready){
         clear_input();page_free(&d.meta_schema);page_free(&d.sheets_schema);page_free(&d.preferences_schema);workbook_codec_read_free(d.read);d.read=NULL;workbook_codec_header_free(d.header);d.header=NULL;free(d.bindings);d.bindings=NULL;
-        d.done=true;printf("PASS browser-codec-preferences: %u checks,6 native archives,6 Headers,61 queries,8 rejections,1 stale callback; no Workbook publication\n",d.checks);preferences_report(true,NULL);emscripten_cancel_main_loop();return true;
+        d.done=true;printf("PASS browser-codec-preferences: %u checks,4 current native archives,4 Headers,49 queries,8 rejections,1 stale callback; no Workbook publication\n",d.checks);preferences_report(true,NULL);emscripten_cancel_main_loop();return true;
     }
     return true;
 }
