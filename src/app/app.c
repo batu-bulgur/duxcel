@@ -100,7 +100,7 @@ typedef struct {
 } ActiveReadout;
 #ifndef DUXCEL_BROWSER_HOST
 typedef struct {
-    bool active,issue,restore,baseline;
+    bool active,issue,restore;
     uint64_t document,request,analysis_revision,format_revision,cell_revision,high_water,version,owner,owner_revision;
     uint64_t origin_row,origin_rows;
     size_t sheet,bytes,object_reserved,origin_column,origin_columns;
@@ -122,13 +122,11 @@ typedef struct {
 } SourceFormatProof;
 typedef struct {
     SourceFileIdentity identity;
-    uint64_t document,version,stamp,denied_format_revision,denied_cell_revision;
+    uint64_t document,version,stamp;
     size_t sheet;
     bool valid;
-    FormatBudgetStatus deferred; /* Typed denial for this exact observation, or OK. */
 } SourceFormatAttempt;
 typedef struct { uint64_t owner; SourceFormatProof proof; SourceFormatAttempt attempt; } SourceFormatTable;
-typedef struct { uint64_t document,analysis_revision; size_t sheet; bool armed,page_ready; } SourceFormatOrigin;
 #endif
 typedef struct {
     UIContext ui;
@@ -154,7 +152,6 @@ typedef struct {
     SourceFormatProof source_format_proof;
     SourceFormatAttempt source_format_attempt;
     SourceFormatTable source_format_tables[DX_MAX_OBJECTS];
-    SourceFormatOrigin source_format_origin;
     size_t source_format_polled; /* Formatting reply remains owned until poll cleanup. */
     uint64_t format_document;
 #endif
@@ -792,8 +789,6 @@ static void cancel_document_action(App *a);
 static Worksheet *active_sheet(App *a) { return a->book.count ? &a->book.sheets[a->book.active] : NULL; }
 #ifndef DUXCEL_BROWSER_HOST
 static void source_format_cancel(App *a,const char *message);
-static void source_format_origin_arm(App *a);
-static void source_format_origin_invalidate(App *a);
 static bool source_format_manual_import_ready(App *a);
 static void source_format_manual_adopt(App *a,bool advance_revision);
 static void source_format_reset(App *a);
@@ -813,8 +808,6 @@ static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat 
 static size_t source_format_token(App *a);
 static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_CANCEL(a,message) source_format_cancel(a,message)
-#define SOURCE_FORMAT_ORIGIN_ARM(a) source_format_origin_arm(a)
-#define SOURCE_FORMAT_ORIGIN_INVALIDATE(a) source_format_origin_invalidate(a)
 #define SOURCE_FORMAT_RESET(a) source_format_reset(a)
 #define SOURCE_FORMAT_PAGE(a) source_format_page(a)
 #define SOURCE_FORMAT_TICK(a) source_format_tick(a)
@@ -827,8 +820,6 @@ static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_PENDING(a) ((a)->source_format.active)
 #else
 #define SOURCE_FORMAT_CANCEL(...) ((void)0)
-#define SOURCE_FORMAT_ORIGIN_ARM(...) ((void)0)
-#define SOURCE_FORMAT_ORIGIN_INVALIDATE(...) ((void)0)
 #define SOURCE_FORMAT_RESET(...) ((void)0)
 #define SOURCE_FORMAT_PAGE(...) ((void)0)
 #define SOURCE_FORMAT_TICK(...) ((void)0)
@@ -1408,7 +1399,7 @@ static void stack_push(Analysis *stack,size_t *count,const Analysis *state) {
 }
 static void remember(App *a) {
     Worksheet *s=active_sheet(a); if (!s) return;
-    SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
+
     stack_push(s->undo,&s->undo_count,&a->analysis); stack_clear(s->redo,&s->redo_count); a->book.dirty=true;
     worksheet_record(s,EDIT_ANALYSIS);
 }
@@ -1463,7 +1454,6 @@ static bool primary_transform_adopt(App *a,Analysis *owned,size_t validation,con
     AnalysisTransformResult r=workbook_apply_analysis_transform_recorded(&context,&target,owned,NULL,error);
     if (r.status!=ANALYSIS_TRANSFORM_APPLIED && r.status!=ANALYSIS_TRANSFORM_NOOP) return false;
     *changed=r.status==ANALYSIS_TRANSFORM_APPLIED;
-    if (*changed) SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
     return true;
 }
 static void change_analysis(App *a,bool schema);
@@ -1496,7 +1486,6 @@ static bool relink_primary_path(App *a,const char *path) {
 }
 static void request_page(App *a,bool reset) {
     if (a->object_import.active) return;
-    if (a->refresh_plans) SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
     SOURCE_FORMAT_REQUEST(a);
     QueryJob *j=dx_alloc(sizeof(*j));
     j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis); j->kind=JOB_PAGE;
@@ -1515,7 +1504,7 @@ static void request_page(App *a,bool reset) {
     app_worker_submit(a,j);
 }
 static void change_analysis(App *a,bool schema) {
-    SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
+
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled because the source definition changed.");
 #ifndef DUXCEL_BROWSER_HOST
     const SourceVersion *binding=source_format_version(a,a->analysis.source_version);
@@ -1683,7 +1672,7 @@ static void open_source(App *a,const char *path,bool demo) {
     a->selected_object=-1; a->filter_object=-1; a->pivot_focus=0; a->pivot_search_focus=false;
     a->reveal_tab=true;
     a->relation_scroll=0; a->modal=MODAL_NONE; status(a,"Opening source through DuckDB…"); change_analysis(a,true);
-    SOURCE_FORMAT_ORIGIN_ARM(a);
+
 }
 static void cancel_document_action(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
@@ -2363,7 +2352,7 @@ static void poll_query(App *a) {
             workbook_free(&a->book); a->book=*r->workbook; workbook_init(r->workbook);
             if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }
             activate_sheet(a,a->book.active,false);
-            SOURCE_FORMAT_ORIGIN_ARM(a);
+
         } else {
 #ifndef DUXCEL_BROWSER_HOST
             char *error=NULL; AppVersionOutcome outcome=app_versions_saved(&a->versions,&a->worker,&a->book,r,&error);
@@ -2492,7 +2481,7 @@ static void history_sheet(App *a,bool redo) {
         /* The new composite producer has bounded admission. Keep legacy lone
            Analysis admission separate until it shares that same preflight. */
         Analysis resolved=a->analysis;
-        SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
+
         format_history(&s->formats,redo); worksheet_analysis_history_adopt(s,&a->analysis,redo);
         if (same) analysis_merge_types(&a->analysis,&resolved);
         worksheet_transfer_history(s,redo); a->book.dirty=true;
@@ -2502,7 +2491,7 @@ static void history_sheet(App *a,bool redo) {
     Analysis *from=redo ? s->redo : s->undo,*to=redo ? s->undo : s->redo;
     size_t *fc=redo ? &s->redo_count : &s->undo_count,*tc=redo ? &s->undo_count : &s->redo_count;
     if (!*fc) return;
-    SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
+
     bool same=!a->fetch_failed && !a->page_stale && analysis_same_result(&a->analysis,&from[*fc-1]);
     if (same) analysis_merge_types(&from[*fc-1],&a->analysis);
     stack_push(to,tc,&a->analysis); analysis_free(&a->analysis); a->analysis=from[--*fc];
@@ -5919,7 +5908,7 @@ static void process_sheet_action(App *a) {
     }
     if (!ok) { status(a,error); free(error); return; }
 #ifndef DUXCEL_BROWSER_HOST
-    SOURCE_FORMAT_ORIGIN_INVALIDATE(a);
+
     if (a->source_format_proof.raw.data) a->source_format_proof.sheet=a->book.active;
     a->source_format_attempt.sheet=a->book.active;
     for (size_t i=0;i<DX_MAX_OBJECTS;i++) if (a->source_format_tables[i].owner) {
@@ -6550,7 +6539,6 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
 #ifndef DUXCEL_BROWSER_HOST
     /* An ordinary superseding format command may restart an unchanged legacy
        baseline. Explicit Escape/failure remains terminal for that observation. */
-    if (a->source_format.active && a->source_format.baseline) a->source_format_attempt.valid=false;
 #endif
     SOURCE_FORMAT_CANCEL(a,NULL);
     Worksheet *sheet=active_sheet(a); if (!sheet) return false;
@@ -10106,10 +10094,6 @@ static bool smoke_copy_fixture(const char *from,const char *to) {
     int bytes=0; unsigned char *data=LoadFileData(from,&bytes);
     bool ok=data && bytes>0 && SaveFileData(to,data,bytes); UnloadFileData(data); return ok;
 }
-static bool smoke_same_fixture(const char *first,const char *second) {
-    int n=0,m=0; unsigned char *a=LoadFileData(first,&n),*b=LoadFileData(second,&m);
-    bool same=a && b && n>0 && n==m && !memcmp(a,b,(size_t)n); UnloadFileData(a); UnloadFileData(b); return same;
-}
 /* Compare visible sticky paint, not only the stationary widget rectangles. */
 static bool smoke_same_pipeline_header(App *a,const char *baseline) {
     Image before=LoadImage(baseline),after=LoadImageFromScreen();
@@ -10128,123 +10112,6 @@ static bool smoke_same_pipeline_header(App *a,const char *baseline) {
         if (!ok) fprintf(stderr,"Sticky header paint changed: %zu dark baseline pixels, %dx%d ROI\n",ink,before.width,before.height);
     }
     UnloadImage(before); UnloadImage(after); return ok;
-}
-static bool smoke_legacy_format_book(const char *path,const char *source,char **error) {
-    Workbook book; workbook_init(&book); Analysis input={.kind=SOURCE_PARQUET,.path=dx_absolute_path(source)};
-    bool ok=input.path && workbook_add(&book,"Legacy transactions",&input,error); analysis_free(&input);
-    if (ok) {
-        Worksheet *sheet=book.sheets; CellFormat value=format_default(); value.color=3;
-        ok=format_apply(&sheet->formats,(FormatRange){0,DX_SHEET_ROWS-1,4,4},FORMAT_COLOR,value,error);
-        value.flags=FORMAT_BOLD;
-        if (ok) ok=format_apply(&sheet->formats,(FormatRange){0,11,4,4},FORMAT_BOLD,value,error);
-        value.color=2;
-        if (ok) ok=format_apply(&sheet->formats,(FormatRange){20,700,4,8},FORMAT_COLOR,value,error) &&
-            cells_set(&sheet->cells,700,0,"Below the source",error) && cells_set(&sheet->cells,700,8,"Legacy note",error);
-        if (ok) ok=workbook_save(&book,path,error);
-    }
-    workbook_free(&book); return ok;
-}
-static bool smoke_legacy_result_formats(App *a,bool result,bool record) {
-    if (a->page.total!=600 || a->page.column_count!=5 || format_at(&active_sheet(a)->formats,700,8).color!=2) return false;
-    for (size_t i=0;i<a->page.row_count;i++) {
-        uint64_t row=a->page.offset+i,id=0; if (!page_record_id(&a->page,row,&id)) return false;
-        CellFormat value=imported_cell_format(a,row,4);
-        unsigned flags=(result && row<12 ? FORMAT_BOLD : 0) | (record && id==21 ? FORMAT_BOLD : 0);
-        if (value.flags!=flags || value.color!=(result && row>=20 ? 2 : 3) || imported_cell_format(a,row,3).flags) return false;
-    }
-    return true;
-}
-/* Real retained Format history drives admission; never forge meter totals or
-   Worker reservations. Only the active sheet's Redo is released by the edit. */
-#define SMOKE_BUDGET_SHEETS 10
-static bool smoke_budget_book(const char *path,const char *source,char **error) {
-    if (!smoke_legacy_format_book(path,source,error)) return false;
-    Workbook book; workbook_init(&book); bool ok=workbook_load(&book,path,error);
-    for (size_t i=1;ok && i<SMOKE_BUDGET_SHEETS;i++) {
-        char name[32]; snprintf(name,sizeof(name),"History padding %zu",i);
-        Analysis manual={0}; ok=workbook_add(&book,name,&manual,error);
-    }
-    book.active=0; if (ok) ok=workbook_save(&book,path,error);
-    workbook_free(&book); return ok;
-}
-static bool smoke_budget_pressure(App *a,char **error) {
-    if (a->book.count!=SMOKE_BUDGET_SHEETS || a->book.active || !source_format_origin_valid(a)) {
-        fprintf(stderr,"Budget fixture origin: sheets=%zu active=%zu valid=%d aware=%d version=%" PRIu64 "\n",
-            a->book.count,a->book.active,source_format_origin_valid(a),active_sheet(a)->formats.source_aware,a->analysis.source_version);
-        return false;
-    }
-    a->modal=MODAL_GUIDE;
-    /* Seed the active sheet last: workbook-chronological Undo must place
-       its history on Redo, leaving the padding sheets' retained history intact. */
-    for (size_t remaining=a->book.count;remaining;remaining--) {
-        size_t sheet=remaining-1;
-        Worksheet *s=a->book.sheets+sheet; size_t patches=s->formats.count;
-        for (size_t i=0;i<DX_FORMAT_PATCHES-patches;i++) {
-            CellFormat value=format_default(); value.color=1;
-            if (!format_apply(&s->formats,(FormatRange){1000+2*i,1000+2*i,8,8},FORMAT_COLOR,value,error)) return false;
-            worksheet_record(s,EDIT_FORMAT);
-        }
-        for (size_t i=0;i<DX_FORMAT_HISTORY;i++) {
-            CellFormat value=format_default(); value.color=(unsigned char)(2+i%2);
-            if (!format_apply(&s->formats,(FormatRange){1000,1000,8,8},FORMAT_COLOR,value,error)) return false;
-            worksheet_record(s,EDIT_FORMAT);
-        }
-        if (s->formats.count!=DX_FORMAT_PATCHES || s->formats.undo_count!=DX_FORMAT_HISTORY || s->formats.redo_count) return false;
-    }
-    for (size_t i=0;i<DX_FORMAT_HISTORY;i++) history(a,false);
-    Worksheet *s=active_sheet(a); WorkbookFormatUsage usage={0};
-    if (workbook_format_usage(&a->book,NULL,0,&usage)!=FORMAT_BUDGET_OK ||
-        usage.current!=SMOKE_BUDGET_SHEETS*DX_FORMAT_PATCHES*sizeof(FormatPatch) ||
-        usage.retained!=usage.current*(DX_FORMAT_HISTORY+1) ||
-        s->formats.undo_count || s->formats.redo_count!=DX_FORMAT_HISTORY ||
-        s->undo_actions_count || s->redo_actions_count!=DX_FORMAT_HISTORY || !source_format_origin_valid(a)) {
-        fprintf(stderr,"Budget fixture pressure: current=%zu retained=%zu format=%zu/%zu actions=%zu/%zu origin=%d\n",
-            usage.current,usage.retained,s->formats.undo_count,s->formats.redo_count,s->undo_actions_count,s->redo_actions_count,source_format_origin_valid(a));
-        return false;
-    }
-    a->book.dirty=true; grid_select_cell(&a->grid,0,0,false);
-    a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()-1000; a->modal=MODAL_NONE; return true;
-}
-typedef struct {
-    uint64_t jobs,sql,counts,request,cell_revision,format_revision;
-    size_t retained;
-    Cell *page;
-} SmokeBudgetState;
-static bool smoke_budget_snapshot(App *a,SmokeBudgetState *state) {
-    WorkbookFormatUsage usage={0}; Worksheet *s=active_sheet(a);
-    if (workbook_format_usage(&a->book,NULL,0,&usage)!=FORMAT_BUDGET_OK) return false;
-    dx_lock(&a->worker.mutex);
-    *state=(SmokeBudgetState){.jobs=a->worker.jobs_started,.sql=a->worker.sql_executed,.counts=a->worker.counts_executed,
-        .request=a->request_id,.cell_revision=s->cells.revision,.format_revision=s->formats.revision,
-        .retained=usage.retained,.page=a->page.cells};
-    dx_unlock(&a->worker.mutex); return true;
-}
-static bool smoke_budget_work(App *a,const SmokeBudgetState *state,uint64_t verifies) {
-    dx_lock(&a->worker.mutex);
-    bool same=a->worker.jobs_started==state->jobs+verifies && a->worker.sql_executed==state->sql && a->worker.counts_executed==state->counts;
-    dx_unlock(&a->worker.mutex); return same && a->page.cells==state->page && a->page.total==600 && a->page.column_count==5;
-}
-static bool smoke_budget_denied(App *a,const SmokeBudgetState *state) {
-    Worksheet *s=active_sheet(a);
-    return !a->source_format.active && !a->busy && a->source_format_attempt.valid &&
-        a->source_format_attempt.deferred==FORMAT_BUDGET_APP &&
-        a->source_format_attempt.denied_cell_revision==s->cells.revision &&
-        a->source_format_attempt.denied_format_revision==s->formats.revision &&
-        !s->formats.source_aware && !s->source_versions.high_water && !a->analysis.source_version &&
-        !a->source_format_proof.ready && !a->source_format_proof.raw.data &&
-        smoke_budget_work(a,state,1) && smoke_legacy_result_formats(a,false,false);
-}
-static bool smoke_budget_verified(App *a,const SmokeBudgetState *state,bool cell) {
-    Worksheet *s=active_sheet(a);
-    if (!source_format_owner_verified(a,0) || !s->formats.source_aware || a->analysis.source_version!=1 ||
-        s->source_versions.high_water!=1 || !a->book.dirty || a->source_format_attempt.deferred ||
-        !smoke_budget_work(a,state,2) || !smoke_legacy_result_formats(a,true,false) ||
-        s->cells.revision!=state->cell_revision+(cell ? 1 : 0) || s->formats.revision!=state->format_revision+(cell ? 1 : 2) ||
-        strcmp(cells_get(&s->cells,700,9),cell ? "Budget released" : "") ||
-        format_at(&s->formats,1000,8).color!=(cell ? 1 : 2)) return false;
-    for (size_t i=1;i<a->book.count;i++) if (a->book.sheets[i].formats.source_aware ||
-        a->book.sheets[i].formats.count!=DX_FORMAT_PATCHES || a->book.sheets[i].formats.undo_count!=DX_FORMAT_HISTORY) return false;
-    return true;
 }
 static bool smoke_exact_result_formats(App *a,int definition,bool raw) {
     if (a->page.count_pending || !a->page.column_count || format_at(&active_sheet(a)->formats,700,8).color!=2) return false;
@@ -10289,7 +10156,6 @@ static void layout_smoke_step(App *a,int *step) {
     static size_t draft_history; static uint64_t draft_revision; static bool draft_dirty;
     static unsigned char *result_cache; static uint64_t result_preview_offset;
     static unsigned shelf_file_phase,stats_input_phase;
-    static SmokeBudgetState budget_state;
     static PivotDefinition shelf_file_pivot;
     static Rectangle shelf_file_token;
     static uint64_t shelf_file_jobs,stats_input_jobs;
@@ -13730,159 +13596,6 @@ static void layout_smoke_step(App *a,int *step) {
     case 823:
         puts("PASS: native verified exact-result and guarded styles follow only matching structured definitions, retain physical record styles through sort filter, reuse cached publication, isolate Pivot results and preserve v14 changed-file suspension and exact-byte restoration"); break;
 
-    case 824:
-        if (!smoke_record_file("build/tests/generated/app-legacy-format.parquet",false,&error) ||
-            !smoke_copy_fixture("build/tests/generated/app-legacy-format.parquet","build/tests/generated/app-legacy-format-original.parquet") ||
-            !smoke_legacy_format_book("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format.parquet",&error) ||
-            !smoke_copy_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls")) goto failed;
-        a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
-        a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
-        ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
-    case 825:
-        if (!source_format_owner_verified(a,0)) {
-            if (a->source_format_attempt.valid && !a->source_format.active) goto failed;
-            return;
-        }
-        if (!s->formats.source_aware || !a->book.dirty || a->analysis.source_version!=1 || s->source_versions.high_water!=1 ||
-            s->formats.count!=3 || s->formats.scope_count!=1 || s->undo_actions_count || s->redo_actions_count ||
-            s->formats.items[0].selector!=FORMAT_SPATIAL || s->formats.items[1].selector!=FORMAT_GUARDED ||
-            s->formats.items[2].selector!=FORMAT_GUARDED || !smoke_legacy_result_formats(a,true,false) ||
-            strcmp(cells_get(&s->cells,700,0),"Below the source")) goto failed;
-        smoke_snapshot("build/tests/results/workspace-layout/legacy-format-baseline.png");
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-migrated.dxls"); break;
-    case 826:
-        if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format-migrated.dxls"); break;
-    case 827:
-        if (!source_format_owner_verified(a,0)) return;
-        if (a->book.dirty || s->undo_actions_count || !smoke_legacy_result_formats(a,true,false)) goto failed;
-        /* Test-only idle hold while preparing real history before migration;
-           it leaves normal Page/count publication and verification untouched. */
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
-    case 828: {
-        if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware ||
-            a->analysis.source_version || !smoke_legacy_result_formats(a,false,false)) goto failed;
-        a->modal=MODAL_GUIDE;
-        grid_select_cell(&a->grid,700,8,false); CellFormat value=active_format(a); value.flags|=FORMAT_UNDERLINE;
-        if (!apply_format(a,FORMAT_UNDERLINE,value) || !cells_set(&s->cells,700,9,"Session note",&error)) goto failed;
-        worksheet_record(s,EDIT_CELLS); grid_select_cell(&a->grid,701,8,false); value=active_format(a); value.color=1;
-        if (!apply_format(a,FORMAT_COLOR,value)) goto failed;
-        history(a,false);
-        if (s->undo_actions_count!=2 || s->redo_actions_count!=1 || s->formats.undo_count!=1 || s->formats.redo_count!=1 ||
-            s->cells.undo_count!=1 || !worksheet_legacy_format_history_eligible(s,&error)) goto failed;
-        draft_revision=s->formats.revision; author_cells=(Cell *)s->cells.cells; request=a->request_id;
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()-1000; a->modal=MODAL_NONE; break;
-    }
-    case 829:
-        if (!source_format_owner_verified(a,0)) {
-            if (a->source_format_attempt.valid && !a->source_format.active) goto failed;
-            return;
-        }
-        if (a->request_id!=request+1 || s->formats.revision!=draft_revision+1 || s->undo_actions_count!=2 || s->redo_actions_count!=1 ||
-            s->formats.undo_count!=1 || s->formats.redo_count!=1 || !s->formats.undo[0].source_aware || !s->formats.redo[0].source_aware ||
-            s->cells.cells!=(SheetCell *)author_cells || a->analysis.source_version!=1 || !smoke_legacy_result_formats(a,true,false) ||
-            !(format_at(&s->formats,700,8).flags&FORMAT_UNDERLINE)) goto failed;
-        request=a->request_id; history(a,false); history(a,false);
-        if (*cells_get(&s->cells,700,9) || format_at(&s->formats,700,8).flags || a->analysis.source_version!=1 ||
-            !smoke_legacy_result_formats(a,true,false)) goto failed;
-        history(a,true); history(a,true); history(a,true);
-        if (strcmp(cells_get(&s->cells,700,9),"Session note") || !(format_at(&s->formats,700,8).flags&FORMAT_UNDERLINE) ||
-            format_at(&s->formats,701,8).color!=1 || s->source_versions.high_water!=1 || a->request_id!=request) goto failed;
-        grid_select_cell(&a->grid,20,4,false);
-        { CellFormat value=active_format(a); value.flags|=FORMAT_BOLD; if (!apply_format(a,FORMAT_BOLD,value)) goto failed; }
-        break;
-    case 830:
-        if (!smoke_legacy_result_formats(a,true,true) || s->source_versions.high_water!=1 || s->formats.scope_count!=2 ||
-            s->undo_actions_count!=4 || s->undo_count || s->redo_actions_count) goto failed;
-        grid_select_cell(&a->grid,0,1,false); run_action(a,ACTION_SORT_DESC); break;
-    case 831:
-        if (source_format_owner_result_token(a,0)!=SIZE_MAX || !smoke_legacy_result_formats(a,false,true) ||
-            !(format_at(&s->formats,700,8).flags&FORMAT_UNDERLINE)) goto failed;
-        run_action(a,ACTION_SOURCE_ORDER); break;
-    case 832:
-        if (!smoke_legacy_result_formats(a,true,true)) goto failed;
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-records.dxls"); break;
-    case 833:
-        if (a->book.dirty) goto failed;
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
-    case 834:
-        if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware) goto failed;
-        a->viewport_changed=dx_millis()-1000; source_format_schedule(a);
-        if (!a->source_format.active || !a->source_format.baseline || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed;
-        { uint64_t revision=s->formats.revision; grid_select_cell(&a->grid,0,4,false); CellFormat value=active_format(a); value.flags|=FORMAT_BOLD;
-          if (apply_format(a,FORMAT_BOLD,value) || a->source_format.active || a->source_format_attempt.valid ||
-              s->formats.revision!=revision || a->book.dirty) goto failed;
-          source_format_schedule(a); if (!a->source_format.active || !a->source_format.baseline) goto failed; }
-        cancel_active_query(a); request=a->request_id; draft_revision=s->formats.revision; break;
-    case 835:
-        if (a->source_format_attempt.deferred || a->source_format.active || a->request_id!=request || s->formats.source_aware || a->book.dirty || s->source_versions.high_water ||
-            s->formats.revision!=draft_revision || !smoke_legacy_result_formats(a,false,false)) goto failed;
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-preserved.dxls");
-        if (a->io_busy || a->request_id!=request || !a->message || !strstr(a->message,"verified migration") ||
-            !smoke_same_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls")) goto failed;
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
-    case 836: {
-        if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware) goto failed;
-        draft_revision=a->analysis_revision; Analysis order={0}; a->sort_object=-1;
-        bool ok=analysis_sort_set(&order,"Tie",true,true,&error); if (ok) apply_sort_order(a,&order); analysis_free(&order);
-        if (!ok || a->source_format_origin.armed) goto failed; break;
-    }
-    case 837:
-        if (!smoke_legacy_result_formats(a,false,false)) goto failed;
-        { Analysis order={0}; a->sort_object=-1; apply_sort_order(a,&order); } break;
-    case 838:
-        if (a->analysis_revision!=draft_revision || a->analysis.sort_column || a->source_format_origin.armed) goto failed;
-        for (size_t i=0;i<DX_HISTORY+2;i++) {
-            char text[48]; snprintf(text,sizeof(text),"Manual edit %zu",i);
-            if (!cells_set(&s->cells,700,9,text,&error)) goto failed;
-            worksheet_record(s,EDIT_CELLS);
-        }
-        if (s->undo_count || s->redo_count || !worksheet_legacy_format_history_eligible(s,&error)) goto failed;
-        a->viewport_changed=dx_millis()-1000; request=a->request_id; break;
-    case 839:
-        if (a->source_format_attempt.deferred || a->source_format_origin.armed || a->source_format.active || a->request_id!=request || s->formats.source_aware ||
-            s->source_versions.high_water || !smoke_legacy_result_formats(a,false,false)) goto failed;
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-preserved.dxls");
-        if (a->io_busy || a->request_id!=request || !a->book.dirty ||
-            !smoke_same_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls")) goto failed;
-        smoke_snapshot("build/tests/results/workspace-layout/legacy-format-invalid-origin.png");
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
-    case 840:
-        if (!a->source_format_origin.armed || !a->source_format_origin.page_ready || s->formats.source_aware ||
-            !smoke_record_file("build/tests/generated/app-legacy-format.parquet",true,&error)) goto failed;
-        a->viewport_changed=dx_millis()-1000; source_format_schedule(a);
-        if (!a->source_format.active || !a->source_format.baseline) goto failed; break;
-    case 841:
-        if (a->source_format_attempt.deferred || a->source_format.active || s->formats.source_aware || s->source_versions.high_water || a->book.dirty || s->undo_actions_count ||
-            !smoke_legacy_result_formats(a,false,false) || !a->message || !strstr(a->message,"changed")) goto failed;
-        request=a->request_id; workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-preserved.dxls");
-        if (a->io_busy || a->request_id!=request ||
-            !smoke_same_fixture("build/tests/generated/app-legacy-format.dxls","build/tests/generated/app-legacy-format-preserved.dxls") ||
-            !smoke_copy_fixture("build/tests/generated/app-legacy-format-original.parquet","build/tests/generated/app-legacy-format.parquet")) goto failed;
-        a->viewport_changed=dx_millis()-1000;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format.dxls"); break;
-    case 842:
-        if (!source_format_owner_verified(a,0)) {
-            if (a->source_format_attempt.valid && !a->source_format.active) goto failed;
-            return;
-        }
-        if (!smoke_legacy_result_formats(a,true,false) || !a->book.dirty || s->source_versions.high_water!=1 || s->undo_actions_count) goto failed;
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-legacy-format-recovered.dxls"); break;
-    case 843:
-        if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-legacy-format-recovered.dxls"); break;
-    case 844:
-        if (!source_format_owner_verified(a,0)) return;
-        if (a->book.dirty || !smoke_legacy_result_formats(a,true,false) || s->source_versions.high_water!=1) goto failed;
-        smoke_snapshot("build/tests/results/workspace-layout/legacy-format-recovered.png"); break;
-    case 845:
-        puts("PASS: native legacy format baselines preserve Cell Format Undo Redo and verified loaded definitions; pruned sort history cancellation changed files and blocked Save cannot invent source identity"); break;
-
     case 846: {
         if (!smoke_record_file("build/tests/generated/app-manual-format-import.parquet",false,&error)) goto failed;
         a->document_action=DOCUMENT_NEW; finish_document_action(a); s=active_sheet(a);
@@ -13900,7 +13613,7 @@ static void layout_smoke_step(App *a,int *step) {
         grid_select_cell(&a->grid,0,0,false);
         if (!import_table(a,"build/tests/generated/app-manual-format-import.parquet") || !s->formats.source_aware ||
             s->formats.revision!=draft_revision+1 || s->undo_actions_count!=draft_history+1 ||
-            s->undo_actions[draft_history]!=EDIT_OBJECTS || s->formats.undo_count!=1 || !s->formats.undo[0].source_aware) goto failed;
+            s->undo_actions[draft_history]!=EDIT_OBJECTS_FORMAT || s->formats.undo_count!=2 || s->formats.undo[0].source_aware || s->formats.undo[1].source_aware) goto failed;
         break;
     }
     case 847:
@@ -13909,7 +13622,7 @@ static void layout_smoke_step(App *a,int *step) {
             format_at(&s->formats,2,4).flags!=FORMAT_BOLD || imported_cell_format(a,2,4).flags ||
             strcmp(a->objects[0].page.cells[4].text,"0.0000")) goto failed;
         history(a,false); grid_select_cell(&a->grid,2,4,false);
-        if (s->objects.count || active_format(a).flags!=FORMAT_BOLD || !s->formats.source_aware) goto failed;
+        if (s->objects.count || active_format(a).flags!=FORMAT_BOLD || s->formats.source_aware) goto failed;
         history(a,true); break;
     case 848:
         if (!object_ready(a,0)) return;
@@ -13925,7 +13638,7 @@ static void layout_smoke_step(App *a,int *step) {
             format_at(&s->formats,2,4).flags!=FORMAT_BOLD || s->formats.items[0].selector!=FORMAT_SPATIAL) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/manual-format-import-reopened.png"); break;
     case 851:
-        puts("PASS: native manual format history stays manual through first Table import, blank-template removal, normal Object Undo Redo and v14 Save Open without fabricated source bindings"); break;
+        puts("PASS: native manual format history stays manual through first Table import, blank-template removal, atomic Object/Format Undo Redo and current Save Open without fabricated source bindings"); break;
     case 852:
         a->document_action=DOCUMENT_NEW; finish_document_action(a); s=active_sheet(a);
         a->statistics_enabled=false; statistics_cancel(a); a->selected_object=-1;
@@ -14010,127 +13723,6 @@ static void layout_smoke_step(App *a,int *step) {
         if (!stats_input_phase) { a->chrome_focus=10; a->status_focus=0; layout_select_key=KEY_SPACE; stats_input_phase=1; return; }
         puts("PASS: native Statistics Enter keypad Enter and Space open without toggling a metric, independent Space toggles exactly once, Escape retains the mask and document without clipboard or database work"); break;
 
-    case 867:
-        if (!smoke_record_file("build/tests/generated/app-format-budget.parquet",false,&error) ||
-            !smoke_budget_book("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget.parquet",&error) ||
-            !smoke_copy_fixture("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget-preserved.dxls")) goto failed;
-        a->statistics_enabled=false; statistics_cancel(a); a->reduced_motion=true;
-        a->sidebar=a->fields_visible=a->pipeline=a->matrix_cells_active=false; a->selected_object=-1;
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        ui_set_scale(&a->ui,1); SetWindowSize(1440,988);
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
-    case 868:
-        if (a->waiting_count_page || a->page_stale || !a->page.column_count) return;
-        if (!smoke_budget_pressure(a,&error) || !smoke_budget_snapshot(a,&budget_state)) goto failed;
-        source_format_schedule(a);
-        if (!a->source_format.active || !a->source_format.baseline || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed; break;
-    case 869:
-        if (!smoke_budget_denied(a,&budget_state)) goto failed;
-        budget_state.request=a->request_id;
-        printf("Format budget admission: current=%zu retained=%zu denied=APP; one Verify, no Collect or SQL\n",
-            (size_t)SMOKE_BUDGET_SHEETS*DX_FORMAT_PATCHES*sizeof(FormatPatch),budget_state.retained); break;
-    case 870: {
-        source_format_schedule(a);
-        if (!smoke_budget_denied(a,&budget_state) || a->request_id!=budget_state.request) goto failed;
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-preserved.dxls");
-        if (a->io_busy || a->request_id!=budget_state.request ||
-            !smoke_same_fixture("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget-preserved.dxls")) goto failed;
-        grid_select_cell(&a->grid,700,9,false); open_modal(a,MODAL_CELL); input_set(&a->input,"Budget released");
-        if (!commit_cell(a) || s->cells.revision!=budget_state.cell_revision+1 || s->formats.revision!=budget_state.format_revision ||
-            s->redo_actions_count || s->formats.redo_count) goto failed;
-        WorkbookFormatUsage usage={0};
-        if (workbook_format_usage(&a->book,NULL,0,&usage)!=FORMAT_BUDGET_OK ||
-            budget_state.retained-usage.retained!=DX_FORMAT_HISTORY*DX_FORMAT_PATCHES*sizeof(FormatPatch)) goto failed;
-        grid_select_cell(&a->grid,0,0,false); a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()-1000;
-        source_format_schedule(a);
-        if (!a->source_format.active || !a->source_format.baseline || a->source_format_attempt.deferred || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed; break;
-    }
-    case 871:
-        if (!source_format_owner_verified(a,0)) { if (a->source_format_attempt.valid && !a->source_format.active) goto failed; return; }
-        if (!smoke_budget_verified(a,&budget_state,true) || s->undo_actions_count!=1 || s->cells.undo_count!=1 || s->formats.undo_count) goto failed;
-        request=a->request_id; history(a,false);
-        if (*cells_get(&s->cells,700,9) || a->analysis.source_version!=1) goto failed;
-        history(a,true); source_format_schedule(a);
-        if (strcmp(cells_get(&s->cells,700,9),"Budget released") || a->request_id!=request || !smoke_budget_work(a,&budget_state,2)) goto failed;
-        smoke_snapshot("build/tests/results/workspace-layout/format-budget-cell-retry.png");
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-cell.dxls"); break;
-    case 872:
-        if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget-cell.dxls"); break;
-    case 873:
-        if (!source_format_owner_verified(a,0)) return;
-        if (a->book.dirty || !smoke_legacy_result_formats(a,true,false) || a->analysis.source_version!=1 ||
-            s->source_versions.high_water!=1 || s->undo_actions_count || s->redo_actions_count ||
-            strcmp(cells_get(&s->cells,700,9),"Budget released") || format_at(&s->formats,1000,8).color!=1) goto failed;
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
-    case 874:
-        if (a->waiting_count_page || a->page_stale || !a->page.column_count) return;
-        if (!smoke_budget_pressure(a,&error) || !smoke_budget_snapshot(a,&budget_state)) goto failed;
-        source_format_schedule(a);
-        if (!a->source_format.active || !a->source_format.baseline || a->pending_kind!=JOB_VERIFY_SOURCE) {
-            fprintf(stderr,"Budget verification admission: busy=%d io=%d count=%" PRIu64 "/%" PRIu64 " stale=%d waiting=%d origin=%d cached=%d modal=%d deferred=%d\n",
-                a->busy,a->io_busy,a->count_request_id,a->request_id,a->page_stale,a->waiting_count_page,
-                source_format_origin_valid(a),grid_cached(&a->grid,&a->page),a->modal,a->source_format_attempt.deferred);
-            goto failed;
-        }
-        break;
-    case 875:
-        if (!smoke_budget_denied(a,&budget_state)) goto failed;
-        budget_state.request=a->request_id; break;
-    case 876: {
-        source_format_schedule(a);
-        if (!smoke_budget_denied(a,&budget_state) || a->request_id!=budget_state.request) goto failed;
-        grid_select_cell(&a->grid,1000,8,false); CellFormat value=active_format(a); value.color=2;
-        if (!apply_format(a,FORMAT_COLOR,value) || s->cells.revision!=budget_state.cell_revision ||
-            s->formats.revision!=budget_state.format_revision+1 || s->redo_actions_count || s->formats.redo_count) goto failed;
-        WorkbookFormatUsage usage={0};
-        if (workbook_format_usage(&a->book,NULL,0,&usage)!=FORMAT_BUDGET_OK ||
-            budget_state.retained-usage.retained!=(DX_FORMAT_HISTORY-1)*DX_FORMAT_PATCHES*sizeof(FormatPatch)) goto failed;
-        grid_select_cell(&a->grid,0,0,false); a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()-1000;
-        source_format_schedule(a);
-        if (!a->source_format.active || !a->source_format.baseline || a->source_format_attempt.deferred || a->pending_kind!=JOB_VERIFY_SOURCE) goto failed; break;
-    }
-    case 877:
-        if (!source_format_owner_verified(a,0)) { if (a->source_format_attempt.valid && !a->source_format.active) goto failed; return; }
-        if (!smoke_budget_verified(a,&budget_state,false) || s->undo_actions_count!=1 || s->formats.undo_count!=1 || s->cells.undo_count) goto failed;
-        request=a->request_id; history(a,false);
-        if (format_at(&s->formats,1000,8).color!=1 || a->analysis.source_version!=1) goto failed;
-        history(a,true); source_format_schedule(a);
-        if (format_at(&s->formats,1000,8).color!=2 || a->request_id!=request || !smoke_budget_work(a,&budget_state,2)) goto failed;
-        smoke_snapshot("build/tests/results/workspace-layout/format-budget-format-retry.png");
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-format.dxls"); break;
-    case 878:
-        if (a->book.dirty) goto failed;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget-format.dxls"); break;
-    case 879:
-        if (!source_format_owner_verified(a,0)) return;
-        if (a->book.dirty || !smoke_legacy_result_formats(a,true,false) || a->analysis.source_version!=1 ||
-            s->source_versions.high_water!=1 || s->undo_actions_count || s->redo_actions_count ||
-            *cells_get(&s->cells,700,9) || format_at(&s->formats,1000,8).color!=2) goto failed;
-        a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()+1000000;
-        workspace_job(a,JOB_LOAD,"build/tests/generated/app-format-budget.dxls"); break;
-    case 880:
-        if (a->waiting_count_page || a->page_stale || !a->page.column_count) return;
-        if (!source_format_origin_valid(a) || s->formats.source_aware || a->analysis.source_version) goto failed;
-        s->formats.revision=UINT64_MAX; a->viewport_changed=dx_millis()-1000;
-        if (!smoke_budget_snapshot(a,&budget_state)) goto failed;
-        source_format_schedule(a);
-        if (!a->source_format_attempt.valid || a->source_format_attempt.deferred || a->source_format.active ||
-            a->request_id!=budget_state.request || !smoke_budget_work(a,&budget_state,0) || !a->message || !strstr(a->message,"exhausted format revision")) goto failed;
-        grid_select_cell(&a->grid,700,9,false); open_modal(a,MODAL_CELL); input_set(&a->input,"Revision exhausted");
-        if (!commit_cell(a) || s->cells.revision!=budget_state.cell_revision+1) goto failed;
-        grid_select_cell(&a->grid,0,0,false); a->grid.top=a->last_top=0; a->viewport_changed=dx_millis()-1000;
-        source_format_schedule(a); break;
-    case 881:
-        source_format_schedule(a);
-        if (!a->source_format_attempt.valid || a->source_format_attempt.deferred || a->source_format.active ||
-            a->request_id!=budget_state.request || !smoke_budget_work(a,&budget_state,0) ||
-            s->formats.revision!=UINT64_MAX || s->formats.source_aware || a->analysis.source_version || s->source_versions.high_water) goto failed;
-        workspace_job(a,JOB_SAVE,"build/tests/generated/app-format-budget-preserved.dxls");
-        if (a->io_busy || a->request_id!=budget_state.request ||
-            !smoke_same_fixture("build/tests/generated/app-format-budget.dxls","build/tests/generated/app-format-budget-preserved.dxls")) goto failed;
-        puts("PASS: native legacy format budget admission retries once after real Cell or Format Redo release, preserves proof history and Save reopen, does no idle work and never retries terminal exhausted revisions"); break;
     case 882: {
         char *expected=dx_absolute_path("tests/fixtures/transactions.csv");
         if (!expected) goto failed;
@@ -16149,9 +15741,9 @@ AppSession *app_start(const AppOptions *options) {
     int layout_target=LAYOUT_SMOKE_STAGES;
     const char *layout_to=getenv("DUXCEL_LAYOUT_TO");
     if (options->layout_smoke && layout_to) { char *end=NULL; long value=strtol(layout_to,&end,10); if (end && !*end && value>0 && value<=LAYOUT_SMOKE_STAGES) layout_target=(int)value; }
-    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"216") || !strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"824") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"867") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911") || !strcmp(layout_from,"921") || !strcmp(layout_from,"936"));
+    bool focused_layout=options->layout_smoke && layout_from && (!strcmp(layout_from,"216") || !strcmp(layout_from,"250") || !strcmp(layout_from,"357") || !strcmp(layout_from,"400") || !strcmp(layout_from,"426") || !strcmp(layout_from,"458") || !strcmp(layout_from,"311") || !strcmp(layout_from,"474") || !strcmp(layout_from,"500") || !strcmp(layout_from,"510") || !strcmp(layout_from,"522") || !strcmp(layout_from,"540") || !strcmp(layout_from,"555") || !strcmp(layout_from,"596") || !strcmp(layout_from,"620") || !strcmp(layout_from,"638") || !strcmp(layout_from,"665") || !strcmp(layout_from,"675") || !strcmp(layout_from,"687") || !strcmp(layout_from,"730") || !strcmp(layout_from,"734") || !strcmp(layout_from,"764") || !strcmp(layout_from,"800") || !strcmp(layout_from,"846") || !strcmp(layout_from,"861") || !strcmp(layout_from,"882") || !strcmp(layout_from,"911") || !strcmp(layout_from,"921") || !strcmp(layout_from,"936"));
     int layout_start=focused_layout ? atoi(layout_from) : 0;
-    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
+    if (focused_layout && (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==846 || layout_start==861 || layout_start==882)) { SetWindowSize(1440,988); open_source(a,layout_start==882 ? "tests/fixtures/transactions.csv" : "tests/fixtures/null-text.csv",false); }
     else if (focused_layout) { SetWindowSize(1440,988); workspace_job(a,JOB_LOAD,"build/tests/generated/design-definition.dxls"); }
     else if (options->demo || options->smoke || options->workspace_smoke || options->filter_smoke || options->pivot_smoke || options->count_smoke) open_source(a,"",true);
     else if (options->nyc_smoke) open_source(a,"data/downloads/yellow_tripdata_2025-01.parquet",false);
@@ -16165,7 +15757,7 @@ AppSession *app_start(const AppOptions *options) {
     a->recovery_start_document=a->book.id;
     if (!options->path && !a->book.dirty && (!automated || getenv("DUXCEL_TEST_RECOVERY_STARTUP"))) recovery_scan(a,true);
 #endif
-    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==824 || layout_start==846 || layout_start==861 || layout_start==867 || layout_start==882 ? layout_start : 250) : 0;
+    session->layout_smoke=focused_layout ? (layout_start==687 || layout_start==730 || layout_start==734 || layout_start==764 || layout_start==800 || layout_start==846 || layout_start==861 || layout_start==882 ? layout_start : 250) : 0;
     if (focused_layout && layout_start==216) session->layout_smoke=216;
     session->trace_input=getenv("DUXCEL_TRACE_INPUT")!=NULL;
     session->applied_cursor=-1;
@@ -17002,7 +16594,12 @@ bool app_frame(AppSession *session) {
     if (options->count_smoke && a->frames%24==0) count_smoke_step(a,&session->count_smoke);
     if (options->clipboard_smoke && a->frames%24==0) clipboard_smoke_step(a,&session->clipboard_smoke);
     if (options->sort_smoke && a->frames%24==0) sort_smoke_step(a,&session->sort_smoke);
-    if (options->layout_smoke && session->layout_smoke<layout_target && a->frames%24==0) layout_smoke_step(a,&session->layout_smoke);
+    if (options->layout_smoke && session->layout_smoke<layout_target && a->frames%24==0) {
+        /* Preserve scenario IDs when the full run crosses removed scenarios. */
+        if (session->layout_smoke==824) session->layout_smoke=846;
+        if (session->layout_smoke==867) session->layout_smoke=882;
+        if (session->layout_smoke<layout_target) layout_smoke_step(a,&session->layout_smoke);
+    }
     if (options->navigation_smoke && a->frames%24==0) navigation_smoke_step(a,&session->navigation_smoke);
     if (options->nyc_smoke && a->frames%24==0) nyc_smoke_step(a,&session->nyc_smoke);
     if (options->document_smoke && a->frames%24==0) document_smoke_step(a,&session->document_smoke);

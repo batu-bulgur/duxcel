@@ -2,7 +2,6 @@
 #define DUXCEL_DEFINITION_ORIGIN_H
 #include "source_format_command.h"
 #include "definition_baseline.h"
-#include "source_format_baseline.h"
 typedef struct DefinitionOrigin DefinitionOrigin;
 typedef struct {
     Workbook *book;
@@ -58,10 +57,10 @@ DefinitionOriginStatus definition_origin_complete(DefinitionOriginContext *conte
     const DefinitionOriginReply *reply,size_t reserved,char **error);
 /* Before parsing/encoding, admit complete current primary/object grammar plus
    format-scope validation. Seal only resolved primary/Tables and closed source/
-   format dependencies. Legacy finite imported formats require their compatibility
-   baseline first. The existing codecs encode one independent canonical arena:
+   format dependencies. Imported finite formats require source-aware ownership.
+   The existing codecs encode one independent canonical arena:
    DXAN primary, DXOB objects, DXSV immutable ledger and empty->current FormatDelta
-   (absent exactly for empty legacy format state). This is not a DXDE user action.
+   (absent exactly for empty manual format state). This is not a DXDE user action.
    reserved covers the NEW final arena only; owner/live/parser budgets coexist.
    Failure preserves OPEN/no assets; success ADMITTED owns immutable bytes even
    after the live model is edited or freed. No IO or retained writer activation. */
@@ -71,17 +70,6 @@ DefinitionOriginStatus definition_origin_complete(DefinitionOriginContext *conte
 DefinitionOriginStatus definition_origin_scratch(DefinitionOriginContext *context,const DefinitionOrigin *origin,size_t *out,char **error);
 DefinitionOriginStatus definition_origin_seal_measure(DefinitionOriginContext *context,const DefinitionOrigin *origin,DefinitionOriginSealInfo *out,char **error);
 DefinitionOriginStatus definition_origin_seal(DefinitionOriginContext *context,DefinitionOrigin *origin,size_t reserved,char **error);
-/* Actual open-origin authority for verified legacy formatting enrichment.
-   The internal baseline context derives its phase/epoch from THIS owned origin,
-   never an App flag. The origin must outlive the opaque plan. Apply normalizes
-   all current/Undo/Redo formats+ledger+primary atomically, refreshes this SAME
-   OPEN preimage and advances its internal epoch. Seal subsequently captures the
-   final normalized assets. ADMITTED rejects both preparation and adoption. */
-DefinitionOriginStatus definition_origin_legacy_prepare(DefinitionOriginContext *context,DefinitionOrigin *origin,
-    const SourceVersion *verified,const SourcePacket *result,size_t reserved,
-    SourceFormatBaselinePlan **out,SourceFormatBaselineInfo *info,char **error);
-DefinitionOriginStatus definition_origin_legacy_apply(DefinitionOriginContext *context,DefinitionOrigin *origin,
-    SourceFormatBaselinePlan **owned,char **error);
 /* Borrow only after ADMITTED. Pointers live until owner free; immutable assets
    are never patched when schema/table, formatting or source metadata later change. */
 DefinitionOriginAssets definition_origin_assets(const DefinitionOrigin *origin);

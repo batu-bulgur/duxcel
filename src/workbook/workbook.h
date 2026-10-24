@@ -86,19 +86,7 @@ size_t workbook_visible_sheet(const Workbook *book,size_t position);
 void worksheet_record(Worksheet *sheet,EditKind kind);
 unsigned worksheet_edit_effects(EditKind kind); /* analysis=1, cells=2, objects=4, formats=8 */
 void worksheet_transfer_history(Worksheet *sheet,bool redo);
-/* Eligibility of the retained journal for a whole-store legacy format baseline
-   only: both stacks must contain exactly aligned Cell/Format constituents,
-   using EDIT_CELLS, EDIT_FORMAT or EDIT_CELLS_FORMAT, with no Analysis/object
-   histories. Valid source-aware format states remain eligible and unchanged.
-   Checks bounded cell-array shapes and existing format-model validity; it is
-   not a cell-text/archive parser or an allocation/alias ownership oracle.
-   It does not prove load origin, unchanged Analysis/source definition, current
-   object eligibility, typed scope provenance, source versions or content.
-   Preserves the worksheet and error on success; failure owns an actionable
-   error when requested. Large scope validation may use the temporary scratch
-   allowance documented by format_valid; no FS, SQL, cloning or pruning. */
-bool worksheet_legacy_format_history_eligible(const Worksheet *sheet,char **error);
-/* Pre-import zero-owner proof for making legacy formats manual-only before a
+/* Pre-import zero-owner proof for making existing formats manual-only before a
    FIRST Table is introduced: live, save-cache and every retained Analysis must
    be SOURCE_NONE; current and all retained object states may contain only
    blank-primary Pivot/Chart templates, never a Table. Proves known/aligned

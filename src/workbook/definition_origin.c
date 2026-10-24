@@ -108,7 +108,7 @@ DefinitionOriginStatus definition_origin_complete(DefinitionOriginContext *c,Def
     Analysis *selected=source(s,c->primary,r->owner); free(selected->schema); selected->schema=schema; selected->table=table; c->book->dirty=true;
     capture(p,c,s); p->epoch++; return DEFINITION_ORIGIN_APPLIED;
 }
-static bool finite_legacy(const Worksheet *s,const Analysis *primary) {
+static bool unowned_imported_formats(const Worksheet *s,const Analysis *primary) {
     bool imported=primary->kind!=SOURCE_NONE;
     for (size_t i=0;!imported && i<s->objects.count;i++) imported=s->objects.items[i].kind==OBJECT_TABLE;
     if (s->formats.source_aware || !imported) return false;
@@ -154,7 +154,7 @@ static DefinitionOriginStatus seal_measure(DefinitionOriginContext *c,const Defi
         format_dependencies_select(s->id,(FormatSnapshotView){0},format_delta_store_view(&s->formats),&s->source_versions,s->objects.next_id,&styling)!=FORMAT_DEPENDENCIES_OK) {
         fail(error,"The definition origin source/format dependency graph is incomplete."); return DEFINITION_ORIGIN_INVALID;
     }
-    if (finite_legacy(s,c->primary)) { fail(error,"Complete the verified legacy format baseline before sealing its working origin."); return DEFINITION_ORIGIN_UNRESOLVED; }
+    if (unowned_imported_formats(s,c->primary)) { fail(error,"Imported finite formats require source-aware ownership before origin admission."); return DEFINITION_ORIGIN_UNRESOLVED; }
     size_t bytes=a.bytes+o.measure.bytes+source_bytes+format_bytes;
     if (formats==FORMAT_DELTA_NOOP && (s->formats.count || s->formats.scope_count || s->formats.source_aware)) {
         fail(error,"The empty definition origin format asset must have no dormant payload."); return DEFINITION_ORIGIN_INVALID;
@@ -187,27 +187,6 @@ DefinitionOriginStatus definition_origin_seal(DefinitionOriginContext *c,Definit
     if (!ok) { free(arena); fail(error,"The canonical definition origin assets could not be admitted together."); return DEFINITION_ORIGIN_INVALID; }
     status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) { free(arena); return status; }
     p->arena=arena; p->arena_bytes=bytes; p->assets=assets; p->phase=DEFINITION_ORIGIN_ADMITTED; p->epoch++; return DEFINITION_ORIGIN_APPLIED;
-}
-static SourceFormatBaselineContext baseline_context(DefinitionOriginContext *c,DefinitionOrigin *p) {
-    return (SourceFormatBaselineContext){.command={c->book,c->primary,c->request_epoch,c->validation_reserved,c->ready,c->read_only},.origin_epoch=&p->epoch,.origin_open=p->phase==DEFINITION_ORIGIN_OPEN};
-}
-static DefinitionOriginStatus baseline_status(SourceFormatCommandStatus status) {
-    return status==SOURCE_FORMAT_COMMAND_APPLIED ? DEFINITION_ORIGIN_APPLIED : status==SOURCE_FORMAT_COMMAND_READY ? DEFINITION_ORIGIN_READY :
-        status==SOURCE_FORMAT_COMMAND_STALE ? DEFINITION_ORIGIN_STALE : status==SOURCE_FORMAT_COMMAND_PROTECTED ? DEFINITION_ORIGIN_PROTECTED : status==SOURCE_FORMAT_COMMAND_LIMIT ? DEFINITION_ORIGIN_LIMIT : DEFINITION_ORIGIN_INVALID;
-}
-DefinitionOriginStatus definition_origin_legacy_prepare(DefinitionOriginContext *c,DefinitionOrigin *p,const SourceVersion *entry,const SourcePacket *result,size_t reserved,
-    SourceFormatBaselinePlan **out,SourceFormatBaselineInfo *info,char **error) {
-    DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
-    size_t sheet=0; while (sheet<c->book->count && c->book->sheets[sheet].id!=p->before.owner.sheet_id) sheet++;
-    SourceFormatBaselineContext baseline=baseline_context(c,p);
-    return baseline_status(workbook_prepare_source_format_baseline(&baseline,sheet,entry,result,reserved,out,info,error));
-}
-DefinitionOriginStatus definition_origin_legacy_apply(DefinitionOriginContext *c,DefinitionOrigin *p,SourceFormatBaselinePlan **owned,char **error) {
-    DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
-    if (p->epoch==UINT64_MAX) { fail(error,"Definition origin epoch space is exhausted."); return DEFINITION_ORIGIN_LIMIT; }
-    SourceFormatBaselineContext baseline=baseline_context(c,p); status=baseline_status(workbook_apply_source_format_baseline(&baseline,owned,error));
-    if (status==DEFINITION_ORIGIN_APPLIED) { capture(p,c,resolve(c->book,p->before.owner.sheet_id)); p->epoch++; }
-    return status;
 }
 DefinitionOriginAssets definition_origin_assets(const DefinitionOrigin *p) { return p && p->phase==DEFINITION_ORIGIN_ADMITTED ? p->assets : (DefinitionOriginAssets){0}; }
 void definition_origin_free(DefinitionOrigin **owned) { if (owned && *owned) { free((*owned)->arena); free(*owned); *owned=NULL; } }

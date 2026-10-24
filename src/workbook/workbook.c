@@ -276,35 +276,8 @@ static bool format_budget_model_valid(const FormatStore *store) {
     }
     return true;
 }
-static bool legacy_cell_shape(const SheetCell *cells,size_t count,size_t bytes) {
+static bool bounded_cell_shape(const SheetCell *cells,size_t count,size_t bytes) {
     return count<=DX_MAX_EDIT_CELLS && bytes<=DX_CELL_BYTES && (!count || cells);
-}
-bool worksheet_legacy_format_history_eligible(const Worksheet *s,char **error) {
-    if (!s || s->undo_actions_count>DX_HISTORY || s->redo_actions_count>DX_HISTORY ||
-        s->cells.undo_count>DX_HISTORY || s->cells.redo_count>DX_HISTORY ||
-        s->formats.undo_count>DX_FORMAT_HISTORY || s->formats.redo_count>DX_FORMAT_HISTORY)
-        return range_fail(error,"Legacy formatting migration needs bounded worksheet history; reopen the unchanged workbook.");
-    if (s->undo_count || s->redo_count || s->objects.undo_count || s->objects.redo_count)
-        return range_fail(error,"Legacy formatting migration cannot bind retained Analysis or object history; reopen the unchanged workbook.");
-    if (s->cells.count>s->cells.capacity || !legacy_cell_shape(s->cells.cells,s->cells.count,s->cells.bytes))
-        return range_fail(error,"Legacy formatting migration found an invalid editable-cell array shape.");
-    for (size_t h=0;h<2;h++) {
-        const EditKind *actions=h ? s->redo_actions : s->undo_actions; size_t count=h ? s->redo_actions_count : s->undo_actions_count,cells=0,formats=0;
-        for (size_t i=0;i<count;i++) {
-            if (actions[i]!=EDIT_CELLS && actions[i]!=EDIT_FORMAT && actions[i]!=EDIT_CELLS_FORMAT)
-                return range_fail(error,"Legacy formatting migration supports only retained Cell and Format actions; reopen the unchanged workbook.");
-            cells+=actions[i]!=EDIT_FORMAT; formats+=actions[i]!=EDIT_CELLS;
-        }
-        size_t available_cells=h ? s->cells.redo_count : s->cells.undo_count,available_formats=h ? s->formats.redo_count : s->formats.undo_count;
-        if (cells!=available_cells || formats!=available_formats)
-            return range_fail(error,"Legacy formatting migration needs aligned Cell and Format Undo/Redo histories; reopen the unchanged workbook.");
-        const CellSnapshot *states=h ? s->cells.redo : s->cells.undo;
-        for (size_t i=0;i<available_cells;i++) if (!legacy_cell_shape(states[i].cells,states[i].count,states[i].bytes))
-            return range_fail(error,"Legacy formatting migration found an invalid retained editable-cell array shape.");
-    }
-    if (!format_budget_model_valid(&s->formats))
-        return range_fail(error,"Legacy formatting migration found invalid current or retained cell formats.");
-    return true;
 }
 static bool manual_object_state_valid(const ObjectSnapshot *state,uint64_t next_id,size_t *logical,char **error) {
     size_t reserved=0;
@@ -326,13 +299,13 @@ bool worksheet_manual_format_history_eligible(const Worksheet *s,const Analysis 
         for (size_t i=0;i<count;i++) if (states[i].kind!=SOURCE_NONE)
             return range_fail(error,"Retained data-source history needs verified formatting; its legacy formats cannot become manual-only.");
     }
-    if (s->cells.count>s->cells.capacity || !legacy_cell_shape(s->cells.cells,s->cells.count,s->cells.bytes))
+    if (s->cells.count>s->cells.capacity || !bounded_cell_shape(s->cells.cells,s->cells.count,s->cells.bytes))
         return range_fail(error,"Manual formatting eligibility found an invalid editable-cell array shape.");
     ObjectSnapshot current={s->objects.items,s->objects.count}; size_t logical=0;
     if (!manual_object_state_valid(&current,s->objects.next_id,&logical,error)) return false;
     for (size_t h=0;h<2;h++) {
         const CellSnapshot *cells=h ? s->cells.redo : s->cells.undo; size_t cell_count=h ? s->cells.redo_count : s->cells.undo_count;
-        for (size_t i=0;i<cell_count;i++) if (!legacy_cell_shape(cells[i].cells,cells[i].count,cells[i].bytes))
+        for (size_t i=0;i<cell_count;i++) if (!bounded_cell_shape(cells[i].cells,cells[i].count,cells[i].bytes))
             return range_fail(error,"Manual formatting eligibility found an invalid retained editable-cell array shape.");
         const ObjectSnapshot *states=h ? s->objects.redo : s->objects.undo; size_t count=h ? s->objects.redo_count : s->objects.undo_count,bytes=0;
         for (size_t i=0;i<count;i++) {

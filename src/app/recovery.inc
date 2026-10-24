@@ -37,7 +37,7 @@ static void recovery_adopt(App *a,WorkbookRecoveryCandidate *candidate,bool disc
     workbook_free(&a->book); a->book=*book; free(book); a->recovery_owner=candidate;
     a->modal=MODAL_NONE; a->key_tips=a->file_menu=a->ribbon_focus=false;
     if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }
-    activate_sheet(a,a->book.active,false); SOURCE_FORMAT_ORIGIN_ARM(a);
+    activate_sheet(a,a->book.active,false);
     const WorkbookRecoveryInfo *info=workbook_recovery_info(candidate);
     status(a,info->tail_deferred ? "Checkpoint copy opened. Recorded changes are kept separately; use Save As for this copy." : "Recorded changes recovered. Use Save As to keep this workbook.");
 #ifdef DUXCEL_DEV_REVIEW
