@@ -179,7 +179,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.3c2 · P1 · Complete | Safe native versioned writer/upgrade; W11a2.3c1. | Prepare owned output before commit, preserve existing valid artifacts/unrelated data, reject corrupt targets and source aliases, and cancel/fail without replacing the named file. Scoped native file gate before App adoption. |
 | W11a3 · P1 · In progress | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11a3.1 · P1 · Complete | Native Save-purpose planning and full-core reuse controller; W11a2. | User Save prepares a root/owner plan; unchanged Saved cores reuse identity. Checkpoints/exports preserve the supplied index. Owned receipts precede commit; no live App mutation. |
-| W11a3.2 · P1 · Queued | Shared immutable store lifetime and background IO ownership; W11a3.1. | Retain closed core sets across QueryWorker/journal snapshots, cancellation and owner changes; release safely after all borrowers. Preserve pending/durable and R+1 fences. |
+| W11a3.2 · P1 · In progress | Shared immutable store lifetime and background IO ownership; W11a3.1. | Retain closed core sets across QueryWorker/journal snapshots, cancellation and owner changes; release safely after all borrowers. Preserve pending/durable and R+1 fences. |
+| W11a3.2a · P1 · Complete | Shared immutable core-set references; W11a3.1. | Independent worker/journal owners retain scalar mutex-protected references. Releasing one owner keeps bytes/lease alive; last disposal runs on its owner thread. |
+| W11a3.2b · P1 · Queued | Native IO job envelope and background retirement; W11a3.2a. | Transfer typed native contexts through existing ordered file jobs; keep native dependencies out of ordinary Core-only tests, retain source stores and retire owned files off App frames. |
 | W11a3.3 · P1 · Queued | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
 | W11a3.4 · P1 · Queued | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
@@ -331,6 +333,16 @@ Repeated Save adds no root/generation, data changes with identical command clock
 still differ, and private R+2 keeps Saved R+1. Capture/compare/final-PUBLISH
 cancellation preserves the named file/base. Internal capture PUBLISH is explicitly
 separate from named-file cancellation. Worker/App/journal lifetime adoption follows.
+
+W11a3.2a complete: immutable core sets now use mutex-protected owning references.
+Worker/journal snapshots can retain their own lifetime without duplicating bytes
+or borrowing a replaceable App pointer. Last release owns disposal; getters stay
+borrowed/immutable. The `version-lifetime` gate passes in10.789s with optimized/
+ASan/UBSan two-thread ownership/lease checks (2,000 reference churn iterations)
+and the existing full closure module. Dropping the receipt/first consumer keeps
+files locked; last background release removes ordinary private artifacts.
+Make prerequisites were checked to include the actual native modules. Background
+retirement and job-envelope integration remain W11a3.2b, before App adoption.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

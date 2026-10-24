@@ -141,8 +141,12 @@ checkpoint/export preserve the supplied index and all its leaves. State-only
 export supplies no base. Output plans/receipts are owned; no live App state is
 changed. Callers must distinguish internal capture publication from named-file
 PUBLISH and apply owner/index plus separate R+1 dirty fences after success.
-Shared store lifetime, Worker/App Save/Open publication and recovery adoption
-remain W11a3.2-W11a3.4; normal App files still use v1-v15.
+Immutable core sets have scalar mutex-protected owning references: retained
+worker/journal snapshots keep the same closed files and lease until the final
+owner releases them. Getters borrow immutable metadata/leaf values. The last
+release disposes on its caller thread; native App adapters must queue retirement
+off frames. Background job ownership, App publication and recovery adoption
+remain W11a3.2b-W11a3.4; normal App files still use v1-v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

@@ -24,5 +24,11 @@ WorkbookVersionRestoreResult workbook_version_core_set_read(duckdb_connection co
     uint64_t reserved_bytes,WorkbookVersionRestoreControl control,WorkbookVersionCoreSet **out,char **error);
 const WorkbookVersionIndex *workbook_version_core_set_index(const WorkbookVersionCoreSet *set);
 const WorkbookCorePayload *workbook_version_core_set_leaf(const WorkbookVersionCoreSet *set,size_t position);
+/* Acquire another immutable owning reference while an existing owner/borrow
+   keeps set alive. Mutex-protected scalar lifetime only: no IO/model scan.
+   NULL/overflow returns NULL without changing ownership. Each successful retain
+   requires one free. Index/leaf getters remain borrowed. Last free disposes the
+   private leaves on that caller's thread; App adapters must retire off frames. */
+WorkbookVersionCoreSet *workbook_version_core_set_retain(const WorkbookVersionCoreSet *set);
 void workbook_version_core_set_free(WorkbookVersionCoreSet *set);
 #endif

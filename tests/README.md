@@ -333,3 +333,10 @@ export and capture/compare/final-PUBLISH cancellation. Its `version-save` gate
 runs the pure index and optimized/ASan/UBSan native controller, without App UI.
 Worker cancellation must distinguish internal capture PUBLISH from file COMMIT;
 shared store lifetime and App/journal adoption remain later integration gates.
+
+`test_version_lifetime.c` shares a real prepared core set between two native
+threads, concurrently churns2,000 owning references, drops the receipt and each
+consumer independently, checks the same lease remains busy, and verifies last
+background release removes private files. The `version-lifetime` gate also runs
+existing closure failure/cancel cleanup after refcount integration. These checks
+exercise mutex/lifetime semantics under ASan/UBSan, not a ThreadSanitizer claim.

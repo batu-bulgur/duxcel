@@ -819,7 +819,7 @@ distclean:
 # Legacy module-test recipes compile whole source lists and some execution goals
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
-PARALLEL_NATIVE_GOALS = build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
+PARALLEL_NATIVE_GOALS = build/tests/test_version_lifetime build/tests/test_version_lifetime-debug build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
 	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_version_index build/tests/test_version_index-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
@@ -1244,6 +1244,14 @@ build/tests/test_version_save: $(VERSION_SAVE_OBJECTS) | build/tests
 build/tests/test_version_save-debug: $(VERSION_SAVE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(VERSION_SAVE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(VERSION_SAVE_OBJECTS:.o=.d) $(VERSION_SAVE_SAN_OBJECTS:.o=.d)
+
+VERSION_LIFETIME_OBJECTS = $(filter-out %/tests/test_version_save.o,$(VERSION_SAVE_OBJECTS)) build/obj/release/app/tests/test_version_lifetime.o
+VERSION_LIFETIME_SAN_OBJECTS = $(filter-out %/tests/test_version_save.o,$(VERSION_SAVE_SAN_OBJECTS)) build/obj/sanitize/app/tests/test_version_lifetime.o
+build/tests/test_version_lifetime: $(VERSION_LIFETIME_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(VERSION_LIFETIME_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_version_lifetime-debug: $(VERSION_LIFETIME_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(VERSION_LIFETIME_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(VERSION_LIFETIME_OBJECTS:.o=.d) $(VERSION_LIFETIME_SAN_OBJECTS:.o=.d)
 
 ARCHIVE_WRITE_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c src/workbook/archive_read.c src/workbook/archive_write.c tests/test_archive_write.c
 ARCHIVE_WRITE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(ARCHIVE_WRITE_SOURCES))))

@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-lifetime": Feature((), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition"),
+        ("src/workbook/version_restore.c: shared immutable lifetime", "src/workbook/version_restore.h", "tests/test_version_lifetime.c"),
+        ("version_lifetime", "version_restore")),
     "version-save": Feature(("version_index",), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition"),
         ("src/workbook/version_save.c", "src/workbook/version_save.h", "tests/test_version_save.c"),

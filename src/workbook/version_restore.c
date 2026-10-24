@@ -4,7 +4,12 @@
 #include "../platform/directory.h"
 #include <stdlib.h>
 #include <string.h>
-struct WorkbookVersionCoreSet { WorkbookVersionMetadata *metadata; WorkbookCorePayload **leaves; size_t count; };
+struct WorkbookVersionCoreSet {
+    WorkbookVersionMetadata *metadata;
+    WorkbookCorePayload **leaves;
+    size_t count,references;
+    DxMutex ownership;
+};
 typedef struct {
     WorkbookVersionRestoreControl control;
     WorkbookVersionRestorePhase phase;
@@ -26,10 +31,19 @@ static bool leaf_cancel(void *context,WorkbookCoreRestorePhase phase,uint64_t by
 }
 const WorkbookVersionIndex *workbook_version_core_set_index(const WorkbookVersionCoreSet *s) { return s ? workbook_version_metadata_index(s->metadata) : NULL; }
 const WorkbookCorePayload *workbook_version_core_set_leaf(const WorkbookVersionCoreSet *s,size_t position) { return s && position<s->count ? s->leaves[position] : NULL; }
+WorkbookVersionCoreSet *workbook_version_core_set_retain(const WorkbookVersionCoreSet *borrowed) {
+    if (!borrowed) return NULL;
+    WorkbookVersionCoreSet *s=(WorkbookVersionCoreSet *)borrowed;
+    dx_lock(&s->ownership); bool valid=s->references && s->references<SIZE_MAX;
+    if (valid) s->references++; dx_unlock(&s->ownership);
+    return valid ? s : NULL;
+}
 void workbook_version_core_set_free(WorkbookVersionCoreSet *s) {
     if (!s) return;
+    dx_lock(&s->ownership); bool last=--s->references==0; dx_unlock(&s->ownership);
+    if (!last) return;
     for (size_t i=0;i<s->count;i++) workbook_core_payload_free(s->leaves[i]);
-    free(s->leaves); workbook_version_metadata_free(s->metadata); free(s);
+    free(s->leaves); workbook_version_metadata_free(s->metadata); dx_mutex_destroy(&s->ownership); free(s);
 }
 static bool prepare(duckdb_connection c,const char *sql,duckdb_prepared_statement *statement,char **error) {
     return duckdb_prepare(c,sql,statement)==DuckDBSuccess || fail(error,duckdb_prepare_error(*statement));
@@ -74,7 +88,8 @@ WorkbookVersionRestoreResult workbook_version_core_set_read(duckdb_connection c,
     if (!c || !parent || !*parent || !out || *out) { fail(error,"Choose an exclusive version transaction, staging folder and empty core-set result."); return VERSION_RESTORE_FAILED; }
     char *resolved=dx_absolute_path(parent);
     if (!resolved || dx_path_kind(resolved)!=DX_PATH_DIRECTORY) { free(resolved); fail(error,"The version core-set staging folder is unavailable."); return VERSION_RESTORE_FAILED; }
-    WorkbookVersionCoreSet *set=dx_alloc(sizeof(*set)); Restore restore={.control=control,.phase=VERSION_RESTORE_INDEX}; bool ok=false;
+    WorkbookVersionCoreSet *set=dx_alloc(sizeof(*set)); set->references=1; dx_mutex_init(&set->ownership);
+    Restore restore={.control=control,.phase=VERSION_RESTORE_INDEX}; bool ok=false;
     WorkbookVersionReadResult read=workbook_version_metadata_read(c,reserved,(WorkbookVersionReadControl){metadata_cancel,&restore},&set->metadata,error);
     if (read!=VERSION_METADATA_READY) goto done;
     const WorkbookVersionIndex *index=workbook_version_metadata_index(set->metadata);
