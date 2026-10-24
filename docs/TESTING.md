@@ -247,3 +247,10 @@ misbinding, duplicate/unknown/orphan IDs, alias/content reuse, zero and exhauste
 IDs, arbitrary physical order and the maximum1,025-anchor public inventory. The
 module links only its real version-index dependency; no database, file decoder or
 GUI is involved. Event continuity and actual cross-session history remain queued.
+
+`history-viewer` is the small GUI-only edit gate for read-only paint/navigation;
+it defers the unchanged reader/controller engines and full-App sanitizer variant.
+Its private frame checkpoint rejects zero layout/grid geometry immediately after
+sheet switches. Input waits for painted target rectangles. Queued native End,
+visible offscreen text and exact Working viewport/selection retention are checked
+through actual UI rendering, with no broad suite or human acceptance flag.

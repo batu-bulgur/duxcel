@@ -150,7 +150,9 @@ Select a tag or Latest Saved and choose **Open version** (or Enter while the lis
 is focused). The separate read-only viewer has previous/next sheet controls and
 **Definitions** for stored queries, filters and analytical definitions. It also
 allows inspecting hidden sheets without changing their visibility. **Working Head**
-or Escape returns to the exact current draft and its session Undo/Redo. Closing
+or Escape returns to the exact current draft, viewport, selection and session
+Undo/Redo. Native grid navigation stays inside the preview; shortcut+End reaches
+the retained authored/object extent. Closing
 or quitting from preview first restores that draft and applies its normal unsaved
 changes prompt. Historical Save As is not yet available. Current snapshots retain
 authored cells, formatting, sheet/layout state and analytical definitions. Linked

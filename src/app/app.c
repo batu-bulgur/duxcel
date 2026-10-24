@@ -15399,6 +15399,7 @@ static void recovery_test_frame(AppSession *session);
 #endif
 #ifdef DUXCEL_FEATURE_HISTORY_PREVIEW
 static void history_preview_test_frame(AppSession *session);
+static void history_preview_test_painted(App *a);
 #endif
 #ifdef DUXCEL_FEATURE_VERSION_CONTROLS
 static void version_controls_test_frame(AppSession *session);
@@ -16291,6 +16292,9 @@ bool app_frame(AppSession *session) {
     if (session->applied_cursor!=a->ui.cursor) { SetMouseCursor(a->ui.cursor); session->applied_cursor=a->ui.cursor; }
     dx_native_context(a->modal!=MODAL_NONE,!historical(a) && a->pivot_search_focus,!historical(a) && selected_pivot(a)!=NULL,!historical(a) && a->key_tips);
     EndDrawing();
+#ifdef DUXCEL_FEATURE_HISTORY_PREVIEW
+    history_preview_test_painted(a);
+#endif
     /* Legacy UI producers record atomically inside the frame. Retire every
        abandoned cross-sheet Redo payload before accepting the next frame. */
     if (!historical(a)) workbook_history_sync(&a->book);

@@ -8,6 +8,7 @@ static Workbook hp_working;
 static AppVersionState hp_versions;
 static Cell *hp_page;
 static float *hp_widths;
+static GridLocation hp_location;
 static TextEditor hp_editor;
 static CellEditTarget hp_target;
 static uint64_t hp_undo,hp_redo,hp_sql;
@@ -24,8 +25,14 @@ void dx_test_preview_checkpoint(QueryWorker *worker,WorkbookVersionPreviewPhase 
 }
 static void hp_click(Rectangle r) { ui_note_pointer_gesture((DxPointerGesture){r.x+10,r.y+10,r.x+10,r.y+10,0,false}); }
 static void hp_name(App *a,const char *name) { input_set(&a->input,name); a->version_view.focus=0; ui_note_key_press(KEY_ENTER,0); }
-static bool hp_text_visible(App *a) {
-    Rectangle cell=grid_range_rect(&a->history_view.grid,a->ui.scale*a->history_view.grid.zoom,0,0,1,1);
+static bool hp_working_location(App *a) {
+    GridLocation g=grid_location(&a->grid),p=hp_location;
+    return g.row==p.row && g.col==p.col && g.anchor_row==p.anchor_row && g.anchor_col==p.anchor_col &&
+        g.end_row==p.end_row && g.end_col==p.end_col && g.top==p.top && g.horizontal==p.horizontal &&
+        g.fraction==p.fraction && g.selection==p.selection && g.valid==p.valid;
+}
+static bool hp_text_visible(App *a,uint64_t row,size_t column) {
+    Rectangle cell=grid_range_rect(&a->history_view.grid,a->ui.scale*a->history_view.grid.zoom,row,column,1,1);
     Image frame=LoadImageFromScreen(); Color *pixels=LoadImageColors(frame); size_t ink=0;
     if (pixels && GetScreenWidth()>0 && GetScreenHeight()>0) {
         float sx=(float)frame.width/GetScreenWidth(),sy=(float)frame.height/GetScreenHeight();
@@ -39,6 +46,7 @@ static void history_preview_test_frame(AppSession *session) {
     App *a=&session->app; char *error=NULL;
     if (hp_result || !active_sheet(a) || ++hp_wait<8) return; hp_wait=0;
     if ((a->busy || a->io_busy) && hp_stage!=19) return;
+    if (historical(a) && (!a->history_view.back.width || !a->history_view.canvas.width)) return;
     switch (hp_stage) {
     case 0: {
         UIVersionLayout compact=ui_version_layout((Vector2){640,640},2,2);
@@ -68,7 +76,7 @@ static void history_preview_test_frame(AppSession *session) {
         hp_undo=workbook_history_peek(&a->book,false,&error).order; hp_redo=workbook_history_peek(&a->book,true,&error).order;
         HP_CHECK(hp_undo && hp_redo);
         text_lines_layout_sized(&a->query_editor.lines,&a->ui,"Retained editor layout",200,12);
-        hp_page=a->page.cells; hp_widths=a->grid.widths; hp_editor=a->query_editor;
+        hp_page=a->page.cells; hp_widths=a->grid.widths; hp_location=grid_location(&a->grid); hp_editor=a->query_editor;
         a->grid.dragging=true; versions_open(a);
         HP_CHECK(a->modal==MODAL_NONE && !a->history.pending.request); a->grid.dragging=false;
         versions_open(a); a->version_view.selected=0; a->version_view.focus=4;
@@ -87,8 +95,10 @@ static void history_preview_test_frame(AppSession *session) {
         HP_CHECK(format_at(&a->book.sheets[0].formats,0,0).flags & FORMAT_BOLD);
         hp_working=*app_preview_working(&a->history); hp_versions=*app_preview_working_versions(&a->history); hp_sql=a->worker.sql_executed;
         HP_CHECK(a->page.cells==hp_page && a->grid.widths==hp_widths && !memcmp(&a->query_editor,&hp_editor,sizeof(hp_editor)));
-        ui_note_key_press(KEY_F2,0); ui_note_key_press(KEY_Z,DX_MOD_SUPER); ui_note_key_press(KEY_S,DX_MOD_SUPER); break;
+        ui_note_key_press(KEY_F2,0); ui_note_key_press(KEY_Z,DX_MOD_SUPER); ui_note_key_press(KEY_S,DX_MOD_SUPER); ui_note_key_press(KEY_END,DX_MOD_SUPER); break;
     case 6:
+        HP_CHECK(a->history_view.grid.row==9000 && a->history_view.grid.col==30);
+        HP_CHECK(hp_text_visible(a,9000,30) && hp_working_location(a));
         HP_CHECK(historical(a) && a->modal==MODAL_NONE && !a->busy && !a->io_busy);
         HP_CHECK(!memcmp(app_preview_working(&a->history),&hp_working,sizeof(hp_working)));
         workspace_save_as(a,"build/tests/generated/forbidden-preview-save.dxls");
@@ -108,7 +118,9 @@ static void history_preview_test_frame(AppSession *session) {
         HP_CHECK(!strcmp(cells_get(&a->book.sheets[0].cells,0,0),"Version two") && !memcmp(app_preview_working(&a->history),&hp_working,sizeof(hp_working)));
         hp_click(a->history_view.back); break;
     case 11:
-        HP_CHECK(!historical(a) && !memcmp(&a->book,&hp_working,sizeof(hp_working)) && !memcmp(&a->versions,&hp_versions,sizeof(hp_versions)));
+        HP_CHECK(!historical(a));
+        HP_CHECK(!memcmp(&a->book,&hp_working,sizeof(hp_working)));
+        HP_CHECK(!memcmp(&a->versions,&hp_versions,sizeof(hp_versions)) && hp_working_location(a));
         HP_CHECK(a->page.cells==hp_page && a->grid.widths==hp_widths && !memcmp(&a->query_editor,&hp_editor,sizeof(hp_editor)));
         HP_CHECK(workbook_history_peek(&a->book,false,&error).order==hp_undo && workbook_history_peek(&a->book,true,&error).order==hp_redo);
         HP_CHECK(workbook_check_cell_edit(&a->book,&(CellEditCommand){CELL_EDIT_COMMAND_VERSION,hp_target,"Still valid",11},(CellEditPolicy){0,0,true},&error).status==CELL_EDIT_READY);
@@ -126,7 +138,7 @@ static void history_preview_test_frame(AppSession *session) {
         a->version_view.selected=0; a->version_view.focus=4; ui_note_key_press(KEY_ENTER,0); break;
     case 16:
         HP_CHECK(historical(a)); if (!hp_painted) { hp_painted=true; return; }
-        HP_CHECK(hp_text_visible(a));
+        HP_CHECK(hp_text_visible(a,0,0));
         smoke_snapshot("build/tests/results/history-preview/worksheet.png"); ui_note_key_press(KEY_ESCAPE,0); break;
     case 17:
         HP_CHECK(!historical(a) && a->book.dirty); versions_open(a);
@@ -152,4 +164,9 @@ void app_test_history_preview_cleanup(void) {
 void app_test_history_preview_finished(void) {
     if (hp_gate.ready) { dx_cond_destroy(&hp_gate.condition); dx_mutex_destroy(&hp_gate.mutex); }
     if (hp_result==1) printf("PASS: native historical preview workflow (20 stages, %u checks)\n",hp_checks);
+}
+
+static void history_preview_test_painted(App *a) {
+    if (hp_result || !historical(a) || !a->history_view.ready || a->history_view.definitions) return;
+    HP_CHECK(a->history_view.canvas.width>0 && a->history_view.grid.rect.width>0 && a->history_view.grid.rect.height>0);
 }

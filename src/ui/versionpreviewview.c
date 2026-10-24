@@ -51,28 +51,36 @@ static char *definitions(const Worksheet *sheet) {
     }
     append(&d,"\nThese stored definitions are not executed in historical preview. Linked rows and analytical output values are not retained by the current version profile.\n"); return d.text;
 }
+static void clear_sheet(UIVersionPreviewView *v) {
+    if (v->ready) grid_destroy(&v->grid);
+    page_free(&v->empty); text_lines_free(&v->lines); free(v->definition_text);
+    v->definition_text=NULL; v->ready=false; v->text_scroll=0; v->wheel=0;
+}
 void ui_history_free(UIVersionPreviewView *v) {
     if (!v) return;
-    if (v->ready) grid_destroy(&v->grid);
-    page_free(&v->empty); text_lines_free(&v->lines); free(v->definition_text); *v=(UIVersionPreviewView){0};
+    clear_sheet(v); *v=(UIVersionPreviewView){0};
 }
 static void select_sheet(UIVersionPreviewView *v,const Workbook *book,size_t sheet) {
-    bool show=v->definitions; ui_history_free(v); grid_init(&v->grid); v->ready=true; v->definitions=show; v->sheet=sheet;
+    /* Retain the live layout/hit regions when navigation changes only the
+       sheet-owned viewport. Resetting the whole viewer here loses one frame. */
+    clear_sheet(v); grid_init(&v->grid); v->ready=true; v->sheet=sheet;
     const Worksheet *s=book->sheets+sheet; const SheetView *saved=&s->view;
     grid_schema(&v->grid,&v->empty,true);
-    size_t columns=saved->column_count>26 ? saved->column_count : 26;
+    size_t columns=saved->column_count>26 ? saved->column_count : 26,used=0;
     for (size_t i=0;i<s->cells.count;i++) {
         const SheetCell *cell=s->cells.cells+i;
         if (cell->col+1>columns) columns=cell->col+1;
+        if (cell->col+1>used) used=cell->col+1;
         if (cell->row+1>v->grid.used_rows) v->grid.used_rows=cell->row+1;
     }
     for (size_t i=0;i<s->objects.count;i++) {
         const SheetObject *o=s->objects.items+i;
         if (o->col+o->columns>columns) columns=o->col+o->columns;
+        if (o->col+o->columns>used) used=o->col+o->columns;
         if (o->row+o->rows>v->grid.used_rows) v->grid.used_rows=o->row+o->rows;
     }
     if (columns>16384) columns=16384;
-    grid_ensure_columns(&v->grid,columns); v->grid.used_columns=columns;
+    grid_ensure_columns(&v->grid,columns); v->grid.used_columns=used;
     for (size_t i=0;i<saved->column_count;i++) grid_set_width(&v->grid,i,saved->widths[i]);
     v->grid.row=saved->row; v->grid.col=saved->col; v->grid.anchor_row=saved->anchor_row; v->grid.anchor_col=saved->anchor_col;
     v->grid.end_row=saved->end_row; v->grid.end_col=saved->end_col; v->grid.selection=(SelectionMode)saved->selection;
@@ -111,6 +119,22 @@ static void object_placeholders(UIContext *u,Grid *grid,const Worksheet *sheet) 
     }
     ui_clear_clip(u);
 }
+static void history_grid_keys(UIContext *u,Grid *grid,const Page *page,bool enabled) {
+    DxKeyModifiers event;
+    while (ui_take_navigation_key(&event)) {
+        if (!enabled || grid->dragging || grid->resizing>=0 || grid->moving) continue;
+        GridInput input={.mouse={-1000000,-1000000},.key=event.key,.separate_keyboard=true,
+            .key_shift=(event.modifiers&DX_MOD_SHIFT)!=0,.key_alt=(event.modifiers&DX_MOD_ALT)!=0};
+#if defined(DUXCEL_BROWSER_HOST)
+        input.key_shortcut=(event.modifiers&(DX_MOD_CONTROL|DX_MOD_SUPER))!=0;
+#elif defined(__APPLE__)
+        input.key_shortcut=(event.modifiers&DX_MOD_SUPER)!=0;
+#else
+        input.key_shortcut=(event.modifiers&DX_MOD_CONTROL)!=0;
+#endif
+        grid_handle_input(grid,u,page,&input);
+    }
+}
 UIHistoryAction ui_history_draw(UIContext *u,UIVersionPreviewView *v,const Workbook *book,const char *label,const char *message,bool input) {
     if (!v->ready || !book || !book->count || v->sheet>=book->count) return UI_HISTORY_NONE;
     float s=u->scale,w=GetScreenWidth(),h=GetScreenHeight(); const Worksheet *sheet=book->sheets+v->sheet;
@@ -124,11 +148,11 @@ UIHistoryAction ui_history_draw(UIContext *u,UIVersionPreviewView *v,const Workb
     bool previous=ui_button(u,v->previous,"‹",false,book->count>1),next=ui_button(u,v->next,"›",false,book->count>1);
     v->definition=(Rectangle){w-132*s,52*s,116*s,28*s};
     if (ui_button(u,v->definition,v->definitions ? "Worksheet" : "Definitions",false,true)) v->definitions=!v->definitions;
+    if (previous || next) { size_t at=(v->sheet+book->count+(previous ? -1 : 1))%book->count; select_sheet(v,book,at); sheet=book->sheets+v->sheet; }
     char name[4300]; snprintf(name,sizeof(name),"%s%s · %zu/%zu",sheet->name,sheet->hidden ? " (hidden)" : "",v->sheet+1,book->count);
     ui_label(u,name,(Rectangle){92*s,52*s,fmaxf(20*s,w-236*s),28*s},12,UI_TEXT,false,UI_MEDIUM);
     ui_label(u,"Read only · Your Working Head is kept unchanged.",(Rectangle){16*s,86*s,w-32*s,18*s},11,UI_MUTED,false,UI_REGULAR);
     v->canvas=(Rectangle){8*s,112*s,w-16*s,fmaxf(1,h-144*s)};
-    if (previous || next) { size_t at=(v->sheet+book->count+(previous ? -1 : 1))%book->count; select_sheet(v,book,at); sheet=book->sheets+v->sheet; }
     if (v->definitions) {
         Rectangle area=v->canvas; area.x+=10*s; area.width-=20*s; DrawRectangleRec(v->canvas,UI_SURFACE);
         text_lines_layout_sized(&v->lines,u,v->definition_text,area.width,12);
@@ -144,7 +168,8 @@ UIHistoryAction ui_history_draw(UIContext *u,UIVersionPreviewView *v,const Workb
     } else {
         u->scale=s*v->grid.zoom; v->grid.formats=&sheet->formats; v->grid.format_row=v->grid.format_col=0;
         v->grid.lock_structure=true; v->grid.allow_move=false;
-        grid_update(&v->grid,u,&v->empty,v->canvas,input); grid_draw(&v->grid,u,&v->empty,false);
+        grid_update(&v->grid,u,&v->empty,v->canvas,input && !blocked);
+        history_grid_keys(u,&v->grid,&v->empty,input && !blocked); grid_draw(&v->grid,u,&v->empty,false);
         authored_cells(u,&v->grid,sheet); object_placeholders(u,&v->grid,sheet); u->scale=s;
     }
     const char *detail=message && *message ? message : sheet->analysis.kind!=SOURCE_NONE || sheet->objects.count ? "Linked rows / analytical outputs unavailable; see stored Definitions." : "Authored cells and formatting from the retained version.";

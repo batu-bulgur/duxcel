@@ -1000,3 +1000,15 @@ budget; no Pivot assertion or sanitizer diagnostic fired. Its failure budget is
 now4,800 frames, with the same45 stages/terminal checks and completion-driven
 exit. Continue with the named Pivot and remaining native workflows rather than
 rerunning the completed broad matrix. No green full-command receipt is claimed.
+
+Historical viewer follow-up complete: a real-frame regression exposed sheet
+navigation clearing live layout/hit regions for one frame. Sheet resource cleanup
+now preserves geometry; tests wait for painted controls and validate every drawn
+grid frame. Native queued navigation is replayed into the independent reader,
+and End uses actual authored/object extent rather than spare stored widths.
+The20-stage GUI now verifies visible offscreen AE9001 text and unchanged Working
+selection/viewport, as well as exact model/history restoration. `history-viewer`
+passed in7.481s; the same workflow with full-App ASan/UBSan passed in42.414s
+(including31.990s compilation). The GUI-only feature defers unchanged backend
+modules. Evidence: ignored `w11e-history-{layout,preview-sanitize}.log` and the
+finite layout/navigation regression receipts under `build/tests/results/`.
