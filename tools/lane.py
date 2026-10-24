@@ -19,6 +19,10 @@ from workspace import FileLock, checkout_gate_path, make_jobserver_fds, reposito
 
 
 def private_outputs(root):
+    # Make installs these read-only source assets beside private executables.
+    # They belong to this checkout, never to another lane's mutable output.
+    asset_links = {root / "build" / name / "assets" for name in
+                   ("bin", "tests", "review", "review-sanitize", "edit-sanitize", "lifecycle")}
     for name in ("build", ".cache"):
         folder = root / name
         if folder.is_symlink():
@@ -28,6 +32,9 @@ def private_outputs(root):
                 for child in folders + files:
                     path = Path(directory) / child
                     if path.is_symlink() and not path.resolve().is_relative_to(folder.resolve()):
+                        if (path in asset_links and path.resolve() == root / "assets"
+                                and not (root / "assets").is_symlink()):
+                            continue
                         raise RuntimeError(f"Lane output points outside its private directory: {path}")
 
 

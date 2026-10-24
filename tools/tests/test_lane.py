@@ -117,3 +117,16 @@ class LaneTests(unittest.TestCase):
         self.assertIn("mismatched", self.run_lane(self.main, *command).stderr)
         (self.other / ".cache").symlink_to(self.main / "build", target_is_directory=True)
         self.assertIn("not a symlink", self.run_lane(self.other, *command).stderr)
+
+    def test_checkout_asset_links_are_allowed_but_sibling_links_reject(self):
+        (self.main / "assets").mkdir()
+        (self.other / "assets").mkdir()
+        (self.other / "build/tests").mkdir()
+        link = self.other / "build/tests/assets"
+        link.symlink_to("../../assets", target_is_directory=True)
+        self.run_lane(self.other, "--", sys.executable, "-c", "pass", check=True)
+        link.unlink()
+        link.symlink_to(self.main / "assets", target_is_directory=True)
+        result = self.run_lane(self.other, "--", sys.executable, "-c", "pass")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("outside its private directory", result.stderr)
