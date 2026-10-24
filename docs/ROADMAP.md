@@ -247,6 +247,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.2b.2b · P1 · Complete | Atomic compound capture/decode and stream adapter; W12c.3c.2b.2a. | Bind exact changed family pairs and one source union, enforce effect/owner/grammar/budget closure, and hand off one immutable event without partial mutation or intermediate full-asset copies. |
 | W12c.3c.3 · P1 · Queued | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
 | W12c.3c.3a · P1 · Queued | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
+| W12c.3c.3a.1 · P1 · Complete | Resolved-relation event admission; W12c.3c.2. | Reject retained events containing unresolved DATABASE primary/Table definitions before reservation; preserve legacy/core packet compatibility and distinguish NULL default selection from invalid empty identifiers. |
+| W12c.3c.3a.2 · P1 · Queued | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
 | W12c.3c.3b · P1 · Queued | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1384,3 +1386,13 @@ succeeds with explicitly admitted32 MiB, retaining bytes after inputs are freed.
 Receipts: ignored `w12c3-history-definition*.log` and corresponding run summaries.
 No App producer, file profile or durable-history activation is implied. Next:
 baseline/readiness ownership and fenced definition producers (W12c.3c.3).
+
+
+W12c.3c.3a.1 complete: pure baseline readiness checks now guard typed definition
+stream admission. Unresolved DATABASE defaults remain representable in legacy/core
+packets, but cannot enter immutable retained events. Invalid empty identifiers,
+unresolved primary/Table pairs and mixed object snapshots reject without clocks,
+queue ownership or Redo changes. The24-case readiness and290-case recorder gate
+passes optimized/ASan/UBSan in3.988s;50 tool contracts pass in2.606s. Receipts:
+ignored `w12c3-definition-baseline*.log` and corresponding run summaries. Full
+origin completion integration remains W12c.3c.3a.2; no App activation changed.

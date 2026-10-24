@@ -84,6 +84,25 @@ static void validation_budget(void) {
     reject(s,r); CHECK(workbook_history_stream_state(s).current.action_high_water==40);
     CHECK(workbook_history_stream_free(&s,false)==HISTORY_STREAM_OK);
 }
+static void unresolved_baseline(void) {
+    WorkbookHistoryStream *s=create(2,DX_HISTORY_STREAM_DEFAULT_BYTES,true); SourceVersions sources={0};
+    Analysis before={.kind=SOURCE_DATABASE,.path="/database"},after=before; after.query="SELECT Id FROM input";
+    DefinitionEventView view={.sheet=9,.effects=1,.before={&before,NULL},.after={&after,NULL},.sources=&sources};
+    /* Legacy/core packets may describe unresolved state; retained admission may
+       not seal an origin/event that a later worker reply silently amends. */
+    DefinitionEventPacket packet={0}; CHECK(definition_event_capture(view,SIZE_MAX,&packet)==DEFINITION_EVENT_OK); definition_event_packet_free(&packet);
+    reject(s,record(s,view)); after.schema="main"; after.table="Sales"; reject(s,record(s,view));
+    before.schema="main"; before.table="Sales";
+    WorkbookHistoryDefinitionRecorder adapter=workbook_history_stream_definition_recorder(s); void *ticket=NULL;
+    WorkbookHistoryDefinitionRecord r=record(s,view); CHECK(adapter.reserve(adapter.context,&r,&ticket,NULL)); adapter.cancel(adapter.context,ticket);
+    before.table=""; reject(s,record(s,view));
+    SheetObject x={.id=1,.name="Raw",.kind=OBJECT_TABLE,.rows=4,.columns=3,.source={.kind=SOURCE_DATABASE,.path="/database"}},y=x; y.name="Renamed";
+    ObjectSnapshot left={&x,1},right={&y,1}; view=(DefinitionEventView){.sheet=9,.object_high_water=1,.effects=4,.before={NULL,&left},.after={NULL,&right},.sources=&sources};
+    reject(s,record(s,view)); x.source.schema=y.source.schema="main"; x.source.table=y.source.table="Sales";
+    r=record(s,view); ticket=NULL; CHECK(adapter.reserve(adapter.context,&r,&ticket,NULL)); adapter.publish(adapter.context,ticket);
+    CHECK(workbook_history_stream_state(s).pending==1 && workbook_history_stream_state(s).current.action_high_water==41);
+    CHECK(workbook_history_stream_free(&s,true)==HISTORY_STREAM_OK);
+}
 static void explicit_large_capacity(void) {
     SourceVersions sources={0}; SheetObject a={.id=9,.name="Raw",.kind=OBJECT_TABLE,.rows=5,.columns=4,
         .source={.kind=SOURCE_CSV,.path="/one",.filter_column="A",.filter_value="",.filter_op=FILTER_CONTAINS,.filter_count=1}};
@@ -108,4 +127,4 @@ static void explicit_large_capacity(void) {
     definition_event_free(&decoded); CHECK(workbook_history_stream_complete(s,&event)==HISTORY_STREAM_OK && !workbook_history_stream_state(s).owned_bytes);
     CHECK(workbook_history_stream_free(&s,false)==HISTORY_STREAM_OK);
 }
-int main(void) { ownership_fences_and_cancel(); mixed_fifo(); validation_budget(); explicit_large_capacity(); printf("PASS: %u compound definition stream ownership checks\n",checks); return 0; }
+int main(void) { ownership_fences_and_cancel(); mixed_fifo(); validation_budget(); unresolved_baseline(); explicit_large_capacity(); printf("PASS: %u compound definition stream ownership checks\n",checks); return 0; }

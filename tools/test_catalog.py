@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "definition-baseline": Feature(("definition_baseline", "history_definition"), "",
+        ("python3 tools/test.py feature --feature definition-event", "python3 tools/test.py native --scenario table"),
+        ("src/workbook/definition_baseline.c", "src/workbook/definition_baseline.h", "src/workbook/history_definition.c: resolved relation admission", "tests/test_definition_baseline.c", "tests/test_history_definition.c")),
     "history-definition": Feature(("history_definition", "history_stream", "history_format", "definition_event"), "",
         ("python3 tools/test.py feature --feature format-command", "python3 tools/test.py feature --feature workbook-history"),
         ("src/workbook/history_definition.c", "src/workbook/history_definition.h", "src/workbook/history_stream.h: explicit larger staging bound", "tests/test_history_definition.c")),

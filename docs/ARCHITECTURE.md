@@ -993,3 +993,12 @@ runtime ownership after reservation, adopts every constituent coherently, then
 publishes once. Cancellation consumes no action/transition identity or Redo.
 The adapter owns event bytes, not App readiness, source execution or durability;
 retained App activation still requires the remaining producer/publication families.
+
+
+`workbook/definition_baseline.c` is the allocation-free resolved-relation boundary
+for trusted definition views. A DATABASE primary/Table with NULL table needs
+worker completion; empty schema/table identifiers are invalid, not default
+selection. Typed retained definition admission requires both sides ready. Legacy
+core/packet codecs may still represent unresolved definitions. Final origin
+admission must use this boundary after completion; it cannot amend an earlier
+immutable event or turn derived type/extent publication into a user edit.
