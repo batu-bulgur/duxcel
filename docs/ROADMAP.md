@@ -278,7 +278,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4d.1 · P1 · Complete | Resolved Table connection/relation replacement; W12c.3c.3b.4c. | Admit changed file/relation/version bindings through the existing Table transaction, close old/new source metadata before eviction and invalidate only target/dependent results. Preserve no-op Redo, formats, stable IDs and unrelated Pages; worker default completion remains enrichment. |
 | W12c.3c.3b.4d.2 · P1 · Complete | Primary connection/relation replacement; W12c.3c.3b.4d.1. | Bind the live App primary authority, source/readiness/owner fences and complete dependencies before one Analysis action. Support explicit relinking from unavailable prior results, preserve no-op Redo and keep default-relation enrichment separate. |
 | W12c.3c.3b.4d.3 · P1 · Complete | Analytical object source binding; W12c.3c.3b.4d.2. | Admit changed source_id against an existing Table or primary owner, reserve full before/after graph/dependencies before eviction, preserve identity/layout/Marks and invalidate only the rebound object. Source/format composites remain W12c.3c.3b.4f. |
-| W12c.3c.3b.4e · P1 · Queued | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
+| W12c.3c.3b.4e · P1 · In progress | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
+| W12c.3c.3b.4e.1 · P1 · In progress | Admitted object deletion; W12c.3c.3b.4d.3. | Preserve dependent-Table guards and allocator high-water; reserve complete before/after graph/source union before eviction, support empty after-graphs and reject stale/pressure/cancel without mutation. Verify actual delete/Undo/Redo, independent caches and Save/Open. |
+| W12c.3c.3b.4e.2 · P1 · Queued | Single-object placement admission; W12c.3c.3b.4e.1. | Reserve/recheck complete graph, source/manual/object extents and destination; preserve query caches, IDs and no-op Redo. Keep mixed range moves with structural/range composites. |
+| W12c.3c.3b.4e.3 · P1 · Queued | Object creation admission; W12c.3c.3b.4e.2. | Prepare complete graph and monotonic new identity before publication, with resolved source/geometry ownership and one action. Keep worker origin enrichment and source-format composites explicit. |
 | W12c.3c.3b.4f · P1 · Queued | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1822,3 +1825,11 @@ and 150% v16 Save/Open. Fifty tool contracts pass in 2.342s. Receipts: ignored
 `w12c3-object-binding*.log` and run summaries. Source/format composites, retained
 App writing, durable Undo and dataset retention remain separate. Next:
 W12c.3c.3b.4e object topology/placement admission.
+
+
+Analytical binding packaging: source 3d4f467 produces the signed native bundle
+in 6.965s and normal shared-C Wasm build in 24.434s. Strict signature, compiled
+provenance and private feature/review exclusions pass. Ignored receipts:
+`w12c3-object-binding-bundle.log`, `w12c3-object-binding-package.json` and
+`w12c3-object-binding-web.log`. No user App was launched/closed; runtime browser
+persistence and broad regression are separate.
