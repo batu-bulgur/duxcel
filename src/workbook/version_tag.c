@@ -1,15 +1,19 @@
 #include "version_tag.h"
 #include <string.h>
+WorkbookVersionStatus workbook_version_tag_label_check(const WorkbookVersionIndex *index,WorkbookVersionText label) {
+    WorkbookVersionStatus status=workbook_version_index_check(index); if (status) return status;
+    status=workbook_version_label_check(label); if (status) return status;
+    for (size_t i=0;i<index->tag_count;i++) if (index->tags[i].label.bytes==label.bytes && !memcmp(index->tags[i].label.data,label.data,label.bytes)) return VERSION_DUPLICATE_TAG;
+    if (index->tag_count==DX_VERSION_TAGS) return VERSION_LIMIT;
+    return index->generation==UINT64_MAX ? VERSION_EXHAUSTED : VERSION_OK;
+}
 WorkbookVersionStatus workbook_version_tag_prepare(const WorkbookVersionIndex *index,WorkbookVersionOwner owner,
     const WorkbookVersionRoot *root,WorkbookVersionText label,WorkbookVersionTagPlan *out) {
     if (!out) return VERSION_INVALID_INDEX;
     WorkbookVersionTagPlan next={0};
     WorkbookVersionStatus status=workbook_version_prepare(index,owner,VERSION_USER_SAVE,root,&next.save);
     if (status) return status;
-    status=workbook_version_label_check(label); if (status) return status;
-    for (size_t i=0;i<index->tag_count;i++) if (index->tags[i].label.bytes==label.bytes && !memcmp(index->tags[i].label.data,label.data,label.bytes)) return VERSION_DUPLICATE_TAG;
-    if (index->tag_count==DX_VERSION_TAGS) return VERSION_LIMIT;
-    if (index->generation==UINT64_MAX) return VERSION_EXHAUSTED;
+    status=workbook_version_tag_label_check(index,label); if (status) return status;
     next.next_generation=index->generation+1;
     next.label_bytes=label.bytes; memcpy(next.label,label.data,label.bytes); next.label[label.bytes]=0;
     *out=next; return VERSION_OK;

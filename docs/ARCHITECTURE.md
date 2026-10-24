@@ -167,6 +167,17 @@ App separately owns live model/path/history/dirty publication, retaining newer
 edits after captured R saves. Normal native App files and version-bound recovery checkpoints now use v16. Working roots use a separate sibling
 folder beside recovery sessions, excluded from normal user Save/Open targets.
 
+`version_tag.c` prepares an owned exact UTF-8 label plus a canonical owner/index
+fence. Native `workbook_version_tag_save` adds that label and updates captured
+Latest Saved atomically, preflighting duplicates/capacity before capture. The same
+Save controller proves whole supported-core equality against retained roots;
+unchanged tags share payloads, and later ordinary Saves can reuse named roots.
+Tag publication always has a new generation, even for an unchanged Saved root.
+Its receipt exposes a complete tag plan separately from an ordinary Save plan;
+App adapters must fence the whole operation. No label operation mutates an older
+root, silently renames a duplicate or evicts protected states. Visible controls
+remain W11c and read-only historical preview remains W11d.
+
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain
 it and prune/cap operations advance a lost-history floor. Stable IDs identify the

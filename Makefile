@@ -819,7 +819,7 @@ distclean:
 # Legacy module-test recipes compile whole source lists and some execution goals
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
-PARALLEL_NATIVE_GOALS = build/tests/test_version_tag build/tests/test_version_tag-debug build/tests/test_version_checkpoint build/tests/test_version_checkpoint-debug build/tests/test_app_versions build/tests/test_app_versions-debug build/tests/test_worker_archive build/tests/test_worker_archive-debug build/tests/test_version_seed build/tests/test_version_seed-debug build/tests/test_worker_native build/tests/test_worker_native-debug build/tests/test_record_selection_worker build/tests/test_record_selection_worker-debug build/tests/test_worker_source_digest build/tests/test_worker_source_digest-debug build/tests/test_version_lifetime build/tests/test_version_lifetime-debug build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
+PARALLEL_NATIVE_GOALS = build/tests/test_version_tag_save build/tests/test_version_tag_save-debug build/tests/test_version_tag build/tests/test_version_tag-debug build/tests/test_version_checkpoint build/tests/test_version_checkpoint-debug build/tests/test_app_versions build/tests/test_app_versions-debug build/tests/test_worker_archive build/tests/test_worker_archive-debug build/tests/test_version_seed build/tests/test_version_seed-debug build/tests/test_worker_native build/tests/test_worker_native-debug build/tests/test_record_selection_worker build/tests/test_record_selection_worker-debug build/tests/test_worker_source_digest build/tests/test_worker_source_digest-debug build/tests/test_version_lifetime build/tests/test_version_lifetime-debug build/tests/test_version_save build/tests/test_version_save-debug build/tests/test_archive_write build/tests/test_archive_write-debug build/tests/test_archive_read build/tests/test_archive_read-debug build/tests/test_version_restore build/tests/test_version_restore-debug build/tests/test_core_restore build/tests/test_core_restore-debug build/tests/test_version_read build/tests/test_version_read-debug build/tests/test_version_stage build/tests/test_version_stage-debug build/tests/test_version_chunks build/tests/test_version_chunks-debug build/tests/test_core_compare build/tests/test_core_compare-debug build/tests/test_core_payload build/tests/test_core_payload-debug build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
 	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_version_index build/tests/test_version_index-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
@@ -1288,6 +1288,14 @@ build/tests/test_version_save: $(VERSION_SAVE_OBJECTS) | build/tests
 build/tests/test_version_save-debug: $(VERSION_SAVE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(VERSION_SAVE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(VERSION_SAVE_OBJECTS:.o=.d) $(VERSION_SAVE_SAN_OBJECTS:.o=.d)
+VERSION_TAG_SAVE_OBJECTS = $(filter-out %/tests/test_version_save.o,$(VERSION_SAVE_OBJECTS)) build/obj/release/app/tests/test_version_tag_save.o
+VERSION_TAG_SAVE_SAN_OBJECTS = $(filter-out %/tests/test_version_save.o,$(VERSION_SAVE_SAN_OBJECTS)) build/obj/sanitize/app/tests/test_version_tag_save.o
+build/tests/test_version_tag_save: $(VERSION_TAG_SAVE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(VERSION_TAG_SAVE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_version_tag_save-debug: $(VERSION_TAG_SAVE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(VERSION_TAG_SAVE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(VERSION_TAG_SAVE_OBJECTS:.o=.d) $(VERSION_TAG_SAVE_SAN_OBJECTS:.o=.d)
+
 
 WORKER_NATIVE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/tests/test_worker_native.o
 WORKER_NATIVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/sanitize/app/tests/test_worker_native.o
@@ -1529,4 +1537,3 @@ build/tests/test_version_tag: $(VERSION_TAG_TEST_OBJECTS) | build/tests
 build/tests/test_version_tag-debug: $(VERSION_TAG_TEST_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(VERSION_TAG_TEST_SAN_OBJECTS),$(SANFLAGS))
 -include $(VERSION_TAG_TEST_OBJECTS:.o=.d) $(VERSION_TAG_TEST_SAN_OBJECTS:.o=.d)
-

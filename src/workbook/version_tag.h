@@ -9,6 +9,9 @@ typedef struct {
     size_t label_bytes;
     char label[DX_VERSION_LABEL_BYTES+1];
 } WorkbookVersionTagPlan;
+/* Structural label/capacity preflight for UI/native callers before capture.
+   This does not validate a write owner or any immutable payload. */
+WorkbookVersionStatus workbook_version_tag_label_check(const WorkbookVersionIndex *index,WorkbookVersionText label);
 /* Pure current-head Create Tag planning. The native adapter must independently
    prove a complete immutable root. One atomic user publication updates Latest
    Saved and adds a unique immutable label; same-state labels share the root.
