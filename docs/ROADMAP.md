@@ -1912,3 +1912,19 @@ gates and records product completion here. Unresolved dependencies stay explicit
 no lane activates retained App history before complete producer/publication
 coverage. Disposable scheduling details live in ignored
 `build/locks/roadmap-lanes.json`.
+
+
+Parallel bootstrap integrated: original infrastructure commit `a7e530e` (main
+`2bc8442`) plus `22f6b87` provides `tools/lane.py`, a private checkout marker,
+shell-free operation execution, repo-wide blocking advisory ownership and
+checkout/lane receipts. Registered Make asset links into the same checkout are
+allowed; sibling mutable outputs/cache symlinks reject. Child cancellation keeps
+the operation lease until command exit. Compiled About provenance records lane
+and checkout without runtime Git; automated native Dock badges show TEST+lane.
+Nineteen focused tool/workspace tests pass in 2.126s, including two actual Git
+worktrees contending on the same lock; the isolation lane's registered About
+module/sanitizer/hidden-native gate passes in 7.469s. Evidence is under private
+`build/tests/results/`. All four named agents/worktrees are established; isolation
+completed bootstrap and handed its active slot to W13, while object-create,
+source-format and historical Save As author/run their scoped gates. No product
+roadmap slice is marked complete by this infrastructure milestone.
