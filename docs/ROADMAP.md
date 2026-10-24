@@ -1901,17 +1901,22 @@ agent or a module result with integrated product acceptance.
 | `roadmap-source-format` | Independent W12c.3c.3b.4f transaction prerequisites | Ledger/binding/format all-or-nothing ownership; final App adoption waits on creation/origin prerequisites |
 | `roadmap-history-save-as` | W13 current-state-only historical export; W11 complete | Independent export identity, closure and Working Head preservation; W14 waits for W12 |
 
-Every checkout keeps private `build/` fixtures/binaries/receipts. Compilation and
-mutable suites share a single repo-wide operation lease, with native compilation
-using eight jobs inside that lease. Existing OS-global desktop ownership remains
-mandatory; hidden automated launches use TEST plus lane identity. No live user
-App is controlled or terminated, and no sibling binary is overwritten. Source
-preparation may proceed concurrently. The coordinator integrates verified commits
-at dependency milestones, runs only the affected combined feature/interaction
-gates and records product completion here. Unresolved dependencies stay explicit;
-no lane activates retained App history before complete producer/publication
-coverage. Disposable scheduling details live in ignored
-`build/locks/roadmap-lanes.json`.
+Every checkout keeps private `build/` fixtures/binaries/receipts. The user's
+follow-up supersedes whole-command serialization: take the shared compilation
+lease only while building, with eight compilation jobs, and release it before
+independent private test execution. Keep same-checkout runner ownership to avoid
+overwriting a tested executable. App tests use dedicated lane-tagged TEST
+executables; subagents do not launch the normal `Duxcel.app`. Clipboard, native
+file-panel and other actual shared desktop interactions retain their separate
+native-service lock. Hidden software-injected GUI tests that use no shared OS
+services may run independently. No user App is controlled or terminated.
+The coordinator integrates verified commits at dependency milestones, runs only
+the affected combined feature/interaction gates and records product completion
+here. Unresolved dependencies stay explicit; no lane activates retained App
+history before complete producer/publication coverage. Disposable scheduling
+details live in ignored `build/locks/roadmap-lanes.json`. The isolation lane is
+verifying the phase-aware runner before any new lane launches.
+
 
 
 Parallel bootstrap integrated: original infrastructure commit `a7e530e` (main

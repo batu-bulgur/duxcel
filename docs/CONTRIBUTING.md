@@ -36,9 +36,14 @@ separate files/builds. Agree on owned files, base commit, acceptance and the
 integration owner first. App/shared interfaces/Makefile have one owner. A lane
 that needs the same interfaces queues its integration instead of racing them.
 An explicit user-requested larger team may override the two-lane default. Record
-its ownership/dependency map in ROADMAP before execution. Keep compilation and
-mutable suites serialized across that team's worktrees, retain the global desktop
-lock, and label every automated instance with its lane/checkout. The coordinator
+its ownership/dependency map in ROADMAP before execution. For the current team,
+the user's explicit test-isolation policy supersedes the blanket operation lock:
+serialize compilation, then release that lease before independent private test
+execution. Keep a same-checkout runner lease so no tested binary is overwritten.
+App tests run dedicated, lane-tagged TEST executables, never normal Duxcel.app
+bundles. Acquire the global native-service lock only for actual shared clipboard,
+file-panel or other desktop interaction. Private fixtures never cross worktrees.
+The coordinator
 alone integrates shared App/build/catalog/docs changes at verified milestones.
 Read-only review needs neither a new branch nor a worktree.
 
