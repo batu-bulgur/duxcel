@@ -15,6 +15,11 @@ static unsigned char *encode(uint64_t sheet,const FormatStore *a,const FormatSto
     CHECK(format_delta_encoded_size(sheet,format_delta_store_view(a),format_delta_store_view(b),bytes)==FORMAT_DELTA_OK);
     unsigned char *wire=dx_alloc(*bytes+1); memset(wire,0xa5,*bytes+1); size_t written=0;
     CHECK(format_delta_encode(sheet,format_delta_store_view(a),format_delta_store_view(b),wire,*bytes,&written)==FORMAT_DELTA_OK && written==*bytes && wire[*bytes]==0xa5);
+    FormatDeltaInfo info={0}; CHECK(format_delta_preflight(wire,*bytes,&info)==FORMAT_DELTA_OK && info.sheet==sheet &&
+        info.before_bytes+info.after_bytes+DX_FORMAT_DELTA_HEADER_BYTES==*bytes && info.owned==format_owned_bytes(a,false)+format_owned_bytes(b,false));
+    FormatDeltaInfo prior=info;
+    CHECK(format_delta_preflight(wire,5,&info)==FORMAT_DELTA_INVALID && !memcmp(&prior,&info,sizeof(prior)));
+    CHECK(format_delta_preflight(wire,*bytes,NULL)==FORMAT_DELTA_INVALID);
     return wire;
 }
 static void test_oracle(void) {
@@ -56,6 +61,7 @@ static void test_oracle(void) {
         put(bad+20,n-32,4); rejected(bad,n,budget,&out,FORMAT_DELTA_INVALID);
     }
     memcpy(bad,wire,bytes); put(bad+20,8,4); memset(bad+32,0,8);
+    FormatDeltaInfo framed={0}; CHECK(format_delta_preflight(bad,40,&framed)==FORMAT_DELTA_OK && !framed.owned);
     rejected(bad,40,budget,&out,FORMAT_DELTA_INVALID); /* Empty -> empty is not an event. */
     unsigned char arena[128],copy[128]; memset(arena,0xa5,sizeof(arena)); memcpy(copy,arena,sizeof(copy)); size_t written=123,measured=456;
     CHECK(format_delta_encode(1,format_delta_store_view(&before),format_delta_store_view(&before),arena,sizeof(arena),&written)==FORMAT_DELTA_NOOP && written==123 && !memcmp(arena,copy,sizeof(arena)));
@@ -114,6 +120,7 @@ static void test_memory_and_membership_limits(void) {
     }
     CHECK(format_valid(&after,NULL)); size_t bytes=0; unsigned char *wire=encode(1,&before,&after,&bytes); FormatDelta out={0};
     size_t owned=format_owned_bytes(&after,false),scratch=count*sizeof(const FormatScope *);
+    FormatDeltaInfo info={0}; CHECK(format_delta_preflight(wire,bytes,&info)==FORMAT_DELTA_OK && info.owned==owned && info.validation_scratch==scratch);
     rejected(wire,bytes,owned,&out,FORMAT_DELTA_LIMIT); rejected(wire,bytes,owned+scratch-1,&out,FORMAT_DELTA_LIMIT);
     CHECK(format_delta_decode(wire,bytes,owned+scratch,&out)==FORMAT_DELTA_OK && out.after.scope_count==count && out.after.items[count-1].guard_ids[0]==count-1);
     format_delta_free(&out); format_free(&after); free(wire);

@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "compound-preflight": Feature(("format_delta_codec", "source_versions_codec"), "",
+        ("python3 tools/test.py feature --feature objects-asset", "python3 tools/test.py feature --feature compound-preparation"),
+        ("src/workbook/format_delta_codec.c: allocation-free compound graph inspection", "src/workbook/source_versions_codec.c: allocation-free compound source inspection", "tests/test_format_delta_codec.c", "tests/test_source_versions_codec.c")),
     "compound-preparation": Feature(("definition_dependencies", "format_dependencies", "history_format", "workbook_codec_read"), "",
         ("python3 tools/test.py feature --feature definition-preflight", "python3 tools/test.py feature --feature source-versions-codec", "python3 tools/test.py feature --feature format-command", "python3 tools/test.py feature --feature source-result-format"),
         ("src/transforms/analysis.c: shared filter validation scratch", "src/workbook/workbook_codec_read.c: parser budget adapter", "src/workbook/definition_dependencies.c: selection without source clones", "src/workbook/format_dependencies.c: selection without source clones", "src/workbook/source_versions_codec.c: direct selected-row encoding", "src/workbook/history_format.c", "Makefile: cached metadata reader objects/actual dependencies")),

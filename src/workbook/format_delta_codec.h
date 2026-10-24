@@ -14,6 +14,7 @@ typedef struct {
     bool source_aware;
 } FormatSnapshotView;
 typedef struct { uint64_t sheet; FormatSnapshot before,after; } FormatDelta;
+typedef struct { uint64_t sheet; size_t before_bytes,after_bytes,owned,validation_scratch; } FormatDeltaInfo;
 typedef enum { FORMAT_DELTA_OK,FORMAT_DELTA_NOOP,FORMAT_DELTA_INVALID,FORMAT_DELTA_LIMIT,FORMAT_DELTA_UNSUPPORTED } FormatDeltaStatus;
 FormatSnapshotView format_delta_store_view(const FormatStore *store);
 FormatSnapshotView format_delta_snapshot_view(const FormatSnapshot *snapshot);
@@ -33,6 +34,11 @@ FormatDeltaStatus format_delta_encoded_size(uint64_t sheet,FormatSnapshotView be
    preserves arena and *written; success writes only the measured prefix. */
 FormatDeltaStatus format_delta_encode(uint64_t sheet,FormatSnapshotView before,FormatSnapshotView after,
     void *arena,size_t capacity,size_t *written);
+/* Allocation-free closed framing/count/owned/scratch inspection for compound
+   graph admission. Full selector semantics, uniqueness/change and source closure
+   are NOT proved by inspection; successful decode remains mandatory. Failure
+   preserves info. Input is immutable through the compound inspection/decode. */
+FormatDeltaStatus format_delta_preflight(const void *data,size_t bytes,FormatDeltaInfo *info);
 /* Two-pass framing/memory preflight precedes owned graph allocation. reserved
    covers new arrays/definitions and peak format-validation scratch; input bytes
    and an existing out graph are separately caller-owned. Decode then validates

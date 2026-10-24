@@ -126,7 +126,7 @@ void format_delta_free(FormatDelta *delta) {
     if (!delta) return;
     format_snapshot_free(&delta->before); format_snapshot_free(&delta->after); *delta=(FormatDelta){0};
 }
-FormatDeltaStatus format_delta_decode(const void *data,size_t bytes,size_t reserved,FormatDelta *out) {
+FormatDeltaStatus format_delta_preflight(const void *data,size_t bytes,FormatDeltaInfo *out) {
     if (!data || !out || bytes<6 || bytes>DX_FORMAT_DELTA_MAX_BYTES || memcmp(data,"DXFD",4)) return FORMAT_DELTA_INVALID;
     Reader header={data,bytes,4,true}; if (get(&header,2)!=DX_FORMAT_DELTA_ENCODING) return FORMAT_DELTA_UNSUPPORTED;
     if (bytes<DX_FORMAT_DELTA_HEADER_BYTES || get(&header,2)) return FORMAT_DELTA_INVALID;
@@ -137,9 +137,16 @@ FormatDeltaStatus format_delta_decode(const void *data,size_t bytes,size_t reser
     const unsigned char *a=(const unsigned char *)data+DX_FORMAT_DELTA_HEADER_BYTES,*b=a+before;
     size_t owned_a=0,owned_b=0,scratch_a=0,scratch_b=0;
     if (!read_snapshot(a,before,NULL,&owned_a,&scratch_a) || !read_snapshot(b,after,NULL,&owned_b,&scratch_b)) return FORMAT_DELTA_INVALID;
-    if (owned_a+owned_b+(scratch_a>scratch_b ? scratch_a : scratch_b)>reserved) return FORMAT_DELTA_LIMIT;
-    FormatDelta next={.sheet=sheet};
-    if (!read_snapshot(a,before,&next.before,NULL,NULL) || !read_snapshot(b,after,&next.after,NULL,NULL) ||
+    *out=(FormatDeltaInfo){sheet,before,after,owned_a+owned_b,scratch_a>scratch_b ? scratch_a : scratch_b}; return FORMAT_DELTA_OK;
+}
+FormatDeltaStatus format_delta_decode(const void *data,size_t bytes,size_t reserved,FormatDelta *out) {
+    if (!out) return FORMAT_DELTA_INVALID;
+    FormatDeltaInfo info={0}; FormatDeltaStatus status=format_delta_preflight(data,bytes,&info);
+    if (status!=FORMAT_DELTA_OK) return status;
+    if (info.owned>reserved || info.validation_scratch>reserved-info.owned) return FORMAT_DELTA_LIMIT;
+    const unsigned char *a=(const unsigned char *)data+DX_FORMAT_DELTA_HEADER_BYTES,*b=a+info.before_bytes;
+    FormatDelta next={.sheet=info.sheet};
+    if (!read_snapshot(a,info.before_bytes,&next.before,NULL,NULL) || !read_snapshot(b,info.after_bytes,&next.after,NULL,NULL) ||
         !valid(format_delta_snapshot_view(&next.before)) || !valid(format_delta_snapshot_view(&next.after)) ||
         same(format_delta_snapshot_view(&next.before),format_delta_snapshot_view(&next.after))) {
         format_delta_free(&next); return FORMAT_DELTA_INVALID;

@@ -950,3 +950,13 @@ validation may parse bounded filter grammar, so its worst-case scratch plus the
 scope marker/format validation allowance must also be admitted before compound
 preparation. None of these helpers activate scopes or replace owner/revision
 fences, complete definition validation or global App resource accounting.
+
+
+Format deltas and source-version assets expose allocation-free framing/owned
+inspection for whole-compound admission. Format inspection includes both graph
+sizes and peak uniqueness scratch; source inspection includes exact row ownership
+and allocator headers. Ordinary decoders reuse the same boundary. This does not
+prove selectors/change, complete locator/RAW semantics or source activation:
+well-framed no-op/invalid metadata can pass inspection and still reject at decode.
+A compound owner must inspect ALL constituents before copying any graph, then
+require complete decoding and cross-owner/dependency closure before adoption.

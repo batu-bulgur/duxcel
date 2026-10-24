@@ -111,18 +111,23 @@ void source_versions_asset_free(SourceVersionsAsset *asset) {
     if (!asset) return;
     source_versions_free(&asset->versions); *asset=(SourceVersionsAsset){0};
 }
-SourceVersionsCodecStatus source_versions_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,SourceVersionsAsset *out) {
+SourceVersionsCodecStatus source_versions_asset_preflight(const void *data,size_t bytes,uint64_t owners,SourceVersionsAssetInfo *out) {
     if (!data || !out || bytes<6 || bytes>DX_SOURCE_VERSIONS_MAX_BYTES || memcmp(data,"DXSV",4)) return SOURCE_VERSIONS_CODEC_INVALID;
     Reader header={data,bytes,4,true}; if (get(&header,2)!=DX_SOURCE_VERSIONS_ENCODING) return SOURCE_VERSIONS_CODEC_UNSUPPORTED;
     if (bytes<DX_SOURCE_VERSIONS_HEADER_BYTES || get(&header,2)) return SOURCE_VERSIONS_CODEC_INVALID;
     uint64_t sheet=get(&header,8); uint64_t high=get(&header,8); size_t count=(size_t)get(&header,2);
     unsigned zero=(unsigned)get(&header,2); zero|=(unsigned)get(&header,4);
     if (!sheet || zero || count>DX_SOURCE_VERSIONS) return SOURCE_VERSIONS_CODEC_INVALID;
-    Reader peek=header; size_t owned=0;
-    if (!read_rows(&peek,count,high,owners,NULL,&owned)) return SOURCE_VERSIONS_CODEC_INVALID;
-    if (owned>reserved) return SOURCE_VERSIONS_CODEC_LIMIT;
-    SourceVersionsAsset next={.sheet=sheet};
-    if (!read_rows(&header,count,high,owners,&next.versions,NULL) || !source_versions_valid(&next.versions,owners,NULL)) {
+    size_t owned=0; if (!read_rows(&header,count,high,owners,NULL,&owned)) return SOURCE_VERSIONS_CODEC_INVALID;
+    *out=(SourceVersionsAssetInfo){sheet,high,count,owned}; return SOURCE_VERSIONS_CODEC_OK;
+}
+SourceVersionsCodecStatus source_versions_asset_decode(const void *data,size_t bytes,uint64_t owners,size_t reserved,SourceVersionsAsset *out) {
+    if (!out) return SOURCE_VERSIONS_CODEC_INVALID;
+    SourceVersionsAssetInfo info={0}; SourceVersionsCodecStatus status=source_versions_asset_preflight(data,bytes,owners,&info);
+    if (status!=SOURCE_VERSIONS_CODEC_OK) return status;
+    if (info.owned>reserved) return SOURCE_VERSIONS_CODEC_LIMIT;
+    Reader rows={data,bytes,DX_SOURCE_VERSIONS_HEADER_BYTES,true}; SourceVersionsAsset next={.sheet=info.sheet};
+    if (!read_rows(&rows,info.count,info.high_water,owners,&next.versions,NULL) || !source_versions_valid(&next.versions,owners,NULL)) {
         source_versions_asset_free(&next); return SOURCE_VERSIONS_CODEC_INVALID;
     }
     source_versions_asset_free(out); *out=next; return SOURCE_VERSIONS_CODEC_OK;

@@ -14,7 +14,13 @@ static SourceVersions ledger(size_t count) {
 static unsigned char *encode(uint64_t sheet,const SourceVersions *v,size_t *bytes) {
     CHECK(source_versions_asset_size(sheet,v,UINT64_MAX,bytes)==SOURCE_VERSIONS_CODEC_OK);
     unsigned char *data=dx_alloc(*bytes+1); memset(data,0xa5,*bytes+1); size_t written=0;
-    CHECK(source_versions_asset_encode(sheet,v,UINT64_MAX,data,*bytes,&written)==SOURCE_VERSIONS_CODEC_OK && written==*bytes && data[*bytes]==0xa5); return data;
+    CHECK(source_versions_asset_encode(sheet,v,UINT64_MAX,data,*bytes,&written)==SOURCE_VERSIONS_CODEC_OK && written==*bytes && data[*bytes]==0xa5);
+    SourceVersionsAssetInfo info={0};
+    CHECK(source_versions_asset_preflight(data,*bytes,UINT64_MAX,&info)==SOURCE_VERSIONS_CODEC_OK && info.sheet==sheet && info.high_water==v->high_water &&
+        info.count==v->count && info.owned==v->bytes-(v->capacity-v->count)*sizeof(SourceVersion));
+    SourceVersionsAssetInfo prior=info;
+    CHECK(source_versions_asset_preflight(data,5,UINT64_MAX,&info)==SOURCE_VERSIONS_CODEC_INVALID && !memcmp(&prior,&info,sizeof(prior)));
+    CHECK(source_versions_asset_preflight(data,*bytes,UINT64_MAX,NULL)==SOURCE_VERSIONS_CODEC_INVALID); return data;
 }
 static void rejected_at(int line,const void *data,size_t bytes,uint64_t owners,size_t reserved,SourceVersionsAsset *out,SourceVersionsCodecStatus status) {
     unsigned char before[sizeof(*out)]; memcpy(before,out,sizeof(before));
@@ -55,6 +61,9 @@ static void test_pending_oracle(void) {
         unsigned char old=bad[mutations[i].at]; bad[mutations[i].at]=mutations[i].value;
         rejected(bad,bytes,UINT64_MAX,DX_SOURCE_VERSIONS_BYTES,&out,SOURCE_VERSIONS_CODEC_INVALID); bad[mutations[i].at]=old;
     }
+    memcpy(bad,wire,bytes); bad[61]='*'; SourceVersionsAssetInfo framed={0};
+    CHECK(source_versions_asset_preflight(bad,bytes,UINT64_MAX,&framed)==SOURCE_VERSIONS_CODEC_OK && framed.owned==v.bytes);
+    rejected(bad,bytes,UINT64_MAX,DX_SOURCE_VERSIONS_BYTES,&out,SOURCE_VERSIONS_CODEC_INVALID); memcpy(bad,wire,bytes);
     memset(bad+8,0,8); rejected(bad,bytes,UINT64_MAX,DX_SOURCE_VERSIONS_BYTES,&out,SOURCE_VERSIONS_CODEC_INVALID); memcpy(bad+8,wire+8,8);
     memset(bad+16,0,8); rejected(bad,bytes,UINT64_MAX,DX_SOURCE_VERSIONS_BYTES,&out,SOURCE_VERSIONS_CODEC_INVALID); memcpy(bad+16,wire+16,8);
     memset(bad+32,0,8); rejected(bad,bytes,UINT64_MAX,DX_SOURCE_VERSIONS_BYTES,&out,SOURCE_VERSIONS_CODEC_INVALID);

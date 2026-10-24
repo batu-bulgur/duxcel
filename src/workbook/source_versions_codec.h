@@ -6,6 +6,7 @@
 #define DX_SOURCE_VERSION_ROW_BYTES 28u
 #define DX_SOURCE_VERSIONS_MAX_BYTES (DX_SOURCE_VERSIONS_BYTES+DX_SOURCE_VERSIONS_HEADER_BYTES)
 typedef struct { uint64_t sheet; SourceVersions versions; } SourceVersionsAsset;
+typedef struct { uint64_t sheet,high_water; size_t count,owned; } SourceVersionsAssetInfo;
 typedef enum {
     SOURCE_VERSIONS_CODEC_OK,SOURCE_VERSIONS_CODEC_INVALID,SOURCE_VERSIONS_CODEC_LIMIT,SOURCE_VERSIONS_CODEC_UNSUPPORTED
 } SourceVersionsCodecStatus;
@@ -21,6 +22,11 @@ typedef enum {
 SourceVersionsCodecStatus source_versions_asset_size(uint64_t sheet,const SourceVersions *versions,uint64_t object_high_water,size_t *bytes);
 SourceVersionsCodecStatus source_versions_asset_encode(uint64_t sheet,const SourceVersions *versions,uint64_t object_high_water,
     void *arena,size_t capacity,size_t *written);
+/* Allocation-free header/framing/order/owned inspection for compound budgets.
+   This is NOT full locator UTF-8/glob/RAW-packet/source proof; successful decode
+   remains mandatory. Failure preserves info; input remains immutable through
+   compound inspection/decode. No row/path/packet is copied here. */
+SourceVersionsCodecStatus source_versions_asset_preflight(const void *data,size_t bytes,uint64_t object_high_water,SourceVersionsAssetInfo *info);
 /* Framing/owned-memory preflight precedes allocation. reserved covers new rows,
    NUL-terminated locators and copied RAW packets; input/old out are separately
    owned. out is zero-initialized or owns an independent valid asset. Success
