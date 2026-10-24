@@ -204,7 +204,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11f · P1 · Complete | Same-destination Save conflict protection; W11c, prioritized during W11d. | Refuse implicit Save/Tag against changed file identity or another v16 version index; preserve edits/peer tags. Only explicit accepted Save As can replace a changed destination. |
 | W12 · P1 · In progress | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W12a · P1 · Complete | Explicit version-boundary retention window; W11. | Select three states/two intervals ending at Saved, coalesce only aliases of the same explicit version boundary, preserve an older cursor plus current Redo/unsaved suffix, and reject required history gaps. Pure planning only; no durable Undo claim. |
-| W12b · P1 · Queued | Durable path/anchor and reversible-event contract; W12a. | Bind tag/Saved boundaries to proved operation positions independently of reused content roots. Validate branch/cursor/origin, contiguous reversible events and complete referenced payload closure; reject malformed/unsupported profiles atomically. |
+| W12b · P1 · In progress | Durable path/anchor and reversible-event contract; W12a. | Bind tag/Saved boundaries to proved operation positions independently of reused content roots. Validate branch/cursor/origin, contiguous reversible events and complete referenced payload closure; reject malformed/unsupported profiles atomically. |
+| W12b.1 · P1 · Complete | Closed public anchor/index bindings; W12a. | Validate exact document, tag-publication identity, Saved root, anchor high-water and complete public references. Reused content/positions never substitute anchor identity; no event/payload or cross-session Undo claim. |
+| W12b.2 · P1 · Queued | Event/path continuity and durable metadata profile; W12b.1. | Prove current lineage/cursor and retained ranges, classify checkpoint-only legacy history explicitly, and bind each reversible payload family before selecting a file profile. Never fabricate old Undo from saved snapshots. |
 | W12c · P1 · Queued | Persist supported reversible payload families; W12b. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
@@ -967,3 +969,13 @@ an already older cursor extends protection, and a missing required prefix report
 GAP without changing the output. Optimized/sanitized33-case gate passed in2.467s.
 Durable anchors/events, replay, file publication and actual pruning remain W12b–W12g;
 this preparatory controller does not make existing v16 session history durable.
+
+W12b.1 complete: pure `history_anchors` validates public Saved/tag bindings against
+the existing admitted version index, joining immutable tag creation identities
+rather than user labels. Every anchor resolves to a known matching root, fits its
+high-water and has a public reference; duplicate IDs, cross-document links,
+unknown/misbound tags and hidden orphan descriptors fail. Root reuse, independent
+operation positions/lineages, zero IDs and exhausted counters stay explicit.
+The31-case binding proof plus33-case window passed optimized/sanitized in2.081s,
+including maximum1,025 public anchors sharing one content root. Event/path proof,
+wire admission and actual durable Undo remain W12b.2–W12g; no file profile changed.

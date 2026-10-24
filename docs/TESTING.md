@@ -240,3 +240,10 @@ archive and cross-session replay acceptance remains separate roadmap work.
 It belongs to the full native inventory and is deferred by the ordinary
 `history-preview` feature plan. Standalone GUI receipts report the binary's actual
 sanitizer configuration rather than assuming every feature GUI is release.
+
+`history-anchors` runs its31-case public-directory proof and the existing33-case
+window in optimized/sanitized C builds. Cases include cross-document/root/tag
+misbinding, duplicate/unknown/orphan IDs, alias/content reuse, zero and exhausted
+IDs, arbitrary physical order and the maximum1,025-anchor public inventory. The
+module links only its real version-index dependency; no database, file decoder or
+GUI is involved. Event continuity and actual cross-session history remain queued.

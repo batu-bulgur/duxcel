@@ -734,3 +734,13 @@ gap rather than silently shrinking the contract. It does not prove event continu
 serialize history, restore session stacks or authorize root deletion. All named
 checkpoints, reader/recovery pins and payload closure remain separate obligations
 for W12b–W12g.
+
+`workbook/history_anchors.c` checks the borrowed public-anchor projection against
+an admitted `version_index`: document identity, separately retained high-water,
+Saved and one exact binding per immutable tag publication. Anchor IDs are globally
+unique in this directory and independent of content/operation position. All
+public anchors must have a Saved/tag reference; every reference resolves to the
+matching known root. Physical row order and alias labels do not supply identity.
+Opaque lineage/position values still require the queued event/path proof. This
+projection is neither a file-format declaration nor permission to drop protected
+assets; existing v16 files contain no durable Undo metadata.

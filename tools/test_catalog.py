@@ -70,6 +70,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-anchors": Feature(("history_anchors", "history_window"), "",
+        ("python3 tools/test.py feature --feature tag-worker", "python3 tools/test.py feature --feature app-preview"),
+        ("src/workbook/history_anchors.c", "src/workbook/history_anchors.h", "tests/test_history_anchors.c")),
     "history-preview-sanitize": Feature((), "history-preview-sanitize",
         ("python3 tools/test.py full --config both",),
         ("Makefile: private historical full-App sanitizer target", "tests/support/history_preview_app.inc: identical actual UI workflow")),
