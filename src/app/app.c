@@ -7,6 +7,7 @@
 #include "../workbook/object_layout_command.h"
 #include "../workbook/object_pivot_command.h"
 #include "../workbook/object_binding_command.h"
+#include "../workbook/object_delete_command.h"
 #include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
@@ -3431,10 +3432,26 @@ static bool set_chart_measure(App *a,size_t measure) {
     return set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MEASURE,measure,NULL},"Chart measure updated.");
 }
 static void remove_pivot(App *a) {
-    if (a->selected_object<0) return;
-    if (objects_remove(&active_sheet(a)->objects,(size_t)a->selected_object)) { worksheet_record(active_sheet(a),EDIT_OBJECTS); reconcile_object_views(a); a->selected_object=-1; a->book.dirty=true; a->pivot_focus=0; status(a,"Object removed. Undo restores its definition and placement."); }
-    else status(a,"This table supplies a pivot or chart. Remove those objects before deleting their source table.");
-    a->modal=MODAL_NONE;
+    SheetObject *o=selected_object(a); if (!o) return;
+    uint64_t id=o->id; Worksheet *sheet=active_sheet(a); char *error=NULL; ObjectDeletePlanInfo info={0};
+    if (objects_delete_measure(&sheet->objects,id,&info,&error)!=OBJECT_DELETE_READY) goto done;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { error=dx_strdup("Deletion planning reservation overflow."); goto done; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (source_format_budget_status(a,NULL,info.owned,info.validation_scratch,0,0,0)) goto done;
+#endif
+    ObjectCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)};
+    ObjectCommandTarget target;
+    if (!workbook_prepare_object_fence(&context,a->book.active,id,&target,&error)) goto done;
+    ObjectDeleteResult result=workbook_apply_object_delete_recorded(&context,&target,NULL,&error);
+    if (result.status==OBJECT_DELETE_APPLIED) {
+        reconcile_object_views(a); a->selected_object=-1; a->pivot_focus=0;
+        clear_values_cache(a); a->field_matches_valid=false;
+        status(a,"Object removed. Undo restores its definition and placement.");
+    }
+done:
+    if (error) status(a,error);
+    free(error); a->modal=MODAL_NONE;
 }
 static void assign_pivot_field_at(App *a,PivotRole role,size_t destination,bool position_field) {
     SheetObject *o=selected_pivot(a); if (!o) return; PivotDefinition copy=pivot_copy(&o->pivot); char *error=NULL; bool ok=false;
@@ -15747,6 +15764,9 @@ static void primary_replacement_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
 static void primary_steps_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
+static void object_delete_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_BINDING_COMMAND
 static void object_binding_command_test_frame(AppSession *session);
 #endif
@@ -16631,6 +16651,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
     primary_steps_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
+    object_delete_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_BINDING_COMMAND
     object_binding_command_test_frame(session);
 #endif
@@ -16967,4 +16990,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_BINDING_COMMAND
 #include "../../tests/support/object_binding_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
+#include "../../tests/support/object_delete_command_app.inc"
 #endif

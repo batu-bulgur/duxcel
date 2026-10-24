@@ -61,6 +61,10 @@ void objects_adopt_source_transform(ObjectStore *store,ObjectSnapshot *owned);
    definition plans (including presentation). The command installs any changed
    monotonic title/Marks counters AFTER transfer and publishes one action. */
 void objects_adopt_definition(ObjectStore *store,ObjectSnapshot *owned);
+/* Admitted single-object removal with a complete independent graph (possibly
+   empty). Preserve allocator/title/Marks counters; reserve/recheck before this
+   nonfallible transfer and record/publish the matching action exactly once. */
+void objects_adopt_removal(ObjectStore *store,ObjectSnapshot *owned);
 void objects_snapshot_free(ObjectSnapshot *owned);
 /* Conservative source-binding reservation, not exact allocator measurement:
    a non-NULL array reserves DX_MAX_OBJECTS* sizeof(SheetObject), including when

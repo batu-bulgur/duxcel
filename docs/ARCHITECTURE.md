@@ -1140,3 +1140,13 @@ not an invented changed event family. Adoption changes one query revision/action
 preserving geometry, name, Marks and allocator. App owns the compact frozen-ID
 chooser, stale-draft guard, readiness and target-only cache invalidation; worker
 schema errors remain explicit. Retained App writing/data remain separate.
+
+
+`object_delete_command.c` projects one removal without mutation, protects Tables
+with live dependents and validates full before/after graphs plus their source
+union. Optional event reservation and full owner recheck precede the nonfallible
+`objects_adopt_removal` transfer, one history action and one document revision.
+The empty after-graph owns no array; immutable source ledger and allocator
+high-water survive deletion/Undo. App reconciles result Pages by stable ID,
+retires the removed result and clears authoring caches; independent Pages remain.
+Deletion needs no ready query result. Retained event IO remains separate.

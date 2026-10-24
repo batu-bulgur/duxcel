@@ -279,7 +279,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4d.2 · P1 · Complete | Primary connection/relation replacement; W12c.3c.3b.4d.1. | Bind the live App primary authority, source/readiness/owner fences and complete dependencies before one Analysis action. Support explicit relinking from unavailable prior results, preserve no-op Redo and keep default-relation enrichment separate. |
 | W12c.3c.3b.4d.3 · P1 · Complete | Analytical object source binding; W12c.3c.3b.4d.2. | Admit changed source_id against an existing Table or primary owner, reserve full before/after graph/dependencies before eviction, preserve identity/layout/Marks and invalidate only the rebound object. Source/format composites remain W12c.3c.3b.4f. |
 | W12c.3c.3b.4e · P1 · In progress | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
-| W12c.3c.3b.4e.1 · P1 · In progress | Admitted object deletion; W12c.3c.3b.4d.3. | Preserve dependent-Table guards and allocator high-water; reserve complete before/after graph/source union before eviction, support empty after-graphs and reject stale/pressure/cancel without mutation. Verify actual delete/Undo/Redo, independent caches and Save/Open. |
+| W12c.3c.3b.4e.1 · P1 · Complete | Admitted object deletion; W12c.3c.3b.4d.3. | Preserve dependent-Table guards and allocator high-water; reserve complete before/after graph/source union before eviction, support empty after-graphs and reject stale/pressure/cancel without mutation. Verify actual delete/Undo/Redo, independent caches and Save/Open. |
 | W12c.3c.3b.4e.2 · P1 · Queued | Single-object placement admission; W12c.3c.3b.4e.1. | Reserve/recheck complete graph, source/manual/object extents and destination; preserve query caches, IDs and no-op Redo. Keep mixed range moves with structural/range composites. |
 | W12c.3c.3b.4e.3 · P1 · Queued | Object creation admission; W12c.3c.3b.4e.2. | Prepare complete graph and monotonic new identity before publication, with resolved source/geometry ownership and one action. Keep worker origin enrichment and source-format composites explicit. |
 | W12c.3c.3b.4f · P1 · Queued | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
@@ -1833,3 +1833,16 @@ provenance and private feature/review exclusions pass. Ignored receipts:
 `w12c3-object-binding-bundle.log`, `w12c3-object-binding-package.json` and
 `w12c3-object-binding-web.log`. No user App was launched/closed; runtime browser
 persistence and broad regression are separate.
+
+
+W12c.3c.3b.4e.1 complete: deletion admits a complete independent after-graph,
+including empty graphs, before optional DXDE reservation and one ownership/action
+publication. Dependent Tables stay protected; deleted source metadata and object
+ID high-water remain retained. Pressure, stale callbacks, invalid ownership and
+read-only state leave the command unapplied. The focused optimized/ASan/UBSan
+gate passes in 36.034s (355 deletion checks per configuration; 16 native stages/
+32 checks, GUI 9.383s), covering real menu delete, cache preservation, Undo/Redo,
+last-object removal and 150% v16 Save/Open. Fifty tool contracts pass in 2.332s.
+Receipts: ignored `w12c3-object-delete*.log` and run summaries. Retained App event
+IO, durable Undo and source/format composites remain separate; next is
+W12c.3c.3b.4e.2 single-object placement admission.

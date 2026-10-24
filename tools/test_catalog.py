@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-delete-command": ("build/tests/test_object_delete_command-gui", "PASS: native object delete workflow",
+                              r"^PASS: native object delete workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "object-binding-command": ("build/tests/test_object_binding_command-gui", "PASS: native object binding workflow",
                                r"^PASS: native object binding workflow \(21 stages, [1-9]\d* checks\)$", 21),
     "primary-replacement": ("build/tests/test_primary_replacement-gui", "PASS: native primary replacement workflow",
@@ -98,6 +100,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-delete-command": Feature(("object_delete_command", "objects", "history_definition", "definition_dependencies"), "object-delete-command",
+        ("python3 tools/test.py feature --feature object-binding-command", "python3 tools/test.py native --scenario chart"),
+        ("src/workbook/object_delete_command.c", "src/workbook/object_delete_command.h", "src/workbook/objects.c: admitted removal transfer", "src/app/app.c: remove_pivot adapter", "tests/test_object_delete_command.c", "tests/support/object_delete_command_app.inc")),
     "object-binding-command": Feature(("object_binding_command", "object_pivot_command", "history_definition", "definition_dependencies"), "object-binding-command",
         ("python3 tools/test.py feature --feature primary-replacement", "python3 tools/test.py feature --feature table-replacement"),
         ("src/workbook/object_binding_command.c", "src/workbook/object_binding_command.h", "src/app/app.c: source chooser/draft/binding adapter", "tests/test_object_binding_command.c", "tests/support/object_binding_command_app.inc"), fixtures=("source-connections",)),
