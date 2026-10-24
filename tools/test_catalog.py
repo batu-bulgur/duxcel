@@ -260,7 +260,7 @@ FEATURES = {
         ("python3 tools/test.py feature --feature app-preview",),
         ("src/workbook/history_window.c", "src/workbook/history_window.h", "tests/test_history_window.c")),
     "history-save-as": Feature((), "history-preview",
-        ("python3 tools/test.py feature --feature archive-worker", "python3 tools/test.py feature --feature history-preview-sanitize"),
+        ("python3 tools/test.py feature --feature worker-archive", "python3 tools/test.py feature --feature history-preview-sanitize"),
         ("src/app/versionpreview.c: independent inspected-state export", "src/data/worker_archive.c: export-only receipt", "src/workbook/workbook.c: optional native origin metadata", "src/workbook/core_compare.c: complete native origin equality", "tests/test_app_preview.c", "tests/test_core_compare.c", "tests/support/history_preview_app.inc"),
         ("app_preview", "core_compare", "workbook_save")),
     "history-preview": Feature((), "history-preview",
