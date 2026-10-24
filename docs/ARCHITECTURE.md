@@ -338,9 +338,9 @@ and complete core closure without moving that pointer. After captured R publishe
 while R+1 remains dirty, App prepares a new private baseline carrying the new Saved
 R. Each generation owns its store; App supplies background retirement, and a failed
 replacement remains uncovered until a valid binding can retry. Versioned generations
-cannot silently fall back to a legacy checkpoint. The staged recovery reader admits
-v16 roots independently of head/tail, while legacy private checkpoints supply no
-user Saved evidence. Recovered owners rotate; candidate and App root ownership are
+cannot silently fall back to an unsupported checkpoint. The staged recovery reader
+admits current v16 roots independently of head/tail; unsupported checkpoint formats
+reject without adopting state. An unbound journal does not establish user Saved evidence. Recovered owners rotate; candidate and App root ownership are
 independent, including deferred tails. Working extraction uses the sibling versions
 folder and keeps fixed recovery-generation inventories unchanged.
 
