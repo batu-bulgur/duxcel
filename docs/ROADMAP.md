@@ -1799,3 +1799,11 @@ formatting (24 stages, 22.554s) interactions pass; 50 tool contracts pass in 2.4
 Receipts: ignored `w12c3-primary-replacement*.log` and run summaries. No full
 regression, native file-panel gate, retained App writer or dataset retention is
 claimed. Next: W12c.3c.3b.4d.3 analytical source_id admission.
+
+
+Primary replacement packaging: source e8d3d00 produces the signed native bundle
+in 1.957s and normal shared-C Wasm build in 24.049s wall time. Strict signature,
+compiled provenance and private feature/review exclusions pass. Receipts: ignored
+`w12c3-primary-replacement-bundle.log`, `w12c3-primary-replacement-package.json`
+and `w12c3-primary-replacement-web.log`. No user App was launched/closed; browser
+runtime/Open/Save, durable history and broad regression remain separate gates.
