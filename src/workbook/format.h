@@ -77,6 +77,17 @@ bool format_valid(const FormatStore *store,char **error);
 bool format_persistable(const FormatStore *store,char **error);
 size_t format_owned_bytes(const FormatStore *store,bool include_history);
 bool format_apply(FormatStore *store,FormatRange range,unsigned mask,CellFormat value,char **error);
+/* Owned candidate preparation before reserving an event or mutating the store.
+   These use the same compaction/precedence and current/history budgets as apply.
+   out is zero-initialized or owns an independent snapshot; success replaces it,
+   failure preserves it and the live store/Undo/Redo/revision. Cancel by freeing
+   out, or commit only while the captured store/owner fences remain unchanged. */
+bool format_plan_spatial(const FormatStore *store,FormatRange range,unsigned mask,CellFormat value,FormatSnapshot *out,char **error);
+bool format_plan_scoped(const FormatStore *store,FormatRange range,unsigned mask,CellFormat value,
+    const FormatScopeView *scopes,size_t count,bool include_manual,FormatSnapshot *out,char **error);
+/* Trusted valid current/independent candidate; semantic no-op includes selector
+   membership, scope bytes and source-aware mode, never pointer identity. */
+bool format_snapshot_matches(const FormatStore *store,const FormatSnapshot *snapshot);
 bool format_apply_scoped(FormatStore *store,FormatRange range,unsigned mask,CellFormat value,
     const FormatScopeView *scopes,size_t count,bool include_manual,char **error);
 /* Native v14 can archive these dormant selectors; live producers must still

@@ -797,3 +797,11 @@ prove asset/metadata durability before releasing a completed event. This8-MiB/
 256-entry resident staging bound cannot prune accepted history. It has no IO or
 App activation; other producer/cursor families and composed recovery/retained
 admission remain prerequisites of the final publication/replay integration.
+
+Spatial/result formatting now exposes owned `format_plan_spatial` and
+`format_plan_scoped` candidates, and a semantic `format_snapshot_matches` query.
+Ordinary apply calls those same planners before the existing commit. This gives
+future event admission complete before/after state before mutation without
+changing current compaction, source-aware precedence or history budgets. Plans
+are independent owned graphs; cancellation/failure preserves live mode, revision
+and Undo/Redo. Callers still own workbook/source/revision commit fences.

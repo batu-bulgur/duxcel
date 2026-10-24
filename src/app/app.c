@@ -15422,6 +15422,9 @@ static void workbook_identity_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_CELL_COMMAND
 static void cell_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_FORMAT_PLAN
+static void format_plan_test_frame(AppSession *session);
+#endif
 struct AppSession {
     App app;
     AppOptions options;
@@ -16264,6 +16267,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_CELL_COMMAND
     cell_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_FORMAT_PLAN
+    format_plan_test_frame(session);
+#endif
 #ifdef DUXCEL_BROWSER_HOST
     bool file_before_shortcuts=a->file_menu;
 #endif
@@ -16495,6 +16501,9 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_CELL_COMMAND
 #include "../../tests/support/cell_command_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_FORMAT_PLAN
+#include "../../tests/support/format_plan_app.inc"
 #endif
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY

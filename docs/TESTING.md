@@ -302,3 +302,12 @@ counters and a real40-edit producer keeping its first dispatched payload after
 session history evicts eight actions. Storage acknowledgements are protocol mocks;
 no durable IO/cross-session-history claim is made. Native recorder/path interactions
 remain deferred because this new owner is not activated in the App yet.
+
+`format-plan` selects the format module (optimized/sanitized) and a private
+10-stage real App fixture. It verifies pointer Bold, native-key Italic/Underline,
+Undo/Redo, canceled no-op/scoped candidates preserving Redo/mode/revision,
+100/150 percent and versioned Save/Open with exact raw values. The source module
+also checks independent nested record/scope ownership and late budget failure
+preserving an existing plan. Wider148-stage format-controls and source-format
+interactions remain deferred. Ribbon fixture input uses the production logical-
+to-screen transform; hooks/stage state are absent from shipping builds.

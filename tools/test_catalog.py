@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "format-plan": ("build/tests/test_format_plan-gui", "PASS: native cancellable format workflow",
+                    r"^PASS: native cancellable format workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "history-preview-sanitize": ("build/tests/test_history_preview-gui-debug", "PASS: native historical preview workflow",
                                  r"^PASS: native historical preview workflow \(20 stages, [1-9]\d* checks\)$", 20),
     "history-preview": ("build/tests/test_history_preview-gui", "PASS: native historical preview workflow",
@@ -70,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "format-plan": Feature(("format",), "format-plan",
+        ("python3 tools/test.py feature --feature format-controls", "python3 tools/test.py affected --feature source-format --modules source_scope format --config sanitize"),
+        ("src/workbook/format.c: owned spatial/scoped plans and shared apply wrappers", "src/workbook/format.h", "tests/test_format.c", "tests/support/format_plan_app.inc", "tests/test_format_plan_gui.c")),
     "history-stream": Feature(("history_stream", "cell_command", "cell_delta_codec"), "",
         ("python3 tools/test.py feature --feature cell-recorder", "python3 tools/test.py feature --feature history-path"),
         ("src/workbook/history_stream.c", "src/workbook/history_stream.h", "tests/test_history_stream.c", "tests/test_cell_command.c: real producer/owned-stream handoff beyond session eviction")),

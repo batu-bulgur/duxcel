@@ -217,7 +217,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.1c · P1 · Complete | Retained event admission and producer handoff; W12c.1b. | Reserve owned event/envelope/payload before changing cells or evicting session rings, recheck owner/revisions and cancel on rejection/no-op. Preserve event IDs and exact inverse beyond session retention; activate cross-session history only after all families/publication are ready. |
 | W12c.1c.1 · P1 · Complete | Atomic cell recorder seam and recovery adapter; W12c.1b. | Shared producer reserves copied exact payload before mutation, rechecks fences, publishes after coherent model/history/revision change, cancels on failure and avoids callbacks for no-op/stale input. Native recovery uses this same seam without extra allocation or synchronous IO. |
 | W12c.1c.2 · P1 · Complete | Retained cell event owner/envelope handoff; W12c.1c.1. | Bind independent durable operation/lineage positions and canonical owned assets before ring eviction. Bounded backpressure cannot mutate data/history; event ownership survives pending persistence and session rings. Keep App retained history inactive until every producer/publication family is supported. |
-| W12c.2 · P1 · Queued | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
+| W12c.2 · P1 · In progress | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
+| W12c.2a · P1 · Complete | Cancellable spatial/result format planning; W12c.1. | Prepare independent owned candidates and detect semantic no-op before reservation. Cancel/failure preserves live styles, mode, Undo/Redo and revision; ordinary apply uses the same planner. Narrow actual input/Save/Open workflow. |
+| W12c.2b · P1 · Queued | Closed scoped-format payload encoding; W12c.2a. | Capture stored style properties, snapshot mode, exact opaque scopes, guard indices and record/original-field membership in canonical before/after bytes. Strict bounded owned decoding; derived rendering state and native structs are absent. |
+| W12c.2c · P1 · Queued | Format event admission and source dependency closure; W12c.2b. | Reserve copied assets before commit, fence workbook/sheet/format/source revisions and preserve all referenced immutable source versions without rewinding high-water or display defaults. Reject partial composite bindings; coordinate range/analysis/lifecycle consumers in their own slices. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1128,3 +1131,14 @@ not durable IO. The current App still uses its existing recovery recorder;
 retained-stream activation, composed recovery/history reservations, cursor
 transitions and full file publication wait for all producer families and W12d/e.
 The8-MiB/256-entry staging ceiling is backpressure, never history truncation.
+
+W12c.2a complete: spatial/scoped format apply now uses public owned planning
+helpers, matching the existing record planner. Candidates preserve full scope/
+membership ownership and can be canceled without touching mode, Redo, revision
+or history. Semantic match detects no-op independently of pointer identity.
+The89,276-case format module passes optimized/sanitized; a new10-stage hidden
+App slice covers actual Bold pointer input, Italic/Underline keys, Undo/Redo,
+canceled scoped/no-op plans,100/150 percent and versioned Save/Open. Gate12.923s,
+GUI3.838s;55 tool contracts13.149s. Evidence: ignored
+`w12c2-format-plan*.log`. The148-stage format-controls/source-format interactions
+stay registered/deferred. No format-event file profile is activated yet.

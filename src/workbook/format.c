@@ -195,6 +195,7 @@ static bool same_snapshot(const FormatStore *a,const FormatSnapshot *b) {
     }
     return true;
 }
+bool format_snapshot_matches(const FormatStore *s,const FormatSnapshot *snapshot) { return s && snapshot && same_snapshot(s,snapshot); }
 bool format_commit(FormatStore *s,FormatSnapshot *owned) {
     if (same_snapshot(s,owned)) { format_snapshot_free(owned); return false; }
     clear(s->redo,&s->redo_count); push(s->undo,&s->undo_count,current(s));
@@ -290,17 +291,31 @@ static bool scope_ids(FormatSnapshot *s,const FormatScopeView *views,size_t coun
     for (size_t i=1;i<count;i++) { size_t value=ids[i],j=i; while (j && ids[j-1]>value) { ids[j]=ids[j-1]; j--; } ids[j]=value; }
     return true;
 }
-bool format_apply_scoped(FormatStore *s,FormatRange range,unsigned mask,CellFormat value,const FormatScopeView *views,size_t count,bool manual,char **error) {
+bool format_plan_scoped(const FormatStore *s,FormatRange range,unsigned mask,CellFormat value,const FormatScopeView *views,size_t count,bool manual,FormatSnapshot *out,char **error) {
+    if (!s || !out) return fail(error,"Choose an independent cell format plan.");
     if (!range_valid(range) || !mask || (mask&~FORMAT_ALL) || !value_valid(value)) return fail(error,"Choose a valid cell format and worksheet range.");
     if (!scope_views_valid(views,count,error)) return false;
     FormatSnapshot next=snapshot(s); next.source_aware=true; size_t ids[DX_FORMAT_GUARDS];
     bool ok=scope_ids(&next,views,count,ids,error) && append(&next,(FormatPatch){.range=range,.mask=mask,.value=value,.selector=manual ? FORMAT_GUARDED : FORMAT_RESULT,.guard_ids=ids,.guard_count=count},error) && ready(s,&next,error);
-    if (!ok) { format_snapshot_free(&next); return false; } format_commit(s,&next); return true;
+    if (!ok) { format_snapshot_free(&next); return false; }
+    format_snapshot_free(out); *out=next; return true;
 }
-bool format_apply(FormatStore *s,FormatRange range,unsigned mask,CellFormat value,char **error) {
+bool format_plan_spatial(const FormatStore *s,FormatRange range,unsigned mask,CellFormat value,FormatSnapshot *out,char **error) {
+    if (!s || !out) return fail(error,"Choose an independent cell format plan.");
     if (!range_valid(range) || !mask || (mask&~FORMAT_ALL) || !value_valid(value)) return fail(error,"Choose a valid cell format and worksheet range.");
     FormatSnapshot next=snapshot(s); bool ok=append(&next,(FormatPatch){.range=range,.mask=mask,.value=value},error) && ready(s,&next,error);
-    if (!ok) { format_snapshot_free(&next); return false; } format_commit(s,&next); return true;
+    if (!ok) { format_snapshot_free(&next); return false; }
+    format_snapshot_free(out); *out=next; return true;
+}
+bool format_apply_scoped(FormatStore *s,FormatRange range,unsigned mask,CellFormat value,const FormatScopeView *views,size_t count,bool manual,char **error) {
+    FormatSnapshot next={0};
+    if (!format_plan_scoped(s,range,mask,value,views,count,manual,&next,error)) return false;
+    format_commit(s,&next); return true;
+}
+bool format_apply(FormatStore *s,FormatRange range,unsigned mask,CellFormat value,char **error) {
+    FormatSnapshot next={0};
+    if (!format_plan_spatial(s,range,mask,value,&next,error)) return false;
+    format_commit(s,&next); return true;
 }
 bool format_plan_records(const FormatStore *s,const FormatScopeView *scope,const uint64_t *records,size_t record_count,const size_t *fields,size_t field_count,unsigned mask,CellFormat value,FormatSnapshot *out,char **error) {
     if (!out) return fail(error,"Choose an owned output for the record-format plan.");

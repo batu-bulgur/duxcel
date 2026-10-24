@@ -838,6 +838,46 @@ static void disjoint_property_noop(void) {
     }
     clear_error(&error);
 }
+static void cancellable_edit_plans(void) {
+    FormatStore s={0}; FormatSnapshot plan={0}; CellFormat value=format_default(); char *error=NULL;
+    FormatRange range={1,3,2,4}; value.flags=FORMAT_BOLD;
+    unsigned char live[sizeof(s)]; memcpy(live,&s,sizeof(s));
+    CHECK(format_plan_spatial(&s,range,FORMAT_BOLD,value,&plan,&error) && !error && !memcmp(live,&s,sizeof(s)));
+    CHECK(plan.count==1 && !plan.source_aware && !format_snapshot_matches(&s,&plan));
+    format_snapshot_free(&plan); CHECK(!memcmp(live,&s,sizeof(s)) && !plan.items);
+    CHECK(format_plan_spatial(&s,range,FORMAT_BOLD,value,&plan,&error) && format_commit(&s,&plan));
+    value.color=2; CHECK(format_apply(&s,range,FORMAT_COLOR,value,&error));
+    CHECK(format_history(&s,false) && s.redo_count==1 && format_at(&s,2,3).flags==FORMAT_BOLD && !format_at(&s,2,3).color);
+    uint64_t revision=s.revision; size_t undo=s.undo_count;
+    memcpy(live,&s,sizeof(s));
+    CHECK(format_plan_spatial(&s,range,FORMAT_BOLD,value,&plan,&error) && format_snapshot_matches(&s,&plan) && plan.items!=s.items && !memcmp(live,&s,sizeof(s)));
+    CHECK(!format_commit(&s,&plan) && s.revision==revision && s.undo_count==undo && s.redo_count==1);
+    CHECK(format_history(&s,true) && format_at(&s,2,3).color==2);
+    value.flags=FORMAT_UNDERLINE; CHECK(format_plan_spatial(&s,range,FORMAT_UNDERLINE,value,&plan,&error));
+    unsigned char prior[sizeof(plan)]; memcpy(prior,&plan,sizeof(plan)); memcpy(live,&s,sizeof(s));
+    CHECK(!format_plan_spatial(&s,(FormatRange){4,2,0,1},FORMAT_BOLD,value,&plan,&error) && error && !memcmp(prior,&plan,sizeof(plan)) && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    CHECK(!format_plan_scoped(&s,range,FORMAT_BOLD,value,NULL,1,false,&plan,&error) && error && !memcmp(prior,&plan,sizeof(plan)) && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    char *large=dx_alloc(DX_FORMAT_SCOPE_BYTES-1); memset(large,'q',DX_FORMAT_SCOPE_BYTES-1);
+    FormatScopeView many[4]; for (size_t i=0;i<4;i++) many[i]=(FormatScopeView){i,large,DX_FORMAT_SCOPE_BYTES-1};
+    CHECK(!format_plan_scoped(&s,range,FORMAT_BOLD,value,many,4,false,&plan,&error) && error && !memcmp(prior,&plan,sizeof(plan)) && !memcmp(live,&s,sizeof(s))); clear_error(&error); free(large);
+    format_snapshot_free(&plan);
+    char definition[]={'a',0,'b'}; FormatScopeView scopes[2]={{9,"x",1},{10,definition,sizeof(definition)}};
+    CHECK(format_plan_scoped(&s,range,FORMAT_UNDERLINE,value,scopes,2,true,&plan,&error) && !memcmp(live,&s,sizeof(s)) && !s.source_aware);
+    CHECK(plan.source_aware && plan.scope_count==2 && plan.items[plan.count-1].selector==FORMAT_GUARDED && !format_snapshot_matches(&s,&plan));
+    definition[1]='z'; CHECK(plan.scopes[1].owner==10 && plan.scopes[1].definition!=definition && !memcmp(plan.scopes[1].definition,"a\0b",3)); definition[1]=0;
+    format_snapshot_free(&plan); CHECK(!memcmp(live,&s,sizeof(s)));
+    CHECK(!format_plan_spatial(NULL,range,FORMAT_BOLD,value,&plan,&error) && error && !plan.items); clear_error(&error);
+    CHECK(!format_plan_scoped(&s,range,FORMAT_BOLD,value,scopes,2,false,NULL,&error) && error && !memcmp(live,&s,sizeof(s))); clear_error(&error);
+    CHECK(!format_snapshot_matches(NULL,&plan) && !format_snapshot_matches(&s,NULL));
+    format_free(&s);
+    uint64_t ids[]={1,UINT64_MAX}; size_t fields[]={0,16383}; value.flags=FORMAT_ITALIC;
+    CHECK(format_apply_records(&s,&scopes[1],ids,2,fields,2,FORMAT_ITALIC,value,&error));
+    CHECK(format_plan_spatial(&s,range,FORMAT_COLOR,value,&plan,&error));
+    CHECK(plan.items[0].record_ids!=s.items[0].record_ids && plan.items[0].fields!=s.items[0].fields && plan.scopes[0].definition!=s.scopes[0].definition);
+    format_free(&s);
+    CHECK(plan.items[0].record_ids[1]==UINT64_MAX && plan.items[0].fields[1]==16383 && !memcmp(plan.scopes[0].definition,definition,sizeof(definition)));
+    format_snapshot_free(&plan);
+}
 int main(void) {
     display("128450.00",2,true,"128,450.00"); display("-24860",2,true,"(24,860.00)"); display("-24860",0,false,"−24,860");
     display("9.995",2,true,"10.00"); display("-0.00005",4,true,"(0.0001)"); display("0.00000000001",4,false,"0.0000");
@@ -879,5 +919,6 @@ int main(void) {
     guarded_store_baseline(); guarded_store_invalid(); guarded_store_limits();
     scope_duplicate_validation();
     disjoint_property_noop();
+    cancellable_edit_plans();
     printf("PASS: %u formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",checks); return 0;
 }
