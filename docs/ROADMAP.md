@@ -244,7 +244,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.2b.1 · P1 · Complete | Bounded compound preparation without metadata clones; W12c.3c.2a. | Share parser-scratch accounting, select dependency indices atomically against one immutable ledger and encode their canonical union directly. Preserve format-event bytes; keep metadata-reader tests cached by actual dependencies. |
 | W12c.3c.2b.2 · P1 · In progress | Closed compound packet and event handoff; W12c.3c.2b.1. | Budget all required constituent graphs/validation before allocation, capture their complete before/after payloads and source union, reject mismatched effects/no-op/owner bindings and hand off one immutable event before mutation. |
 | W12c.3c.2b.2a · P1 · Complete | Compound format/source graph preflight; W12c.3c.2b.1. | Inspect format before/after framing/owned/uniqueness scratch and source-row header/order/owned needs before any constituent allocation. Full semantic decode remains mandatory. |
-| W12c.3c.2b.2b · P1 · Queued | Atomic compound capture/decode and stream adapter; W12c.3c.2b.2a. | Bind exact changed family pairs and one source union, enforce effect/owner/grammar/budget closure, and hand off one immutable event without partial mutation or intermediate full-asset copies. |
+| W12c.3c.2b.2b · P1 · In progress | Atomic compound capture/decode and stream adapter; W12c.3c.2b.2a. | Bind exact changed family pairs and one source union, enforce effect/owner/grammar/budget closure, and hand off one immutable event without partial mutation or intermediate full-asset copies. |
 | W12c.3c.3 · P1 · Queued | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
 | W12c.3c.3a · P1 · Queued | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
 | W12c.3c.3b · P1 · Queued | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
@@ -1348,3 +1348,12 @@ that no-op format frames and well-framed invalid locators still require semantic
 decode. The422-case format and291-case source optimized/ASan/UBSan gate passes
 in3.601s;50 tool contracts pass in2.312s. Receipts: ignored
 `w12c3-compound-preflight*.log/json`. No IO/model/profile/GUI behavior changed.
+
+Compound object staging complete within W12c.3c.2b.2b: a private validated writer
+encodes directly into a disjoint unpublished compound buffer, without allocating
+another full object packet. Failure preserves written but the caller discards
+unpublished bytes; the public packet API keeps atomic output replacement.
+The1,046-case optimized/ASan/UBSan object gate passes in3.133s;50 tool contracts
+pass in2.334s. Direct/public bytes match, including maximum graphs and late Table
+semantic rejection. Receipts: ignored `w12c3-compound-object-staging*.log/json`.
+Compound envelope/effect/dependency closure and stream handoff remain next.

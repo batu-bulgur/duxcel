@@ -1,4 +1,4 @@
-#include "workbook/objects_asset.h"
+#include "workbook/objects_asset_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +11,11 @@ static ObjectsAssetPacket capture(const ObjectStore *s,ObjectsAssetInfo *info) {
     CHECK(objects_asset_capture(99,&view,s->next_id,info->measure.bytes+info->measure.validation_scratch,&packet)==OBJECTS_ASSET_OK && packet.bytes==info->measure.bytes);
     ObjectsAssetInfo framed={0}; CHECK(objects_asset_preflight(packet.data,packet.bytes,&framed)==OBJECTS_ASSET_OK && framed.sheet==99 && framed.count==s->count &&
         framed.high_water==s->next_id && framed.measure.owned==info->measure.owned && framed.measure.validation_scratch==info->measure.validation_scratch);
-    return packet;
+    unsigned char *direct=dx_alloc(packet.bytes+1); memset(direct,0xa5,packet.bytes+1); size_t written=77;
+    CHECK(objects_asset_encode_unpublished(99,&view,s->next_id,info->measure.validation_scratch,direct,packet.bytes-1,&written)==OBJECTS_ASSET_LIMIT && written==77);
+    CHECK(objects_asset_encode_unpublished(99,&view,s->next_id,info->measure.validation_scratch,direct,packet.bytes,&written)==OBJECTS_ASSET_OK &&
+        written==packet.bytes && direct[packet.bytes]==0xa5 && !memcmp(direct,packet.data,packet.bytes));
+    free(direct); return packet;
 }
 static void reject(const void *data,size_t bytes,size_t budget,ObjectsAsset *out,ObjectsAssetStatus expected) {
     ObjectsAsset before=*out; CHECK(objects_asset_decode(data,bytes,budget,out)==expected && !memcmp(&before,out,sizeof(before)));
@@ -87,6 +91,11 @@ static void ownership_and_corruption(void) {
     reject(data,packet.bytes,budget-1,&out,OBJECTS_ASSET_LIMIT);
     ObjectSnapshot snapshot={s.items,s.count}; ObjectsAssetPacket prior=packet;
     CHECK(objects_asset_capture(99,&snapshot,s.next_id,info.measure.bytes+info.measure.validation_scratch-1,&packet)==OBJECTS_ASSET_LIMIT && packet.data==prior.data && packet.bytes==prior.bytes);
+    SourceKind kind=s.items[0].source.kind; s.items[0].source.kind=SOURCE_NONE;
+    CHECK(objects_asset_capture(99,&snapshot,s.next_id,SIZE_MAX,&packet)==OBJECTS_ASSET_INVALID && packet.data==prior.data && packet.bytes==prior.bytes);
+    unsigned char *unpublished=dx_alloc(packet.bytes); size_t written=77;
+    CHECK(objects_asset_encode_unpublished(99,&snapshot,s.next_id,SIZE_MAX,unpublished,packet.bytes,&written)==OBJECTS_ASSET_INVALID && written==77);
+    free(unpublished); s.items[0].source.kind=kind;
     uint64_t source=s.items[1].source_id; s.items[1].source_id=999;
     CHECK(objects_asset_capture(99,&snapshot,s.next_id,SIZE_MAX,&packet)==OBJECTS_ASSET_INVALID && packet.data==prior.data); s.items[1].source_id=source;
     uint64_t row=s.items[1].row; s.items[1].row=DX_SHEET_ROWS;

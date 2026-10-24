@@ -1,4 +1,4 @@
-#include "objects_asset.h"
+#include "objects_asset_internal.h"
 #include <stdlib.h>
 #include <string.h>
 typedef char ObjectTagsStable[(OBJECT_PIVOT==0 && OBJECT_CHART==1 && OBJECT_TABLE==2 && MARK_BAR==0 && MARK_LINE==1 && MARK_DOT==2 && MARK_SCATTER==3 && DX_MAX_OBJECTS==32) ? 1 : -1];
@@ -59,6 +59,33 @@ ObjectsAssetStatus objects_asset_measure(uint64_t sheet,const ObjectSnapshot *ob
     if (status==OBJECTS_ASSET_OK) *out=p.info; return status;
 }
 void objects_asset_packet_free(ObjectsAssetPacket *p) { if (p) { free(p->data); *p=(ObjectsAssetPacket){0}; } }
+static ObjectsAssetStatus encode_prepared(const ObjectPlan *p,const ObjectSnapshot *objects,uint64_t high,void *arena,size_t *written) {
+    const DefinitionWireMeasure *m=&p->info.measure; DefinitionWireWriter w={arena};
+    memcpy(w.p,"DXOB",4); w.p+=4; definition_wire_put(&w,DX_OBJECTS_ASSET_ENCODING,2); definition_wire_put(&w,0,2);
+    definition_wire_put(&w,p->info.sheet,8); definition_wire_put(&w,high,8); definition_wire_put(&w,objects->count,1); definition_wire_put(&w,0,3);
+    definition_wire_put(&w,m->bytes-DX_OBJECTS_ASSET_HEADER_BYTES,4);
+    for (size_t i=0;i<objects->count;i++) {
+        const SheetObject *o=objects->items+i; const ObjectWireRecord *r=p->rows+i;
+        definition_wire_put(&w,r->id,8); definition_wire_put(&w,r->row,8); definition_wire_put(&w,r->rows,8); definition_wire_put(&w,r->source,8);
+        definition_wire_put(&w,r->column,2); definition_wire_put(&w,r->columns,2); definition_wire_put(&w,r->kind,1); definition_wire_put(&w,r->mark,1); definition_wire_put(&w,r->measure,1); definition_wire_put(&w,0,1);
+        for (unsigned f=0;f<3;f++) definition_wire_put(&w,r->lengths[f],4);
+        definition_wire_text_write(&w,o->name); size_t written=0;
+        bool ok=analysis_asset_encode(p->info.sheet,o->id,&o->source,high,m->validation_scratch,w.p,r->lengths[0],&written)==ANALYSIS_ASSET_OK && written==r->lengths[0]; w.p+=r->lengths[0]; written=0;
+        ok=ok && pivot_asset_encode(p->info.sheet,o->id,&o->pivot,high,m->validation_scratch,w.p,r->lengths[1],&written)==PIVOT_ASSET_OK && written==r->lengths[1]; w.p+=r->lengths[1]; written=0;
+        ok=ok && marks_asset_encode(p->info.sheet,o->id,&o->marks,high,w.p,r->lengths[2],&written)==MARKS_ASSET_OK && written==r->lengths[2]; w.p+=r->lengths[2];
+        if (!ok) { return OBJECTS_ASSET_INVALID; }
+    }
+    if ((size_t)(w.p-(unsigned char *)arena)!=m->bytes) { return OBJECTS_ASSET_INVALID; }
+    *written=m->bytes; return OBJECTS_ASSET_OK;
+}
+ObjectsAssetStatus objects_asset_encode_unpublished(uint64_t sheet,const ObjectSnapshot *objects,uint64_t high,size_t reserved,void *arena,size_t capacity,size_t *written) {
+    if (!arena || !written) return OBJECTS_ASSET_INVALID;
+    ObjectPlan p={0}; ObjectsAssetStatus status=model_plan(sheet,objects,high,&p); if (status!=OBJECTS_ASSET_OK) return status;
+    if (p.info.measure.bytes>capacity || p.info.measure.validation_scratch>reserved) return OBJECTS_ASSET_LIMIT;
+    ObjectStore view={.items=objects->items,.count=objects->count,.next_id=high};
+    if (!objects_valid(&view,NULL)) return OBJECTS_ASSET_INVALID;
+    return encode_prepared(&p,objects,high,arena,written);
+}
 ObjectsAssetStatus objects_asset_capture(uint64_t sheet,const ObjectSnapshot *objects,uint64_t high,size_t reserved,ObjectsAssetPacket *out) {
     if (!out) return OBJECTS_ASSET_INVALID;
     ObjectPlan p={0}; ObjectsAssetStatus status=model_plan(sheet,objects,high,&p); if (status!=OBJECTS_ASSET_OK) return status;
@@ -66,22 +93,9 @@ ObjectsAssetStatus objects_asset_capture(uint64_t sheet,const ObjectSnapshot *ob
     if (m->bytes>reserved || m->validation_scratch>reserved-m->bytes) return OBJECTS_ASSET_LIMIT;
     ObjectStore view={.items=objects->items,.count=objects->count,.next_id=high};
     if (!objects_valid(&view,NULL)) return OBJECTS_ASSET_INVALID;
-    ObjectsAssetPacket next={dx_alloc(m->bytes),m->bytes}; DefinitionWireWriter w={next.data};
-    memcpy(w.p,"DXOB",4); w.p+=4; definition_wire_put(&w,DX_OBJECTS_ASSET_ENCODING,2); definition_wire_put(&w,0,2);
-    definition_wire_put(&w,sheet,8); definition_wire_put(&w,high,8); definition_wire_put(&w,objects->count,1); definition_wire_put(&w,0,3);
-    definition_wire_put(&w,m->bytes-DX_OBJECTS_ASSET_HEADER_BYTES,4);
-    for (size_t i=0;i<objects->count;i++) {
-        const SheetObject *o=objects->items+i; const ObjectWireRecord *r=p.rows+i;
-        definition_wire_put(&w,r->id,8); definition_wire_put(&w,r->row,8); definition_wire_put(&w,r->rows,8); definition_wire_put(&w,r->source,8);
-        definition_wire_put(&w,r->column,2); definition_wire_put(&w,r->columns,2); definition_wire_put(&w,r->kind,1); definition_wire_put(&w,r->mark,1); definition_wire_put(&w,r->measure,1); definition_wire_put(&w,0,1);
-        for (unsigned f=0;f<3;f++) definition_wire_put(&w,r->lengths[f],4);
-        definition_wire_text_write(&w,o->name); size_t written=0;
-        bool ok=analysis_asset_encode(sheet,o->id,&o->source,high,m->validation_scratch,w.p,r->lengths[0],&written)==ANALYSIS_ASSET_OK && written==r->lengths[0]; w.p+=r->lengths[0]; written=0;
-        ok=ok && pivot_asset_encode(sheet,o->id,&o->pivot,high,m->validation_scratch,w.p,r->lengths[1],&written)==PIVOT_ASSET_OK && written==r->lengths[1]; w.p+=r->lengths[1]; written=0;
-        ok=ok && marks_asset_encode(sheet,o->id,&o->marks,high,w.p,r->lengths[2],&written)==MARKS_ASSET_OK && written==r->lengths[2]; w.p+=r->lengths[2];
-        if (!ok) { objects_asset_packet_free(&next); return OBJECTS_ASSET_INVALID; }
-    }
-    if ((size_t)(w.p-(unsigned char *)next.data)!=next.bytes) { objects_asset_packet_free(&next); return OBJECTS_ASSET_INVALID; }
+    ObjectsAssetPacket next={dx_alloc(m->bytes),m->bytes}; size_t written=0;
+    status=encode_prepared(&p,objects,high,next.data,&written);
+    if (status!=OBJECTS_ASSET_OK || written!=next.bytes) { objects_asset_packet_free(&next); return OBJECTS_ASSET_INVALID; }
     objects_asset_packet_free(out); *out=next; return OBJECTS_ASSET_OK;
 }
 static const unsigned char *span(DefinitionWireReader *r,size_t n) {

@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "compound-object-staging": Feature(("objects_asset",), "",
+        ("python3 tools/test.py feature --feature compound-preflight", "python3 tools/test.py feature --feature compound-preparation"),
+        ("src/workbook/objects_asset.c: direct unpublished compound writer", "src/workbook/objects_asset_internal.h", "tests/test_objects_asset.c")),
     "compound-preflight": Feature(("format_delta_codec", "source_versions_codec"), "",
         ("python3 tools/test.py feature --feature objects-asset", "python3 tools/test.py feature --feature compound-preparation"),
         ("src/workbook/format_delta_codec.c: allocation-free compound graph inspection", "src/workbook/source_versions_codec.c: allocation-free compound source inspection", "tests/test_format_delta_codec.c", "tests/test_source_versions_codec.c")),

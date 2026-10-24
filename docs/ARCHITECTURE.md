@@ -960,3 +960,11 @@ prove selectors/change, complete locator/RAW semantics or source activation:
 well-framed no-op/invalid metadata can pass inspection and still reject at decode.
 A compound owner must inspect ALL constituents before copying any graph, then
 require complete decoding and cross-owner/dependency closure before adoption.
+
+
+The object codec's private unpublished-buffer writer lets a compound owner encode
+nested definitions directly into its own admitted final buffer. It validates
+model/capacity/parser scratch first, never allocates a second complete packet,
+and cannot publish bytes. A failed call preserves written while its caller
+cancels/discards the private buffer; the ordinary public object-packet API still
+replaces an independent owned output atomically only after complete encoding.
