@@ -42,7 +42,7 @@ static void unchanged(const char *path,SourceDigest before) {
 }
 int main(void) {
     char parent[]="build/tests/archive-read-XXXXXX"; CHECK(mkdtemp(parent));
-    char *path=dx_printf("%s/versioned.dxls",parent),*legacy=dx_printf("%s/legacy.dxls",parent);
+    char *path=dx_printf("%s/versioned.dxls",parent),*unwrapped=dx_printf("%s/unwrapped-core.dxls",parent);
     Workbook book; workbook_init(&book); char *error=NULL;
     CHECK(workbook_add(&book,"Authored head",&(Analysis){.kind=SOURCE_PARQUET,.path="/offline/source.parquet"},&error));
     CHECK(cells_set(&book.sheets[0].cells,50,30,"baseline",&error));
@@ -57,7 +57,7 @@ int main(void) {
     WorkbookVersionIndex index={.document_high=book.id.high,.document_low=book.id.low,.generation=2,.saved_generation=2,.saved={true,roots[1].key},.roots=roots,.root_count=2,.tags=&tag,.tag_count=1};
     CHECK(cells_set(&book.sheets[0].cells,50,30,"checkpoint R+1",&error)); book.command_revision=6;
     CHECK(workbook_save_core_payload(&book,path,(WorkbookSaveControl){0},&error)==WORKBOOK_SAVE_COMPLETE);
-    CHECK(workbook_save(&book,legacy,&error));
+    CHECK(workbook_save(&book,unwrapped,&error));
     duckdb_database db=NULL; duckdb_connection c=NULL;
     CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
     exec(c,"BEGIN"); CHECK(workbook_version_stage(c,&index,leaves,2,total,(WorkbookVersionStageControl){0},&error)==VERSION_STAGE_READY);
@@ -90,22 +90,18 @@ int main(void) {
     CHECK(!workbook_load(&book,path,&error)); clear(&error); CHECK(book.command_revision==6);
     CHECK(workbook_archive_read(path,parent,total-1,(WorkbookArchiveReadControl){0},&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error);
     CHECK(children(parent)==baseline); unchanged(path,before);
-    SourceDigest old=digest(legacy);
-    CHECK(workbook_archive_read(legacy,parent,0,(WorkbookArchiveReadControl){0},&out,&error)==ARCHIVE_READ_READY && out && !error);
-    CHECK(workbook_archive_file_version(out)==15 && !workbook_archive_versions(out)); workbook_archive_candidate_free(out); out=NULL; unchanged(legacy,old);
-    mutate(legacy,"UPDATE _duxcel_workspace.meta SET version=14; DROP TABLE _duxcel_workspace.workbook_identity; DROP TABLE _duxcel_workspace.sheet_identity"); old=digest(legacy);
-    CHECK(workbook_archive_read(legacy,parent,0,(WorkbookArchiveReadControl){0},&out,&error)==ARCHIVE_READ_READY && out && !error);
-    CHECK(workbook_archive_file_version(out)==14 && (workbook_archive_book(out)->id.high || workbook_archive_book(out)->id.low)); workbook_archive_candidate_free(out); out=NULL; unchanged(legacy,old);
-    mutate(legacy,"CREATE SCHEMA _duxcel_versions"); old=digest(legacy);
-    CHECK(workbook_archive_read(legacy,parent,0,(WorkbookArchiveReadControl){0},&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error); unchanged(legacy,old);
+    /* A current internal core is not an external native container. */
+    SourceDigest old=digest(unwrapped);
+    CHECK(workbook_archive_read(unwrapped,parent,0,(WorkbookArchiveReadControl){0},&out,&error)==ARCHIVE_READ_FAILED && !out);
+    clear(&error); unchanged(unwrapped,old);
     mutate(path,"DELETE FROM _duxcel_versions.chunks WHERE root=(SELECT key FROM _duxcel_versions.roots WHERE position=0)"); before=digest(path);
     CHECK(workbook_archive_read(path,parent,total,(WorkbookArchiveReadControl){0},&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error);
     CHECK(children(parent)==baseline); unchanged(path,before);
-    CHECK(!unlink(path) && !unlink(legacy)); workbook_core_payload_free(a); a=NULL; workbook_core_payload_free(b); b=NULL;
+    CHECK(!unlink(path) && !unlink(unwrapped)); workbook_core_payload_free(a); a=NULL; workbook_core_payload_free(b); b=NULL;
 #endif
     CHECK(!workbook_archive_book(NULL) && !workbook_archive_versions(NULL) && !workbook_archive_file_version(NULL) && !workbook_archive_identity(NULL));
     CHECK(!workbook_archive_take_book(NULL) && !workbook_archive_take_versions(NULL)); workbook_archive_candidate_free(NULL);
     CHECK(workbook_archive_read(NULL,parent,0,(WorkbookArchiveReadControl){0},&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error);
-    workbook_free(&book); free(path); free(legacy); CHECK(!children(parent) && !rmdir(parent));
+    workbook_free(&book); free(path); free(unwrapped); CHECK(!children(parent) && !rmdir(parent));
     printf("PASS: %u staged native archive reader checks\n",checks); return 0;
 }

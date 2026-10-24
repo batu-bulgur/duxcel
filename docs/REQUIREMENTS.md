@@ -45,3 +45,18 @@ The user accepted the following future behavior on 21 October 2026. Detailed con
 - Successful Refresh replaces affected data and resets its ad hoc row/cell formatting and local value overrides. Retain compatible column formats and conditional rules; rules reevaluate new values. Do not prove record survival/deletion, diff old/new rows, reconcile duplicates or suspend styles for automatic reattachment. Failure/cancellation preserves current state; normal bounded Undo/version retention remains. Save/tag before Refresh to retain a durable prior state. This does not clear unrelated worksheet content or remove existing same-version sort/filter format coverage.
 - Retain cross-session Undo across the latest three version states including Latest Saved, plus the current suffix: V8→V9 and V9→V10 in the ten-state example. Preserve older tagged checkpoints independently. Workbook visualization defaults stay outside data Undo; Automatic formats look up the current default and explicit formats remain fixed.
 - Historical Save As captures the inspected state with optional selected history. Preserve recoverable current work on version restore. Keep bounded alignment with no automatic sheet resizing, safe initial rejection of occupied manual destinations, and one analysis placement initially. Correct oversized close/unsaved dialogs using the existing native UI's proportions.
+
+
+## Prerelease file-format policy
+
+The user explicitly waives backward file-format compatibility until production
+release creates obligations to end users. Development builds support only the
+current format. Remove old-format loading/upgrading/defaulting code and positive
+legacy-version test matrices; regenerate acceptance inputs in the current format.
+Retain strict current-format validation, unsupported-version refusal, corruption,
+transactional rollback, identity, NULL/precision and ownership checks. Never delete
+user-authored workbooks as part of this cleanup. A future release may introduce
+an explicit migration boundary; no dormant migration implementation is required
+now. The current native v16 container embeds v15 core leaves, so both encodings
+remain necessary within one current format. Versioned document states/Undo inside
+that format remain product capabilities; they are not file-format compatibility.

@@ -59,7 +59,7 @@ static bool cancel_restore(void *context,WorkbookVersionRestorePhase phase,size_
 }
 int main(void) {
     char parent[]="build/tests/archive-write-XXXXXX"; CHECK(mkdtemp(parent));
-    char *path=dx_printf("%s/workbook.dxls",parent),*fresh=dx_printf("%s/fresh.dxls",parent),*legacy=dx_printf("%s/legacy.dxls",parent);
+    char *path=dx_printf("%s/workbook.dxls",parent),*fresh=dx_printf("%s/fresh.dxls",parent),*unwrapped=dx_printf("%s/unwrapped.dxls",parent);
     Workbook book; workbook_init(&book); char *error=NULL;
     CHECK(workbook_add(&book,"Versioned Save",&(Analysis){0},&error));
     CHECK(cells_set(&book.sheets[0].cells,50,30,"baseline",&error)); book.command_revision=1;
@@ -107,18 +107,19 @@ int main(void) {
     WorkbookVersionCoreSet *owned=workbook_archive_receipt_take_versions(out); CHECK(owned && !workbook_archive_receipt_versions(out));
     workbook_archive_receipt_free(out); out=NULL; CHECK(workbook_version_core_set_index(owned)->root_count==2); workbook_version_core_set_free(owned);
     CHECK(children(parent)==baseline);
-    CHECK(workbook_save(&book,legacy,&error)); sql(legacy,"CREATE TABLE unrelated AS SELECT 482 AS value; UPDATE _duxcel_workspace.meta SET version=14; DROP TABLE _duxcel_workspace.workbook_identity; DROP TABLE _duxcel_workspace.sheet_identity",false);
-    CHECK(workbook_archive_write(&book,&index,leaves,2,legacy,parent,total,(WorkbookArchiveWriteControl){0},&out,&error)==WORKBOOK_SAVE_COMPLETE && out && !error);
-    receipt(out,&book); opened(legacy,parent,total,"checkpoint R+1",3); sql(legacy,"SELECT value FROM unrelated",true); workbook_archive_receipt_free(out); out=NULL;
+    CHECK(workbook_save(&book,unwrapped,&error));
+    SourceDigest prior=digest(unwrapped);
+    CHECK(workbook_archive_write(&book,&index,leaves,2,unwrapped,parent,total,(WorkbookArchiveWriteControl){0},&out,&error)==WORKBOOK_SAVE_FAILED && !out);
+    CHECK(error); free(error); error=NULL; unchanged(unwrapped,prior);
     sql(path,"DELETE FROM _duxcel_versions.chunks WHERE root=(SELECT key FROM _duxcel_versions.roots WHERE position=0)",false); before=digest(path);
     CHECK(workbook_archive_write(&book,&index,leaves,2,path,parent,total,(WorkbookArchiveWriteControl){0},&out,&error)==WORKBOOK_SAVE_FAILED && !out);
     clear(&error); unchanged(path,before); CHECK(children(parent)==baseline+1);
-    CHECK(!unlink(path) && !unlink(legacy)); workbook_core_payload_free(a); a=NULL; workbook_core_payload_free(b); b=NULL;
+    CHECK(!unlink(path) && !unlink(unwrapped)); workbook_core_payload_free(a); a=NULL; workbook_core_payload_free(b); b=NULL;
 #else
     CHECK(workbook_archive_write(&book,&index,NULL,0,path,parent,0,(WorkbookArchiveWriteControl){0},&out,&error)==WORKBOOK_SAVE_FAILED && !out && error); clear(&error);
 #endif
     CHECK(!workbook_archive_receipt_path(NULL) && !workbook_archive_receipt_versions(NULL) && !workbook_archive_receipt_identity(NULL));
     CHECK(!workbook_archive_receipt_revision(NULL) && !workbook_archive_receipt_document(NULL).high && !workbook_archive_receipt_take_versions(NULL)); workbook_archive_receipt_free(NULL);
-    workbook_free(&book); free(path); free(fresh); free(legacy); CHECK(!children(parent) && !rmdir(parent));
+    workbook_free(&book); free(path); free(fresh); free(unwrapped); CHECK(!children(parent) && !rmdir(parent));
     printf("PASS: %u native versioned archive Save checks\n",checks); return 0;
 }

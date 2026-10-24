@@ -11,11 +11,12 @@ typedef struct {
     void *context;
 } WorkbookArchiveReadControl;
 typedef enum { ARCHIVE_READ_READY,ARCHIVE_READ_FAILED,ARCHIVE_READ_CANCELLED,ARCHIVE_READ_UNSUPPORTED } WorkbookArchiveReadResult;
-/* Native staged reader: v1-v15 ordinary legacy model or v16 authored head plus
-   complete codec-v1 core root set. The file is opened read-only and never
-   migrated/written. Retained doc IDs must match the head; a v16 WAL or hidden
-   version schema under a legacy header rejects. Exact native source identity
-   is rechecked after all reads; private roots own independent closed bytes.
+/* Native staged reader for the exact current container (v16), whose retained
+   roots use the exact current core payload (v15). Older external formats are
+   unsupported during prerelease development; no migration runs on Open.
+   The file is read-only. A dependent WAL rejects. Retained document identities
+   must match the head, and native source identity is rechecked after all reads.
+   Private roots own independent closed bytes.
    Existing staging parent/reservation and NULL out are required. Caller adopts
    only a READY candidate; failure/cancel preserves out and ordinary staging.
    macOS identity is validated; other hosts explicitly return UNSUPPORTED. This

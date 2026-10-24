@@ -199,7 +199,7 @@ The IDs below are discussion and future acceptance identifiers. **Brief** denote
 | UX04 | Brief | Detect offscreen destination conflicts before destructive cell moves and expose an actionable warning. | Full-model destination validation |
 | UX05 | Brief | Keep Save progress and close/unsaved dialogs proportional to the application's existing UI. | Compact content-driven modal sizing and narrow-window checks |
 | UX06 | Brief | On matrix focus, show its local row/column labels in the existing chrome over its visible span and de-emphasize the worksheet context. | Shared local transforms, clipping and focus restoration |
-| PL01 | Derived | Preserve existing native files and shared-C browser codec progress during schema changes. | Explicit migrations and platform acceptance |
+| PL01 | User decision | During prerelease, support only the current file format; regenerate authored test inputs and remove older-format migrations/compatibility matrices. Preserve current validation and shared-C component progress. | Production backward compatibility is deferred until an explicit release responsibility exists. Current v16 container/v15 leaf are both required layers. |
 | PL02 | Derived | Keep work bounded and responsive on the current 8 GB Mac. | Measured memory, latency, checkpoint and retention budgets |
 
 ## 6 Command and transaction contract

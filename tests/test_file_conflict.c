@@ -1,6 +1,7 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "app/versionstate.h"
+#include "support/current_archive.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +23,7 @@ static QueryJob *job(uint64_t id,JobKind kind,const char *path,const Workbook *b
 int main(void) {
     char parent[]="build/tests/file-conflict-XXXXXX"; CHECK(mkdtemp(parent)); char *requested=dx_printf("%s/book.dxls",parent);
     Workbook book; workbook_init(&book); char *error=NULL; CHECK(workbook_add(&book,"Two sessions",&(Analysis){0},&error));
-    CHECK(cells_set(&book.sheets[0].cells,0,0,"Opened state",&error)); worksheet_record(book.sheets,EDIT_CELLS); CHECK(workbook_save(&book,requested,&error));
+    CHECK(cells_set(&book.sheets[0].cells,0,0,"Opened state",&error)); worksheet_record(book.sheets,EDIT_CELLS); CHECK(test_current_archive_save(&book,requested,&error));
     char *path=dx_absolute_path(requested); free(requested); QueryWorker worker; CHECK(worker_start(&worker)); AppVersionState state={0};
     QueryJob *j=job(1,JOB_LOAD,path,NULL); CHECK(app_versions_job(&state,&worker,j,parent,&error)); worker_submit(&worker,j); QueryReply *r=reply(&worker);
     CHECK(!r->error && app_versions_loaded(&state,&worker,r,&error)); workbook_free(&book); book=*r->workbook; workbook_init(r->workbook); reply_free(r);

@@ -47,23 +47,17 @@ WorkbookArchiveReadResult workbook_archive_read(const char *path,const char *par
     if (duckdb_open_ext(target,&db,config,&message)!=DuckDBSuccess) { fail(error,message); goto done; }
     if (duckdb_connect(db,&c)!=DuckDBSuccess) { fail(error,"Cannot connect to the native archive."); goto done; }
     if (!query(c,"BEGIN",&r,error)) goto done; duckdb_destroy_result(&r);
-    /* Legacy headers vary, but every supported producer uses a base meta
-       table. Prove this before evaluating any candidate header expression. */
+    /* Admit the current native container before reading its authored head. */
     if (!query(c,"SELECT count(*) FROM information_schema.tables WHERE table_catalog=current_database() AND table_schema='_duxcel_workspace' AND table_name='meta' AND table_type='BASE TABLE'",&r,error)) goto done;
     if (duckdb_row_count(&r)!=1 || duckdb_value_uint64(&r,0,0)!=1) { fail(error,"The native archive header is not a known base table."); goto done; }
     duckdb_destroy_result(&r);
     if (!query(c,"SELECT version FROM _duxcel_workspace.meta LIMIT 2",&r,error)) goto done;
     int version=duckdb_value_int32(&r,0,0);
-    if (duckdb_row_count(&r)!=1 || duckdb_value_is_null(&r,0,0) || version<1 || version>(int)DX_VERSIONED_WORKSPACE_VERSION || (version>12 && duckdb_column_type(&r,0)!=DUCKDB_TYPE_INTEGER)) { fail(error,"Unsupported or invalid native archive version."); goto done; }
+    if (duckdb_row_count(&r)!=1 || duckdb_value_is_null(&r,0,0) || version!=(int)DX_VERSIONED_WORKSPACE_VERSION || duckdb_column_type(&r,0)!=DUCKDB_TYPE_INTEGER) { fail(error,"Unsupported native workbook format. This development build requires the current format."); goto done; }
     candidate->version=(unsigned)version; duckdb_destroy_result(&r);
     if (stopped(&read,ARCHIVE_READ_HEAD,0,0,error)) goto done;
     candidate->book=dx_alloc(sizeof(*candidate->book)); workbook_init(candidate->book);
-    if (candidate->version<DX_VERSIONED_WORKSPACE_VERSION) {
-        if (!query(c,"SELECT count(*) FROM information_schema.schemata WHERE catalog_name=current_database() AND lower(schema_name)='_duxcel_versions'",&r,error)) goto done;
-        if (duckdb_value_uint64(&r,0,0)) { fail(error,"Version metadata requires its native v16 discriminator; legacy input was kept."); goto done; }
-        duckdb_destroy_result(&r); close_database(&db,&c);
-        if (!workbook_load(candidate->book,target,error)) goto done;
-    } else {
+    {
         char *wal=dx_printf("%s.wal",target); bool closed=dx_path_kind(wal)==DX_PATH_MISSING; free(wal);
         if (!closed) { fail(error,"A versioned archive requires closed bytes without a dependent WAL."); goto done; }
         if (!workbook_read_versioned_core(c,target,candidate->book,error)) goto done;

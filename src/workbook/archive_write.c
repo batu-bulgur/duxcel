@@ -68,19 +68,16 @@ static WorkbookSaveResult inspect(WorkbookArchiveSaveContext *context,duckdb_con
         previous.id.high==context->control.protected_document.high && previous.id.low==context->control.protected_document.low) {
         fail(error,"Choose an independent destination: the Working Head artifact is protected."); goto done;
     }
-    if (version==DX_VERSIONED_WORKSPACE_VERSION) {
+    if (version!=DX_VERSIONED_WORKSPACE_VERSION) {
+        fail(error,"Unsupported destination workbook format. Choose a new destination for this development build."); goto done;
+    }
+    {
         WorkbookVersionRestoreResult restored=workbook_version_core_set_read(c,context->parent,context->reserved,context->control.inspect,&versions,error);
         if (restored!=VERSION_RESTORE_READY) { if (restored==VERSION_RESTORE_CANCELLED) result=WORKBOOK_SAVE_CANCELLED; goto done; }
         const WorkbookVersionIndex *index=workbook_version_core_set_index(versions);
         if (index->document_high!=previous.id.high || index->document_low!=previous.id.low) { fail(error,"The existing version archive does not belong to its authored head."); goto done; }
         if (!index_matches(context->control.expected_index,index,error)) goto done;
         context->replaces_versions=true; *core_version=15;
-    } else {
-        duckdb_result r={0}; bool ok=duckdb_query(c,"SELECT count(*) FROM information_schema.schemata WHERE catalog_name=current_database() AND lower(schema_name)='_duxcel_versions'",&r)==DuckDBSuccess;
-        if (!ok) fail(error,duckdb_result_error(&r));
-        else if (duckdb_row_count(&r)!=1 || duckdb_value_uint64(&r,0,0)) ok=fail(error,"Legacy version metadata cannot be silently replaced without its discriminator.");
-        duckdb_destroy_result(&r); if (!ok) goto done;
-        *core_version=(int)version;
     }
     result=WORKBOOK_SAVE_COMPLETE;
 done:

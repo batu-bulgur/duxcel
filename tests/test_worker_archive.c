@@ -1,6 +1,7 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "data/worker_archive.h"
+#include "support/current_archive.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,19 +48,19 @@ static void saved_value(const WorkbookVersionCoreSet *set,const char *value) {
 }
 int main(void) {
     char directory[]="build/tests/worker-archive-XXXXXX"; CHECK(mkdtemp(directory));
-    char *store=dx_printf("%s/versions",directory),*legacy=dx_printf("%s/legacy.dxls",directory),*path=dx_printf("%s/native.dxls",directory);
+    char *store=dx_printf("%s/versions",directory),*initial=dx_printf("%s/initial.dxls",directory),*path=dx_printf("%s/native.dxls",directory);
     Workbook book; workbook_init(&book); char *error=NULL;
-    CHECK(workbook_add(&book,"Native worker",&(Analysis){0},&error)); CHECK(cells_set(&book.sheets[0].cells,0,0,"legacy R",&error)); book.command_revision=8;
-    CHECK(workbook_save(&book,legacy,&error));
+    CHECK(workbook_add(&book,"Native worker",&(Analysis){0},&error)); CHECK(cells_set(&book.sheets[0].cells,0,0,"initial R",&error)); book.command_revision=8;
+    CHECK(test_current_archive_save(&book,initial,&error));
     QueryWorker worker; CHECK(worker_start(&worker)); WorkbookVersionCoreSet *base=NULL;
     dx_mutex_init(&gate.mutex); dx_cond_init(&gate.condition);
-    QueryJob *j=job(1,JOB_LOAD,NULL,legacy);
+    QueryJob *j=job(1,JOB_LOAD,NULL,initial);
     CHECK(worker_archive_load_job(&worker,j,store,UINT64_C(64)*1024*1024,&error) && !error && access(store,F_OK));
 #if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
-    SourceDigest original=digest(legacy); worker_submit(&worker,j); QueryReply *r=reply(&worker);
+    SourceDigest original=digest(initial); worker_submit(&worker,j); QueryReply *r=reply(&worker);
     CHECK(r->kind==JOB_LOAD && !r->error && r->workbook && worker_archive_is_reply(r) && worker_archive_identity(r));
-    base=worker_archive_take_versions(r); CHECK(base && workbook_version_core_set_index(base)->saved.present); saved_value(base,"legacy R");
-    workbook_free(&book); book=*r->workbook; workbook_init(r->workbook); reply_free(r); unchanged(legacy,original);
+    base=worker_archive_take_versions(r); CHECK(base && workbook_version_core_set_index(base)->saved.present); saved_value(base,"initial R");
+    workbook_free(&book); book=*r->workbook; workbook_init(r->workbook); reply_free(r); unchanged(initial,original);
     WorkbookVersionOwner owner={book.id.high,book.id.low,482,VERSION_WORKING_HEAD}; uint64_t reserved=UINT64_C(64)*1024*1024;
     j=job(2,JOB_SAVE,&book,path); CHECK(worker_archive_save_job(&worker,j,base,owner,VERSION_USER_SAVE,store,reserved,&error));
     worker_submit(&worker,j); r=reply(&worker);
@@ -73,7 +74,7 @@ int main(void) {
     QueryJob *verify=dx_alloc(sizeof(*verify)); verify->id=3; verify->kind=JOB_VERIFY_SOURCE; verify->path=dx_strdup(old_leaf); verify->expected_source_stamp=dx_file_stamp(old_leaf);
     worker_submit(&worker,verify); QueryReply *checked=reply(&worker);
     CHECK(!checked->error && checked->source_digest_status==SOURCE_DIGEST_OK && !worker_archive_is_reply(checked)); reply_free(checked);
-    CHECK(!access(old_leaf,F_OK)); free(old_leaf); reply_free(r); base=next; saved_value(base,"legacy R");
+    CHECK(!access(old_leaf,F_OK)); free(old_leaf); reply_free(r); base=next; saved_value(base,"initial R");
     CHECK(cells_set(&book.sheets[0].cells,0,0,"working R+1",&error)); book.command_revision=9; book.dirty=true;
     SourceDigest before=digest(path); arm(4,false);
     j=job(4,JOB_SAVE,&book,path); CHECK(worker_archive_save_job(&worker,j,base,owner,VERSION_USER_SAVE,store,reserved,&error));
@@ -118,7 +119,7 @@ int main(void) {
     CHECK(!worker_archive_is_reply(NULL) && !worker_archive_plan(NULL) && !worker_archive_tag_plan(NULL) && !worker_archive_versions(NULL) && !worker_archive_identity(NULL) && !worker_archive_take_versions(NULL));
     worker_archive_release_versions(NULL,NULL);
     dx_cond_destroy(&gate.condition); dx_mutex_destroy(&gate.mutex); workbook_free(&book);
-    CHECK(!error && !unlink(legacy));
-    if (!access(store,F_OK)) CHECK(!rmdir(store)); CHECK(!rmdir(directory)); free(store); free(legacy); free(path);
+    CHECK(!error && !unlink(initial));
+    if (!access(store,F_OK)) CHECK(!rmdir(store)); CHECK(!rmdir(directory)); free(store); free(initial); free(path);
     printf("PASS: %u real versioned archive worker checks\n",checks); return 0;
 }

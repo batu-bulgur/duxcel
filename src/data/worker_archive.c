@@ -1,5 +1,4 @@
 #include "worker_archive.h"
-#include "../workbook/version_seed.h"
 #include <stdlib.h>
 #include <string.h>
 struct WorkbookNativeIO {
@@ -10,7 +9,7 @@ struct WorkbookNativeIO {
     uint64_t reserved;
     WorkbookVersionOwner owner;
     WorkbookVersionPurpose purpose;
-    WorkbookVersionCoreSet *base,*seed;
+    WorkbookVersionCoreSet *base;
     WorkbookVersionReceipt *saved;
     WorkbookArchiveCandidate *loaded;
     WorkbookVersionPreview *preview;
@@ -23,7 +22,7 @@ struct WorkbookNativeIO {
 static bool fail(char **error,const char *message) { if (error) { free(*error); *error=dx_strdup(message); } return false; }
 static void destroy(WorkbookNativeIO *c) {
     workbook_version_preview_free(c->preview); workbook_version_receipt_free(c->saved); workbook_archive_candidate_free(c->loaded);
-    workbook_version_core_set_free(c->base); workbook_version_core_set_free(c->seed);
+    workbook_version_core_set_free(c->base);
     free(c->label); free(c->parent); free(c);
 }
 static void retire(WorkbookNativeIO *c) { if (!worker_retire_native(c->worker,&c->retirement)) destroy(c); }
@@ -98,10 +97,6 @@ static WorkbookSaveResult execute(WorkbookNativeIO *c,JobKind kind,const Workboo
     }
     WorkbookArchiveReadResult read=workbook_archive_read(path,c->parent,c->reserved,(WorkbookArchiveReadControl){load_cancel,c},&c->loaded,error);
     if (read!=ARCHIVE_READ_READY) return read==ARCHIVE_READ_CANCELLED ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;
-    if (workbook_archive_file_version(c->loaded)<=15) {
-        WorkbookSaveResult seeded=workbook_version_seed_legacy(c->loaded,c->parent,c->reserved,(WorkbookVersionSeedControl){.capture=capture,.admit={prepare_cancel,c}},&c->seed,error);
-        if (seeded!=WORKBOOK_SAVE_COMPLETE) return seeded;
-    }
     *loaded=workbook_archive_take_book(c->loaded); return WORKBOOK_SAVE_COMPLETE;
 }
 static WorkbookNativeIO *context(const QueryReply *r) {
@@ -121,7 +116,7 @@ const WorkbookVersionTagPlan *worker_archive_tag_plan(const QueryReply *r) { Wor
 const WorkbookVersionCoreSet *worker_archive_versions(const QueryReply *r) {
     WorkbookNativeIO *c=context(r); if (!c) return NULL;
     if (c->preview_requested) return workbook_version_preview_versions(c->preview);
-    return c->saved ? workbook_archive_receipt_versions(workbook_version_receipt_archive(c->saved)) : c->seed ? c->seed : workbook_archive_versions(c->loaded);
+    return c->saved ? workbook_archive_receipt_versions(workbook_version_receipt_archive(c->saved)) : workbook_archive_versions(c->loaded);
 }
 const SourceFileIdentity *worker_archive_identity(const QueryReply *r) {
     WorkbookNativeIO *c=context(r); if (!c) return NULL;
@@ -131,7 +126,6 @@ WorkbookVersionCoreSet *worker_archive_take_versions(QueryReply *r) {
     WorkbookNativeIO *c=context(r); if (!c) return NULL;
     if (c->preview_requested) return NULL;
     if (c->saved) return workbook_version_receipt_take_versions(c->saved);
-    if (c->seed) { WorkbookVersionCoreSet *out=c->seed; c->seed=NULL; return out; }
     return workbook_archive_take_versions(c->loaded);
 }
 static bool attach(QueryWorker *w,QueryJob *job,const WorkbookVersionCoreSet *base,WorkbookVersionOwner owner,

@@ -2076,3 +2076,40 @@ optimized/ASan/UBSan build in 4.212s, zero App stages; receipt
 `build/tests/results/runs/20261024T143659-feature-60476/summary.json`.
 Fourteen catalog contracts also pass. Actual metadata adoption/publication is the
 next child; detached sheet topology remains separate.
+
+
+## Current-format-only prerelease cleanup
+
+The user's new policy supersedes all earlier promises of legacy `.dxls` loading,
+upgrades and automatic saved-format normalization. Production migration support
+is deferred; current native container16/core15 stay as distinct required layers.
+Current-state history, Saved roots/tags, recovery and current GUARDED formatting
+remain separate product semantics and retain their validation/ownership coverage.
+
+| Owner | Authorized scope | Acceptance |
+| --- | --- | --- |
+| Coordinator | Remove archive legacy admission/overwrite and version_seed; current fixtures, browser metadata drivers, build/catalog/docs reconciliation | Exact container16 with valid core15 roots; no source writes on refusal, current Save/Open/recovery/export gates |
+| History Save As lane | Exact native core15 loader/writer and persistence tests | Remove v1–14 defaults/upgrades/downgrade helpers; retain current rollback/NULL/precision/identity/closure coverage |
+| Object Create lane | Exact shared core15 registry/schema/metadata reader and headless/native tests | Remove 12–14/layout24 variants; current15 normal/reordered and current bounds/ownership cases remain |
+| Source Format lane | Remove saved-format migration module/bridge/App scheduler and compatibility-only GUI/model tests | Preserve current manual-first-Table handoff, first/bound record styles, RAW/RESULT/GUARDED semantics and immutable origins |
+
+Unverified work is preserved in Git, not integrated as completed product:
+`codex/wip-origin-app-6cbf8cf` points to `6cbf8cf` (App origin registry/reply draft;
+App/governor/GUI acceptance outstanding). `codex/wip-sheet-adoption-614f37d`
+points to `614f37d6d0459fefa26af643f8f34ea2239ced90` (metadata adoption draft;
+actual publication tests, lifecycle allocation admission and native adapter/GUI
+outstanding). These drafts must be reconciled with current-only contracts before
+resuming. Verified row milestone `bc1219f` remains reachable in its active lane;
+it is not yet integrated. Isolation stays stopped; all three product agents now
+implement this requested cleanup.
+
+
+Archive cutover verified: normal native Open/Save accepts only container16 and
+its complete current core15 roots; unwrapped cores/other discriminators reject
+without changing files. Removed version_seed production/test sources, build and
+feature registration. Worker receipts now always use admitted current root sets.
+In-test authored models use the actual current version Save path. The focused
+`current-archive` gate passes archive_read/archive_write/worker_archive/
+app_versions/file_conflict in optimized and ASan/UBSan configurations in128.169s,
+zero App stages; receipt `build/tests/results/runs/20261024T144332-feature-65522/summary.json`.
+Native-core/shared-reader/source-format removals remain separate integration work.

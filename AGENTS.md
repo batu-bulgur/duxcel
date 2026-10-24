@@ -4,6 +4,7 @@
 
 - Write all project documentation, source code, code comments and developer-facing text in English, regardless of the language used in conversation. Preserve intentional multilingual test data and proper names.
 
+- During prerelease development, support only the current `.dxls` format. Remove older-format readers, upgrades, defaulting branches and compatibility-only test matrices; do not add migrations until production distribution creates an explicit compatibility responsibility. Preserve current-format validation, corruption/rollback/ownership tests and user files. The native v16 container and its embedded v15 core are both current layers, not interchangeable historical versions.
 - Product UI, interactions and analytical logic use C99 + raylib + DuckDB. Native macOS is the validated platform; preserve portable native boundaries. Objective-C is confined to the macOS adapter and its integration tests. No web runtime belongs in the native app.
 - The browser target compiles the same C UI to Wasm. Keep the official asynchronous DuckDB-Wasm Worker and the minimum DOM/file/clipboard/WebGL bridge in `web/`; no second spreadsheet UI. Browser workbook Open/Save remains incomplete.
 - The JavaScript mock and visual explorations are retired and removed. Current native behavior plus explicit requirements in `docs/` define the baseline. Do not restore an executable mock or require pixel matching against it. Small accepted regression inputs under `tests/fixtures/ui/` are tests, not a design authority.

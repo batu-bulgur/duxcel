@@ -1,6 +1,7 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "app/versionstate.h"
+#include "support/current_archive.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +21,7 @@ int main(void) {
     char *parent=dx_printf("%s/versions",directory),*path=dx_printf("%s/workbook.dxls",directory);
     char *error=NULL; Workbook book; workbook_init(&book);
     CHECK(workbook_add(&book,"Owner",&(Analysis){0},&error));
-    CHECK(cells_set(&book.sheets[0].cells,0,0,"R",&error)); CHECK(workbook_save(&book,path,&error));
+    CHECK(cells_set(&book.sheets[0].cells,0,0,"R",&error)); CHECK(test_current_archive_save(&book,path,&error));
     QueryWorker worker; CHECK(worker_start(&worker)); AppVersionState state={0};
 #if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
     QueryReply *r=run(&state,&worker,1,JOB_LOAD,NULL,path,parent);
