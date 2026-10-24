@@ -10,6 +10,15 @@ static const char *recovery_gui_copy="build/tests/generated/recovery-checkpoint-
 void app_test_recovery_fixture(const char *checkpoint,const char *journal,WorkbookId generation) { recovery_gui_checkpoint=checkpoint; recovery_gui_journal=journal; recovery_gui_parent=generation; }
 int app_test_recovery_result(void) { return recovery_gui_result; }
 #define RECOVERY_GUI_CHECK(x) do { recovery_gui_checks++; if (!(x)) { fprintf(stderr,"FAIL recovery GUI stage %u:%d: %s (%s)\n",recovery_gui_stage,__LINE__,#x,a->message ? a->message : ""); recovery_gui_result=-1; return; } } while (0)
+static bool recovery_gui_saved(App *a) {
+    const WorkbookVersionIndex *index=workbook_version_core_set_index(a->versions.store);
+    if (!index || !index->saved.present || a->versions.identity_valid) return false;
+    size_t i=0; while (i<index->root_count && memcmp(index->roots[i].key.bytes,index->saved.key.bytes,DX_VERSION_KEY_BYTES)) i++;
+    if (i==index->root_count) return false;
+    Workbook b; workbook_init(&b); char *error=NULL;
+    bool ok=workbook_load_core_payload(&b,workbook_core_payload_path(workbook_version_core_set_leaf(a->versions.store,i)),&error);
+    ok=ok && !error && !strcmp(cells_get(&b.sheets[0].cells,0,0),"Earlier Saved"); free(error); workbook_free(&b); return ok;
+}
 static void recovery_gui_click(Rectangle r) { Vector2 p={r.x+r.width/2,r.y+r.height/2}; ui_note_pointer_gesture((DxPointerGesture){p.x,p.y,p.x,p.y,0,false}); }
 static void recovery_gui_edit(App *a,const char *text) { a->chrome_focus=0; grid_select_cell(&a->grid,1,1,false); open_modal(a,MODAL_CELL); input_set(&a->input,text); ui_note_key_press(KEY_ENTER,0); }
 static bool recovery_gui_idle(App *a) { WorkbookRecoveryWorkerState state=workbook_recovery_worker_state(a->recovery_worker); return !state.active && !state.ready && !a->io_busy && !a->busy; }
@@ -64,6 +73,7 @@ static void recovery_test_frame(AppSession *session) {
         if (!recovery_gui_idle(a)) return;
         RECOVERY_GUI_CHECK(a->recovery_owner && !a->book.path && a->book.dirty && a->modal==MODAL_NONE);
         RECOVERY_GUI_CHECK(workbook_recovery_info(a->recovery_owner)->tail_deferred && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Baseline"));
+        RECOVERY_GUI_CHECK(recovery_gui_saved(a));
         workspace_job(a,JOB_SAVE,recovery_gui_checkpoint); RECOVERY_GUI_CHECK(!a->io_busy && !a->book.path);
         recovery_gui_edit(a,"Copy edit"); break;
     case 4:
@@ -102,6 +112,7 @@ static void recovery_test_frame(AppSession *session) {
     case 13:
         RECOVERY_GUI_CHECK(a->recovery_owner && !a->book.path && a->book.dirty && !a->journal);
         RECOVERY_GUI_CHECK(!workbook_recovery_info(a->recovery_owner)->tail_deferred && !strcmp(cells_get(&active_sheet(a)->cells,0,0),"Recovered") && !*cells_get(&active_sheet(a)->cells,1,1));
+        RECOVERY_GUI_CHECK(recovery_gui_saved(a));
         workspace_job(a,JOB_SAVE,recovery_gui_full); break;
     case 14:
         if (!recovery_gui_idle(a)) return;

@@ -26,11 +26,14 @@ static void recovery_open(App *a) {
 }
 static void recovery_adopt(App *a,WorkbookRecoveryCandidate *candidate,bool discard) {
     if (!candidate) return;
+    char *error=NULL;
+    if (!app_versions_recovered(&a->versions,&a->worker,workbook_recovery_book(candidate),workbook_recovery_versions(candidate),&error)) {
+        status(a,error); free(error); a->modal=MODAL_ERROR; recovery_candidate_free(a,candidate); return;
+    }
     Workbook *book=workbook_recovery_take_book(candidate);
-    if (!book) { workbook_recovery_free(candidate); return; }
+    if (!book) { recovery_candidate_free(a,candidate); return; }
     SOURCE_FORMAT_RESET(a); end_step_preview(a); cancel_values(a); statistics_cancel(a);
     close_journal(a,discard); recovery_resolve(a,discard);
-    app_versions_reset(&a->versions,&a->worker);
     workbook_free(&a->book); a->book=*book; free(book); a->recovery_owner=candidate;
     a->modal=MODAL_NONE; a->key_tips=a->file_menu=a->ribbon_focus=false;
     if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }
@@ -47,7 +50,7 @@ static void recovery_poll(App *a) {
         bool current=a->recovery_request && r->id==a->recovery_request;
         a->recovery_request=0;
         if (current && r->kind==RECOVERY_WORK_PAGE) {
-            workbook_recovery_reply_free(a->recovery_page); a->recovery_page=r; r=NULL;
+            recovery_reply_free(a,a->recovery_page); a->recovery_page=r; r=NULL;
             a->recovery_view=(UIRecoveryView){0};
             WorkbookRecoveryReply *page=a->recovery_page;
             snprintf(a->recovery_message,sizeof(a->recovery_message),"%s",page->error[0] ? page->error : page->page.scan.done ? "Inactive sessions. Active Duxcel instances are excluded." : "More sessions available on the next page.");
@@ -61,7 +64,7 @@ static void recovery_poll(App *a) {
                 a->modal=MODAL_NONE; request_document_action(a,DOCUMENT_RECOVER,NULL);
             } else snprintf(a->recovery_message,sizeof(a->recovery_message),"%s",r->error[0] ? r->error : "Recovery could not complete. All files were kept.");
         }
-        workbook_recovery_reply_free(r);
+        recovery_reply_free(a,r);
     }
     if (a->recovery_refresh) {
         WorkbookRecoveryWorkerState state=workbook_recovery_worker_state(a->recovery_worker);

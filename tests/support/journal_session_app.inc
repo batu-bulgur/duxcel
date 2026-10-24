@@ -1,3 +1,10 @@
+static bool journal_gui_disk(Workbook *out,char **error) {
+    WorkbookArchiveCandidate *candidate=NULL;
+    if (workbook_archive_read("build/tests/generated/journal-session-demo.dxls","build/tests/generated",DX_APP_VERSION_BYTES,
+        (WorkbookArchiveReadControl){0},&candidate,error)!=ARCHIVE_READ_READY) return false;
+    Workbook *book=workbook_archive_take_book(candidate); workbook_free(out); *out=*book; free(book);
+    workbook_archive_candidate_free(candidate); return true;
+}
 /* Private native checkpoint/queue/input fixture; never linked into production. */
 #include <unistd.h>
 static unsigned journal_gui_stage,journal_gui_wait,journal_gui_checks;
@@ -80,7 +87,7 @@ static void journal_session_test_frame(AppSession *session) {
     }
     case 10: {
         JOURNAL_GUI_CHECK(a->book.dirty && a->journal && a->book.command_revision==7 && !strcmp(cells_get(&s->cells,1,1),"B2"));
-        Workbook disk; workbook_init(&disk); char *error=NULL; bool loaded=workbook_load(&disk,"build/tests/generated/journal-session-demo.dxls",&error);
+        Workbook disk; workbook_init(&disk); char *error=NULL; bool loaded=journal_gui_disk(&disk,&error);
         bool prior=loaded && disk.command_revision==6 && !strcmp(cells_get(&disk.sheets[disk.active].cells,1,1),"B1"); workbook_free(&disk); free(error); JOURNAL_GUI_CHECK(prior);
         break;
     }
@@ -107,7 +114,7 @@ static void journal_session_test_frame(AppSession *session) {
         JOURNAL_GUI_CHECK(a->book.id.high!=journal_gui_document.high || a->book.id.low!=journal_gui_document.low);
         JOURNAL_GUI_CHECK(access(journal_gui_checkpoint,F_OK) && access(journal_gui_path,F_OK)); break;
     case 17: {
-        Workbook disk; workbook_init(&disk); char *error=NULL; bool loaded=workbook_load(&disk,"build/tests/generated/journal-session-demo.dxls",&error);
+        Workbook disk; workbook_init(&disk); char *error=NULL; bool loaded=journal_gui_disk(&disk,&error);
         bool saved=loaded && disk.command_revision==7 && !strcmp(cells_get(&disk.sheets[disk.active].cells,1,1),"B2"); workbook_free(&disk); free(error); JOURNAL_GUI_CHECK(saved);
         free(journal_gui_checkpoint); free(journal_gui_path); journal_gui_checkpoint=journal_gui_path=NULL;
         smoke_snapshot("build/tests/results/journal-session/final.png"); journal_gui_result=1;

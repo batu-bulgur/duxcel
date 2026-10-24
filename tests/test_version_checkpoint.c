@@ -4,6 +4,7 @@
 #include "platform/platform.h"
 #include "workbook/version_save.h"
 #include "workbook/archive_read.h"
+#include "workbook/recovery.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,8 +61,21 @@ int main(void) {
     binding.base=next; CHECK(workbook_journal_session_capture_versions(session,&book,binding,&error));
     workbook_version_core_set_free(base); workbook_version_core_set_free(next); base=next=NULL;
     ready(session,&book); inspect(workbook_journal_session_checkpoint(session),parent,"Newer R+3","Working R+2",2);
-    CHECK(workbook_journal_session_close(session,true,&error) && !error); inspect(path,parent,"Working R+2","Working R+2",2);
-    CHECK(access(checkpoint,F_OK)); free(checkpoint); CHECK(!unlink(path) && !rmdir(parent) && !rmdir(root) && !rmdir(directory));
+    char *current=dx_strdup(workbook_journal_session_checkpoint(session));
+    char *slash=strrchr(current,'/'); CHECK(slash); *slash=0;
+    const char *generation=dx_basename(current);
+    CHECK(workbook_journal_session_close(session,false,&error) && !error);
+    WorkbookRecoveryCandidate *recovered=NULL;
+    CHECK(workbook_recovery_prepare(root,generation,RECOVERY_REPLAY_TAIL,(WorkbookRecoveryControl){0},&recovered,&error)==RECOVERY_PREPARED && !error);
+    CHECK(workbook_recovery_versions(recovered) && !strcmp(cells_get(&workbook_recovery_book(recovered)->sheets[0].cells,0,0),"Newer R+3"));
+    const WorkbookVersionIndex *retained=workbook_version_core_set_index(workbook_recovery_versions(recovered));
+    CHECK(retained->generation==2 && retained->saved_generation==2 && retained->root_count==2);
+    WorkbookVersionCoreSet *owned=workbook_recovery_take_versions(recovered); CHECK(owned && !workbook_recovery_versions(recovered));
+    CHECK(workbook_recovery_retire(recovered,&error) && !error); workbook_recovery_free(recovered);
+    CHECK(workbook_version_core_set_index(owned)->root_count==2); workbook_version_core_set_free(owned);
+    char *recovery_parent=dx_printf("%s-versions",root); CHECK(!rmdir(recovery_parent)); free(recovery_parent);
+    inspect(path,parent,"Working R+2","Working R+2",2);
+    CHECK(access(checkpoint,F_OK)); free(checkpoint); free(current); CHECK(!unlink(path) && !rmdir(parent) && !rmdir(root) && !rmdir(directory));
     workbook_free(&book); free(path); free(parent); free(root);
     printf("PASS: %u versioned recovery checkpoint checks\n",checks); return 0;
 }

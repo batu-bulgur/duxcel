@@ -1192,6 +1192,13 @@ static void recovery_dismiss(App *a) {
     if (a->modal==MODAL_RECOVERY) a->modal=MODAL_NONE;
     a->consume_grid_input=true;
 }
+static void recovery_candidate_free(App *a,WorkbookRecoveryCandidate *candidate) {
+    WorkbookVersionCoreSet *store=workbook_recovery_take_versions(candidate);
+    worker_archive_release_versions(&a->worker,&store); workbook_recovery_free(candidate);
+}
+static void recovery_reply_free(App *a,WorkbookRecoveryReply *reply) {
+    recovery_candidate_free(a,workbook_recovery_reply_take_candidate(reply)); workbook_recovery_reply_free(reply);
+}
 static bool recovery_resolve(App *a,bool discard) {
     bool complete=true; char *error=NULL;
     const WorkbookRecoveryInfo *info=workbook_recovery_info(a->recovery_owner);
@@ -1199,7 +1206,7 @@ static bool recovery_resolve(App *a,bool discard) {
         complete=workbook_recovery_retire(a->recovery_owner,&error);
         if (!complete) { status(a,"The workbook is saved/closed; some recovery files were kept."); fprintf(stderr,"Recovery cleanup: %s\n",error ? error : "unavailable"); }
     }
-    free(error); workbook_recovery_free(a->recovery_owner); a->recovery_owner=NULL; return complete;
+    free(error); recovery_candidate_free(a,a->recovery_owner); a->recovery_owner=NULL; return complete;
 }
 static void close_journal(App *a,bool discard) {
     char *error=NULL;
@@ -1220,6 +1227,21 @@ static bool ensure_journal(App *a,char **error) {
     const WorkbookRecoveryInfo *info=workbook_recovery_info(a->recovery_owner);
     if (a->journal && info && info->bound && !workbook_journal_session_lineage(a->journal,(JournalSessionLineage){info->document,info->generation,info->original_path},error)) { close_journal(a,false); return false; }
     return a->journal!=NULL;
+}
+static void journal_versions_release(void *context,WorkbookVersionCoreSet **owned) {
+    worker_archive_release_versions(context,owned);
+}
+static bool capture_journal_versions(App *a,char **error) {
+    if (!ensure_journal(a,error) || !app_versions_owner(&a->versions,&a->worker,&a->book,error)) return false;
+    return workbook_journal_session_capture_versions(a->journal,&a->book,(JournalCheckpointVersions){
+        .base=a->versions.store,.owner=a->versions.owner,.parent=a->version_root,.reserved_bytes=DX_APP_VERSION_BYTES,
+        .release=journal_versions_release,.context=&a->worker
+    },error);
+}
+static bool retry_journal(App *a,char **error) {
+    if (!capture_journal_versions(a,error)) return false;
+    JournalSessionState state=workbook_journal_session_state(a->journal,&a->book);
+    return !state.queue.failed || workbook_journal_session_retry(a->journal,error);
 }
 static uint64_t workbook_history_stamp(const Workbook *book) {
     uint64_t order=workbook_lifecycle_latest(book);
@@ -1417,7 +1439,7 @@ static void open_source(App *a,const char *path,bool demo) {
 }
 static void cancel_document_action(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
-    workbook_recovery_free(a->recovery_staged); a->recovery_staged=NULL;
+    recovery_candidate_free(a,a->recovery_staged); a->recovery_staged=NULL;
 #endif
     free(a->document_path); a->document_path=NULL; a->document_action=DOCUMENT_NONE; a->document_saving=false; a->discard_journal=false;
     if (a->modal==MODAL_UNSAVED) a->modal=MODAL_NONE;
@@ -1432,7 +1454,7 @@ static void finish_document_action(App *a) {
     cancel_document_action(a);
 #ifndef DUXCEL_BROWSER_HOST
     if (action==DOCUMENT_RECOVER) { recovery_adopt(a,candidate,discard); return; }
-    workbook_recovery_free(candidate);
+    recovery_candidate_free(a,candidate);
 #endif
     if (action==DOCUMENT_QUIT) { a->discard_journal=discard; a->exit_ready=true; }
     else if (action==DOCUMENT_OPEN) { a->discard_journal_on_load=discard; workspace_job(a,JOB_LOAD,path); }
@@ -1471,7 +1493,7 @@ static void continue_document_action(App *a) {
 static void request_document_action(App *a,DocumentAction action,const char *path) {
     if (a->document_action==DOCUMENT_QUIT && action!=DOCUMENT_QUIT) return;
 #ifndef DUXCEL_BROWSER_HOST
-    if (action!=DOCUMENT_RECOVER) { recovery_dismiss(a); workbook_recovery_free(a->recovery_staged); a->recovery_staged=NULL; }
+    if (action!=DOCUMENT_RECOVER) { recovery_dismiss(a); recovery_candidate_free(a,a->recovery_staged); a->recovery_staged=NULL; }
 #endif
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by the document command.");
     if (a->modal==MODAL_CELL && !commit_cell(a)) return;
@@ -2083,6 +2105,14 @@ static void poll_query(App *a) {
             bool same=workbook_save_matches(&a->book,r->workbook) && a->book.id.high==a->save_document.high && a->book.id.low==a->save_document.low && a->book.command_revision==a->save_revision && workbook_history_stamp(&a->book)==a->save_history;
             a->book.dirty=!same; if (same) close_journal(a,true); status(a,same ? "Workspace saved." : "An earlier state was saved. New changes still need saving.");
             if (same) recovery_resolve(a,true);
+            else {
+                char *backup_error=NULL;
+                if (!capture_journal_versions(a,&backup_error)) {
+                    status(a,"An earlier state was saved. Newer changes still need local backup.");
+                    fprintf(stderr,"Version checkpoint: %s\n",backup_error ? backup_error : "unavailable");
+                }
+                free(backup_error);
+            }
 #else
             a->book.dirty=false; status(a,"Workspace saved.");
 #endif
@@ -4786,6 +4816,7 @@ static bool commit_cell(App *a) {
                 if (!budget) budget=source_format_budget_status(a,NULL,usage.current,0,0,0,0);
             }
             if (budget) { result.status=CELL_EDIT_LIMIT; free(error); error=dx_strdup(workbook_format_budget_message(budget)); }
+            else if (!capture_journal_versions(a,&error)) result.status=CELL_EDIT_LIMIT;
             else result=workbook_journal_session_apply(a->journal,&a->book,&command,policy,&error);
         }
     }
@@ -6981,7 +7012,7 @@ static void cycle_focus(App *a,bool backwards) {
 static void status_activate(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
     if (a->status_focus==5) {
-        char *error=NULL; if (!workbook_journal_session_retry(a->journal,&error)) { status(a,error); free(error); }
+        char *error=NULL; if (!retry_journal(a,&error)) { status(a,error); free(error); }
     } else
 #endif
     if (!a->status_focus) open_statistics(a);
@@ -7969,7 +8000,7 @@ static void draw_status(App *a,bool enabled) {
 #ifndef DUXCEL_BROWSER_HOST
         if (!i && backup.active && backup.queue.failed && !preview && ui_tool_button(u,entry,"",false,passive_control(a,enabled))) {
             a->chrome_focus=10; a->status_focus=5;
-            char *error=NULL; if (!workbook_journal_session_retry(a->journal,&error)) { status(a,error); free(error); }
+            char *error=NULL; if (!retry_journal(a,&error)) { status(a,error); free(error); }
         }
 #endif
         ui_label(u,context[i],box(entry.x+left,entry.y,fmaxf(0,entry.width-left-12*s),entry.height),12,ink,false,UI_REGULAR);
@@ -16297,6 +16328,7 @@ int app_finish(AppSession *session) {
     SOURCE_FORMAT_RESET(a);
     cancel_values(a);
 #ifndef DUXCEL_BROWSER_HOST
+    close_journal(a,a->discard_journal || !a->book.dirty);
     app_versions_reset(&a->versions,&a->worker);
 #endif
     worker_stop(&a->worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
@@ -16308,7 +16340,7 @@ int app_finish(AppSession *session) {
     page_free(&a->page); page_free(&a->spare); analysis_free(&a->analysis);
 #ifndef DUXCEL_BROWSER_HOST
     recovery_dismiss(a); workbook_recovery_worker_free(a->recovery_worker); a->recovery_worker=NULL;
-    workbook_recovery_reply_free(a->recovery_page); workbook_recovery_free(a->recovery_staged); a->recovery_staged=NULL;
+    recovery_reply_free(a,a->recovery_page); recovery_candidate_free(a,a->recovery_staged); a->recovery_staged=NULL;
     recovery_resolve(a,a->discard_journal || !a->book.dirty); free(a->recovery_root);
     if (a->version_root) dx_remove_temp_directory(a->version_root);
     free(a->version_root);

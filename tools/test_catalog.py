@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "recovery-versions": Feature((), "recovery",
+        ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py feature --feature recovery-worker"),
+        ("src/workbook/recovery.c: full version admission", "src/workbook/recovery.h", "src/app/versionstate.c", "src/app/recovery.inc", "src/app/app.c: journal version binding", "tests/test_version_checkpoint.c", "tests/test_recovery_gui.c", "tests/support/recovery_app.inc"),
+        ("version_checkpoint", "workbook_recovery", "app_versions")),
     "version-checkpoint": Feature((), "",
         ("python3 tools/test.py feature --feature recovery-disposition", "python3 tools/test.py feature --feature journal-session"),
         ("src/workbook/journal_session.c: versioned checkpoint admission", "src/workbook/journal_session.h", "tests/test_version_checkpoint.c"),

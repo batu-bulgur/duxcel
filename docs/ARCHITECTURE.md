@@ -164,8 +164,7 @@ explicitly transferred. `app/versionstate.c` owns the current immutable store, t
 observed file identity. It prepares native jobs and adopts only owner/index-fenced
 receipts, queues retirement, and rotates runtime ownership on successful Open.
 App separately owns live model/path/history/dirty publication, retaining newer
-edits after captured R saves. Normal native App files now use v16; recovery
-checkpoint/store adoption remains W11a3.4. Working roots use a separate sibling
+edits after captured R saves. Normal native App files and version-bound recovery checkpoints now use v16. Working roots use a separate sibling
 folder beside recovery sessions, excluded from normal user Save/Open targets.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
@@ -278,6 +277,18 @@ macOS uses the existing fixed-buffer SHA-256 adapter; a leftover baseline WAL
 rejects preparation for Retry. Other native hosts retain v1 unbound backups until
 their digest boundary is implemented. No App/Page/renderer pointer crosses that boundary. The App captures
 its independent live Analysis/view first; source protection remains authoritative.
+
+App explicitly binds a retained immutable store and transient working owner before
+versioned checkpoint admission. The journal writer preserves the older Saved root
+and complete core closure without moving that pointer. After captured R publishes
+while R+1 remains dirty, App prepares a new private baseline carrying the new Saved
+R. Each generation owns its store; App supplies background retirement, and a failed
+replacement remains uncovered until a valid binding can retry. Versioned generations
+cannot silently fall back to a legacy checkpoint. The staged recovery reader admits
+v16 roots independently of head/tail, while legacy private checkpoints supply no
+user Saved evidence. Recovered owners rotate; candidate and App root ownership are
+independent, including deferred tails. Working extraction uses the sibling versions
+folder and keeps fixed recovery-generation inventories unchanged.
 
 A bounded scalar/identity/store/action fence tracks the admitted prefix, including
 object extents and source-ledger publication. Unadmitted changes/Undo/Redo mark it

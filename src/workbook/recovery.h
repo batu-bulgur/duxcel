@@ -1,6 +1,7 @@
 #ifndef DUXCEL_WORKBOOK_RECOVERY_H
 #define DUXCEL_WORKBOOK_RECOVERY_H
 #include "workbook.h"
+#include "version_restore.h"
 typedef struct WorkbookRecoveryCandidate WorkbookRecoveryCandidate;
 typedef enum { RECOVERY_REPLAY_TAIL,RECOVERY_OPEN_CHECKPOINT } WorkbookRecoveryMode;
 typedef enum { RECOVERY_CLAIM,RECOVERY_VERIFY,RECOVERY_LOAD,RECOVERY_REPLAY,RECOVERY_READY } WorkbookRecoveryPhase;
@@ -32,6 +33,11 @@ const WorkbookRecoveryInfo *workbook_recovery_info(const WorkbookRecoveryCandida
 /* Transfers the complete owned model, retaining the candidate's lease/info.
    A caller adopting it must keep the candidate until its lineage is resolved. */
 Workbook *workbook_recovery_take_book(WorkbookRecoveryCandidate *candidate);
+/* Borrow/take the complete retained store independently of head/tail ownership.
+   Legacy checkpoints have no Saved evidence and return NULL; they are never
+   seeded as though a private checkpoint were a named user Save. */
+const WorkbookVersionCoreSet *workbook_recovery_versions(const WorkbookRecoveryCandidate *candidate);
+WorkbookVersionCoreSet *workbook_recovery_take_versions(WorkbookRecoveryCandidate *candidate);
 /* Explicit disposition after a complete named Save or user discard. Only a
    full bound candidate is eligible; deferred/unknown tails cannot be retired.
    Changed artifacts or extra files reject before deletion. Filesystem deletion

@@ -20,6 +20,11 @@ bool app_versions_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,c
    Failure preserves state/reply ownership. A new runtime owner is prepared
    before taking any store, even when durable doc IDs match the previous file. */
 bool app_versions_loaded(AppVersionState *state,QueryWorker *worker,QueryReply *reply,char **error);
+/* A recovered private head uses a fresh runtime write owner. Retains a complete
+   supplied store (NULL for legacy checkpoints); no named-file identity is claimed. */
+bool app_versions_recovered(AppVersionState *state,QueryWorker *worker,const Workbook *book,
+    const WorkbookVersionCoreSet *store,char **error);
+bool app_versions_owner(AppVersionState *state,QueryWorker *worker,const Workbook *book,char **error);
 /* Publish a prepared saved store only under the original owner/index fence.
    R+1 data edits do not change this fence; App separately computes dirty. */
 AppVersionOutcome app_versions_saved(AppVersionState *state,QueryWorker *worker,const Workbook *current,

@@ -177,7 +177,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.3c · P1 · Complete | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
 | W11a2.3c1 · P1 · Complete | Staged native archive reader and discriminator; W11a2.3b. | Read-only legacy candidates or v16 head plus complete independent core roots; validate document/source identity and preserve older Latest Saved in an R+1 head. Ordinary App Open/Save stays unchanged until integration. |
 | W11a2.3c2 · P1 · Complete | Safe native versioned writer/upgrade; W11a2.3c1. | Prepare owned output before commit, preserve existing valid artifacts/unrelated data, reject corrupt targets and source aliases, and cancel/fail without replacing the named file. Scoped native file gate before App adoption. |
-| W11a3 · P1 · In progress | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
+| W11a3 · P1 · Complete | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11a3.1 · P1 · Complete | Native Save-purpose planning and full-core reuse controller; W11a2. | User Save prepares a root/owner plan; unchanged Saved cores reuse identity. Checkpoints/exports preserve the supplied index. Owned receipts precede commit; no live App mutation. |
 | W11a3.2 · P1 · Complete | Shared immutable store lifetime and background IO ownership; W11a3.1. | Retain closed core sets across QueryWorker/journal snapshots, cancellation and owner changes; release safely after all borrowers. Preserve pending/durable and R+1 fences. |
 | W11a3.2a · P1 · Complete | Shared immutable core-set references; W11a3.1. | Independent worker/journal owners retain scalar mutex-protected references. Releasing one owner keeps bytes/lease alive; last disposal runs on its owner thread. |
@@ -186,10 +186,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a3.2b2 · P1 · Complete | Versioned native IO adapter and owned replies; W11a3.2b1. | Retain input core sets, call real version Save/archive reader on the existing worker, transfer prepared receipts/candidates and retire disk ownership in background. |
 | W11a3.2b2a · P1 · Complete | Non-writing Saved baseline for opened legacy files; W11a3.2b1. | Retain opened Saved R before edits, so the first private R+1 checkpoint carries R even before upgrading the user file. Atomically adopt verified leaf/metadata ownership; preserve original bytes and dirty state. |
 | W11a3.3 · P1 · Complete | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
-| W11a3.4 · P1 · In progress | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
+| W11a3.4 · P1 · Complete | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
 | W11a3.4a · P1 · Complete | Version-preserving journal checkpoint admission; W11a3.3. | Background private v16 checkpoints retain complete older Saved roots without advancing them; root ownership survives rotation and caller release. Legacy callers remain compatible until App/recovery integration. |
-| W11a3.4b · P1 · In progress | Full-store recovery and App checkpoint binding; W11a3.4a. | Recover head/tail plus independent Saved closure, transfer runtime ownership and update R+1 backup after named Save. Narrow journal/recovery UI gates. |
-| W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
+| W11a3.4b · P1 · Complete | Full-store recovery and App checkpoint binding; W11a3.4a. | Recover head/tail plus independent Saved closure, transfer runtime ownership and update R+1 backup after named Save. Narrow journal/recovery UI gates. |
+| W11b · P1 · In progress | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -800,3 +800,22 @@ The `version-checkpoint` gate passes new round-trip/rotation/caller-release chec
 and existing legacy journal-session tests under optimized/ASan/UBSan in17.111s.
 App use and recovery admission remain W11a3.4b. Evidence: ignored
 `build/tests/results/w11a34a-version-checkpoint.log`.
+
+W11a3.4b/W11a3 complete: recovery admits v16 heads and complete independent
+root stores before replaying a verified tail. Legacy checkpoints remain readable
+without inventing a user Saved baseline. Recovered owners are fresh and have no
+named-file identity; full and deferred-tail candidates retain the same older
+Saved closure. App binds versioned journal checkpoints before changed cell commands
+and re-checkpoints newer dirty state after a captured named Save publishes.
+A failed replacement stays uncovered; Retry rebuilds the current version binding.
+Versioned sessions refuse a legacy fallback that could drop roots, and App queues
+store retirement off frames through shutdown. Native disk assertions explicitly
+read versioned candidates instead of weakening ordinary legacy loading.
+The `recovery-versions` gate passes optimized/ASan/UBSan checkpoint/recovery/App
+modules and19 hidden recovery stages in49.721s (6.039s GUI); the named
+`recovery-disposition` interaction passes legacy modules plus18 journal/Save stages
+in28.838s (7.533s GUI). Recovery-worker cancellation/late-reply tests pass in6.760s;
+19 catalog/web-inventory contracts pass in8.994s. Evidence uses the ignored
+`build/tests/results/w11a34b` prefix. This completes current core-profile Save/
+recovery integration; Tag UI, durable Undo and retained analytical assets remain
+separate roadmap work. W11b follows with atomic named-state retention.

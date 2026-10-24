@@ -44,6 +44,11 @@ int main(void) {
     r=run(&state,&worker,5,JOB_LOAD,NULL,path,parent);
     CHECK(app_versions_loaded(&state,&worker,r,&error) && state.owner.session!=original.session);
     CHECK(workbook_version_core_set_index(state.store)->root_count==3); reply_free(r);
+    uint64_t loaded_owner=state.owner.session;
+    CHECK(app_versions_recovered(&state,&worker,&book,state.store,&error));
+    CHECK(state.store && state.owner.session!=loaded_owner && !state.identity_valid);
+    CHECK(app_versions_recovered(&state,&worker,&book,NULL,&error));
+    CHECK(!state.store && state.owner.session && !state.identity_valid);
     Workbook other; workbook_init(&other); CHECK(workbook_add(&other,"Other",&(Analysis){0},&error));
     QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_SAVE; j->path=dx_strdup(path); j->workbook=workbook_snapshot(&other);
     CHECK(app_versions_job(&state,&worker,j,parent,&error) && !state.store && state.owner.document_high==other.id.high && state.owner.document_low==other.id.low);

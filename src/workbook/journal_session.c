@@ -44,6 +44,7 @@ struct WorkbookJournalSession {
     WorkbookId operation;
     ContentFence expected;
     Generation active,retired;
+    bool version_gap;
 };
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
@@ -131,7 +132,7 @@ WorkbookJournalSession *workbook_journal_session_new(const char *root,JournalQue
     if (!dx_random_bytes(&operation,sizeof(operation)) || (!operation.high && !operation.low)) { fail(error,"Cannot allocate a recovery operation identity."); return NULL; }
     WorkbookJournalSession *s=dx_alloc(sizeof(*s)); memset(s,0,sizeof(*s)); s->root=dx_strdup(root); s->options=options; s->operation=operation; return s;
 }
-bool workbook_journal_session_needs_checkpoint(const WorkbookJournalSession *s,const Workbook *b) { return !s || !s->active.queue || !matches(&s->expected,b); }
+bool workbook_journal_session_needs_checkpoint(const WorkbookJournalSession *s,const Workbook *b) { return !s || !s->active.queue || s->version_gap || !matches(&s->expected,b); }
 static size_t generation_bytes(Generation *g) {
     return g->queue && !workbook_journal_queue_state(g->queue).prepared ? g->checkpoint->format_bytes : 0;
 }
@@ -192,7 +193,7 @@ static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,const J
     if (s->active.queue) {
         workbook_journal_queue_request_stop(s->active.queue,true,NULL); s->retired=s->active;
     }
-    s->active=(Generation){queue,c}; capture(&s->expected,b); return true;
+    s->active=(Generation){queue,c}; s->version_gap=false; capture(&s->expected,b); return true;
 }
 bool workbook_journal_session_capture_versions(WorkbookJournalSession *s,const Workbook *b,JournalCheckpointVersions v,char **error) {
     const WorkbookVersionIndex *index=workbook_version_core_set_index(v.base);
@@ -202,14 +203,19 @@ bool workbook_journal_session_capture_versions(WorkbookJournalSession *s,const W
         return fail(error,"Choose a matching working owner and complete Saved store for local backup.");
     const Checkpoint *c=s->active.checkpoint;
     if (c && c->versioned && c->versions==v.base && c->binding.owner.session==v.owner.session && !workbook_journal_session_needs_checkpoint(s,b)) return true;
-    return begin_generation(s,b,&v,error);
+    s->version_gap=true; return begin_generation(s,b,&v,error);
 }
 CellEditResult workbook_journal_session_apply(WorkbookJournalSession *s,Workbook *b,const CellEditCommand *command,CellEditPolicy policy,char **error) {
     CellEditResult result=workbook_check_cell_edit(b,command,policy,error);
     if (result.status!=CELL_EDIT_READY) return result;
     result.status=CELL_EDIT_LIMIT;
     if (!s) { fail(error,"Local backup is unavailable. Your draft is kept."); return result; }
-    if (workbook_journal_session_needs_checkpoint(s,b) && !begin_generation(s,b,NULL,error)) return result;
+    if (workbook_journal_session_needs_checkpoint(s,b)) {
+        if (s->active.checkpoint && s->active.checkpoint->versioned) {
+            fail(error,"Capture the current complete Saved store before the next versioned recovery generation."); return result;
+        }
+        if (!begin_generation(s,b,NULL,error)) return result;
+    }
     if (s->operation.high==UINT64_MAX && s->operation.low==UINT64_MAX) { fail(error,"Recovery operation identity space is exhausted."); return result; }
     const Worksheet *sheet=NULL; for (size_t i=0;i<b->count;i++) if (b->sheets[i].id==command->target.sheet_id) sheet=b->sheets+i;
     const char *before=cells_get(&sheet->cells,command->target.row,command->target.column);
@@ -225,7 +231,7 @@ CellEditResult workbook_journal_session_apply(WorkbookJournalSession *s,Workbook
 }
 JournalSessionState workbook_journal_session_state(WorkbookJournalSession *s,const Workbook *b) {
     JournalSessionState state={0}; if (!s) return state;
-    state.active=s->active.queue!=NULL; state.covered=state.active && matches(&s->expected,b);
+    state.active=s->active.queue!=NULL; state.covered=state.active && !s->version_gap && matches(&s->expected,b);
     if (state.active) { state.queue=workbook_journal_queue_state(s->active.queue); state.generation=s->active.checkpoint->origin.generation; state.parent=s->active.checkpoint->origin.parent; }
     state.checkpoint_format_bytes=generation_bytes(&s->active)+generation_bytes(&s->retired); return state;
 }

@@ -22,17 +22,29 @@ void app_versions_reset(AppVersionState *state,QueryWorker *worker) {
     if (!state) return;
     worker_archive_release_versions(worker,&state->store); *state=(AppVersionState){0};
 }
+bool app_versions_owner(AppVersionState *state,QueryWorker *worker,const Workbook *book,char **error) {
+    if (!state || !book) return fail(error,"The native version working state is unavailable.");
+    if (!state->owner.session || !document(state->owner,book)) {
+        WorkbookVersionOwner next;
+        if (!owner(book,&next,error)) return false;
+        if (state->store && !store_document(state->store,book)) app_versions_reset(state,worker);
+        state->owner=next;
+    }
+    return !state->store || store_document(state->store,book) || fail(error,"The retained native store belongs to another document.");
+}
+bool app_versions_recovered(AppVersionState *state,QueryWorker *worker,const Workbook *book,const WorkbookVersionCoreSet *store,char **error) {
+    WorkbookVersionOwner next;
+    if (!state || !book || (store && !store_document(store,book))) return fail(error,"The recovered store does not match its working head.");
+    if (!owner(book,&next,error)) return false;
+    WorkbookVersionCoreSet *retained=workbook_version_core_set_retain(store);
+    if (store && !retained) return fail(error,"Cannot retain the recovered Saved store.");
+    app_versions_reset(state,worker); state->store=retained; state->owner=next; return true;
+}
 bool app_versions_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,const char *parent,char **error) {
     if (!state || !job || !parent) return fail(error,"The native version working state is unavailable.");
     if (job->kind==JOB_LOAD) return worker_archive_load_job(worker,job,parent,DX_APP_VERSION_BYTES,error);
     if (job->kind!=JOB_SAVE || !job->workbook) return fail(error,"Capture an owned workbook before native Save.");
-    if (!state->owner.session || !document(state->owner,job->workbook)) {
-        WorkbookVersionOwner next;
-        if (!owner(job->workbook,&next,error)) return false;
-        if (state->store && !store_document(state->store,job->workbook)) app_versions_reset(state,worker);
-        state->owner=next;
-    }
-    if (state->store && !store_document(state->store,job->workbook)) return fail(error,"The retained native store belongs to another document.");
+    if (!app_versions_owner(state,worker,job->workbook,error)) return false;
     return worker_archive_save_job(worker,job,state->store,state->owner,VERSION_USER_SAVE,parent,DX_APP_VERSION_BYTES,error);
 }
 bool app_versions_loaded(AppVersionState *state,QueryWorker *worker,QueryReply *reply,char **error) {

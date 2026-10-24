@@ -1,4 +1,5 @@
 #include "recovery.h"
+#include "archive_read.h"
 #include "journal.h"
 #include "../platform/platform.h"
 #include "../platform/file_lease.h"
@@ -9,6 +10,8 @@
 #include <string.h>
 struct WorkbookRecoveryCandidate {
     Workbook *book;
+    WorkbookVersionCoreSet *versions;
+    char *version_parent;
     WorkbookRecoveryInfo info;
     DxFileLease *lease;
     char *directory,*checkpoint,*journal,*original;
@@ -28,6 +31,10 @@ static bool progress(Recovery *r,WorkbookRecoveryPhase phase,uint64_t done,uint6
 }
 static bool digest_cancel(void *context,uint64_t bytes) {
     Recovery *r=context; return !progress(r,RECOVERY_VERIFY,bytes,r->total);
+}
+static bool archive_cancel(void *context,WorkbookArchiveReadPhase phase,size_t root,uint64_t bytes) {
+    (void)phase; (void)root; Recovery *r=context;
+    return !progress(r,RECOVERY_LOAD,bytes,0);
 }
 static bool generation_name(const char *name) {
     if (!name || strlen(name)!=40 || strncmp(name,"session-",8)) return false;
@@ -55,9 +62,14 @@ static bool replay(void *context,const JournalCellEdit *edit,char **error) {
 const Workbook *workbook_recovery_book(const WorkbookRecoveryCandidate *c) { return c ? c->book : NULL; }
 const WorkbookRecoveryInfo *workbook_recovery_info(const WorkbookRecoveryCandidate *c) { return c ? &c->info : NULL; }
 Workbook *workbook_recovery_take_book(WorkbookRecoveryCandidate *c) { if (!c) return NULL; Workbook *b=c->book; c->book=NULL; return b; }
+const WorkbookVersionCoreSet *workbook_recovery_versions(const WorkbookRecoveryCandidate *c) { return c ? c->versions : NULL; }
+WorkbookVersionCoreSet *workbook_recovery_take_versions(WorkbookRecoveryCandidate *c) { if (!c) return NULL; WorkbookVersionCoreSet *set=c->versions; c->versions=NULL; return set; }
 void workbook_recovery_free(WorkbookRecoveryCandidate *c) {
     if (!c) return;
     if (c->book) { workbook_free(c->book); free(c->book); }
+    workbook_version_core_set_free(c->versions);
+    if (c->version_parent) dx_remove_temp_directory(c->version_parent);
+    free(c->version_parent);
     dx_file_lease_release(c->lease); free(c->directory); free(c->checkpoint); free(c->journal); free(c->original); free(c);
 }
 static bool capture_artifacts(WorkbookRecoveryCandidate *c,bool verify) {
@@ -97,6 +109,7 @@ WorkbookRecoveryResult workbook_recovery_prepare(const char *root,const char *ge
     if (!root || !*root || !generation_name(generation) || !out || *out || (unsigned)mode>RECOVERY_OPEN_CHECKPOINT) { fail(error,"Choose a private recovery generation and an empty candidate."); free(ignored_error); return RECOVERY_FAILED; }
     WorkbookRecoveryCandidate *c=dx_alloc(sizeof(*c)); Recovery r={.control=control,.candidate=c}; WorkbookJournal *journal=NULL; WorkbookRecoveryResult result=RECOVERY_FAILED;
     char *resolved=dx_absolute_path(root); if (!resolved) { fail(error,"The recovery folder is unavailable."); goto done; }
+    c->version_parent=dx_printf("%s-versions",resolved);
     char *requested=dx_printf("%s/%s",resolved,generation); free(resolved); c->directory=dx_absolute_path(requested);
     bool direct=c->directory && !strcmp(c->directory,requested); free(requested);
     if (!direct) { fail(error,"Recovery requires a direct private generation, without directory aliases."); goto done; }
@@ -132,8 +145,12 @@ WorkbookRecoveryResult workbook_recovery_prepare(const char *root,const char *ge
     if (hashed!=SOURCE_DIGEST_OK) { if (!r.cancelled) fail(error,*detail ? detail : "Cannot verify the recovery checkpoint."); goto done; }
     if (origin && memcmp(digest.sha256,origin->baseline_sha256,DX_JOURNAL_DIGEST_BYTES)) { fail(error,"The recovery checkpoint digest does not match its journal origin."); goto done; }
     if (!progress(&r,RECOVERY_LOAD,0,1)) goto done;
-    c->book=dx_alloc(sizeof(*c->book)); workbook_init(c->book);
-    if (!workbook_load(c->book,c->checkpoint,error)) goto done;
+    if (!dx_make_directories(c->version_parent)) { fail(error,"Cannot create private staging for recovery versions."); goto done; }
+    WorkbookArchiveCandidate *archive=NULL;
+    if (workbook_archive_read(c->checkpoint,c->version_parent,UINT64_C(8)*1024*1024*1024,
+        (WorkbookArchiveReadControl){archive_cancel,&r},&archive,error)!=ARCHIVE_READ_READY) goto done;
+    c->book=workbook_archive_take_book(archive); c->versions=workbook_archive_take_versions(archive);
+    workbook_archive_candidate_free(archive);
     SourceFileIdentity after={0};
     if (source_file_identity(c->checkpoint,&after,detail)!=SOURCE_DIGEST_OK || !source_file_identity_same(&digest.identity,&after)) { fail(error,"The recovery checkpoint changed while it was loading."); goto done; }
     if (inspected && (c->book->id.high!=summary.document.high || c->book->id.low!=summary.document.low || c->book->command_revision!=summary.base_revision)) { fail(error,"The recovery document identity/revision does not match its journal."); goto done; }
