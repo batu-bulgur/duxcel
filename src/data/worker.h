@@ -39,6 +39,28 @@ typedef struct {
 } BrowserSourceGuard;
 #endif
 typedef enum { JOB_PAGE, JOB_COPY, JOB_SAVE, JOB_LOAD, JOB_DISTINCT, JOB_PIVOT, JOB_PIVOT_COPY, JOB_EXPORT, JOB_COUNT, JOB_RANGE_COPY,JOB_STATISTICS,JOB_VALIDATE_SQL,JOB_STEP_PREVIEW,JOB_VERIFY_SOURCE,JOB_COLLECT_RECORDS } JobKind;
+#ifndef DUXCEL_BROWSER_HOST
+typedef struct WorkbookNativeIO WorkbookNativeIO;
+typedef enum { WORKER_SAVE_PREPARE_NONE,WORKER_SAVE_SNAPSHOT,WORKER_SAVE_COMPARE,WORKER_SAVE_INSPECT,WORKER_SAVE_ROOTS,WORKER_SAVE_RECEIPT } WorkerSavePreparation;
+typedef struct {
+    WorkbookSaveControl publication; /* Only named-file PUBLISH disables cancel. */
+    bool (*cancelled)(void *context);
+    void (*prepare)(void *context,WorkerSavePreparation phase,size_t root,uint64_t bytes);
+    void *context;
+} WorkerNativeFileControl;
+typedef struct {
+    WorkbookNativeIO *context; /* Owned opaque native adapter; never an App pointer. */
+    WorkbookSaveResult (*execute)(WorkbookNativeIO *context,JobKind kind,const Workbook *snapshot,const char *path,
+        WorkerNativeFileControl control,Workbook **loaded,char **error);
+    void (*dispose)(WorkbookNativeIO *context);
+} WorkerNativeFileTask;
+typedef struct WorkerNativeRetirement {
+    struct WorkerNativeRetirement *next;
+    WorkbookNativeIO *context;
+    void (*dispose)(WorkbookNativeIO *context);
+    bool queued;
+} WorkerNativeRetirement;
+#endif
 typedef struct {
     uint64_t id;
     JobKind kind;
@@ -52,6 +74,9 @@ typedef struct {
     size_t first_col, cols;
     int64_t known_total;
     Workbook *workbook;
+#ifndef DUXCEL_BROWSER_HOST
+    WorkerNativeFileTask native_file;
+#endif
     /* VERIFY_SOURCE owns one <=65536-byte file path, expected_source_stamp and
        scalar routing identities only. Zero stamp is unbound; no SQL is run. */
     char *path;
@@ -96,6 +121,7 @@ typedef struct {
     bool is_preview;
 #ifndef DUXCEL_BROWSER_HOST
     WorkbookSaveResult save_result;
+    WorkerNativeFileTask native_file;
 #endif
 } QueryReply;
 /* Conservative native format-pipeline reservation categories, not measured
@@ -120,6 +146,9 @@ typedef struct {
     uint64_t id;
     WorkbookSaveProgress progress;
     bool active,cancellable,cancel_requested;
+    WorkerSavePreparation preparation;
+    size_t preparation_root;
+    uint64_t preparation_bytes;
 } WorkerSaveState;
 #endif
 /* One worker owns its DuckDB connection. The UI may only call interrupt under mutex.
@@ -140,6 +169,7 @@ typedef struct {
     Database db;
 #ifndef DUXCEL_BROWSER_HOST
     WorkerSaveState save; /* Mutex-owned ordered file operation, retained until poll. */
+    WorkerNativeRetirement *retired_head,*retired_tail;
 #endif
 } QueryWorker;
 bool worker_start(QueryWorker *w);
@@ -151,6 +181,12 @@ WorkerSaveState worker_save_state(QueryWorker *worker);
 /* Cooperative request; false means absent/already publishing. Never invalidates
    the Save reply or interrupts an unrelated analytical connection. */
 bool worker_save_cancel(QueryWorker *worker);
+/* Transfer one initialized owned intrusive node. No allocation, callbacks or
+   IO under the mutex. The worker drains nodes before pending jobs and on stop;
+   disposal runs outside the mutex. False keeps ownership (not started/stopping
+   or invalid/already queued). Node/context must not be touched after transfer.
+   The worker object must outlive native tasks/replies that may retire into it. */
+bool worker_retire_native(QueryWorker *worker,WorkerNativeRetirement *owned);
 #endif
 void worker_stop(QueryWorker *w);
 /* Main-thread lifecycle contract, like submit/poll: not concurrent with

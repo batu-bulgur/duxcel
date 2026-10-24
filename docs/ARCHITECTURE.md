@@ -145,8 +145,14 @@ Immutable core sets have scalar mutex-protected owning references: retained
 worker/journal snapshots keep the same closed files and lease until the final
 owner releases them. Getters borrow immutable metadata/leaf values. The last
 release disposes on its caller thread; native App adapters must queue retirement
-off frames. Background job ownership, App publication and recovery adoption
-remain W11a3.2b-W11a3.4; normal App files still use v1-v15.
+off frames. QueryWorker has an optional typed native file-task envelope; ordinary Core-only
+jobs keep their existing writer/reader without native archive link dependencies.
+Owned contexts move into replies, and an intrusive retirement queue runs disposal
+outside the worker mutex before pending work and stop. Replacement/cancel frees
+also leave the mutex first, allowing safe retirement/scalar observers. Native
+preparation remains cancellable until named-file publication. The real versioned
+IO adapter, App publication and recovery adoption remain W11a3.2b2-W11a3.4;
+normal App files still use v1-v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

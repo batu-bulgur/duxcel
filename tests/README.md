@@ -340,3 +340,13 @@ consumer independently, checks the same lease remains busy, and verifies last
 background release removes private files. The `version-lifetime` gate also runs
 existing closure failure/cancel cleanup after refcount integration. These checks
 exercise mutex/lifetime semantics under ASan/UBSan, not a ThreadSanitizer claim.
+
+`test_worker_native.c` tests the typed file-task protocol using real ordinary
+Save/Load delegates: retained R snapshots, ordered cancellation/replacement,
+preparation state, reply transfer, FIFO/off-mutex background retirement, stop
+drain and late disposal after shutdown. It does not substitute for the versioned
+adapter's later integration. The `worker-native` gate also runs existing ordered
+Save, record-collection ownership and source-digest workers in optimized/ASan/
+UBSan builds, then18 hidden Save stages. Record/digest checks now have per-file
+`build/tests/test_record_selection_worker` / `test_worker_source_digest` targets;
+their actual product modules/headers drive rebuilds and test hooks stay private.

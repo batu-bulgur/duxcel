@@ -95,10 +95,16 @@ invalid:
 }
 #endif
 static void job_free(QueryJob *j) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (j && j->native_file.context && j->native_file.dispose) j->native_file.dispose(j->native_file.context);
+#endif
     if (j) { if (j->kind==JOB_VERIFY_SOURCE || j->kind==JOB_COLLECT_RECORDS) source_digest_rejected_analysis(&j->analysis); copy_request_free(j->copy); statistics_request_free(j->statistics); analysis_free(&j->analysis); pivot_free(&j->pivot); if (j->workbook) { workbook_free(j->workbook); free(j->workbook); } free(j->path); free(j->column); free(j->search); free(j->date_start); free(j->date_end); free(j); }
 }
 void reply_free(QueryReply *r) {
     if (!r) return;
+#ifndef DUXCEL_BROWSER_HOST
+    if (r->native_file.context && r->native_file.dispose) r->native_file.dispose(r->native_file.context);
+#endif
     if (r->kind==JOB_VERIFY_SOURCE || r->kind==JOB_COLLECT_RECORDS) source_digest_rejected_analysis(&r->analysis);
     analysis_free(&r->analysis); page_free(&r->page); free(r->error); free(r->clipboard); free(r->export_data);
     if (r->workbook) { workbook_free(r->workbook); free(r->workbook); }
@@ -176,6 +182,7 @@ extern void dx_test_save_checkpoint(QueryWorker *worker,WorkbookSaveProgress pro
 #endif
 static bool save_update(void *context,WorkbookSaveProgress progress) {
     QueryWorker *w=context; dx_lock(&w->mutex); w->save.progress=progress;
+    w->save.preparation=WORKER_SAVE_PREPARE_NONE;
     bool proceed=!w->save.cancel_requested && !w->stop;
     if (progress.phase==SAVE_PHASE_PUBLISH || progress.phase==SAVE_PHASE_COMPLETE) w->save.cancellable=false;
     dx_unlock(&w->mutex);
@@ -194,11 +201,35 @@ bool worker_save_cancel(QueryWorker *w) {
     if (accepted) w->save.cancel_requested=true;
     dx_unlock(&w->mutex); return accepted;
 }
+bool worker_retire_native(QueryWorker *w,WorkerNativeRetirement *owned) {
+    if (!w || !w->started || !owned || !owned->context || !owned->dispose) return false;
+    dx_lock(&w->mutex);
+    if (w->stop || owned->queued) { dx_unlock(&w->mutex); return false; }
+    owned->queued=true; owned->next=NULL;
+    if (w->retired_tail) w->retired_tail->next=owned; else w->retired_head=owned;
+    w->retired_tail=owned; dx_signal(&w->condition); dx_unlock(&w->mutex); return true;
+}
+static bool native_file_cancelled(void *context) {
+    QueryWorker *w=context; dx_lock(&w->mutex);
+    bool stop=w->stop || (w->active_kind==JOB_SAVE ? w->save.cancel_requested : w->latest_id!=w->active_id);
+    dx_unlock(&w->mutex); return stop;
+}
+static void native_file_prepare(void *context,WorkerSavePreparation phase,size_t root,uint64_t bytes) {
+    QueryWorker *w=context; dx_lock(&w->mutex);
+    if (w->save.active) { w->save.preparation=phase; w->save.preparation_root=root; w->save.preparation_bytes=bytes; }
+    dx_unlock(&w->mutex);
+}
 static void *worker_main(void *ptr) {
     QueryWorker *w = ptr;
     for (;;) {
         dx_lock(&w->mutex);
-        while (!w->stop && !w->pending) dx_cond_wait(&w->condition, &w->mutex);
+        while (!w->stop && !w->pending && !w->retired_head) dx_cond_wait(&w->condition, &w->mutex);
+        if (w->retired_head) {
+            WorkerNativeRetirement *owned=w->retired_head; w->retired_head=owned->next;
+            if (!w->retired_head) w->retired_tail=NULL;
+            owned->next=NULL; owned->queued=false; dx_unlock(&w->mutex);
+            owned->dispose(owned->context); continue;
+        }
         if (w->stop) { dx_unlock(&w->mutex); break; }
         QueryJob *j = w->pending; w->pending = NULL; w->running = true; w->active_id=j->id; w->jobs_started++;
         bool format_definition_rejected=w->pending_format_definition_rejected;
@@ -208,8 +239,18 @@ static void *worker_main(void *ptr) {
         QueryReply *r = dx_alloc(sizeof(*r)); r->id = j->id; r->kind = j->kind; r->object_id=j->object_id; r->revision=j->revision; r->is_preview=j->is_preview;
         r->analysis=j->analysis; memset(&j->analysis,0,sizeof(j->analysis));
         r->path=j->path; j->path=NULL;
+        r->native_file=j->native_file; j->native_file=(WorkerNativeFileTask){0};
         /* File hashing never opens DuckDB or runs source/result SQL. */
-        if (format_definition_rejected) {
+        if (r->native_file.context || r->native_file.execute || r->native_file.dispose) {
+            if ((j->kind!=JOB_SAVE && j->kind!=JOB_LOAD) || !r->native_file.context || !r->native_file.execute || !r->native_file.dispose) r->error=dx_strdup("Native file jobs require a complete owned Save/Load context.");
+            else r->save_result=r->native_file.execute(r->native_file.context,j->kind,j->workbook,r->path,
+                (WorkerNativeFileControl){.publication={save_update,w},.cancelled=native_file_cancelled,.prepare=native_file_prepare,.context=w},&r->workbook,&r->error);
+            if (j->kind==JOB_SAVE) {
+                if (r->workbook) { workbook_free(r->workbook); free(r->workbook); r->workbook=NULL; if (!r->error) r->error=dx_strdup("A native Save returned an unexpected loaded model."); r->save_result=WORKBOOK_SAVE_FAILED; }
+                r->workbook=j->workbook; j->workbook=NULL;
+            } else if (j->kind==JOB_LOAD && !r->error && !r->workbook) r->error=dx_strdup("A native Load did not return a complete model.");
+        }
+        else if (format_definition_rejected) {
             r->source_digest_status=SOURCE_DIGEST_ERROR;
             r->error=dx_strdup("Native formatting request definitions exceed the 8 MiB owned limit. No file or identity query was opened.");
         }
@@ -271,11 +312,11 @@ static void *worker_main(void *ptr) {
         }
         }
 finished:
-        dx_lock(&w->mutex); w->running = false;
+        QueryReply *previous=NULL; dx_lock(&w->mutex); w->running = false;
         if (!w->stop && w->latest_id == j->id) {
-            reply_free(w->reply); w->reply = r; w->published_format_owned=format_reply_owned(r); r = NULL;
+            previous=w->reply; w->reply = r; w->published_format_owned=format_reply_owned(r); r = NULL;
         }
-        dx_unlock(&w->mutex); reply_free(r); job_free(j);
+        dx_unlock(&w->mutex); reply_free(previous); reply_free(r); job_free(j);
         /* Cancellation only requests retirement. Keep the reservation until
            these actual frees finish, including after running became false. */
         dx_lock(&w->mutex); w->active_format_reserved=0; w->active_kind=JOB_PAGE; dx_unlock(&w->mutex);
@@ -295,10 +336,11 @@ void worker_submit(QueryWorker *w, QueryJob *j) {
     if (w->save.active) { dx_unlock(&w->mutex); job_free(j); return; }
     if (j->kind==JOB_SAVE) w->save=(WorkerSaveState){.id=j->id,.active=true,.cancellable=true};
     w->latest_id = j->id;
-    job_free(w->pending); w->pending = j; reply_free(w->reply); w->reply = NULL;
+    QueryJob *previous_job=w->pending; QueryReply *previous_reply=w->reply;
+    w->pending = j; w->reply = NULL;
     w->pending_format_reserved=reserved; w->pending_format_definition_rejected=definition_rejected; w->published_format_owned=0;
     if (w->running && w->db.connection) duckdb_interrupt(w->db.connection);
-    dx_signal(&w->condition); dx_unlock(&w->mutex);
+    dx_signal(&w->condition); dx_unlock(&w->mutex); job_free(previous_job); reply_free(previous_reply);
 }
 QueryReply *worker_poll(QueryWorker *w) {
     dx_lock(&w->mutex); QueryReply *r = w->reply; w->reply = NULL;
@@ -314,11 +356,11 @@ WorkerFormatUsage worker_format_usage(QueryWorker *w) {
 void worker_cancel(QueryWorker *w) {
     dx_lock(&w->mutex);
     if (w->save.active) { if (w->save.cancellable) w->save.cancel_requested=true; dx_unlock(&w->mutex); return; }
-    w->latest_id++; job_free(w->pending); w->pending = NULL;
-    reply_free(w->reply); w->reply = NULL;
+    w->latest_id++; QueryJob *previous_job=w->pending; QueryReply *previous_reply=w->reply;
+    w->pending = NULL; w->reply = NULL;
     w->pending_format_reserved=w->published_format_owned=0; w->pending_format_definition_rejected=false;
     if (w->running && w->db.connection) duckdb_interrupt(w->db.connection);
-    dx_unlock(&w->mutex);
+    dx_unlock(&w->mutex); job_free(previous_job); reply_free(previous_reply);
 }
 void worker_stop(QueryWorker *w) {
     if (!w->started) return;
