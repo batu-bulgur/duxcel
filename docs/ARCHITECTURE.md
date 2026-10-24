@@ -1112,8 +1112,8 @@ keeping schema/default completion, native budgeting and target/dependent query
 invalidation separate from model ownership. Formats and the immutable ledger are
 preserved. `analysis_same_result_measured` performs allocation-free comparison
 only after bounded shape measurement; full grammar still follows scratch admission.
-Primary replacement, analytical source_id edits and source/format composite
-publication remain separate roadmap work; metadata closure is not dataset retention.
+Primary and analytical binding admission are described below; source/format
+composite publication remains separate. Metadata closure is not dataset retention.
 
 
 Primary replacement is explicit Analysis transaction admission with independent
@@ -1128,3 +1128,15 @@ bound analytical views invalidate; independent Table Pages remain. Relation
 selection resets transforms as one definition action; default enrichment remains
 metadata work. Native descriptors are never serialized; retained event IO and
 source/format composites remain separate.
+
+
+`object_binding_command.c` admits analytical source_id changes against a resolved
+Table or actual primary authority. The shared graph fence is extended with the
+primary descriptor/epoch; both owners recheck after optional complete object-event
+reservation. Whole graph and primary grammar/dependencies are validated within
+admitted scratch, while the independent live primary footprint is included in
+App memory accounting. The unchanged primary stays a parent/root dependency,
+not an invented changed event family. Adoption changes one query revision/action,
+preserving geometry, name, Marks and allocator. App owns the compact frozen-ID
+chooser, stale-draft guard, readiness and target-only cache invalidation; worker
+schema errors remain explicit. Retained App writing/data remain separate.

@@ -298,6 +298,13 @@ Fast mouse gestures that begin and end inside one event poll retain their starti
 
 Selected charts have an outlined lower-right resize handle. Drag it to change the occupied worksheet cells; the preview marks rejected overlaps. Escape cancels an active resize. The object context menu also offers **Chart size…** with separate Columns and Rows fields and keyboard navigation. Resizing preserves field definitions and query results, supports Undo/Redo and saves in dxls. Sizes are bounded to 3–256 columns and 8–4096 rows.
 
+Pivot/chart context menus offer **Change data source…**. Choose Sheet data or an
+existing Table with the arrow keys and Enter, or click a row; Escape cancels.
+The change preserves fields, Marks, name and placement, supports Undo/Redo and
+saves in dxls. Unresolved sources are unavailable. A source with incompatible
+fields reports a query error; fields are not silently removed. Reopen the chooser
+if its object changed while it was open.
+
 Pivot/chart context menus include **Rename…**; F2 on the title cell opens it directly. Names support UTF-8, reject empty/control-character or duplicate names on the same sheet, and support Undo/Redo and dxls persistence. Names and chart size are presentation edits and reuse the analytical result.
 
 In a filter popover, Control+Tab (or Control+Shift+Tab) switches Available values/Conditions. Conditions has visible focus for the mode tab, operator list, value and Apply. Up/Down or Home/End selects an operator; Enter moves to its value, and the next Enter applies it. Tab skips the value for Is NULL/Is not NULL. Escape cancels. In the normal worksheet, Control+Tab changes sheets, including when chrome has focus.

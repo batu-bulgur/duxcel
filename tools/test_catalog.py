@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-binding-command": ("build/tests/test_object_binding_command-gui", "PASS: native object binding workflow",
+                               r"^PASS: native object binding workflow \(21 stages, [1-9]\d* checks\)$", 21),
     "primary-replacement": ("build/tests/test_primary_replacement-gui", "PASS: native primary replacement workflow",
                             r"^PASS: native primary replacement workflow \(17 stages, [1-9]\d* checks\)$", 17),
     "table-replacement": ("build/tests/test_table_replacement-gui", "PASS: native Table replacement workflow",
@@ -96,6 +98,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-binding-command": Feature(("object_binding_command", "object_pivot_command", "history_definition", "definition_dependencies"), "object-binding-command",
+        ("python3 tools/test.py feature --feature primary-replacement", "python3 tools/test.py feature --feature table-replacement"),
+        ("src/workbook/object_binding_command.c", "src/workbook/object_binding_command.h", "src/app/app.c: source chooser/draft/binding adapter", "tests/test_object_binding_command.c", "tests/support/object_binding_command_app.inc"), fixtures=("source-connections",)),
     "primary-replacement": Feature(("primary_replacement", "analysis_command", "history_definition", "definition_dependencies"), "primary-replacement",
         ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py feature --feature source-result-format"),
         ("src/workbook/analysis_command.c: resolved primary replacement and full metadata fences", "src/app/app.c: primary relink/relation and unavailable-result readiness", "tests/test_primary_replacement.c", "tests/support/primary_replacement_app.inc"), fixtures=("source-connections",)),

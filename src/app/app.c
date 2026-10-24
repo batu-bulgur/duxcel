@@ -6,6 +6,8 @@
 #include "../workbook/object_presentation_command.h"
 #include "../workbook/object_layout_command.h"
 #include "../workbook/object_pivot_command.h"
+#include "../workbook/object_binding_command.h"
+#include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
@@ -71,7 +73,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include <string.h>
 #include <ctype.h>
 
-typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS } Modal;
+typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW,SHEET_ACTION_DELETE } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW,DOCUMENT_RECOVER } DocumentAction;
@@ -368,6 +370,12 @@ typedef struct {
     bool replace_reveal;
     Rectangle replace_actions[2],replace_panel;
     TextLines replace_lines;
+    CellEditTarget object_source_owner;
+    uint64_t object_source_object,object_source_before,object_source_history,object_source_next;
+    uint64_t object_source_choices[DX_MAX_OBJECTS+1];
+    size_t object_source_count;
+    int object_source_focus,object_source_scroll;
+    bool object_source_valid;
     int table_relation_object,table_relation_focus,table_relation_scroll;
     bool table_relation_drag;
     float table_relation_grab;
@@ -710,6 +718,7 @@ static void clear_values_cache(App *a);
 static void open_source(App *a,const char *path,bool demo);
 static void begin_chart_size(App *a);
 static void begin_object_name(App *a);
+static void begin_object_source(App *a);
 static void begin_table_relation(App *a);
 static void begin_source_query(App *a);
 static void cancel_source_validation(App *a);
@@ -3578,7 +3587,7 @@ static void draw_pivot_menu(App *a) {
     if (a->modal==MODAL_PIVOT_FIELD) { draw_pivot_field_popup(a); return; }
     SheetObject *target=selected_object(a); bool table=target && target->kind==OBJECT_TABLE,database=table && target->source.kind==SOURCE_DATABASE;
     UIContext *u=&a->ui; int base_count=database ? 10 : table ? 9 : 6;
-    UIChoiceListLayout layout=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,base_count+1);
+    UIChoiceListLayout layout=ui_choice_list_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},u->scale,base_count+1+(!table));
     if (!layout.frame.valid) return;
     float s=u->scale; Rectangle panel=layout.frame.panel;
     popup_capture(a,panel); Vector2 mouse=ui_mouse_position();
@@ -3586,10 +3595,10 @@ static void draw_pivot_menu(App *a) {
     ui_choice_frame(u,&layout.frame,target ? target->name : "Object actions");
     REVIEW_AUTHOR_PANEL(a,"object",target ? target->name : "Object actions",layout.frame.panel,layout.frame.title);
     {
-        SheetObject *selected=selected_object(a); int count=base_count+1;
+        SheetObject *selected=selected_object(a); int count=base_count+1+(!table);
         const char *labels[]={"Refresh object","Select object range","Inspect SQL",table ? "Create pivot table" : selected && selected->kind==OBJECT_CHART ? "Chart size…" : "Create chart","Rename…","Delete object","Create chart","Relink table source…","Choose table or view…","Edit source query…","Move object…"};
         if (table) labels[base_count-1]="Edit source query…";
-        labels[base_count]="Move object…";
+        labels[base_count]="Move object…"; if (!table) labels[base_count+1]="Change data source…";
         context_keys(a,count,layout.visible);
         if (CheckCollisionPointRec(mouse,panel)) a->context_scroll+=ui_scroll_steps(&a->context_wheel,-GetMouseWheelMoveV().y*3);
         int max=count-layout.visible; if (a->context_scroll<0) a->context_scroll=0; if (a->context_scroll>max) a->context_scroll=max;
@@ -3599,15 +3608,16 @@ static void draw_pivot_menu(App *a) {
             int i=j+a->context_scroll;
             Rectangle item=layout.frame.rows[j]; if (max) item.width-=9*s;
             const UICarbonIcon icons[]={CARBON_RENEW,CARBON_GRID,CARBON_SQL,CARBON_DATA_VIEW,CARBON_STRING_TEXT,CARBON_TRASH_CAN,CARBON_CHART_BAR,CARBON_FOLDER_OPEN,CARBON_LIST,CARBON_SQL,CARBON_DRAGGABLE};
-            UICarbonIcon icon=i==base_count ? CARBON_DRAGGABLE : table && i==base_count-1 ? CARBON_SQL : icons[i];
+            UICarbonIcon icon=!table && i==base_count+1 ? CARBON_DATA_VIEW : i==base_count ? CARBON_DRAGGABLE : table && i==base_count-1 ? CARBON_SQL : icons[i];
             if (i==3) icon=table ? CARBON_TABLE : selected && selected->kind==OBJECT_CHART ? CARBON_MAXIMIZE : CARBON_CHART_BAR;
 #ifdef DUXCEL_DEV_REVIEW
-            const char *key=i==base_count ? "move" : table && i==base_count-1 ? "source_query" : i==3 ? table ? "create_pivot" : selected && selected->kind==OBJECT_CHART ? "chart_size" : "create_chart" : ((const char *const[]){"refresh","select_range","inspect_sql","create_chart","rename","delete","create_chart","relink","relation","source_query"})[i];
+            const char *key=!table && i==base_count+1 ? "source_binding" : i==base_count ? "move" : table && i==base_count-1 ? "source_query" : i==3 ? table ? "create_pivot" : selected && selected->kind==OBJECT_CHART ? "chart_size" : "create_chart" : ((const char *const[]){"refresh","select_range","inspect_sql","create_chart","rename","delete","create_chart","relink","relation","source_query"})[i];
             REVIEW_AUTHOR_ITEM(a,"object",key,"object.action","menuitem",labels[i],item,layout.items,true,false,a->context_focus==i,NULL);
 #endif
             if (ui_choice_row(u,item,labels[i],NULL,icon,false,a->context_focus==i,true) || (!a->consume_grid_input && a->context_focus==i && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
             SheetObject *o=selected_object(a); a->modal=MODAL_NONE; if (!o) return;
-            if (i==base_count) begin_move_range(a,true);
+            if (!table && i==base_count+1) begin_object_source(a);
+            else if (i==base_count) begin_move_range(a,true);
             else if (table && i==base_count-1) begin_source_query(a);
             else if (i==0) {
                 clear_values_cache(a); a->refresh_plans=true; uint64_t id=o->id;
@@ -5941,6 +5951,88 @@ static void draw_statistics(App *a) {
     if (close) { a->modal=MODAL_NONE; a->consume_grid_input=true; }
     if (pointer && ui_key_shortcut(KEY_C) && ui_pressed(KEY_C)) copy_statistics(a);
 }
+static SheetObject *object_source_id(App *a,uint64_t id) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    for (size_t i=0;i<store->count;i++) if (store->items[i].id==id) return store->items+i;
+    return NULL;
+}
+static bool object_source_available(App *a,uint64_t id) {
+    const SheetObject *table=id ? object_source_id(a,id) : NULL;
+    const Analysis *source=id ? table && table->kind==OBJECT_TABLE ? &table->source : NULL : &a->analysis;
+    return source && source->kind!=SOURCE_NONE && definition_baseline_status((DefinitionDependencyView){source,NULL})==DEFINITION_BASELINE_READY;
+}
+static void begin_object_source(App *a) {
+    SheetObject *o=selected_pivot(a); if (!o || a->io_busy || history_locked(a)) return;
+    Worksheet *s=active_sheet(a); char *error=NULL;
+    if (!workbook_prepare_cell_edit(&a->book,a->book.active,0,0,&a->object_source_owner,&error)) { status(a,error); free(error); return; }
+    a->object_source_object=o->id; a->object_source_before=o->source_id; a->object_source_history=s->history_last; a->object_source_next=s->objects.next_id;
+    a->object_source_count=1; a->object_source_choices[0]=0; a->object_source_focus=a->object_source_scroll=0;
+    for (size_t i=0;i<s->objects.count;i++) if (s->objects.items[i].kind==OBJECT_TABLE) {
+        if (s->objects.items[i].id==o->source_id) a->object_source_focus=(int)a->object_source_count;
+        a->object_source_choices[a->object_source_count++]=s->objects.items[i].id;
+    }
+    a->context_drag=false; a->context_wheel=0;
+    a->object_source_valid=true; a->modal=MODAL_OBJECT_SOURCE; a->consume_grid_input=true;
+    status(a,"Choose a data source. Existing fields, Marks and placement stay unchanged.");
+}
+static bool apply_object_source(App *a,uint64_t source) {
+    Worksheet *s=active_sheet(a); SheetObject *o=selected_pivot(a); CellEditTarget *draft=&a->object_source_owner; char *error=NULL;
+    if (!s || !o || !a->object_source_valid || o->id!=a->object_source_object || o->source_id!=a->object_source_before ||
+        a->book.id.high!=draft->workbook.high || a->book.id.low!=draft->workbook.low || a->book.edit_session_id!=draft->document ||
+        s->id!=draft->sheet_id || s->edit_session_id!=draft->sheet || a->book.command_revision!=draft->expected_document_revision ||
+        s->cells.revision!=draft->expected_revision || s->history_last!=a->object_source_history || s->objects.next_id!=a->object_source_next) {
+        status(a,"The object changed. Reopen Change data source to use its current state."); return false;
+    }
+    size_t index=(size_t)a->selected_object; uint64_t id=o->id;
+    ObjectBindingPlanInfo info={0}; ObjectBindingStatus planned=objects_binding_measure(&s->objects,id,source,&a->analysis,&info,&error); bool ok=false;
+    if (planned!=OBJECT_BINDING_READY && planned!=OBJECT_BINDING_NOOP) goto done;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { error=dx_strdup("Binding planning reservation overflow."); goto done; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (planned==OBJECT_BINDING_READY) {
+        if (info.primary_owned>SIZE_MAX-info.validation_scratch) { error=dx_strdup("Primary binding authority reservation overflow."); goto done; }
+        if (source_format_budget_status(a,NULL,info.owned,info.validation_scratch+info.primary_owned,0,0,0)) goto done;
+    }
+#endif
+    ObjectBindingContext context={.command={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)},.primary=&a->analysis,.primary_epoch=&a->analysis_revision};
+    ObjectBindingTarget target;
+    if (!workbook_prepare_object_binding(&context,a->book.active,id,&target,&error)) goto done;
+    ObjectBindingResult result=workbook_apply_object_binding_recorded(&context,&target,source,NULL,&error);
+    ok=result.status==OBJECT_BINDING_APPLIED || result.status==OBJECT_BINDING_NOOP;
+    if (ok) { a->object_source_valid=false; a->modal=MODAL_NONE; a->consume_grid_input=true; if (result.status==OBJECT_BINDING_APPLIED) { invalidate_object(a,index); a->field_matches_valid=false; clear_values_cache(a); } status(a,"Object data source updated."); }
+done:
+    if (error) status(a,error);
+    free(error); return ok;
+}
+static void draw_object_source(App *a) {
+    UIContext *u=&a->ui; int count=(int)a->object_source_count+1; float s=u->scale;
+    UIChoiceListLayout layout=ui_choice_list_layout((Vector2){GetScreenWidth()*.5f-140*s,GetScreenHeight()*.5f-100*s},(Vector2){GetScreenWidth(),GetScreenHeight()},s,count);
+    if (!layout.frame.valid) return;
+    popup_capture(a,layout.frame.panel);
+    if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),layout.frame.panel))) {
+        a->object_source_valid=false; a->modal=MODAL_NONE; a->consume_grid_input=true; return;
+    }
+    /* Use the shared keyboard/list behavior without borrowing another popup's
+       persistent focus. Source IDs were frozen when this chooser opened. */
+    a->context_focus=a->object_source_focus; a->context_scroll=a->object_source_scroll; context_keys(a,count,layout.visible);
+    a->object_source_focus=a->context_focus; a->object_source_scroll=a->context_scroll;
+    if (CheckCollisionPointRec(ui_mouse_position(),layout.items)) a->object_source_scroll+=ui_scroll_steps(&a->context_wheel,-GetMouseWheelMoveV().y*3);
+    int max=count-layout.visible; if (a->object_source_scroll<0) a->object_source_scroll=0; if (a->object_source_scroll>max) a->object_source_scroll=max;
+    list_scrollbar(a,layout.items,count,layout.visible,&a->object_source_scroll,&a->context_drag,&a->context_grab,true);
+    ui_choice_frame(u,&layout.frame,"Change data source"); REVIEW_AUTHOR_PANEL(a,"object_source","Change data source",layout.frame.panel,layout.frame.title);
+    for (int row=0;row<layout.visible;row++) {
+        int choice=row+a->object_source_scroll; bool cancel=(size_t)choice==a->object_source_count;
+        uint64_t id=cancel ? 0 : a->object_source_choices[choice]; SheetObject *table=id ? object_source_id(a,id) : NULL; char label[256];
+        if (cancel) snprintf(label,sizeof(label),"Cancel"); else if (!id) snprintf(label,sizeof(label),"Sheet data%s",object_source_available(a,0) ? "" : " (unavailable)"); else snprintf(label,sizeof(label),"%s",table ? table->name : "Unavailable Table");
+        bool enabled=cancel || object_source_available(a,id),checked=!cancel && id==a->object_source_before;
+        REVIEW_AUTHOR_ITEM(a,"object_source",cancel ? "cancel" : "source","object.source","menuitemradio",label,layout.frame.rows[row],layout.items,enabled,checked,a->object_source_focus==choice,NULL);
+        if (ui_choice_row(u,layout.frame.rows[row],label,NULL,cancel ? CARBON_CLOSE : CARBON_TABLE,checked,a->object_source_focus==choice,enabled) ||
+            (enabled && !a->consume_grid_input && a->object_source_focus==choice && (ui_pressed(KEY_ENTER)||ui_pressed(KEY_KP_ENTER)||ui_pressed(KEY_SPACE)))) {
+            if (cancel) { a->object_source_valid=false; a->modal=MODAL_NONE; a->consume_grid_input=true; } else apply_object_source(a,id);
+            return;
+        }
+    }
+}
 static void draw_table_relations(App *a) {
     size_t index=(size_t)a->table_relation_object; ObjectStore *store=&active_sheet(a)->objects;
     if (index>=store->count || store->items[index].kind!=OBJECT_TABLE || !a->objects[index].page.relation_count) { a->modal=MODAL_NONE; return; }
@@ -6418,6 +6510,7 @@ static void draw_modal(App *a) {
     if (a->modal==MODAL_WIDTH) { draw_column_width(a); return; }
     if (a->modal==MODAL_CHART_SIZE) { draw_chart_size(a); return; }
     if (a->modal==MODAL_OBJECT_NAME) { draw_object_name(a); return; }
+    if (a->modal==MODAL_OBJECT_SOURCE) { draw_object_source(a); return; }
     if (a->modal==MODAL_TABLE_RELATION) { draw_table_relations(a); return; }
     if (a->modal==MODAL_MOVE_RANGE) { draw_move_range(a); return; }
     if (a->modal==MODAL_REPLACE_RANGE) { draw_range_replace(a); return; }
@@ -15654,6 +15747,9 @@ static void primary_replacement_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
 static void primary_steps_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_BINDING_COMMAND
+static void object_binding_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_REPLACEMENT
 static void table_replacement_test_frame(AppSession *session);
 #endif
@@ -16535,6 +16631,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
     primary_steps_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_BINDING_COMMAND
+    object_binding_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_REPLACEMENT
     table_replacement_test_frame(session);
 #endif
@@ -16864,4 +16963,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_PRIMARY_REPLACEMENT
 #include "../../tests/support/primary_replacement_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_BINDING_COMMAND
+#include "../../tests/support/object_binding_command_app.inc"
 #endif
