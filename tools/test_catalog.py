@@ -24,7 +24,7 @@ STANDALONE_GUI = {
     "recovery": ("build/tests/test_recovery-gui", "PASS: native recovery choice workflow",
                   r"^PASS: native recovery choice workflow \(19 stages, [1-9]\d* checks\)$", 19),
     "workbook-save": ("build/tests/test_workbook_save-gui", "PASS: native controlled Save workflow",
-                      r"^PASS: native controlled Save workflow \(20 stages, [1-9]\d* checks\)$", 20),
+                      r"^PASS: native controlled Save workflow \(22 stages, [1-9]\d* checks\)$", 22),
     "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
                         r"^PASS: native checkpoint journal workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "workbook-lifecycle": ("build/tests/test_workbook_lifecycle-gui", "PASS: native workbook lifecycle workflow",
@@ -66,6 +66,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "file-conflict": Feature((), "",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature version-controls"),
+        ("src/workbook/archive_write.c: expected destination identity", "src/data/worker_archive.c: copied file expectation", "src/app/versionstate.c: implicit Save policy", "tests/test_file_conflict.c"),
+        ("file_conflict",)),
     "preview-worker": Feature((), "",
         ("python3 tools/test.py feature --feature version-controls", "python3 tools/test.py feature --feature recovery-versions"),
         ("src/data/worker_archive.c: protected historical read contexts", "src/data/worker_archive.h", "tests/test_preview_worker.c"),

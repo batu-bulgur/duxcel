@@ -1368,8 +1368,9 @@ static void activate_sheet(App *a,size_t index,bool capture) {
         grid_schema(&a->grid,&a->page,true); restore_sheet_view(a); status(a,"Ready");
     } else { request_page(a,false); status(a,"Loading worksheet…"); }
 }
-static void workspace_job_context(App *a,JobKind kind,const char *path,const WorkbookVersionText *tag) {
+static void workspace_job_context(App *a,JobKind kind,const char *path,const WorkbookVersionText *tag,bool replace) {
 #ifdef DUXCEL_BROWSER_HOST
+    (void)replace;
     if (tag) { status(a,"Browser workbook versions are not connected yet."); return; }
 #endif
 #ifndef DUXCEL_BROWSER_HOST
@@ -1391,7 +1392,7 @@ static void workspace_job_context(App *a,JobKind kind,const char *path,const Wor
 #ifndef DUXCEL_BROWSER_HOST
     if (recovery_managed_path(a,absolute)) { free(absolute); status(a,"Local backup files are managed by Duxcel. Choose a saved workbook location outside that folder."); return; }
 #endif
-    QueryJob *j=dx_alloc(sizeof(*j)); j->id=++a->request_id; j->kind=kind; j->path=absolute;
+    QueryJob *j=dx_alloc(sizeof(*j)); j->id=a->request_id+1; j->kind=kind; j->path=absolute;
     if (kind==JOB_SAVE) {
         capture_sheet(a); j->workbook=workbook_snapshot(&a->book);
 #ifndef DUXCEL_BROWSER_HOST
@@ -1400,16 +1401,18 @@ static void workspace_job_context(App *a,JobKind kind,const char *path,const Wor
     }
 #ifndef DUXCEL_BROWSER_HOST
     char *error=NULL;
-    if (!(tag ? app_versions_tag_job(&a->versions,&a->worker,j,*tag,a->version_root,&error) : app_versions_job(&a->versions,&a->worker,j,a->version_root,&error))) {
+    if (!(tag ? app_versions_tag_job(&a->versions,&a->worker,j,*tag,a->version_root,&error) : replace ? app_versions_replace_job(&a->versions,&a->worker,j,a->version_root,&error) : app_versions_job(&a->versions,&a->worker,j,a->version_root,&error))) {
         worker_job_free(j); status(a,error); free(error); return;
     }
     a->save_is_tag=tag!=NULL;
 #endif
+    a->request_id=j->id;
     a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=a->grid.dragging=false; a->grid.scrollbar=0; a->grid.resizing=-1;
     a->pending_kind=kind; a->busy=a->io_busy=true; a->modal=MODAL_NONE;
     app_worker_submit(a,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
 }
-static void workspace_job(App *a,JobKind kind,const char *path) { workspace_job_context(a,kind,path,NULL); }
+static void workspace_job(App *a,JobKind kind,const char *path) { workspace_job_context(a,kind,path,NULL,false); }
+static void workspace_save_as(App *a,const char *path) { workspace_job_context(a,JOB_SAVE,path,NULL,true); }
 #ifndef DUXCEL_BROWSER_HOST
 #include "versions.inc"
 #endif
@@ -2296,7 +2299,7 @@ static void open_modal(App *a,Modal modal) {
         a->consume_grid_input=true;
         char *path=modal==MODAL_SAVE ? dx_save_file_panel(a->book.path) : dx_open_file_panel();
         if (path) {
-            if (modal==MODAL_SAVE) workspace_job(a,JOB_SAVE,path);
+            if (modal==MODAL_SAVE) workspace_save_as(a,path);
             else if (modal==MODAL_RELINK) {
                 if (source_kind(path)==a->analysis.kind) {
                     remember(a); free(a->analysis.path); a->analysis.path=dx_strdup(path); a->modal=MODAL_NONE; change_analysis(a,true);
@@ -6242,7 +6245,7 @@ static void draw_modal(App *a) {
         ui_text_clip(u,a->modal==MODAL_SAVE ? ".dxls · Undo history and cached rows are not saved." :
             a->modal==MODAL_RELINK ? "Use the same source type; existing files are never overwritten." : "Opening data adds a sheet. Opening a workspace replaces this workspace.",box(x+18*s,y+146*s,w-36*s,24*s),11,UI_MUTED,false);
         if (ui_button(u,box(x+w-120*s,y+h-54*s,96*s,32*s),a->modal==MODAL_SAVE ? "Save" : a->modal==MODAL_RELINK ? "Relink" : "Open",true,true) || enter) {
-            if (a->modal==MODAL_SAVE) workspace_job(a,JOB_SAVE,a->input.text);
+            if (a->modal==MODAL_SAVE) workspace_save_as(a,a->input.text);
             else if (a->modal==MODAL_RELINK) relink_source(a);
             else open_source(a,a->input.text,false);
         }

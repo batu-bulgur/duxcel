@@ -8,6 +8,13 @@ typedef struct {
     WorkbookVersionRestoreControl inspect;
     WorkbookVersionStageControl stage;
     WorkbookVersionRestoreControl prepare;
+    /* Optional same-destination conflict fence, borrowed for this call. Checked
+       before opening and again under the DuckDB transaction before any write.
+       NULL is an explicit/new destination, not a captured current-file proof. */
+    const SourceFileIdentity *expected_target;
+    /* Optional paired admitted index for current-file writes. Even a newly
+       observed file stamp cannot bless another writer's different v16 index. */
+    const WorkbookVersionIndex *expected_index;
 } WorkbookArchiveWriteControl;
 /* Native v16 transactional writer. Borrow immutable authored head/index/leaves
    and an existing staging parent. reserved_bytes bounds each admitted core set

@@ -167,6 +167,17 @@ App separately owns live model/path/history/dirty publication, retaining newer
 edits after captured R saves. Normal native App files and version-bound recovery checkpoints now use v16. Working roots use a separate sibling
 folder beside recovery sessions, excluded from normal user Save/Open targets.
 
+Implicit same-destination Save/Tag copies the observed file identity into the
+owned worker context, checks it before open and again inside the archive transaction,
+and compares the existing v16 manifest with the retained input index before replacing
+it. A fresh stat alone cannot bless another writer's different tag/root metadata.
+Legacy upgrades retain the file-identity fence without treating their runtime-seeded
+Saved index as an on-disk version schema. This is a conservative fence for cooperating
+writers; arbitrary raw path/file mutation during Save is outside its ownership
+contract. A missing current-file proof requires explicit Save As. The native accepted
+destination callback uses a separate replacement intent; ordinary Save/Tag never
+silently acquires it. Failed preparation leaves the App request epoch unchanged.
+
 `version_tag.c` prepares an owned exact UTF-8 label plus a canonical owner/index
 fence. Native `workbook_version_tag_save` adds that label and updates captured
 Latest Saved atomically, preflighting duplicates/capacity before capture. The same

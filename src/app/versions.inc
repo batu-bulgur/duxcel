@@ -29,7 +29,7 @@ static void versions_create(App *a) {
     else path=dx_save_file_panel(NULL);
 #endif
     if (!path) { snprintf(a->version_message,sizeof(a->version_message),"Choose a destination to save the first version."); return; }
-    workspace_job_context(a,JOB_SAVE,path,&label); free(path);
+    workspace_job_context(a,JOB_SAVE,path,&label,false); free(path);
     if (!a->io_busy) snprintf(a->version_message,sizeof(a->version_message),"%s",a->message ? a->message : "The version could not start.");
 }
 static void versions_draw(App *a) {

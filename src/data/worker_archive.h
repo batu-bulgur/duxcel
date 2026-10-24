@@ -13,6 +13,10 @@ bool worker_archive_save_job(QueryWorker *worker,QueryJob *job,const WorkbookVer
    It is not a user Save that silently creates an automatic tag. */
 bool worker_archive_tag_job(QueryWorker *worker,QueryJob *job,const WorkbookVersionCoreSet *base,
     WorkbookVersionOwner owner,WorkbookVersionText label,const char *parent,uint64_t reserved_bytes,char **error);
+/* Bind a copied same-destination expectation to an already attached Save/Tag.
+   No IO; the transaction checks it before altering an artifact. Explicit Save
+   As replacements deliberately omit this current-file expectation. */
+bool worker_archive_expect_target(QueryJob *job,const SourceFileIdentity *expected,char **error);
 bool worker_archive_load_job(QueryWorker *worker,QueryJob *job,const char *parent,uint64_t reserved_bytes,char **error);
 /* A preview Load carries a non-file diagnostic path, no input Workbook and an
    explicit historical reader/root. It retains admitted bytes without creating

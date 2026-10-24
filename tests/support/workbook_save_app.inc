@@ -97,14 +97,19 @@ static void workbook_save_test_frame(AppSession *session) {
         SAVE_GUI_CHECK(a->book.path && !strcmp(dx_basename(a->book.path),dx_basename(save_gui_path))); ui_note_key_press(KEY_ESCAPE,0); break;
     case 17:
         if (busy) return; SAVE_GUI_CHECK(a->modal==MODAL_NONE && !a->exit_ready);
+        a->versions.identity_valid=false; workspace_save_as(a,save_gui_path); SAVE_GUI_CHECK(a->io_busy); break;
+    case 18:
+        if (busy) return; SAVE_GUI_CHECK(!a->book.dirty && a->versions.identity_valid && save_gui_value("Unsaved failure")); break;
+    case 19:
+        if (busy) return; SAVE_GUI_CHECK(a->modal==MODAL_NONE && !a->exit_ready);
         a->document_action=DOCUMENT_NEW; a->discard_journal=true; finish_document_action(a); SAVE_GUI_CHECK(!a->journal && !a->book.dirty && !a->versions.store && !a->versions.owner.session);
         workspace_job(a,JOB_LOAD,save_gui_path); break;
-    case 18:
+    case 20:
         if (busy) return;
         SAVE_GUI_CHECK(!a->book.dirty && a->versions.store && a->versions.identity_valid && a->versions.owner.session);
-        SAVE_GUI_CHECK(workbook_version_core_set_index(a->versions.store)->root_count==3 && !strcmp(cells_get(&active_sheet(a)->cells,1,1),"Newer"));
+        SAVE_GUI_CHECK(workbook_version_core_set_index(a->versions.store)->root_count==4 && !strcmp(cells_get(&active_sheet(a)->cells,1,1),"Unsaved failure"));
         SAVE_GUI_CHECK(!strcmp(cells_get(&active_sheet(a)->cells,9000,0),"Offscreen")); break;
-    case 19:
+    case 21:
         a->document_action=DOCUMENT_NEW; finish_document_action(a);
         SAVE_GUI_CHECK(!a->versions.store && !a->versions.owner.session && !a->book.dirty);
         save_gui_result=1; break;
@@ -116,5 +121,5 @@ int app_test_workbook_save_result(void) { return save_gui_result; }
 void app_test_workbook_save_cleanup(void) { if (save_gui_ready) save_gui_unblock(); }
 void app_test_workbook_save_finished(void) {
     if (save_gui_ready) { dx_cond_destroy(&save_gui_condition); dx_mutex_destroy(&save_gui_mutex); }
-    if (save_gui_result==1) printf("PASS: native controlled Save workflow (20 stages, %u checks)\n",save_gui_checks);
+    if (save_gui_result==1) printf("PASS: native controlled Save workflow (22 stages, %u checks)\n",save_gui_checks);
 }

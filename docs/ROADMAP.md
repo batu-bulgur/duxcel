@@ -201,6 +201,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11d.3 · P1 · In progress | Working Head suspension and return controller; W11d.2. | Move the actual owned book/history and runtime write owner rather than copying away Undo; preserve recovery and reject cancelled/wrong-owner preview adoption. |
 | W11d.4 · P1 · Queued | Read-only preview UI and return; W11d.3. | Inspect retained authored sheets/cells/styles/definitions, block all mutation/publication routes and return to the exact Working Head. External results not retained by the current core remain explicitly unavailable. |
 | W11e · P1 · Queued | Version milestone compatibility/regression gate; W11d. | Migrate App-produced-file assertions to explicit full-archive readers while preserving v15 fixture/legacy tests. Run the broad milestone gate once, plus package/shared-browser checks; record actual coverage and limits. No silent head-only legacy fallback. |
+| W11f · P1 · Complete | Same-destination Save conflict protection; W11c, prioritized during W11d. | Refuse implicit Save/Tag against changed file identity or another v16 version index; preserve edits/peer tags. Only explicit accepted Save As can replace a changed destination. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
@@ -905,3 +906,21 @@ under optimized/ASan/UBSan in19.651s. It proves cancelled-root retirement, non-f
 path handling, ordinary-Open rejection and protected post-stop ownership. No UI
 or Working Head suspension claim yet. Evidence: ignored
 `build/tests/results/w11d2-preview-worker.log`.
+
+W11f complete: a reproduced stale-session Save could discard a peer's newly
+created tag. Implicit same-path Save/Tag now copies the last observed file identity
+into its worker context, checks before opening and inside the transaction, and
+compares the admitted existing v16 index against its retained input. The paired
+manifest fence prevents a newer observed stat from blessing another writer's
+index. Unknown current-file identity requires Save As; accepted Save As has an
+explicit replacement path. These are conservative cooperating-writer fences,
+not protection against arbitrary raw mutation during a save. Preparation failure
+also keeps the current request epoch so unrelated replies are not stranded.
+The initial `file-conflict` regression failed on the old behavior; the fixed gate
+passes optimized/ASan/UBSan in14.057s, including copied-observation lifetime,
+peer tag/file preservation, pre-open→transaction stamp changes, explicit replace
+and subsequent ordinary Save. The22-stage Save GUI passes in17.347s (10.450s GUI),
+including accepted same-path Save As without a usable old identity. The26-stage
+Versions GUI passes in21.756s (10.479s GUI), including failed pre-submit epoch/name
+preservation. Evidence uses ignored `build/tests/results/w11f` outputs. This
+correctness fix was prioritized before continuing W11d.3 ownership transfer.

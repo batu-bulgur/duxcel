@@ -127,6 +127,12 @@ Cmd+W closes the Mac workbook surface and leaves Duxcel running. Cmd+Q quits. Us
 
 File supports Up/Down, Home/End, Tab/Shift+Tab and Enter/Space, skipping unavailable commands. In a short window its command list scrolls with the wheel or thumb, and keyboard navigation reveals the focused command. An outside click dismisses it before other controls receive input, including a Rows token beneath the menu. A second independent click can activate that control.
 
+If the saved workbook changes in another session, ordinary Save or Create version
+stops instead of overwriting that session's states. Your edits stay in memory and
+local backup. Reopen the changed workbook to inspect it, or use **Save As** to keep
+your current workbook at an explicitly chosen destination. Save As can replace an
+existing destination only through the normal accepted file-panel choice.
+
 ### Named versions
 
 Use **File → Versions…** (File access key **V**) to keep a named state. Enter a

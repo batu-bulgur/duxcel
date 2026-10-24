@@ -37,8 +37,30 @@ void workbook_archive_receipt_free(WorkbookArchiveReceipt *r) {
     if (!r) return;
     workbook_version_core_set_free(r->versions); free(r->path); free(r);
 }
+static bool target_matches(const char *path,const SourceFileIdentity *expected,char **error) {
+    if (!expected) return true;
+    SourceFileIdentity current; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
+    if (source_file_identity(path,&current,detail)!=SOURCE_DIGEST_OK || !source_file_identity_same(expected,&current))
+        return fail(error,"The saved workbook changed or became unavailable since it was opened/saved. Reopen it or use Save As to keep your current changes.");
+    return true;
+}
+static bool index_matches(const WorkbookVersionIndex *expected,const WorkbookVersionIndex *current,char **error) {
+    if (!expected) return true;
+    bool equal=workbook_version_index_check(expected)==VERSION_OK && current &&
+        expected->document_high==current->document_high && expected->document_low==current->document_low &&
+        expected->generation==current->generation && expected->saved_generation==current->saved_generation &&
+        expected->saved.present==current->saved.present && !memcmp(expected->saved.key.bytes,current->saved.key.bytes,DX_VERSION_KEY_BYTES) &&
+        expected->root_count==current->root_count && expected->tag_count==current->tag_count;
+    for (size_t i=0;equal && i<expected->root_count;i++) equal=expected->roots[i].bytes==current->roots[i].bytes && expected->roots[i].encoding==current->roots[i].encoding &&
+        !memcmp(expected->roots[i].key.bytes,current->roots[i].key.bytes,DX_VERSION_KEY_BYTES);
+    for (size_t i=0;equal && i<expected->tag_count;i++) equal=expected->tags[i].created==current->tags[i].created && expected->tags[i].label.bytes==current->tags[i].label.bytes &&
+        !memcmp(expected->tags[i].root.bytes,current->tags[i].root.bytes,DX_VERSION_KEY_BYTES) && !memcmp(expected->tags[i].label.data,current->tags[i].label.data,expected->tags[i].label.bytes);
+    return equal || fail(error,"The saved version index changed in another session. Reopen the workbook or use Save As to keep your current changes.");
+}
 static WorkbookSaveResult inspect(WorkbookArchiveSaveContext *context,duckdb_connection c,const char *target,bool existing,int *core_version,char **error) {
-    *core_version=0; if (!existing) return WORKBOOK_SAVE_COMPLETE;
+    *core_version=0;
+    if (!target_matches(target,context->control.expected_target,error)) return WORKBOOK_SAVE_FAILED;
+    if (!existing) return WORKBOOK_SAVE_COMPLETE;
     Workbook previous; workbook_init(&previous); unsigned version=0; WorkbookVersionCoreSet *versions=NULL;
     WorkbookSaveResult result=WORKBOOK_SAVE_FAILED;
     if (!workbook_read_native_core(c,target,&previous,&version,error)) goto done;
@@ -47,6 +69,7 @@ static WorkbookSaveResult inspect(WorkbookArchiveSaveContext *context,duckdb_con
         if (restored!=VERSION_RESTORE_READY) { if (restored==VERSION_RESTORE_CANCELLED) result=WORKBOOK_SAVE_CANCELLED; goto done; }
         const WorkbookVersionIndex *index=workbook_version_core_set_index(versions);
         if (index->document_high!=previous.id.high || index->document_low!=previous.id.low) { fail(error,"The existing version archive does not belong to its authored head."); goto done; }
+        if (!index_matches(context->control.expected_index,index,error)) goto done;
         context->replaces_versions=true; *core_version=15;
     } else {
         duckdb_result r={0}; bool ok=duckdb_query(c,"SELECT count(*) FROM information_schema.schemata WHERE catalog_name=current_database() AND lower(schema_name)='_duxcel_versions'",&r)==DuckDBSuccess;
@@ -79,6 +102,7 @@ WorkbookSaveResult workbook_archive_write(const Workbook *head,const WorkbookVer
 #endif
     char *target=workbook_target_path(path);
     if (!target) { fail(error,"The archive destination folder is unavailable."); return WORKBOOK_SAVE_FAILED; }
+    if (!target_matches(target,control.expected_target,error)) { free(target); return WORKBOOK_SAVE_FAILED; }
     for (size_t i=0;i<count;i++) {
         const char *leaf=workbook_core_payload_path(leaves[i]);
         if (!leaf || dx_same_file(target,leaf)) { free(target); fail(error,"Choose an archive destination other than an immutable borrowed leaf."); return WORKBOOK_SAVE_FAILED; }

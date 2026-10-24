@@ -40,17 +40,30 @@ bool app_versions_recovered(AppVersionState *state,QueryWorker *worker,const Wor
     if (store && !retained) return fail(error,"Cannot retain the recovered Saved store.");
     app_versions_reset(state,worker); state->store=retained; state->owner=next; return true;
 }
-bool app_versions_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,const char *parent,char **error) {
+static bool current_target(AppVersionState *state,QueryJob *job,char **error) {
+    const char *current=job->workbook ? job->workbook->path : NULL;
+    if (!current || !*current || !job->path || strcmp(current,job->path)) return true;
+    if (!state->identity_valid) return fail(error,"The current saved file cannot be verified. Use Save As to choose an explicit destination.");
+    return worker_archive_expect_target(job,&state->identity,error);
+}
+static bool prepare_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,const char *parent,bool replace,char **error) {
     if (!state || !job || !parent) return fail(error,"The native version working state is unavailable.");
-    if (job->kind==JOB_LOAD) return worker_archive_load_job(worker,job,parent,DX_APP_VERSION_BYTES,error);
+    if (job->kind==JOB_LOAD && !replace) return worker_archive_load_job(worker,job,parent,DX_APP_VERSION_BYTES,error);
     if (job->kind!=JOB_SAVE || !job->workbook) return fail(error,"Capture an owned workbook before native Save.");
     if (!app_versions_owner(state,worker,job->workbook,error)) return false;
-    return worker_archive_save_job(worker,job,state->store,state->owner,VERSION_USER_SAVE,parent,DX_APP_VERSION_BYTES,error);
+    if (!worker_archive_save_job(worker,job,state->store,state->owner,VERSION_USER_SAVE,parent,DX_APP_VERSION_BYTES,error)) return false;
+    return replace || current_target(state,job,error);
+}
+bool app_versions_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,const char *parent,char **error) {
+    return prepare_job(state,worker,job,parent,false,error);
+}
+bool app_versions_replace_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,const char *parent,char **error) {
+    return prepare_job(state,worker,job,parent,true,error);
 }
 bool app_versions_tag_job(AppVersionState *state,QueryWorker *worker,QueryJob *job,WorkbookVersionText label,const char *parent,char **error) {
     if (!job || job->kind!=JOB_SAVE || !job->workbook) return fail(error,"Capture a matching working head before creating a named version.");
     if (!app_versions_owner(state,worker,job->workbook,error)) return false;
-    return worker_archive_tag_job(worker,job,state->store,state->owner,label,parent,DX_APP_VERSION_BYTES,error);
+    return worker_archive_tag_job(worker,job,state->store,state->owner,label,parent,DX_APP_VERSION_BYTES,error) && current_target(state,job,error);
 }
 bool app_versions_loaded(AppVersionState *state,QueryWorker *worker,QueryReply *reply,char **error) {
     if (!state || !reply || reply->kind!=JOB_LOAD || reply->error || !reply->workbook || !worker_archive_is_reply(reply) || !store_document(worker_archive_versions(reply),reply->workbook)) return fail(error,"The loaded workbook has no complete matching native store.");

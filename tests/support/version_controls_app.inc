@@ -107,6 +107,9 @@ static void version_controls_test_frame(AppSession *session) {
     case 20:
         VERSION_GUI_CHECK(a->modal==MODAL_VERSIONS && index->tag_count==6 && a->version_message[0] && !strcmp(a->input.text,"Failed"));
         free(a->book.path); a->book.path=dx_absolute_path(version_gui_path);
+        { uint64_t request=a->request_id; a->versions.identity_valid=false; versions_create(a);
+          VERSION_GUI_CHECK(!a->io_busy && a->request_id==request && a->modal==MODAL_VERSIONS && !strcmp(a->input.text,"Failed"));
+          a->versions.identity_valid=true; }
         dx_lock(&version_gui_mutex); version_gui_armed=true; dx_unlock(&version_gui_mutex); break;
     case 21: version_gui_name(a,"Cancelled"); break;
     case 22: {

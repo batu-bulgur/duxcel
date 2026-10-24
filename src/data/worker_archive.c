@@ -15,7 +15,8 @@ struct WorkbookNativeIO {
     WorkbookArchiveCandidate *loaded;
     WorkbookVersionPreview *preview;
     WorkbookVersionKey preview_root;
-    bool preview_requested;
+    bool preview_requested,expects_target;
+    SourceFileIdentity expected_target;
     WorkerNativeFileControl control; /* Borrowed only while execute runs. */
     WorkerNativeRetirement retirement;
 };
@@ -92,7 +93,7 @@ static WorkbookSaveResult execute(WorkbookNativeIO *c,JobKind kind,const Workboo
     if (kind==JOB_SAVE) {
         WorkbookVersionSaveRequest request={.head=snapshot,.base=c->base,.owner=c->owner,.purpose=c->purpose,.path=path,.parent=c->parent,.reserved_bytes=c->reserved};
         WorkbookVersionSaveControl controls={.capture=capture,.compare={compare_cancel,c},.archive={
-            .core={publish_update,c},.inspect={inspect_cancel,c},.stage={stage_cancel,c},.prepare={prepare_cancel,c}}};
+            .core={publish_update,c},.inspect={inspect_cancel,c},.stage={stage_cancel,c},.prepare={prepare_cancel,c},.expected_target=c->expects_target ? &c->expected_target : NULL,.expected_index=c->expects_target ? workbook_version_core_set_index(c->base) : NULL}};
         return c->label ? workbook_version_tag_save(request,(WorkbookVersionText){c->label,c->label_bytes},controls,&c->saved,error) : workbook_version_save(request,controls,&c->saved,error);
     }
     WorkbookArchiveReadResult read=workbook_archive_read(path,c->parent,c->reserved,(WorkbookArchiveReadControl){load_cancel,c},&c->loaded,error);
@@ -156,6 +157,13 @@ bool worker_archive_tag_job(QueryWorker *w,QueryJob *job,const WorkbookVersionCo
     char *owned=dx_alloc(label.bytes+1); memcpy(owned,label.data,label.bytes); owned[label.bytes]=0;
     if (!attach(w,job,base,owner,VERSION_USER_SAVE,parent,reserved,false,error)) { free(owned); return false; }
     WorkbookNativeIO *c=job->native_file.context; c->label=owned; c->label_bytes=label.bytes; return true;
+}
+bool worker_archive_expect_target(QueryJob *job,const SourceFileIdentity *expected,char **error) {
+    if (!job || job->kind!=JOB_SAVE || !expected || job->native_file.execute!=execute || job->native_file.dispose!=retire || !job->native_file.context)
+        return fail(error,"Bind an observed target identity to an owned native Save/Tag job.");
+    WorkbookNativeIO *c=job->native_file.context;
+    if (c->preview_requested || c->kind!=JOB_SAVE) return fail(error,"Historical reads do not publish a file target.");
+    c->expected_target=*expected; c->expects_target=true; return true;
 }
 bool worker_archive_load_job(QueryWorker *w,QueryJob *job,const char *parent,uint64_t reserved,char **error) {
     return (job && job->kind==JOB_LOAD) ? attach(w,job,NULL,(WorkbookVersionOwner){0},VERSION_STATE_EXPORT,parent,reserved,false,error) : fail(error,"Choose a Load job before attaching its native context.");
