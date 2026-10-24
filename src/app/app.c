@@ -8,6 +8,7 @@
 #include "../workbook/object_pivot_command.h"
 #include "../workbook/object_binding_command.h"
 #include "../workbook/object_delete_command.h"
+#include "../workbook/object_move_command.h"
 #include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
@@ -5252,6 +5253,33 @@ static bool range_can_move(App *a,SheetRange range,char **error) {
     if (reason) { if (error) { free(*error); *error=dx_strdup(reason); } return false; }
     return worksheet_range_fits(sheet,range,0,0,source_rows(a),a->page.column_count,error);
 }
+#ifndef DUXCEL_BROWSER_HOST
+static bool admit_object_move(void *context,const FormatStore *formats,size_t adopted,size_t scratch,size_t retained,char **error) {
+    App *a=context; WorkbookFormatReplacement replacement={.sheet=a->book.active,.formats=formats};
+    if (!source_format_budget_status(a,&replacement,adopted,scratch,0,0,retained)) return true;
+    if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Move exceeds the current memory budget."); } return false;
+}
+#endif
+static bool move_single_object(App *a,uint64_t id,uint64_t row,size_t column,char **error) {
+    Worksheet *s=active_sheet(a); ObjectMovePlanInfo info={0};
+    ObjectMoveStatus planned=objects_move_measure(&s->objects,id,row,column,&s->cells,source_rows(a),a->page.column_count,&s->formats,&info,error);
+    if (planned==OBJECT_MOVE_NOOP) return true;
+    if (planned!=OBJECT_MOVE_READY) return false;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { if (error) *error=dx_strdup("Move planning reservation overflow."); return false; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (source_format_budget_status(a,NULL,info.owned,info.validation_scratch,0,0,0)) { if (error) *error=dx_strdup(a->message); return false; }
+#endif
+    ObjectMoveContext context={.layout={.command={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)},
+        .source_rows=&a->page.total,.source_columns=&a->page.column_count,.source_count_pending=&a->page.count_pending}};
+#ifndef DUXCEL_BROWSER_HOST
+    context.admit=admit_object_move; context.admission_context=a;
+#endif
+    ObjectMoveTarget target;
+    if (!workbook_prepare_object_move(&context,a->book.active,id,&target,error)) return false;
+    ObjectMoveResult result=workbook_apply_object_move_recorded(&context,&target,row,column,NULL,error);
+    return result.status==OBJECT_MOVE_APPLIED || result.status==OBJECT_MOVE_NOOP;
+}
 static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replace,char **error) {
     Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); SheetRange range;
     grid_bounds(g,&range.r0,&range.r1,&range.c0,&range.c1);
@@ -5261,7 +5289,19 @@ static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replac
         SheetObject *o=&sheet->objects.items[i];
         if (range.r0<=o->row && range.r1>=o->row+o->rows-1 && range.c0<=o->col && range.c1>=o->col+o->columns-1) objects=true;
     }
-    bool moved=replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
+    uint64_t single=0;
+    if (!replace) for (size_t i=0;i<sheet->objects.count;i++) {
+        const SheetObject *o=sheet->objects.items+i;
+        if (range.r0==o->row && range.r1==o->row+o->rows-1 && range.c0==o->col && range.c1==o->col+o->columns-1) single=o->id;
+    }
+    /* Existing mixed ranges keep their complete cell constituent until their
+       own command owner is admitted; never silently omit hidden manual data. */
+    for (size_t i=0;single && i<sheet->cells.count;i++) {
+        const SheetCell *cell=sheet->cells.cells+i;
+        if (cell->row>=range.r0 && cell->row<=range.r1 && cell->col>=range.c0 && cell->col<=range.c1) single=0;
+    }
+    bool moved=single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
+        replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
         worksheet_move_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error);
     if (!moved) return false;
     g->anchor_row=(uint64_t)((int64_t)g->anchor_row+dr); g->end_row=(uint64_t)((int64_t)g->end_row+dr); g->row=(uint64_t)((int64_t)g->row+dr);
@@ -15764,6 +15804,9 @@ static void primary_replacement_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
 static void primary_steps_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
+static void object_move_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
 static void object_delete_command_test_frame(AppSession *session);
 #endif
@@ -16651,6 +16694,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
     primary_steps_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
+    object_move_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
     object_delete_command_test_frame(session);
 #endif
@@ -16994,4 +17040,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_DELETE_COMMAND
 #include "../../tests/support/object_delete_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
+#include "../../tests/support/object_move_command_app.inc"
 #endif

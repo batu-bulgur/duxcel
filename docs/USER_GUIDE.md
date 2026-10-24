@@ -296,6 +296,13 @@ To move a selected manual cell range, drag its border or hold Option (Alt on oth
 
 Fast mouse gestures that begin and end inside one event poll retain their starting point and modifiers. The event buffer is bounded, and ordinary frame-visible pointer events continue through the existing handlers. Floating analytical-object dragging is a separate planned capability.
 
+For a Table, Pivot or Chart, **Move object…** in its context menu selects the
+complete object and opens the destination-address dialog. Its position and
+applicable cell formatting move in one Undo/Redo action. Source/manual cells,
+other objects and the worksheet edge protect invalid destinations. Moving keeps
+the current analytical result; cancelling or choosing the same address makes no
+edit. Save/Open preserves the new placement and formatting.
+
 Selected charts have an outlined lower-right resize handle. Drag it to change the occupied worksheet cells; the preview marks rejected overlaps. Escape cancels an active resize. The object context menu also offers **Chart size…** with separate Columns and Rows fields and keyboard navigation. Resizing preserves field definitions and query results, supports Undo/Redo and saves in dxls. Sizes are bounded to 3–256 columns and 8–4096 rows.
 
 Pivot/chart context menus offer **Change data source…**. Choose Sheet data or an

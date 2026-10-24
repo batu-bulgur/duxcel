@@ -280,7 +280,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4d.3 · P1 · Complete | Analytical object source binding; W12c.3c.3b.4d.2. | Admit changed source_id against an existing Table or primary owner, reserve full before/after graph/dependencies before eviction, preserve identity/layout/Marks and invalidate only the rebound object. Source/format composites remain W12c.3c.3b.4f. |
 | W12c.3c.3b.4e · P1 · In progress | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
 | W12c.3c.3b.4e.1 · P1 · Complete | Admitted object deletion; W12c.3c.3b.4d.3. | Preserve dependent-Table guards and allocator high-water; reserve complete before/after graph/source union before eviction, support empty after-graphs and reject stale/pressure/cancel without mutation. Verify actual delete/Undo/Redo, independent caches and Save/Open. |
-| W12c.3c.3b.4e.2 · P1 · Queued | Single-object placement admission; W12c.3c.3b.4e.1. | Reserve/recheck complete graph, source/manual/object extents and destination; preserve query caches, IDs and no-op Redo. Keep mixed range moves with structural/range composites. |
+| W12c.3c.3b.4e.2 · P1 · Complete | Single-object placement admission; W12c.3c.3b.4e.1. | Reserve/recheck complete graph, source/manual/object extents and destination; preserve query caches, IDs and no-op Redo. Keep mixed range moves with structural/range composites. |
 | W12c.3c.3b.4e.3 · P1 · Queued | Object creation admission; W12c.3c.3b.4e.2. | Prepare complete graph and monotonic new identity before publication, with resolved source/geometry ownership and one action. Keep worker origin enrichment and source-format composites explicit. |
 | W12c.3c.3b.4f · P1 · Queued | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
@@ -1856,3 +1856,20 @@ and private feature/review exclusions pass. Ignored receipts:
 inspection confirms that even a single-object range move currently relocates
 positional cell formats; placement admission must preserve that compound behavior.
 Mixed/multi-object range admission remains W12c.4.
+
+
+W12c.3c.3b.4e.2 complete: exact single-object moves admit geometry and existing
+positional-format behavior together (DXDE effect4 or12, one action), preserving
+identity/query/Marks/title/allocator and cached results. Full format descriptors
+and source extent recheck after actual native retained-memory admission and
+optional event reservation. No-op preserves Redo; occupied/manual/source/object
+areas reject without partial adoption. Mixed/manual/multi-object ranges retain
+their existing complete producer until W12c.4. The optimized/ASan/UBSan gate
+passes in 18.985s (339 move checks per configuration; 16 hidden native stages/
+37 checks, GUI 8.918s), including dialog Enter, collision/Cancel, positional
+formats, Table/Chart moves, cached Pages, Undo/Redo/no-op and 150% v16 Save/Open.
+The named range-move interaction passes ten stages in 14.277s (GUI 6.456s);
+fifty tool contracts pass in 2.473s. Ignored receipts: `w12c3-object-move*.log`
+and run summaries. Retained App event IO and durable Undo remain separate.
+Next: W12c.3c.3b.4e.3 object creation admission, not started. The user requested
+pausing after this slice and delivery of the cumulative build.

@@ -1150,3 +1150,19 @@ The empty after-graph owns no array; immutable source ledger and allocator
 high-water survive deletion/Undo. App reconciles result Pages by stable ID,
 retires the removed result and clears authoring caches; independent Pages remain.
 Deletion needs no ready query result. Retained event IO remains separate.
+
+
+`object_move_command.c` admits an exact single-object rectangle as a complete
+Object or Object+Format event. Allocation-free graph/extent and format-shape
+inspection precedes bounded format planning. The runtime target pins format
+headers/current patch/scope descriptors as well as the shared object/source
+extent fence; nested owned bytes remain immutable. The native adapter checks
+actual prospective format history plus the incoming retained object charge
+before either history can evict. Optional event reservation, recheck and both
+ownership transfers precede one matching action/document publication. Positional
+format resets/precedence follow the existing format planner, including explicit
+unsupported record/reset mixtures. No-op creates no event or clock. App routes
+exact single-object ranges without hidden manual cells through this producer,
+keeps result Pages/query epochs and adjusts selection/reveal. Mixed ranges keep
+their complete legacy cell/format/object constituent until W12c.4. Retained App
+writer activation and durable Undo remain separate.

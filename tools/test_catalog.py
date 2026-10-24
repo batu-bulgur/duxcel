@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-move-command": ("build/tests/test_object_move_command-gui", "PASS: native object move workflow",
+                            r"^PASS: native object move workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "object-delete-command": ("build/tests/test_object_delete_command-gui", "PASS: native object delete workflow",
                               r"^PASS: native object delete workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "object-binding-command": ("build/tests/test_object_binding_command-gui", "PASS: native object binding workflow",
@@ -100,6 +102,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-move-command": Feature(("object_move_command", "format", "history_definition", "definition_dependencies"), "object-move-command",
+        ("python3 tools/test.py feature --feature object-layout-command", "python3 tools/test.py feature --feature range-move"),
+        ("src/workbook/object_move_command.c", "src/workbook/object_move_command.h", "src/app/app.c: exact object range move and prospective admission", "tests/test_object_move_command.c", "tests/support/object_move_command_app.inc")),
     "object-delete-command": Feature(("object_delete_command", "objects", "history_definition", "definition_dependencies"), "object-delete-command",
         ("python3 tools/test.py feature --feature object-binding-command", "python3 tools/test.py native --scenario chart"),
         ("src/workbook/object_delete_command.c", "src/workbook/object_delete_command.h", "src/workbook/objects.c: admitted removal transfer", "src/app/app.c: remove_pivot adapter", "tests/test_object_delete_command.c", "tests/support/object_delete_command_app.inc")),
