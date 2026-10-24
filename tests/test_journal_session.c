@@ -3,6 +3,7 @@
 #include "workbook/journal_session.h"
 #include "workbook/format_command.h"
 #include "workbook/analysis_command.h"
+#include "workbook/table_command.h"
 #include "workbook/lifecycle.h"
 #include "platform/platform.h"
 #include "data/source_digest.h"
@@ -145,6 +146,24 @@ static void analysis_rotation(const char *root) {
         !strcmp(cells_get(&loaded.sheets[1].cells,3,2),"After transform"));
     cleanup_generation(checkpoint,journal); CHECK(!rmdir(root)); free(checkpoint); free(journal); workbook_free(&loaded); workbook_free(&b);
 }
+static void table_rotation(const char *root) {
+    Workbook b,loaded; base(&b); workbook_init(&loaded); char *error=NULL;
+    Analysis source={.kind=SOURCE_CSV,.path=dx_absolute_path("tests/fixtures/duplicates.csv")}; CHECK(source.path);
+    CHECK(objects_add_table(&b.sheets[0].objects,10,10,"Raw",&source,&error)==0); analysis_free(&source); worksheet_record(b.sheets,EDIT_OBJECTS);
+    WorkbookJournalSession *s=session(root,options()); apply(s,&b,1,"Before Table transform"); JournalSessionState first=ready(s,&b);
+    uint64_t epoch=1,revision=b.command_revision; TableCommandContext context={&b,&epoch,SIZE_MAX,SIZE_MAX,true,false}; TableTransformTarget target;
+    Analysis next=analysis_copy(&b.sheets[0].objects.items[0].source); next.unique_rows=true;
+    CHECK(workbook_prepare_table_transform(&context,0,b.sheets[0].objects.items[0].id,&target,&error));
+    CHECK(workbook_apply_table_transform_recorded(&context,&target,&next,NULL,&error).status==TABLE_TRANSFORM_APPLIED && b.command_revision==revision+1); analysis_free(&next);
+    CHECK(workbook_journal_session_needs_checkpoint(s,&b) && !workbook_journal_session_state(s,&b).covered);
+    apply(s,&b,1,"After Table transform"); JournalSessionState second=ready(s,&b);
+    CHECK(second.parent.high==first.generation.high && second.parent.low==first.generation.low);
+    char *checkpoint=dx_strdup(workbook_journal_session_checkpoint(s)),*journal=dx_strdup(workbook_journal_session_journal(s)); uint64_t head=b.command_revision;
+    CHECK(workbook_journal_session_close(s,false,&error) && !error); recover(checkpoint,journal,&loaded,head,b.path);
+    CHECK(loaded.sheets[0].objects.count==1 && loaded.sheets[0].objects.items[0].source.unique_rows && loaded.sheets[0].objects.items[0].id==b.sheets[0].objects.items[0].id &&
+        !strcmp(cells_get(&loaded.sheets[1].cells,3,2),"After Table transform"));
+    cleanup_generation(checkpoint,journal); CHECK(!rmdir(root)); free(checkpoint); free(journal); workbook_free(&loaded); workbook_free(&b);
+}
 static void root_failure_and_discard(const char *root) {
     Workbook b; base(&b); char *error=NULL; FILE *file=fopen(root,"wb"); CHECK(file); CHECK(fputs("preserve",file)>=0 && !fclose(file));
     WorkbookJournalSession *s=session(root,options()); CellEditCommand c=command(&b,0,"First"); Workbook before=b;
@@ -180,7 +199,7 @@ static void inherited_lineage(const char *root) {
 int main(void) {
     char directory[]="build/tests/journal-session-XXXXXX"; CHECK(mkdtemp(directory));
     char *first=dx_printf("%s/first",directory),*rotation=dx_printf("%s/rotation",directory),*failure=dx_printf("%s/failure",directory);
-    initial_checkpoint(first); rotation_and_history(rotation); analysis_rotation(rotation); root_failure_and_discard(failure); inherited_lineage(first);
+    initial_checkpoint(first); rotation_and_history(rotation); analysis_rotation(rotation); table_rotation(rotation); root_failure_and_discard(failure); inherited_lineage(first);
     CHECK(!rmdir(directory)); free(first); free(rotation); free(failure);
     printf("PASS: %u journal session checks\n",checks); return 0;
 }

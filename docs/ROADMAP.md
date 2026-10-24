@@ -258,13 +258,13 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.3c · P1 · Complete | Primary pipeline step edits; W12c.3c.3b.3b. | Route filter/sort reordering and step removal through coherent command admission. Preserve cached result/query epochs for filter-display reordering while recording authored order and preserving Undo/Redo. |
 | W12c.3c.3b.3d · P1 · Complete | Verified-query recovery readiness; W12c.3c.3b.3b. | A matching successful validation reply may repair a stale/failed prior result; ordinary field transforms stay blocked, with exact request/candidate/source epoch, connection and read-only fences retained. |
 | W12c.3c.3b.4 · P1 · In progress | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
-| W12c.3c.3b.4a · P1 · In progress | Same-connection Table source commands; W12c.3c.3b.1. | Prepare an independent full object after-plan, reserve before history eviction, recheck workbook/sheet/object/source/layout fences and adopt once with matching query invalidation. |
+| W12c.3c.3b.4a · P1 · Complete | Same-connection Table source commands; W12c.3c.3b.1. | Prepare an independent full object after-plan, reserve before history eviction, recheck workbook/sheet/object/source/layout fences and adopt once with matching query invalidation. |
 | W12c.3c.3b.4a.1 · P1 · Complete | Independent Table source transform planning; W12c.3c.3b.3. | Measure complete candidate/scratch before cloning, preserve source identity and allocator bounds, own all object definitions independently and leave live Undo/Redo/counters unchanged. |
-| W12c.3c.3b.4a.2 · P1 · In progress | Fenced Table command adoption/App integration; W12c.3c.3b.4a.1. | Reserve complete DXDE assets before any live object-history eviction, recheck all owner/layout/readiness fences and adopt the plan as one action. Keep source/format replacement composites separate. |
+| W12c.3c.3b.4a.2 · P1 · Complete | Fenced Table command adoption/App integration; W12c.3c.3b.4a.1. | Reserve complete DXDE assets before any live object-history eviction, recheck all owner/layout/readiness fences and adopt the plan as one action. Keep source/format replacement composites separate. |
 | W12c.3c.3b.4a.2a · P1 · Complete | Table plan model ownership transfer; W12c.3c.3b.4a.1. | Move the old current graph into bounded Undo and consume the independent after-plan without copying again; preserve store counters and prove count/byte-pressure history transfers. No unchecked App command admission. |
-| W12c.3c.3b.4a.2b · P1 · In progress | Table event reservation/fences and App adapter; W12c.3c.3b.4a.2a. | Bind durable/session/object/source/layout ownership, reserve before eviction, recheck and publish the whole action once; verify unrelated Table/Pivot caches and the smallest real GUI lane. |
+| W12c.3c.3b.4a.2b · P1 · Complete | Table event reservation/fences and App adapter; W12c.3c.3b.4a.2a. | Bind durable/session/object/source/layout ownership, reserve before eviction, recheck and publish the whole action once; verify unrelated Table/Pivot caches and the smallest real GUI lane. |
 | W12c.3c.3b.4a.2b.1 · P1 · Complete | Fenced Table event producer; W12c.3c.3b.4a.2a. | Freeze durable/session/request/object/source/layout state, reserve closed DXDE before eviction, recheck and publish one coherent object action. Reject pressure/stale/cancel without model changes. |
-| W12c.3c.3b.4a.2b.2 · P1 · Queued | Table producer App integration; W12c.3c.3b.4a.2b.1. | Route same-connection Table transforms through admitted planning/adoption; retain replacement/composite owners and prove target/dependent/unrelated caches plus narrow input/Undo/Redo/Save/Open and recovery rotation. |
+| W12c.3c.3b.4a.2b.2 · P1 · Complete | Table producer App integration; W12c.3c.3b.4a.2b.1. | Route same-connection Table transforms through admitted planning/adoption; retain replacement/composite owners and prove target/dependent/unrelated caches plus narrow input/Undo/Redo/Save/Open and recovery rotation. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1556,3 +1556,22 @@ query-cache fences, display-only filter order, immutable first events beyond32
 commands and queue pressure. Receipts: ignored `w12c3-table-command*.log` and run
 summaries. App readiness/invalidation and complete global staging accounting
 remain with the next Table adapter; retained history is not activated.
+
+
+W12c.3c.3b.4a complete: regular same-connection Table filter/sort/unique/query/
+pipeline edits now use the admitted controller with native candidate, caller
+proposal, parser and reply-wrapper coexistence accounting. Connection/binding/
+default-relation replacement remains with its separate owner. App call sites
+were checked for old SheetObject pointers across graph adoption. The280-case
+command,290-case plan,290-case recorder and565-case chronology modules pass
+optimized/ASan/UBSan;256 native journal checks prove Table definitions enter the
+next checkpoint before a cell tail. The hidden TEST App passes14 stages/33 checks:
+actual Command-Enter/Alt-Up/Cmd-Z/Redo, target and dependent Pivot values, untouched
+unrelated Table Pages, display-only filter reorder without new jobs, and v16
+Save/Open. Gate26.471s. The named source-result-format interaction passes22.962s
+(24 native stages plus scoped modules);50 tool contracts pass2.492s. Its existing
+layout profile is now a registered feature, fixing four deferred commands, and
+tool contracts reject nonexistent feature references. Receipts: ignored
+`w12c3-table-command-app*.log`, `w12c3-table-source-format.log` and run summaries.
+No full regression, browser runtime or durable-history activation is claimed.
+Source/object replacement and format composites remain W12c.3c.3b.4 work.

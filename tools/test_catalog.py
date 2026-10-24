@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "table-command": ("build/tests/test_table_command-gui", "PASS: native Table transform workflow",
+                      r"^PASS: native Table transform workflow \(14 stages, [1-9]\d* checks\)$", 14),
     "primary-steps": ("build/tests/test_primary_steps-gui", "PASS: native primary step workflow",
                       r"^PASS: native primary step workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "primary-query": ("build/tests/test_primary_query-gui", "PASS: native primary group/query workflow",
@@ -80,9 +82,12 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
-    "table-command": Feature(("table_command", "object_source_plan", "history_definition", "workbook_history"), "",
+    "source-result-format": Feature(("source_scope", "format"), "source-result-format",
+        ("python3 tools/test.py feature --feature table-command", "python3 tools/test.py native --scenario layout --config sanitize"),
+        ("src/app/source_format.inc: exact-result/guarded owner interaction", "src/app/app.c: source-result-format layout bootstrap", "src/workbook/source_scope.c", "src/workbook/format.c")),
+    "table-command": Feature(("table_command", "object_source_plan", "history_definition", "workbook_history"), "table-command",
         ("python3 tools/test.py native --scenario table unique", "python3 tools/test.py feature --feature source-result-format"),
-        ("src/workbook/table_command.c", "src/workbook/table_command.h", "tests/test_table_command.c")),
+        ("src/workbook/table_command.c", "src/workbook/table_command.h", "src/app/app.c: same-connection Table adapter", "tests/test_table_command.c", "tests/support/table_command_app.inc", "tests/test_journal_session.c: Table transform checkpoint rotation"), ("journal_session",)),
     "object-source-plan": Feature(("object_source_plan", "objects_asset", "definition_state", "objects"), "",
         ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py native --scenario table"),
         ("src/workbook/object_source_plan.c", "src/workbook/object_source_plan.h", "src/workbook/objects.c: admitted source-plan ownership transfer", "src/workbook/objects.h", "tests/test_object_source_plan.c")),

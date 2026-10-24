@@ -17,8 +17,11 @@ class FeatureCatalogTests(unittest.TestCase):
                 self.assertIn(feature.gui, runner.LAYOUT_PROFILES)
             self.assertTrue(feature.interactions)
             for command in feature.interactions:
-                script = shlex.split(command)[1]
+                parts = shlex.split(command)
+                script = parts[1]
                 self.assertTrue(runner.ROOT.joinpath(script).is_file(), script)
+                if script == "tools/test.py" and parts[2] == "feature":
+                    self.assertIn(parts[parts.index("--feature") + 1], FEATURES, command)
 
     def test_plan_launches_nothing(self):
         output = io.StringIO()

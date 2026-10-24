@@ -1043,3 +1043,12 @@ optional immutable DXDE reservation; a full recheck precedes nonfallible graph
 transfer and one object action/document revision/dirty branch publication. The
 App still owns request/cache invalidation and full transient accounting. Source
 replacement/binding/format composites and retained App activation remain separate.
+
+
+The App Table adapter now uses this controller for same-connection transforms,
+reserving caller-proposal/new-graph/parser/reply coexistence through the native
+budget owner. Query-changing plans invalidate the target and bound analytical
+objects; display-only filter reorder preserves their Pages and query epochs.
+Unrelated Table results survive graph replacement and Undo/Redo. Connection/
+binding/default-relation replacement remains with its legacy/composite owner
+until complete admission is installed; no retained-history writer is activated.

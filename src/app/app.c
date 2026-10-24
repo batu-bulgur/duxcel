@@ -1,6 +1,7 @@
 #include "../workbook/cell_command.h"
 #include "../workbook/format_command.h"
 #include "../workbook/analysis_command.h"
+#include "../workbook/table_command.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
@@ -718,6 +719,7 @@ static void create_pivot(App *a);
 static void create_chart(App *a);
 static void invalidate_object(App *a,size_t index);
 static bool publish_object_extent(App *a,size_t index,uint64_t total,char **error);
+static bool table_transform_budget(App *a,const ObjectSourcePlanInfo *info,const Analysis *source,char **error);
 static void open_pivot_filter(App *a,size_t index);
 #ifndef DUXCEL_BROWSER_HOST
 static bool apply_pivot_filter(App *a,bool values,bool clear);
@@ -999,14 +1001,31 @@ static bool set_table_source(App *a,size_t index,const Analysis *source) {
     Analysis adjusted=*source;
     SOURCE_FORMAT_ADJUST(a,store->items[index].id,&adjusted); source=&adjusted;
     uint64_t previous=store->items[index].revision;
-    const Analysis *old=&store->items[index].source; bool same=analysis_same_result(old,source);
-    for (size_t i=0;same && i<old->filter_count+(old->filter_column ? 1 : 0);i++) {
-        const char *before=i ? old->filters[i-1].column : old->filter_column,*after=i ? source->filters[i-1].column : source->filter_column;
-        same=before && after && !strcmp(before,after);
+    ObjectSourcePlanInfo info={0}; ObjectSourcePlanStatus measured=objects_source_transform_measure(store,store->items[index].id,source,&info);
+    bool changed=false;
+    if (measured==OBJECT_SOURCE_PLAN_PROTECTED) {
+        /* Connection/binding replacement and default-relation completion keep
+           their existing owner until complete composite admission is installed. */
+        const Analysis *old=&store->items[index].source; bool same=analysis_same_result(old,source);
+        for (size_t i=0;same && i<old->filter_count+(old->filter_column ? 1 : 0);i++) {
+            const char *before=i ? old->filters[i-1].column : old->filter_column,*after=i ? source->filters[i-1].column : source->filter_column;
+            same=before && after && !strcmp(before,after);
+        }
+        if (!objects_set_source(store,index,source,&error)) { status(a,error); free(error); return false; }
+        changed=!same; if (changed) worksheet_record(active_sheet(a),EDIT_OBJECTS);
+    } else {
+        if (measured!=OBJECT_SOURCE_PLAN_OK && measured!=OBJECT_SOURCE_PLAN_NOOP) { status(a,"The Table definition is invalid or its query revision is exhausted."); return false; }
+        if (measured==OBJECT_SOURCE_PLAN_OK && !table_transform_budget(a,&info,source,&error)) { status(a,error); free(error); return false; }
+        TableCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+            .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)};
+        TableTransformTarget target;
+        if (!workbook_prepare_table_transform(&context,a->book.active,store->items[index].id,&target,&error)) { status(a,error); free(error); return false; }
+        TableTransformResult result=workbook_apply_table_transform_recorded(&context,&target,source,NULL,&error);
+        if (result.status!=TABLE_TRANSFORM_APPLIED && result.status!=TABLE_TRANSFORM_NOOP) { status(a,error); free(error); return false; }
+        free(error); changed=result.status==TABLE_TRANSFORM_APPLIED;
     }
-    if (!objects_set_source(store,index,source,&error)) { status(a,error); free(error); return false; }
-    if (!same) {
-        worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true;
+    if (changed) {
+        a->book.dirty=true;
         if (store->items[index].revision!=previous) {
             uint64_t id=store->items[index].id;
             for (size_t i=0;i<store->count;i++) if (i==index || store->items[i].source_id==id) invalidate_object(a,i);
@@ -1321,6 +1340,25 @@ static void remember(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
 #include "source_format.inc"
 #endif
+static bool table_transform_budget(App *a,const ObjectSourcePlanInfo *info,const Analysis *source,char **error) {
+    if (info->owned>SIZE_MAX-info->validation_scratch) {
+        if (error) { free(*error); *error=dx_strdup("Table planning reservation overflow."); } return false;
+    }
+#ifndef DUXCEL_BROWSER_HOST
+    /* The caller may own the proposed Analysis separately, while the new plan
+       owns a complete object graph. Reserve a validation reply wrapper too. */
+    size_t extra=info->validation_scratch,proposal=analysis_bytes(source);
+    if (proposal==SIZE_MAX || !source_format_add(&extra,proposal)) {
+        if (error) { free(*error); *error=dx_strdup("Table proposal reservation overflow."); } return false;
+    }
+    if (source_format_budget_status(a,NULL,info->owned,extra,sizeof(QueryReply),0,0)) {
+        if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Table transformation exceeds the current memory budget."); } return false;
+    }
+#else
+    (void)a; (void)source;
+#endif
+    return true;
+}
 static bool primary_transform_budget(App *a,const Analysis *proposal,size_t *validation,size_t reply_owned,char **error) {
     if (!workbook_analysis_transform_scratch(active_sheet(a),&a->analysis,proposal,validation,error)) return false;
 #ifndef DUXCEL_BROWSER_HOST
@@ -15526,6 +15564,9 @@ static void primary_query_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
 static void primary_steps_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_TABLE_COMMAND
+static void table_command_test_frame(AppSession *session);
+#endif
 struct AppSession {
     App app;
     AppOptions options;
@@ -16383,6 +16424,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
     primary_steps_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_TABLE_COMMAND
+    table_command_test_frame(session);
+#endif
 #ifdef DUXCEL_BROWSER_HOST
     bool file_before_shortcuts=a->file_menu;
 #endif
@@ -16629,6 +16673,9 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_PRIMARY_STEPS
 #include "../../tests/support/primary_steps_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_TABLE_COMMAND
+#include "../../tests/support/table_command_app.inc"
 #endif
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
