@@ -785,3 +785,15 @@ rechecks the target, applies one coherent cell/history/revision change, then
 publishes. Failure cancels the ticket; publish/cancel consume ownership once
 without synchronous IO. Native recovery is the first real adapter. Retained event
 identity/path/asset ownership is separate and not activated for partial producers.
+
+`workbook/history_stream.c` is the bounded single-owner staging controller for
+canonical immutable event assets. Its first adapter consumes `CellEditRecorder`;
+only publish advances separate action/transition/lineage and document clocks.
+Fork metadata preserves the old branch's owned assets. One dispatched immutable
+event can be read by a writer without accessing stream state; the mutation owner
+later completes or retries that exact lease. Pending/reserved/in-flight bytes all
+remain charged, and active leases block destruction. The adapter must separately
+prove asset/metadata durability before releasing a completed event. This8-MiB/
+256-entry resident staging bound cannot prune accepted history. It has no IO or
+App activation; other producer/cursor families and composed recovery/retained
+admission remain prerequisites of the final publication/replay integration.

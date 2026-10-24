@@ -293,3 +293,12 @@ adapter cleanup, stale-fence fault injection, model-limit cancellation and40
 captured edits surviving32-entry session eviction. The named workbook-history
 interaction is run when this producer/coordinator boundary changes. Full App,
 filesystem faults and recovery versions remain separately registered coverage.
+
+`history-stream` selects136 owner/protocol checks,1,001 command checks and82
+codec checks in optimized/sanitized builds. Coverage includes copied raw values,
+independent clocks, exact byte/entry backpressure while in-flight, FIFO retry,
+wrong-owner completion, guarded teardown, canceled fork issuance, empty/exhausted
+counters and a real40-edit producer keeping its first dispatched payload after
+session history evicts eight actions. Storage acknowledgements are protocol mocks;
+no durable IO/cross-session-history claim is made. Native recorder/path interactions
+remain deferred because this new owner is not activated in the App yet.

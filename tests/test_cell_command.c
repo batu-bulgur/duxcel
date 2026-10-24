@@ -1,5 +1,7 @@
 #include "workbook/cell_command.h"
 #include "workbook/history.h"
+#include "workbook/history_stream.h"
+#include "workbook/cell_delta_codec.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -202,7 +204,39 @@ static void recorded_admission(void) {
     CHECK(t.events[0].record.delta.after_bytes==7 && !memcmp(t.events[0].record.delta.after,"Value 0",7) && !memcmp(t.events[39].record.delta.before,"Value 38",8) && !memcmp(t.events[39].record.delta.after,"Value 39",8));
     workbook_free(&b);
 }
+static void owned_stream_admission(void) {
+    Workbook b; workbook_init(&b); char *error=NULL; CHECK(workbook_add(&b,"Owned stream",&(Analysis){0},&error));
+    CellEditTarget target=prepare(&b,0,1,1);
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,99,VERSION_WORKING_HEAD},.edit_session=target.document,
+        .command_revision=b.command_revision,.transition_high_water=100};
+    WorkbookHistoryStream *stream=NULL;
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){64,65536},&stream)==HISTORY_STREAM_OK);
+    CellEditRecorder recorder=workbook_history_stream_cell_recorder(stream); WorkbookHistoryEvent *first=NULL;
+    for (unsigned i=0;i<40;i++) {
+        char text[32]; int n=snprintf(text,sizeof(text),"V%u",i); target=prepare(&b,0,1,1);
+        CellEditCommand command={CELL_EDIT_COMMAND_VERSION,target,text,(size_t)n};
+        CHECK(workbook_apply_cell_edit_recorded(&b,&command,manual,&recorder,&error).status==CELL_EDIT_APPLIED && !error);
+        memset(text,'x',(size_t)n);
+        if (!i) CHECK(workbook_history_stream_dispatch(stream,&first)==HISTORY_STREAM_OK && first);
+    }
+    WorkbookHistoryStreamState state=workbook_history_stream_state(stream);
+    CHECK(state.pending==39 && state.in_flight && state.current.action_high_water==40 && state.current.transition_high_water==140 && state.current.cursor==40 && b.sheets[0].undo_actions_count==32);
+    CellDelta value; const WorkbookHistoryEventInfo *info=workbook_history_event_info(first);
+    CHECK(info->action==1 && info->transition==101 && info->revision==1 && cell_delta_decode(workbook_history_event_payload(first),info->bytes,&value)==CELL_DELTA_CODEC_OK);
+    CHECK(!value.before_bytes && value.after_bytes==2 && !memcmp(value.after,"V0",2));
+    /* Protocol-only mock acknowledgement after inspection, no durable IO claim. */
+    CHECK(workbook_history_stream_complete(stream,&first)==HISTORY_STREAM_OK && !first);
+    for (unsigned i=1;i<40;i++) {
+        WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK);
+        info=workbook_history_event_info(event); char before[32],after[32]; int nb=snprintf(before,sizeof(before),"V%u",i-1),na=snprintf(after,sizeof(after),"V%u",i);
+        CHECK(info->action==i+1 && info->transition==101+i && info->revision==i+1 && cell_delta_decode(workbook_history_event_payload(event),info->bytes,&value)==CELL_DELTA_CODEC_OK);
+        CHECK(value.sheet==target.sheet_id && value.row==1 && value.column==1 && value.before_bytes==(size_t)nb && value.after_bytes==(size_t)na && !memcmp(value.before,before,(size_t)nb) && !memcmp(value.after,after,(size_t)na));
+        CHECK(workbook_history_stream_complete(stream,&event)==HISTORY_STREAM_OK && !event);
+    }
+    CHECK(!workbook_history_stream_state(stream).owned_bytes && workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK && !stream);
+    workbook_free(&b);
+}
 int main(void) {
-    basic_and_history(); identity_and_validation(); object_and_capacity(); pure_admission(); recorded_admission();
+    basic_and_history(); identity_and_validation(); object_and_capacity(); pure_admission(); recorded_admission(); owned_stream_admission();
     printf("PASS: %u cell command checks\n",checks); return 0;
 }

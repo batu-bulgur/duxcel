@@ -70,6 +70,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-stream": Feature(("history_stream", "cell_command", "cell_delta_codec"), "",
+        ("python3 tools/test.py feature --feature cell-recorder", "python3 tools/test.py feature --feature history-path"),
+        ("src/workbook/history_stream.c", "src/workbook/history_stream.h", "tests/test_history_stream.c", "tests/test_cell_command.c: real producer/owned-stream handoff beyond session eviction")),
     "cell-recorder": Feature(("cell_command", "cell_delta"), "journal-session",
         ("python3 tools/test.py feature --feature workbook-history", "python3 tools/test.py feature --feature journal-faults", "python3 tools/test.py feature --feature recovery-versions"),
         ("src/workbook/cell_command.c: reserve/recheck/apply/publish/cancel", "src/workbook/cell_command.h: typed record/admission context", "src/workbook/journal_session.c: native recorder adapter", "tests/test_cell_command.c: immutable recorder and pre-eviction admission"),

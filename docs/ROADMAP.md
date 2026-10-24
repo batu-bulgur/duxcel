@@ -211,12 +211,12 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12b.2b · P1 · Complete | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
 | W12b.2c · P1 · Queued | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit legacy files as checkpoint-only history; unsupported/corrupt history cannot replace the live document. |
 | W12c · P1 · In progress | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
-| W12c.1 · P1 · In progress | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
+| W12c.1 · P1 · Complete | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
 | W12c.1a · P1 · Complete | Shared exact sparse-cell payload ownership; W12b.2a. | Validate target/text/clear/no-op and capture exact before/after spans into caller-owned bounded storage before mutation. Existing native recovery reservation uses the same shared controller without another allocation or wire migration. |
 | W12c.1b · P1 · Complete | Closed sparse-cell payload encoding; W12c.1a. | Canonical target/value bytes with explicit family encoding, strict bounds, unsupported/truncated/trailing rejection and borrowed decode lifetime. No raw C struct or process/session clock in the payload. |
-| W12c.1c · P1 · In progress | Retained event admission and producer handoff; W12c.1b. | Reserve owned event/envelope/payload before changing cells or evicting session rings, recheck owner/revisions and cancel on rejection/no-op. Preserve event IDs and exact inverse beyond session retention; activate cross-session history only after all families/publication are ready. |
+| W12c.1c · P1 · Complete | Retained event admission and producer handoff; W12c.1b. | Reserve owned event/envelope/payload before changing cells or evicting session rings, recheck owner/revisions and cancel on rejection/no-op. Preserve event IDs and exact inverse beyond session retention; activate cross-session history only after all families/publication are ready. |
 | W12c.1c.1 · P1 · Complete | Atomic cell recorder seam and recovery adapter; W12c.1b. | Shared producer reserves copied exact payload before mutation, rechecks fences, publishes after coherent model/history/revision change, cancels on failure and avoids callbacks for no-op/stale input. Native recovery uses this same seam without extra allocation or synchronous IO. |
-| W12c.1c.2 · P1 · Queued | Retained cell event owner/envelope handoff; W12c.1c.1. | Bind independent durable operation/lineage positions and canonical owned assets before ring eviction. Bounded backpressure cannot mutate data/history; event ownership survives pending persistence and session rings. Keep App retained history inactive until every producer/publication family is supported. |
+| W12c.1c.2 · P1 · Complete | Retained cell event owner/envelope handoff; W12c.1c.1. | Bind independent durable operation/lineage positions and canonical owned assets before ring eviction. Bounded backpressure cannot mutate data/history; event ownership survives pending persistence and session rings. Keep App retained history inactive until every producer/publication family is supported. |
 | W12c.2 · P1 · Queued | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
@@ -1112,3 +1112,19 @@ injection, model-limit cancellation and40 immutable captured edits beyond the
 Wasm links. Receipts: ignored `w12c1-recorder*.log`. This is producer/ownership
 admission, not a retained event store, file-profile activation or cross-session
 Undo; W12c.1c.2 still owns independent durable event identities/assets.
+
+W12c.1c.2/W12c.1 complete at the payload/producer boundary: shared
+`history_stream` owns canonical cell assets before mutation, with independent
+action/transition/lineage clocks and runtime document/edit-session fences.
+Publish alone advances clocks/path; fork/cancel/backpressure never drops old
+assets or consumes rejected IDs. One pending/reserved/in-flight budget remains
+charged until explicit completion; failed writes can return FIFO ownership for
+retry. Wrong-owner completion and teardown with a live lease reject atomically.
+The136-case stream,1,001-command real producer/stream and82-codec optimized/
+sanitized gate passes in4.174s, including a40-edit lease surviving32-ring eviction.
+55 tools pass in13.003s and shared Wasm builds. Receipts: ignored
+`w12c1-history-stream*.log`. Completion in these tests is a mock storage handoff,
+not durable IO. The current App still uses its existing recovery recorder;
+retained-stream activation, composed recovery/history reservations, cursor
+transitions and full file publication wait for all producer families and W12d/e.
+The8-MiB/256-entry staging ceiling is backpressure, never history truncation.
