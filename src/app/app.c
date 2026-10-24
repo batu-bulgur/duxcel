@@ -1333,9 +1333,18 @@ static bool primary_transform_budget(App *a,const Analysis *proposal,size_t *val
 #endif
     return true;
 }
-static bool primary_transform_adopt(App *a,Analysis *owned,size_t validation,bool *changed,char **error) {
+static bool primary_transform_adopt(App *a,Analysis *owned,size_t validation,const QueryReply *verified,bool *changed,char **error) {
+    /* A verified replacement can repair an unavailable prior Page. Its reply
+       must prove THIS candidate/request/primary epoch; ordinary field transforms
+       still require the current result's columns. Never waive connection fences. */
+    bool validated=verified && &verified->analysis==owned && verified->kind==JOB_VALIDATE_SQL && !verified->error && !verified->object_id &&
+        verified->id==a->request_id && verified->revision==a->analysis_revision;
+    if (verified && !validated) {
+        if (error) { free(*error); *error=dx_strdup("The validated query changed; validate the draft again."); }
+        return false;
+    }
     AnalysisCommandContext context={.book=&a->book,.live=&a->analysis,.source_epoch=&a->analysis_revision,.validation_reserved=validation,
-        .ready=!a->busy && !a->io_busy && !a->query_loading && !a->refresh_plans && !a->page_stale && !a->fetch_failed && a->page.column_count>0,.read_only=history_locked(a)};
+        .ready=!a->busy && !a->io_busy && !a->query_loading && !a->refresh_plans && (validated || (!a->page_stale && !a->fetch_failed && a->page.column_count>0)),.read_only=history_locked(a)};
     AnalysisTransformTarget target={0};
     if (!workbook_prepare_analysis_transform(&context,a->book.active,&target,error)) return false;
     AnalysisTransformResult r=workbook_apply_analysis_transform_recorded(&context,&target,owned,NULL,error);
@@ -2006,7 +2015,7 @@ static void receive_source_validation(App *a,QueryReply *r) {
         bool changed=false; size_t validation=0; char *error=NULL;
         /* The private validation reply already owns the complete after-plan.
            Move it into the command instead of cloning another full definition. */
-        if (!primary_transform_budget(a,&r->analysis,&validation,sizeof(*r),&error) || !primary_transform_adopt(a,&r->analysis,validation,&changed,&error)) {
+        if (!primary_transform_budget(a,&r->analysis,&validation,sizeof(*r),&error) || !primary_transform_adopt(a,&r->analysis,validation,r,&changed,&error)) {
             free(a->query_error); a->query_error=error; return;
         }
         if (changed) change_analysis(a,true);
@@ -2445,7 +2454,7 @@ static void apply_sort_order(App *a,const Analysis *order) {
         AnalysisSort sort=analysis_sort_at(order,i);
         if (!analysis_sort_set(&next,sort.column,sort.descending,true,&error)) { status(a,error); free(error); analysis_free(&next); return; }
     }
-    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,NULL,&changed,&error)) {
         status(a,error); free(error); analysis_free(&next); return;
     }
     free(error); if (!changed) return;
@@ -2638,7 +2647,7 @@ static void set_source_filter(App *a,const char *column,FilterOp op,const char *
     else if (!analysis_filter_set(&next,column,op,value,&error)) { status(a,error); free(error); analysis_free(&next); return; }
     for (size_t c=0;c<a->page.column_count;c++) if (!strcmp(a->page.columns[c].name,column)) analysis_filter_number(&next,column,a->page.columns[c].number_type);
     bool changed=false; size_t validation=0;
-    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,NULL,&changed,&error)) {
         status(a,error); free(error); analysis_free(&next); return;
     }
     free(error); a->modal=MODAL_NONE; if (changed) change_analysis(a,false);
@@ -2646,7 +2655,7 @@ static void set_source_filter(App *a,const char *column,FilterOp op,const char *
 static void clear_primary_filters(App *a) {
     if (!a->analysis.filter_column && !a->analysis.filter_count) return;
     Analysis next=analysis_copy(&a->analysis); analysis_filters_clear(&next); bool changed=false; size_t validation=0; char *error=NULL;
-    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,NULL,&changed,&error)) {
         status(a,error); free(error); analysis_free(&next); return;
     }
     free(error); if (changed) change_analysis(a,false);
@@ -2662,7 +2671,7 @@ static void apply_group(App *a) {
     Analysis next=analysis_copy(&a->analysis); free(next.group_column); free(next.measure_column); analysis_sorts_clear(&next);
     next.group_column=dx_strdup(a->page.columns[a->field].name); next.measure_column=dx_strdup(a->page.columns[a->measure].name); next.aggregate=a->aggregate;
     bool changed=false; size_t validation=0; char *error=NULL;
-    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,NULL,&changed,&error)) {
         status(a,error); free(error); analysis_free(&next); return;
     }
     free(error); a->modal=MODAL_NONE; if (changed) change_analysis(a,true);
@@ -2683,7 +2692,7 @@ static void reset_analysis(App *a) {
         set_table_source(a,(size_t)a->selected_object,&source); analysis_free(&source); return;
     }
     Analysis next=analysis_copy(&a->analysis); clear_analysis_transforms(&next); bool changed=false; size_t validation=0; char *error=NULL;
-    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,NULL,&changed,&error)) {
         status(a,error); free(error); analysis_free(&next); return;
     }
     free(error); if (changed) change_analysis(a,true);
@@ -2705,7 +2714,7 @@ static bool set_unique_rows(App *a,int index,bool unique) {
         Analysis proposal=a->analysis; proposal.unique_rows=unique; size_t validation=0; char *error=NULL;
         if (!primary_transform_budget(a,&proposal,&validation,0,&error)) { status(a,error); free(error); return false; }
         Analysis next=analysis_copy(&proposal); bool changed=false;
-        bool applied=primary_transform_adopt(a,&next,validation,&changed,&error);
+        bool applied=primary_transform_adopt(a,&next,validation,NULL,&changed,&error);
         analysis_free(&next);
         if (!applied) { status(a,error); free(error); return false; }
         free(error); if (changed) change_analysis(a,false);
@@ -6695,7 +6704,7 @@ static bool pipeline_step_change(App *a,size_t index,int direction,bool remove) 
     else {
         bool same=analysis_same_result(&a->analysis,&copy),schema=(a->analysis.group_column!=NULL)!=(copy.group_column!=NULL);
         size_t validation=0; char *error=NULL;
-        ok=primary_transform_budget(a,&copy,&validation,0,&error) && primary_transform_adopt(a,&copy,validation,&changed,&error);
+        ok=primary_transform_budget(a,&copy,&validation,0,&error) && primary_transform_adopt(a,&copy,validation,NULL,&changed,&error);
         if (!ok) status(a,error);
         else if (!changed) ok=false;
         else if (same) cache_pipeline(a); else change_analysis(a,schema);

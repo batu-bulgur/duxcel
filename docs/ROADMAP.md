@@ -256,6 +256,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.3a · P1 · Complete | Primary sort/filter command adapters; W12c.3c.3b.2. | Share typed budget/adoption helpers with unique rows; prepare complete sort/filter plans, preserve runtime query/selection behavior and prove real ribbon input, no-op Redo, Undo/Redo and Save/Open. |
 | W12c.3c.3b.3b · P1 · Complete | Primary group/reset/query adapters; W12c.3c.3b.3a. | Prepare complete after-plans for grouping, reset/clear and validated source queries, rejecting stale/unready input and preserving drafts and source identity. |
 | W12c.3c.3b.3c · P1 · Complete | Primary pipeline step edits; W12c.3c.3b.3b. | Route filter/sort reordering and step removal through coherent command admission. Preserve cached result/query epochs for filter-display reordering while recording authored order and preserving Undo/Redo. |
+| W12c.3c.3b.3d · P1 · Complete | Verified-query recovery readiness; W12c.3c.3b.3b. | A matching successful validation reply may repair a stale/failed prior result; ordinary field transforms stay blocked, with exact request/candidate/source epoch, connection and read-only fences retained. |
 | W12c.3c.3b.4 · P1 · In progress | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
 | W12c.3c.3b.4a · P1 · In progress | Same-connection Table source commands; W12c.3c.3b.1. | Prepare an independent full object after-plan, reserve before history eviction, recheck workbook/sheet/object/source/layout fences and adopt once with matching query invalidation. |
 | W12c.3c.3b.4a.1 · P1 · Complete | Independent Table source transform planning; W12c.3c.3b.3. | Measure complete candidate/scratch before cloning, preserve source identity and allocator bounds, own all object definitions independently and leave live Undo/Redo/counters unchanged. |
@@ -1505,3 +1506,19 @@ rebuilt. Receipts: ignored `w12c3-primary-producers-bundle.log`,
 `w12c3-primary-producers-package.json` and `w12c3-primary-producers-web.log`.
 No user app was launched/closed and no browser runtime/Open/Save acceptance is
 inferred from compilation. Later Table planner code is scoped component work.
+
+
+W12c.3c.3b.3d complete: a narrow GUI regression reproduced rejection of a valid
+replacement query solely because the prior Page was stale/failed. Primary query
+adoption now accepts a successful JOB_VALIDATE_SQL reply only when its candidate
+address, request ID, primary object role and Analysis epoch match. Ordinary field
+transforms still require the current result; connection/session/read-only fences
+are unchanged. The15-stage/36-check hidden TEST GUI proves recovery, rejects an
+ordinary duplicate transform and stale synthetic validation evidence, and retains
+invalid SQL drafts, no-op Redo, typed aggregate values and Save/Open coverage.
+The focused optimized/ASan/UBSan modules plus GUI pass16.558s;50 tool contracts
+pass2.470s. Receipts: ignored `w12c3-stale-query-repro.log` (expected failure),
+`w12c3-stale-query-fix.log`, `w12c3-stale-query-tools.log` and run summaries.
+This is same-connection validated recovery, not offline validation or unresolved
+DATABASE baseline activation. Table plan ownership also passes159 checks/config;
+fenced Table adoption remains the next scheduled implementation.

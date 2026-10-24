@@ -7,6 +7,7 @@ static const char *primary_query_path="build/tests/generated/primary-query.dxls"
 #define QUERY_GUI_CHECK(x) do { primary_query_checks++; if (!(x)) { fprintf(stderr,"FAIL primary query GUI stage %u:%d: %s (%s)\n",primary_query_stage,__LINE__,#x,a->query_error ? a->query_error : a->message ? a->message : ""); primary_query_result=-1; return; } } while (0)
 static void primary_query_test_frame(AppSession *session) {
     App *a=&session->app; Worksheet *s=active_sheet(a);
+    if (primary_query_stage==14 && !a->busy && !a->query_loading && a->query_error) QUERY_GUI_CHECK(!a->query_error);
     if (primary_query_result || !s || a->busy || a->io_busy || a->query_loading || a->page_stale || ++primary_query_wait<24) return;
     primary_query_wait=0; QUERY_GUI_CHECK(!a->fetch_failed && a->modal!=MODAL_ERROR);
     switch (primary_query_stage) {
@@ -58,7 +59,20 @@ static void primary_query_test_frame(AppSession *session) {
     case 13:
         QUERY_GUI_CHECK(a->page.total==2 && a->analysis.query && !strcmp(a->analysis.query,primary_query_sql) && !a->analysis.group_column && !a->analysis.filter_column &&
             a->book.command_revision==primary_query_revision+9 && !s->undo_actions_count && !a->book.dirty);
-        primary_query_result=1; printf("PASS: native primary group/query workflow (14 stages, %u checks)\n",primary_query_checks); break;
+        /* A failed/stale prior Page is presentation state, not authority to
+           reject a replacement relation the worker has successfully validated. */
+        a->fetch_failed=true; a->page_stale=true;
+        QUERY_GUI_CHECK(!set_unique_rows(a,-1,true) && !a->analysis.unique_rows && a->book.command_revision==primary_query_revision+9);
+        QueryReply stale={.kind=JOB_VALIDATE_SQL,.id=a->request_id+1,.revision=a->analysis_revision}; stale.analysis=analysis_copy(&a->analysis);
+        bool changed=true; char *error=NULL;
+        bool accepted=primary_transform_adopt(a,&stale.analysis,0,&stale,&changed,&error);
+        QUERY_GUI_CHECK(!accepted && changed && error && stale.analysis.query && a->book.command_revision==primary_query_revision+9);
+        free(error); analysis_free(&stale.analysis); begin_source_query(a);
+        input_set(&a->input,"SELECT City, Amount, Value FROM input WHERE Amount < 0"); ui_note_key_press(KEY_ENTER,DX_MOD_SUPER); break;
+    case 14:
+        QUERY_GUI_CHECK(a->modal==MODAL_NONE && !a->fetch_failed && !a->page_stale && a->analysis.query && strstr(a->analysis.query,"Amount < 0") &&
+            a->page.total==2 && !strcmp(a->page.cells[0].text,"Bursa") && a->book.command_revision==primary_query_revision+10 && s->undo_actions_count==1 && a->book.dirty);
+        primary_query_result=1; printf("PASS: native primary group/query workflow (15 stages, %u checks)\n",primary_query_checks); break;
     }
     primary_query_stage++;
 }

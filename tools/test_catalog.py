@@ -20,7 +20,7 @@ STANDALONE_GUI = {
     "primary-steps": ("build/tests/test_primary_steps-gui", "PASS: native primary step workflow",
                       r"^PASS: native primary step workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "primary-query": ("build/tests/test_primary_query-gui", "PASS: native primary group/query workflow",
-                      r"^PASS: native primary group/query workflow \(14 stages, [1-9]\d* checks\)$", 14),
+                      r"^PASS: native primary group/query workflow \(15 stages, [1-9]\d* checks\)$", 15),
     "primary-transforms": ("build/tests/test_primary_transforms-gui", "PASS: native primary sort/filter workflow",
                            r"^PASS: native primary sort/filter workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "analysis-command": ("build/tests/test_analysis_command-gui", "PASS: native primary transform workflow",
