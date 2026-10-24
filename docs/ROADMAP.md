@@ -166,7 +166,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.2 · P1 · Complete | Sealed immutable payload ownership and content proof; W11a2.1. | Closed private core bytes, explicit lease/lifetime, bounded hashing and cancel/failure cleanup; no user publication or recursive history payloads. |
 | W11a2.3 · P1 · In progress | Native version root/payload archive codec; W11a2.2. | Complete root closure, chunk integrity, non-writing legacy Open and safe upgrade/overwrite. No advertised unresolved roots; scoped archive gate. |
 | W11a2.3a · P1 · Complete | Complete admitted core equality proof; W11a2.2. | Compare all current typed codec rows/columns with read-only IO and pre/post integrity, cancellation and bounded memory. No reuse based only on clocks, SQL or byte count. |
-| W11a2.3b · P1 · Queued | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
+| W11a2.3b · P1 · In progress | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
+| W11a2.3b1 · P1 · Complete | Pure bounded chunk framing; W11a2.3a. | Reserved uint64 byte bounds, exact64 KiB framing, gap/duplicate/NULL/trailing/truncation rejection without allocation or IO. Shared optimized/sanitizer module gate. |
+| W11a2.3b2 · P1 · Queued | Transactional native chunk encoding; W11a2.3b1. | Stream verified core leaves into bounded SQL BLOB chunks with typed roots/index and rollback on cancellation/failure; keep App publication separate. |
+| W11a2.3b3 · P1 · Queued | Staged native chunk decoding and payload closure; W11a2.3b2. | Validate complete index/references/types/bytes/hash/core identity before returning owned leaves; no live-model replacement on failure. |
 | W11a2.3c · P1 · Queued | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
 | W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
@@ -232,6 +235,14 @@ mutation/cancel never publishes an equality bit. The `core-compare` gate passes
 in16.390s (3.269s optimized/12.023s ASan/UBSan; no App launch), with full descriptor
 coverage and targeted cancellation. Callback-dependent assertion counts are not
 a stable inventory. Chunk archive IO/native file adoption remain next.
+
+W11a2.3b1 complete: the shared pure chunk controller frames positive leaves
+into exact64 KiB blocks under an explicit byte reservation. It rejects NULL,
+wrong-length, duplicate/gapped/trailing and incomplete observations, including
+uint64 boundary/offset overflow cases, without allocation or IO. The registered
+`version-chunks` optimized/ASan/UBSan gate passes in1.674s with no App launch.
+Framing is not a hash/asset proof; the native encoder/decoder must still verify
+bytes, model identity and complete index closure before publication.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

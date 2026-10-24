@@ -267,3 +267,9 @@ pivot names/fields, ledger/command counters, display scale, document IDs and
 changed/retired files. Cancellation exercises hash, pending SQL and final recheck
 without publishing the output bit. The `core-compare` gate is native module-only;
 Save/archive adoption remains a named deferred interaction.
+
+`test_version_chunks.c` covers the shared pure framing controller: short/exact/
+multiple-block lengths, explicit reservations, UINT64_MAX offsets, poisoned
+NULL/gap/duplicate/trailing/oversized observations and incomplete completion.
+Its `version-chunks` gate links only the actual module/header, without engine or
+App IO. Native SQL/hash/closure remains a named deferred archive interaction.

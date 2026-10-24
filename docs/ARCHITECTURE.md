@@ -95,6 +95,10 @@ as typed SQL multisets under64 MB/one-thread engine limits, with private spill,
 pending-task cancellation and pre/post sealed-byte verification. It compares
 source query text as data and never queries external sources. This full core
 proof supports later reuse; it does not certify assets/results outside the codec.
+`version_chunks.c` is a shared allocation-free framing controller: a reserved
+uint64 byte extent defines exact64 KiB ordered BLOB spans and a positive final
+remainder. Invalid/missing/duplicate/trailing observations fail closed; hashing,
+SQL transactions, full model admission and asset closure remain adapter work.
 Archive closure and App adoption remain W11a2/W11a3; native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each

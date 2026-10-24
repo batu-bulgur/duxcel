@@ -64,6 +64,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-chunks": Feature(("version_chunks",), "",
+        ("python3 tools/test.py feature --feature workbook-archive",),
+        ("src/workbook/version_chunks.c", "src/workbook/version_chunks.h", "tests/test_version_chunks.c")),
     "core-compare": Feature((), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature workbook-archive"),
         ("src/workbook/core_compare.c", "src/workbook/core_compare.h", "tests/test_core_compare.c"),
