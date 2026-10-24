@@ -10,10 +10,12 @@ static void workbook_identity_test_frame(AppSession *session) {
     if (identity_result || a->busy || a->io_busy || !sheet || ++identity_wait<12) return;
     identity_wait=0;
     switch (identity_stage) {
-    case 0: workspace_job(a,JOB_LOAD,"build/tests/generated/identity-legacy.dxls"); break;
+    case 0:
+        grid_select_cell(&a->grid,1,1,false); open_modal(a,MODAL_CELL);
+        input_set(&a->input,"Current original"); ui_note_key_press(KEY_ENTER,0); break;
     case 1:
-        ID_GUI_CHECK(a->modal==MODAL_NONE && a->book.count==1 && !a->book.dirty && workbook_identity_valid(&a->book));
-        ID_GUI_CHECK(!strcmp(cells_get(&sheet->cells,1,1),"Legacy original"));
+        ID_GUI_CHECK(a->modal==MODAL_NONE && a->book.count==1 && a->book.dirty && workbook_identity_valid(&a->book));
+        ID_GUI_CHECK(!strcmp(cells_get(&sheet->cells,1,1),"Current original"));
         identity_document=a->book.id; identity_original=sheet->id;
         begin_sheet_rename(a,0); input_set(&a->input,"Renamed"); ui_note_key_press(KEY_ENTER,0); break;
     case 2:
@@ -27,7 +29,7 @@ static void workbook_identity_test_frame(AppSession *session) {
         grid_select_cell(&a->grid,1,1,false); open_modal(a,MODAL_CELL); input_set(&a->input,"Duplicate only"); ui_note_key_press(KEY_ENTER,0); break;
     case 4:
         ID_GUI_CHECK(!strcmp(cells_get(&sheet->cells,1,1),"Duplicate only"));
-        ID_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[1].cells,1,1),"Legacy original"));
+        ID_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[1].cells,1,1),"Current original"));
         identity_old_target=a->cell_edit_target;
         workspace_job(a,JOB_SAVE,"build/tests/generated/workbook-identity-demo.dxls"); break;
     case 5:
@@ -45,7 +47,7 @@ static void workbook_identity_test_frame(AppSession *session) {
     }
     case 7:
         ID_GUI_CHECK(!strcmp(cells_get(&sheet->cells,1,1),"After reopen") && sheet->undo_actions_count==1);
-        ID_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[1].cells,1,1),"Legacy original"));
+        ID_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[1].cells,1,1),"Current original"));
         workspace_job(a,JOB_SAVE,"build/tests/generated/workbook-identity-demo.dxls"); break;
     case 8:
         ID_GUI_CHECK(!a->book.dirty && workbook_identity_valid(&a->book));

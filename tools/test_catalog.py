@@ -495,7 +495,7 @@ FEATURES = {
     "workbook-identity": Feature(("workbook_identity", "cell_command", "workbook_codec"), "workbook-identity",
         ("python3 tools/test.py native --scenario document workspace --config sanitize",
          "python3 tools/test.py formats --config both"),
-        ("src/workbook/identity.c", "src/workbook/workbook.c: v15 persistence", "src/workbook/cell_command.c"),
+        ("src/workbook/identity.c", "src/workbook/workbook.c: current core identity persistence", "src/workbook/cell_command.c", "tests/support/workbook_identity_app.inc: fresh current workbook and actual Save/Open"),
         ("workbook_identity_native",)),
     "cell-command": Feature(("cell_command",), "cell-command",
         ("python3 tools/test.py native --scenario document workspace --config sanitize",

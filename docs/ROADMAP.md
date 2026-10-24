@@ -184,7 +184,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a3.2b · P1 · Complete | Native IO job envelope and background retirement; W11a3.2a. | Transfer typed native contexts through existing ordered file jobs; keep native dependencies out of ordinary Core-only tests, retain source stores and retire owned files off App frames. |
 | W11a3.2b1 · P1 · Complete | Typed native file task/retirement boundary in QueryWorker; W11a3.2a. | Route owned Save/Load contexts, keep preparation cancellable, drain intrusive cleanup off mutex/frames and preserve ordinary worker/format ownership. Core-only focused tests plus narrow Save GUI. |
 | W11a3.2b2 · P1 · Complete | Versioned native IO adapter and owned replies; W11a3.2b1. | Retain input core sets, call real version Save/archive reader on the existing worker, transfer prepared receipts/candidates and retire disk ownership in background. |
-| W11a3.2b2a · P1 · Complete | Non-writing Saved baseline for opened legacy files; W11a3.2b1. | Retain opened Saved R before edits, so the first private R+1 checkpoint carries R even before upgrading the user file. Atomically adopt verified leaf/metadata ownership; preserve original bytes and dirty state. |
+| W11a3.2b2a · Retired | Non-writing Saved baseline for opened legacy files; W11a3.2b1. | Retain opened Saved R before edits, so the first private R+1 checkpoint carries R even before upgrading the user file. Atomically adopt verified leaf/metadata ownership; preserve original bytes and dirty state. |
 | W11a3.3 · P1 · Complete | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
 | W11a3.4 · P1 · Complete | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
 | W11a3.4a · P1 · Complete | Version-preserving journal checkpoint admission; W11a3.3. | Background private v16 checkpoints retain complete older Saved roots without advancing them; root ownership survives rotation and caller release. Legacy callers remain compatible until App/recovery integration. |
@@ -209,7 +209,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12b.2 · P1 · In progress | Event/path continuity and durable metadata profile; W12b.1. | Prove current lineage/cursor and retained ranges, classify checkpoint-only legacy history explicitly, and bind each reversible payload family before selecting a file profile. Never fabricate old Undo from saved snapshots. |
 | W12b.2a · P1 · Complete | Structural event-path and anchor/window join; W12b.1. | Prove ordered lineage ancestry, exact retained transitions, cursor/Redo bounds and monotonic operation IDs. Ancestor prefixes remain on-path; abandoned suffixes stay checkpoints. A forked Saved endpoint cannot silently produce a successful empty window. Payload/file admission remains separate. |
 | W12b.2b · P1 · Complete | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
-| W12b.2c · P1 · Queued | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit legacy files as checkpoint-only history; unsupported/corrupt history cannot replace the live document. |
+| W12b.2c · P1 · Queued | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit only the current file profile; unsupported/corrupt history cannot replace the live document. |
 | W12c · P1 · In progress | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
 | W12c.1 · P1 · Complete | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
 | W12c.1a · P1 · Complete | Shared exact sparse-cell payload ownership; W12b.2a. | Validate target/text/clear/no-op and capture exact before/after spans into caller-owned bounded storage before mutation. Existing native recovery reservation uses the same shared controller without another allocation or wire migration. |
@@ -468,17 +468,12 @@ checks now reuse actual per-file Core objects and join the milestone inventory;
 no monolithic/global-header build is needed for these focused targets. Protocol
 fixtures use real ordinary Save/Load; the versioned IO adapter remains W11a3.2b2.
 
-W11a3.2b2a complete: admitted legacy files can seed an owned runtime Saved R
-baseline without rewriting their original bytes or moving a user pointer.
-Source identity is checked around capture. Bounded metadata copy and atomic
-sealed-leaf adoption preserve all input ownership on failure/cancel. A first
-private R+1 checkpoint now retains opened legacy Saved R even before file upgrade.
-The `legacy-version-seed` gate passes in16.483s with optimized/ASan/UBSan seeding,
-metadata and closure tests. Non-NUL label spans, mismatched descriptors, cancel,
-reservation and changed-source refusal pass. Native IO adapter integration follows.
+W11a3.2b2a retired by the current-format-only prerelease policy. The seeding
+implementation and its compatibility-only test gate have been removed. Native
+Open now admits existing current root sets directly; no legacy input is upgraded.
 
 W11a3.2b2 complete: the native file-task adapter calls real version Save/archive
-Open, retains its base independently, seeds legacy Saved R before adoption and
+Open, retains its admitted current base independently and
 transfers prepared plans/stores through owned replies. Folder creation and disk
 retirement stay on the worker; stopped-worker disposal supports shutdown. The
 `worker-archive` gate passes in17.456s with optimized/ASan/UBSan real IO plus
@@ -2113,3 +2108,14 @@ In-test authored models use the actual current version Save path. The focused
 app_versions/file_conflict in optimized and ASan/UBSan configurations in128.169s,
 zero App stages; receipt `build/tests/results/runs/20261024T144332-feature-65522/summary.json`.
 Native-core/shared-reader/source-format removals remain separate integration work.
+
+
+Combined current-only identity acceptance: the private GUI now starts from actual
+current runtime cell entry, not an old SQL/migration fixture. Rename/duplicate/
+reorder and real current Save/Open retain durable identity; stale pre-reopen
+commands reject. The focused `workbook-identity` gate passes three modules and
+native identity checks in optimized/ASan/UBSan plus9hidden App stages in60.686s
+(GUI5.120s), receipt `build/tests/results/runs/20261024T145346-feature-75635/summary.json`.
+The source-format removal, exact shared registry/reader and exact native core
+commits are integrated; regeneration of acceptance inputs and current browser
+component matrices remain active before packaging the cleanup.

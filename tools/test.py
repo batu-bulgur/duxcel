@@ -447,9 +447,6 @@ class Runner:
             completion_pattern=r"^PASS: native About and test identity \([1-9]\d* checks\)$"))
 
     def standalone_gui_check(self,name):
-        if name == "workbook-identity":
-            self.record(self.command("identity-fixture", [sys.executable, "tools/create_workbook.py", "--identity-only"],
-                                     "PASS: identity migration fixture:"))
         binary, marker, completion, stages = STANDALONE_GUI[name]
         self.build([binary], "build-feature-gui")
         self.retain_binaries([binary])
