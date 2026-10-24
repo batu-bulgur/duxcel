@@ -4,6 +4,7 @@
 #include "workbook/format_command.h"
 #include "workbook/analysis_command.h"
 #include "workbook/table_command.h"
+#include "workbook/object_name_command.h"
 #include "workbook/lifecycle.h"
 #include "platform/platform.h"
 #include "data/source_digest.h"
@@ -156,11 +157,15 @@ static void table_rotation(const char *root) {
     CHECK(workbook_prepare_table_transform(&context,0,b.sheets[0].objects.items[0].id,&target,&error));
     CHECK(workbook_apply_table_transform_recorded(&context,&target,&next,NULL,&error).status==TABLE_TRANSFORM_APPLIED && b.command_revision==revision+1); analysis_free(&next);
     CHECK(workbook_journal_session_needs_checkpoint(s,&b) && !workbook_journal_session_state(s,&b).covered);
+    ObjectCommandContext rename={&b,&epoch,SIZE_MAX,SIZE_MAX,true,false}; ObjectNameTarget name;
+    CHECK(workbook_prepare_object_name(&rename,0,b.sheets[0].objects.items[0].id,&name,&error));
+    CHECK(workbook_apply_object_name_recorded(&rename,&name,"Renamed Raw",NULL,&error).status==OBJECT_NAME_APPLIED && b.command_revision==revision+2);
+    CHECK(workbook_journal_session_needs_checkpoint(s,&b) && !workbook_journal_session_state(s,&b).covered);
     apply(s,&b,1,"After Table transform"); JournalSessionState second=ready(s,&b);
     CHECK(second.parent.high==first.generation.high && second.parent.low==first.generation.low);
     char *checkpoint=dx_strdup(workbook_journal_session_checkpoint(s)),*journal=dx_strdup(workbook_journal_session_journal(s)); uint64_t head=b.command_revision;
     CHECK(workbook_journal_session_close(s,false,&error) && !error); recover(checkpoint,journal,&loaded,head,b.path);
-    CHECK(loaded.sheets[0].objects.count==1 && loaded.sheets[0].objects.items[0].source.unique_rows && loaded.sheets[0].objects.items[0].id==b.sheets[0].objects.items[0].id &&
+    CHECK(loaded.sheets[0].objects.count==1 && loaded.sheets[0].objects.items[0].source.unique_rows && !strcmp(loaded.sheets[0].objects.items[0].name,"Renamed Raw") && loaded.sheets[0].objects.items[0].id==b.sheets[0].objects.items[0].id &&
         !strcmp(cells_get(&loaded.sheets[1].cells,3,2),"After Table transform"));
     cleanup_generation(checkpoint,journal); CHECK(!rmdir(root)); free(checkpoint); free(journal); workbook_free(&loaded); workbook_free(&b);
 }

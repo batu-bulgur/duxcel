@@ -2,6 +2,7 @@
 #include "../workbook/format_command.h"
 #include "../workbook/analysis_command.h"
 #include "../workbook/table_command.h"
+#include "../workbook/object_name_command.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
@@ -352,6 +353,8 @@ typedef struct {
     char *chart_resize_error;
     int object_name_focus;
     char *object_name_error;
+    ObjectNameTarget object_name_target;
+    bool object_name_target_valid;
     int range_move_focus;
     char *range_move_error;
     SheetRange replace_range;
@@ -5393,14 +5396,32 @@ static void draw_chart_size(App *a) {
 
 static void begin_object_name(App *a) {
     SheetObject *o=selected_object(a); if (!o) return;
+    ObjectCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.ready=!a->io_busy,.read_only=history_locked(a)};
+    char *error=NULL;
+    a->object_name_target_valid=workbook_prepare_object_name(&context,a->book.active,o->id,&a->object_name_target,&error);
+    if (!a->object_name_target_valid) { status(a,error); free(error); return; }
     input_set(&a->input,o->name); free(a->object_name_error); a->object_name_error=NULL;
     a->object_name_focus=0; a->modal=MODAL_OBJECT_NAME; a->consume_grid_input=true;
 }
 static bool apply_object_name(App *a) {
     Worksheet *sheet=active_sheet(a); if (!selected_object(a)) return false;
-    uint64_t revision=sheet->objects.title_revision; free(a->object_name_error); a->object_name_error=NULL;
-    if (!objects_rename(&sheet->objects,(size_t)a->selected_object,a->input.text,&a->object_name_error)) return false;
-    if (revision!=sheet->objects.title_revision) { worksheet_record(sheet,EDIT_OBJECTS); a->book.dirty=true; }
+    free(a->object_name_error); a->object_name_error=NULL;
+    if (!a->object_name_target_valid || sheet->id!=a->object_name_target.owner.sheet_id || selected_object(a)->id!=a->object_name_target.object) {
+        a->object_name_error=dx_strdup("The selected object changed. Your draft is kept; reopen Rename to use the latest object."); return false;
+    }
+    ObjectNamePlanInfo info={0}; ObjectNameStatus planned=objects_name_plan_measure(&sheet->objects,a->object_name_target.object,a->input.text,&info,&a->object_name_error);
+    if (planned!=OBJECT_NAME_READY && planned!=OBJECT_NAME_NOOP) return false;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { a->object_name_error=dx_strdup("Rename planning reservation overflow."); return false; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (planned==OBJECT_NAME_READY && source_format_budget_status(a,NULL,info.owned,info.validation_scratch,0,0,0)) {
+        a->object_name_error=dx_strdup(a->message ? a->message : "Rename exceeds the current memory budget."); return false;
+    }
+#endif
+    ObjectCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)};
+    ObjectNameResult result=workbook_apply_object_name_recorded(&context,&a->object_name_target,a->input.text,NULL,&a->object_name_error);
+    if (result.status!=OBJECT_NAME_APPLIED && result.status!=OBJECT_NAME_NOOP) return false;
+    a->object_name_target_valid=false;
     a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Name updated."); return true;
 }
 static void draw_object_name(App *a) {
@@ -15567,6 +15588,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
 static void table_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_NAME_COMMAND
+static void object_name_command_test_frame(AppSession *session);
+#endif
 struct AppSession {
     App app;
     AppOptions options;
@@ -16427,6 +16451,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
     table_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_NAME_COMMAND
+    object_name_command_test_frame(session);
+#endif
 #ifdef DUXCEL_BROWSER_HOST
     bool file_before_shortcuts=a->file_menu;
 #endif
@@ -16676,6 +16703,9 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
 #include "../../tests/support/table_command_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_OBJECT_NAME_COMMAND
+#include "../../tests/support/object_name_command_app.inc"
 #endif
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
