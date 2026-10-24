@@ -1846,3 +1846,13 @@ last-object removal and 150% v16 Save/Open. Fifty tool contracts pass in 2.332s.
 Receipts: ignored `w12c3-object-delete*.log` and run summaries. Retained App event
 IO, durable Undo and source/format composites remain separate; next is
 W12c.3c.3b.4e.2 single-object placement admission.
+
+
+Deletion packaging: source cb659d4 produces the signed native bundle in 7.083s
+and normal shared-C Wasm build in 30.150s. Strict signature, compiled provenance
+and private feature/review exclusions pass. Ignored receipts:
+`w12c3-object-delete-bundle.log`, `w12c3-object-delete-package.json` and
+`w12c3-object-delete-web.log`. No user App was launched/closed. Next-slice source
+inspection confirms that even a single-object range move currently relocates
+positional cell formats; placement admission must preserve that compound behavior.
+Mixed/multi-object range admission remains W12c.4.
