@@ -178,6 +178,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.3c1 · P1 · Complete | Staged native archive reader and discriminator; W11a2.3b. | Read-only legacy candidates or v16 head plus complete independent core roots; validate document/source identity and preserve older Latest Saved in an R+1 head. Ordinary App Open/Save stays unchanged until integration. |
 | W11a2.3c2 · P1 · Complete | Safe native versioned writer/upgrade; W11a2.3c1. | Prepare owned output before commit, preserve existing valid artifacts/unrelated data, reject corrupt targets and source aliases, and cancel/fail without replacing the named file. Scoped native file gate before App adoption. |
 | W11a3 · P1 · In progress | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
+| W11a3.1 · P1 · Complete | Native Save-purpose planning and full-core reuse controller; W11a2. | User Save prepares a root/owner plan; unchanged Saved cores reuse identity. Checkpoints/exports preserve the supplied index. Owned receipts precede commit; no live App mutation. |
+| W11a3.2 · P1 · Queued | Shared immutable store lifetime and background IO ownership; W11a3.1. | Retain closed core sets across QueryWorker/journal snapshots, cancellation and owner changes; release safely after all borrowers. Preserve pending/durable and R+1 fences. |
+| W11a3.3 · P1 · Queued | App Save/Open and Latest Saved publication; W11a3.2. | Adopt prepared v16 candidates/receipts under current owner/index fences, preserve newer dirty edits, legacy Open and compact progress/cancel. Scoped hidden App workflow. |
+| W11a3.4 · P1 · Queued | Private recovery checkpoint/version closure adoption; W11a3.3. | A private R+1 checkpoint retains Saved R without advancing it; recovery transfers the complete store, and deferred tails retain ownership. Scoped recovery interaction. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
@@ -316,6 +320,17 @@ v14 upgrade, corrupt-target preservation and older Saved R in R+1 pass.54 tool
 contracts and the shared-C Wasm build pass; browser persistence remains unavailable.
 W11a2's current core-profile codec is complete. App Save/Open/publication and
 private recovery adoption remain W11a3; future retained data/results stay separate.
+
+W11a3.1 complete: the native Save controller captures/fully compares User Save
+cores, reuses unchanged Saved roots and prepares the pure owner/generation plan
+before transactional writing. Checkpoints/exports preserve supplied metadata;
+state-only export explicitly omits history. Caller-owned head/path/dirty/index
+remain untouched. The `version-save` gate passes in21.924s with optimized/
+ASan/UBSan controller tests plus the pure index module, without App launch.
+Repeated Save adds no root/generation, data changes with identical command clocks
+still differ, and private R+2 keeps Saved R+1. Capture/compare/final-PUBLISH
+cancellation preserves the named file/base. Internal capture PUBLISH is explicitly
+separate from named-file cancellation. Worker/App/journal lifetime adoption follows.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

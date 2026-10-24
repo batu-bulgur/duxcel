@@ -325,3 +325,11 @@ archive-read modules, then18 hidden TEST App Save stages. This establishes
 backend integration while normal App v16 adoption remains W11a3. The W11a2
 boundary also builds shared-C Wasm and checks native-code exclusion; it does not
 claim browser persistence or rerun the full browser regression.
+
+`test_version_save.c` exercises native User Save versus private checkpoint/export,
+full-core no-op reuse, changed data with unchanged command clock, owned plans/
+receipts, independent owner and R+1 fences, state-only versus retained-history
+export and capture/compare/final-PUBLISH cancellation. Its `version-save` gate
+runs the pure index and optimized/ASan/UBSan native controller, without App UI.
+Worker cancellation must distinguish internal capture PUBLISH from file COMMIT;
+shared store lifetime and App/journal adoption remain later integration gates.
