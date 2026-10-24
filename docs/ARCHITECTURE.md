@@ -1052,3 +1052,13 @@ objects; display-only filter reorder preserves their Pages and query epochs.
 Unrelated Table results survive graph replacement and Undo/Redo. Connection/
 binding/default-relation replacement remains with its legacy/composite owner
 until complete admission is installed; no retained-history writer is activated.
+
+
+`object_fence.c` shares the Table transaction's exact native runtime checks with
+other object producers. `object_name_command.c` additionally keeps a small rename
+draft identity/prior-name target, so unrelated background result completion can be
+rebased before a fresh transaction fence. Complete graph/grammar/dependency and
+optional event admission precede one ownership move/title counter/object action/
+document-clock publication. Allocation-free `objects_prepare_name` shares the
+same normalization/uniqueness rules with the legacy model API. The App editor is
+a separate adapter; query caches are not invalidated by this producer.

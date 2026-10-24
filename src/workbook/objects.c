@@ -96,11 +96,12 @@ static void push(ObjectSnapshot *stack,size_t *count,ObjectSnapshot state) {
     stack[(*count)++]=state;
 }
 static void remember(ObjectStore *s) { clear(s->redo,&s->redo_count); push(s->undo,&s->undo_count,snapshot(s)); }
-void objects_adopt_source_transform(ObjectStore *s,ObjectSnapshot *owned) {
+void objects_adopt_definition(ObjectStore *s,ObjectSnapshot *owned) {
     assert(s && owned && owned->items && owned->items!=s->items && owned->count==s->count && s->undo_count<=32 && s->redo_count<=32);
     clear(s->redo,&s->redo_count); push(s->undo,&s->undo_count,(ObjectSnapshot){s->items,s->count});
     s->items=owned->items; s->count=owned->count; *owned=(ObjectSnapshot){0};
 }
+void objects_adopt_source_transform(ObjectStore *s,ObjectSnapshot *owned) { objects_adopt_definition(s,owned); }
 void objects_free(ObjectStore *s) {
     ObjectSnapshot data={s->items,s->count}; objects_snapshot_free(&data); clear(s->undo,&s->undo_count); clear(s->redo,&s->redo_count); memset(s,0,sizeof(*s));
 }
@@ -263,17 +264,24 @@ static bool names_equal(const char *a,const char *b) {
     while (*a && *b) { unsigned char x=(unsigned char)*a++,y=(unsigned char)*b++; if (x>='A' && x<='Z') x+=32; if (y>='A' && y<='Z') y+=32; if (x!=y) return false; }
     return *a==*b;
 }
-bool objects_rename(ObjectStore *s,size_t index,const char *name,char **error) {
-    if (index>=s->count || !name) return fail(error,"Choose a pivot or chart to rename.");
+bool objects_prepare_name(const ObjectStore *s,size_t index,const char *name,char out[DX_OBJECT_NAME_BYTES+1],bool *changed,char **error) {
+    if (!s || index>=s->count || !s->items || !name || !out || !changed) return fail(error,"Choose a pivot or chart to rename.");
     while (isspace((unsigned char)*name)) name++;
     size_t n=strlen(name); while (n && isspace((unsigned char)name[n-1])) n--;
-    if (!n || n>4096) return fail(error,"Names must contain 1–4096 bytes of text.");
+    if (!n || n>DX_OBJECT_NAME_BYTES) return fail(error,"Names must contain 1–4096 bytes of text.");
     for (size_t i=0;i<n;i++) if ((unsigned char)name[i]<32 || name[i]==127) return fail(error,"Names cannot contain control characters.");
-    char *owned=dx_alloc(n+1); memcpy(owned,name,n);
-    for (size_t i=0;i<s->count;i++) if (i!=index && names_equal(owned,s->items[i].name)) { free(owned); return fail(error,"Another pivot or chart already has that name."); }
-    if (!strcmp(owned,s->items[index].name)) { free(owned); return true; }
+    char normalized[DX_OBJECT_NAME_BYTES+1]; memcpy(normalized,name,n); normalized[n]=0;
+    for (size_t i=0;i<s->count;i++) if (i!=index && names_equal(normalized,s->items[i].name)) return fail(error,"Another pivot or chart already has that name.");
     ObjectSnapshot current={s->items,s->count};
-    if (bytes(&current)-strlen(s->items[index].name)+n>DX_OBJECT_CURRENT_BYTES) { free(owned); return fail(error,"Sheet object definitions exceed 8 MiB."); }
+    if (bytes(&current)-strlen(s->items[index].name)+n>DX_OBJECT_CURRENT_BYTES) return fail(error,"Sheet object definitions exceed 8 MiB.");
+    bool different=strcmp(normalized,s->items[index].name)!=0;
+    memcpy(out,normalized,n+1); *changed=different; return true;
+}
+bool objects_rename(ObjectStore *s,size_t index,const char *name,char **error) {
+    char normalized[DX_OBJECT_NAME_BYTES+1]; bool changed=false;
+    if (!objects_prepare_name(s,index,name,normalized,&changed,error)) return false;
+    if (!changed) return true;
+    char *owned=dx_strdup(normalized);
     remember(s); free(s->items[index].name); s->items[index].name=owned; s->title_revision++; return true;
 }
 bool objects_remove(ObjectStore *s,size_t index) {

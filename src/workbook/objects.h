@@ -5,6 +5,7 @@
 #include "cells.h"
 #define DX_OBJECT_CURRENT_BYTES (8*1024*1024)
 #define DX_OBJECT_HISTORY_BYTES (8*1024*1024) /* Each undo/redo snapshot stack. */
+#define DX_OBJECT_NAME_BYTES 4096u
 typedef enum { OBJECT_PIVOT,OBJECT_CHART,OBJECT_TABLE } ObjectKind;
 typedef enum { MARK_BAR,MARK_LINE,MARK_DOT,MARK_SCATTER } ChartMark;
 typedef struct {
@@ -56,6 +57,10 @@ void objects_adopt_source_version(ObjectStore *store,ObjectSnapshot *owned);
    worksheet action once, publishes dirty/document clocks and invalidates jobs.
    This is not a standalone command or safe unchecked snapshot installer. */
 void objects_adopt_source_transform(ObjectStore *store,ObjectSnapshot *owned);
+/* Same nonfallible ownership transfer for admitted, identity-preserving object
+   definition plans (including presentation). The command installs any changed
+   monotonic title/Marks counters AFTER transfer and publishes one action. */
+void objects_adopt_definition(ObjectStore *store,ObjectSnapshot *owned);
 void objects_snapshot_free(ObjectSnapshot *owned);
 /* Conservative source-binding reservation, not exact allocator measurement:
    a non-NULL array reserves DX_MAX_OBJECTS* sizeof(SheetObject), including when
@@ -77,6 +82,13 @@ bool objects_marks(ObjectStore *store,size_t index,const MarkDefinition *marks,c
 bool objects_representation(ObjectStore *store,size_t index,ObjectKind kind,ChartMark mark,
     uint64_t rows,size_t columns,const CellStore *cells,uint64_t source_rows,size_t source_columns,char **error);
 bool objects_rename(ObjectStore *store,size_t index,const char *name,char **error);
+/* Allocation-free shared rename rules: trim, control-byte rejection, sheet-local
+   ASCII-case-insensitive uniqueness and current graph byte limit. out provides
+   DX_OBJECT_NAME_BYTES+1 bytes and receives the normalized name on success.
+   Failure preserves out/changed; no model/history/counter mutation or grammar IO.
+   Trusted readable model/input; full canonical graph validation is separate. */
+bool objects_prepare_name(const ObjectStore *store,size_t index,const char *name,
+    char out[DX_OBJECT_NAME_BYTES+1],bool *changed,char **error);
 bool objects_remove(ObjectStore *store,size_t index);
 bool objects_history(ObjectStore *store,bool redo);
 void objects_trim_history(ObjectStore *store,bool redo,size_t keep);

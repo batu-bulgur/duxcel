@@ -267,7 +267,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4a.2b.2 · P1 · Complete | Table producer App integration; W12c.3c.3b.4a.2b.1. | Route same-connection Table transforms through admitted planning/adoption; retain replacement/composite owners and prove target/dependent/unrelated caches plus narrow input/Undo/Redo/Save/Open and recovery rotation. |
 | W12c.3c.3b.4b · P1 · In progress | Object presentation command admission; W12c.3c.3b.4a. | Retain names, presentation and chart/Marks definitions as complete object events without unnecessary source queries; preserve source links, identity and layout ownership. |
 | W12c.3c.3b.4b.1 · P1 · Complete | Shared object transaction fences; W12c.3c.3b.4a. | Extract the proven identity/request/layout/source/metadata fence for reuse by Table and presentation controllers; keep kind/readiness semantics in each command owner. |
-| W12c.3c.3b.4b.2 · P1 · Queued | Object name command producer/App adapter; W12c.3c.3b.4b.1. | Capture rename draft identity independently from background result completion, reserve a complete object event before mutation, preserve caches/Redo and verify actual editor/Undo/Redo/Save/Open. |
+| W12c.3c.3b.4b.2 · P1 · In progress | Object name command producer/App adapter; W12c.3c.3b.4b.1. | Capture rename draft identity independently from background result completion, reserve a complete object event before mutation, preserve caches/Redo and verify actual editor/Undo/Redo/Save/Open. |
+| W12c.3c.3b.4b.2a · P1 · Complete | Admitted object name producer; W12c.3c.3b.4b.1. | Preserve exact rename draft identity/prior name, rebase unrelated background completion, reserve/recheck a complete object event and publish one title/action/document revision without source queries. |
+| W12c.3c.3b.4b.2b · P1 · Queued | Rename editor App integration; W12c.3c.3b.4b.2a. | Keep stale/invalid drafts, preserve Table/Pivot/Chart Pages and bind actual editor/Undo/Redo/Save/Open to the admitted producer. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1587,3 +1589,18 @@ shared, without relaxing any source/layout/request/metadata fence. The unchanged
 Table scoped module/sanitizer/journal gate and14-stage native workflow passes
 26.468s. Receipt: ignored `w12c3-object-fence-table.log` and run summary. This
 prepares the next presentation producer; it does not broaden App history activation.
+
+
+W12c.3c.3b.4b.2a complete: rename drafts now freeze document/sheet sessions,
+object ID and prior name independently from background result completion. A fresh
+complete object fence captures latest layout/source/cache state at commit; closed
+DXDE reservation precedes eviction, and name/title/action/document clocks publish
+once. Shared allocation-free normalization preserves trim/control/uniqueness/
+size rules for the legacy model API. Generic definition ownership transfer avoids
+another graph copy; title counters cannot wrap and query/Marks/allocator counters
+stay unchanged. The232-case rename,280-case Table,290-case recorder and existing
+object optimized/ASan/UBSan gate passes3.699s;50 tool contracts pass2.522s. Tests
+cover UTF-8, duplicate names, background rebase, stale owners/renames, no-op Redo,
+callback cancellation/pressure, exact source closure and immutable events beyond32
+actions. Receipt: ignored `w12c3-object-name-command*.log`. App integration remains
+next; no retained App history activation is claimed.

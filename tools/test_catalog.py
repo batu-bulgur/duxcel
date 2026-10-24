@@ -82,6 +82,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-name-command": Feature(("object_name_command", "table_command", "history_definition", "objects"), "",
+        ("python3 tools/test.py feature --feature table-command", "python3 tools/test.py native --scenario chart table"),
+        ("src/workbook/object_name_command.c", "src/workbook/object_name_command.h", "src/workbook/objects.c: shared name normalization/definition adoption", "tests/test_object_name_command.c")),
     "source-result-format": Feature(("source_scope", "format"), "source-result-format",
         ("python3 tools/test.py feature --feature table-command", "python3 tools/test.py native --scenario layout --config sanitize"),
         ("src/app/source_format.inc: exact-result/guarded owner interaction", "src/app/app.c: source-result-format layout bootstrap", "src/workbook/source_scope.c", "src/workbook/format.c")),
