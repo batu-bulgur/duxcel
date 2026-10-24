@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-presentation-command": ("build/tests/test_object_presentation_command-gui", "PASS: native object presentation workflow",
+                                    r"^PASS: native object presentation workflow \(15 stages, [1-9]\d* checks\)$", 15),
     "object-name-command": ("build/tests/test_object_name_command-gui", "PASS: native object name workflow",
                             r"^PASS: native object name workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "table-command": ("build/tests/test_table_command-gui", "PASS: native Table transform workflow",
@@ -84,6 +86,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-presentation-command": Feature(("object_presentation_command", "history_definition", "objects"), "object-presentation-command",
+        ("python3 tools/test.py feature --feature object-name-command", "python3 tools/test.py native --scenario chart"),
+        ("src/workbook/object_presentation_command.c", "src/workbook/object_presentation_command.h", "src/app/app.c: mark/measure admission and scatter availability", "tests/test_object_presentation_command.c", "tests/support/object_presentation_command_app.inc")),
     "object-name-command": Feature(("object_name_command", "table_command", "history_definition", "objects"), "object-name-command",
         ("python3 tools/test.py feature --feature table-command", "python3 tools/test.py native --scenario chart table"),
         ("src/workbook/object_name_command.c", "src/workbook/object_name_command.h", "src/workbook/objects.c: shared name normalization/definition adoption", "src/app/app.c: owned rename draft/editor adapter", "tests/test_object_name_command.c", "tests/support/object_name_command_app.inc", "tests/test_journal_session.c: renamed object checkpoint"), ("journal_session",)),

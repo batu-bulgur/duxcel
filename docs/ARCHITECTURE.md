@@ -1062,3 +1062,14 @@ optional event admission precede one ownership move/title counter/object action/
 document-clock publication. Allocation-free `objects_prepare_name` shares the
 same normalization/uniqueness rules with the legacy model API. The App editor is
 a separate adapter; query caches are not invalidated by this producer.
+
+
+`object_presentation_command.c` uses the shared full object fence for immediate
+Chart mark and analytical selected-measure edits. Its allocation-free projection
+measures complete before/after graphs; admitted ownership, grammar, dependency
+and optional DXDE reservation precede one definition move and history action.
+No-op does not allocate, advance clocks or clear Redo. Measure selection advances
+only the title counter; neither operation changes query epochs, layout, source
+links, Marks or allocator state. App owns schema/scatter availability and native
+memory admission, and keeps existing result Pages/jobs. This is a command seam;
+retained App event writing and durable Undo remain separate roadmap work.

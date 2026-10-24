@@ -3,6 +3,7 @@
 #include "../workbook/analysis_command.h"
 #include "../workbook/table_command.h"
 #include "../workbook/object_name_command.h"
+#include "../workbook/object_presentation_command.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
@@ -3335,20 +3336,33 @@ static bool scatter_available(App *a,const SheetObject *o) {
     const PivotField *value=&o->pivot.fields[PIVOT_VALUES][0];
     return x && (value->aggregate==AGG_COUNT || value->aggregate==AGG_DISTINCT || y);
 }
+static bool set_object_presentation(App *a,ObjectPresentationCommand command,const char *message) {
+    SheetObject *o=selected_pivot(a); if (!o) return false;
+    uint64_t id=o->id; Worksheet *sheet=active_sheet(a); char *error=NULL;
+    ObjectPresentationPlanInfo info={0}; ObjectPresentationStatus planned=objects_presentation_measure(&sheet->objects,id,command,&info,&error);
+    bool ok=false;
+    if (planned!=OBJECT_PRESENTATION_READY && planned!=OBJECT_PRESENTATION_NOOP) goto done;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { error=dx_strdup("Presentation planning reservation overflow."); goto done; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (planned==OBJECT_PRESENTATION_READY && source_format_budget_status(a,NULL,info.owned,info.validation_scratch,0,0,0)) goto done;
+#endif
+    ObjectCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)};
+    ObjectCommandTarget target;
+    if (!workbook_prepare_object_fence(&context,a->book.active,id,&target,&error)) goto done;
+    ObjectPresentationResult result=workbook_apply_object_presentation_recorded(&context,&target,command,NULL,&error);
+    ok=result.status==OBJECT_PRESENTATION_APPLIED || result.status==OBJECT_PRESENTATION_NOOP;
+    if (result.status==OBJECT_PRESENTATION_APPLIED) status(a,message);
+done:
+    if (error) status(a,error);
+    free(error); return ok;
+}
 static void set_chart_mark(App *a,ChartMark mark) {
-    SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART || o->mark==mark || (mark==MARK_SCATTER && !scatter_available(a,o))) return;
-    char *error=NULL;
-    if (objects_mark(&active_sheet(a)->objects,(size_t)a->selected_object,mark,&error)) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; status(a,"Chart marks updated."); }
-    else status(a,error);
-    free(error);
+    SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART || (mark==MARK_SCATTER && !scatter_available(a,o))) return;
+    set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MARK,(size_t)mark},"Chart marks updated.");
 }
 static bool set_chart_measure(App *a,size_t measure) {
-    SheetObject *o=selected_pivot(a); if (!o) return false;
-    unsigned char old=o->chart_measure; char *error=NULL;
-    bool ok=objects_chart_measure(&active_sheet(a)->objects,(size_t)a->selected_object,measure,&error);
-    if (ok && old!=measure) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; status(a,"Chart measure updated."); }
-    else if (!ok) status(a,error);
-    free(error); return ok;
+    return set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MEASURE,measure},"Chart measure updated.");
 }
 static void remove_pivot(App *a) {
     if (a->selected_object<0) return;
@@ -7375,7 +7389,7 @@ static bool pivot_keyboard(App *a) {
             begin_author_select(a,MODAL_REPRESENTATION);
         } else if (o->kind==OBJECT_CHART) {
             if (ui_key(KEY_LEFT) && o->mark>MARK_BAR) set_chart_mark(a,(ChartMark)(o->mark-1));
-            if (ui_key(KEY_RIGHT) && o->mark<MARK_SCATTER) set_chart_mark(a,(ChartMark)(o->mark+1));
+            else if (ui_key(KEY_RIGHT) && o->mark<MARK_SCATTER) set_chart_mark(a,(ChartMark)(o->mark+1));
             for (int i=0;i<4;i++) if (ui_pressed(KEY_ONE+i)) set_chart_mark(a,(ChartMark)i);
         }
     } else if (o && a->pivot_focus==8) {
@@ -15588,6 +15602,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
 static void table_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
+static void object_presentation_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_NAME_COMMAND
 static void object_name_command_test_frame(AppSession *session);
 #endif
@@ -16451,6 +16468,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_TABLE_COMMAND
     table_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
+    object_presentation_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_NAME_COMMAND
     object_name_command_test_frame(session);
 #endif
@@ -16738,4 +16758,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_HISTORY_PREVIEW
 #include "../../tests/support/history_preview_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
+#include "../../tests/support/object_presentation_command_app.inc"
 #endif

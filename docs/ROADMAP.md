@@ -270,7 +270,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4b.2 · P1 · Complete | Object name command producer/App adapter; W12c.3c.3b.4b.1. | Capture rename draft identity independently from background result completion, reserve a complete object event before mutation, preserve caches/Redo and verify actual editor/Undo/Redo/Save/Open. |
 | W12c.3c.3b.4b.2a · P1 · Complete | Admitted object name producer; W12c.3c.3b.4b.1. | Preserve exact rename draft identity/prior name, rebase unrelated background completion, reserve/recheck a complete object event and publish one title/action/document revision without source queries. |
 | W12c.3c.3b.4b.2b · P1 · Complete | Rename editor App integration; W12c.3c.3b.4b.2a. | Keep stale/invalid drafts, preserve Table/Pivot/Chart Pages and bind actual editor/Undo/Redo/Save/Open to the admitted producer. |
-| W12c.3c.3b.4b.3 · P1 · Queued | Chart mark/measure presentation commands; W12c.3c.3b.4b.2. | Prepare complete object plans for mark and selected-measure changes, reserve before mutation and preserve query epochs/Pages. Retain App scatter/schema availability checks, no-op Redo and exact title counters. |
+| W12c.3c.3b.4b.3 · P1 · Complete | Chart mark/measure presentation commands; W12c.3c.3b.4b.2. | Prepare complete object plans for mark and selected-measure changes, reserve before mutation and preserve query epochs/Pages. Retain App scatter/schema availability checks, no-op Redo and exact title counters. |
 | W12c.3c.3b.4b.4 · P1 · Queued | Marks binding definition commands; W12c.3c.3b.4b.3. | Retain all authored role/aggregate/grain/measure bindings as one event, preserve source/query boundaries and bounded unsupported behavior, and verify cache/invalidation plus Undo/Redo/Save/Open. |
 | W12c.3c.3b.4b.5 · P1 · Queued | Matrix/chart representation and sizing commands; W12c.3c.3b.4b.4. | Recheck placement/manual/source overlap and complete dimensions before admission; preserve compatible cached results and explicit invalidation when representation semantics require it. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
@@ -1632,3 +1632,20 @@ affected sources rebuilt. Receipts: ignored `w12c3-table-name-bundle.log`,
 launched/closed, no broad regression was run, and browser runtime/Open/Save or
 retained-history activation is not inferred. Next: W12c.3c.3b.4b.3 chart mark/
 measure admission, followed by Marks bindings and representation/sizing.
+
+
+W12c.3c.3b.4b.3 complete: Chart mark and selected-measure edits now use a
+Page-independent presentation controller with the full object transaction fence,
+complete graph/grammar/source closure and optional DXDE reservation before
+history eviction. Changed commands publish one object action/document revision;
+only measure changes advance the title counter. Source/query/Marks/allocator/
+layout state remains intact; no-op preserves Redo even without plan capacity.
+App retains scatter/schema availability and native memory admission. The244-case
+controller,290-case recorder and318-case object modules pass optimized and
+ASan/UBSan. The hidden TEST App passes15 stages/31 checks: actual mark shortcut,
+measure menu, Cmd-Z/Redo, no-op Redo, unavailable scatter rejection, three Page/
+job/request caches,150% layout and v16 Save/Open. Reopen explicitly selects
+lazily loaded offscreen results. Combined gate16.979s (GUI8.207s);14 feature catalog
+contracts pass. Receipts: ignored `w12c3-object-presentation-app.log`,
+`w12c3-object-presentation-tools.log` and run summary. No broad regression or
+retained-history App activation is claimed. Next: W12c.3c.3b.4b.4 Marks bindings.
