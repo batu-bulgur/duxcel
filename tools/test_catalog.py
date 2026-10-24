@@ -66,6 +66,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "app-preview": Feature((), "",
+        ("python3 tools/test.py feature --feature version-controls", "python3 tools/test.py feature --feature recovery-versions"),
+        ("src/app/versionpreview.c", "src/app/versionpreview.h", "tests/test_app_preview.c"),
+        ("app_preview", "preview_worker")),
     "file-conflict": Feature((), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature version-controls"),
         ("src/workbook/archive_write.c: expected destination identity", "src/data/worker_archive.c: copied file expectation", "src/app/versionstate.c: implicit Save policy", "tests/test_file_conflict.c"),

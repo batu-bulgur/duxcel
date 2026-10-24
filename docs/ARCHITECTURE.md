@@ -205,8 +205,13 @@ the ordered Load lane without resolving the job's diagnostic path or creating a
 new working folder. Reply model ownership is separate from protected preview
 metadata. Preview replies deliberately fail the ordinary archive-Open predicate,
 preventing accidental live replacement; cancellation and retirement use the same
-worker ownership boundary. Exact Working Head transfer and read-only UI remain
-W11d.3–W11d.4.
+worker ownership boundary. `app/versionpreview.c` now owns a request/reader/store-instance ticket and moves
+the actual Working Head plus its complete runtime version/file-proof state into
+suspension at adoption. It does not clone away Undo/Redo or allocate new draft
+identities. Historical models can switch while the same working owner stays
+protected; return restores its original ownership and rejects a mismatched live
+reader. App owns job readiness/cancellation and presentation surface preservation.
+Visible read-only capabilities and UI/recovery integration remain W11d.4.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

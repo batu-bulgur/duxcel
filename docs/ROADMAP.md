@@ -198,8 +198,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11d · P1 · In progress | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W11d.1 · P1 · Complete | Isolated owned historical core projection; W11c. | Select an admitted opaque root, verify/read/recheck it into an independent model with a historical reader and no Save path. Preserve working Undo/Redo and cancel without adoption. |
 | W11d.2 · P1 · Complete | Owned historical read jobs/replies; W11d.1. | Retain protected roots through ordered worker reads, cooperative cancellation and late replies; no working-state adoption yet. |
-| W11d.3 · P1 · In progress | Working Head suspension and return controller; W11d.2. | Move the actual owned book/history and runtime write owner rather than copying away Undo; preserve recovery and reject cancelled/wrong-owner preview adoption. |
-| W11d.4 · P1 · Queued | Read-only preview UI and return; W11d.3. | Inspect retained authored sheets/cells/styles/definitions, block all mutation/publication routes and return to the exact Working Head. External results not retained by the current core remain explicitly unavailable. |
+| W11d.3 · P1 · Complete | Working Head suspension and return controller; W11d.2. | Move the actual owned book/history and runtime write owner rather than copying away Undo; preserve recovery and reject cancelled/wrong-owner preview adoption. |
+| W11d.4 · P1 · In progress | Read-only preview UI and return; W11d.3. | Inspect retained authored sheets/cells/styles/definitions, block all mutation/publication routes and return to the exact Working Head. External results not retained by the current core remain explicitly unavailable. |
 | W11e · P1 · Queued | Version milestone compatibility/regression gate; W11d. | Migrate App-produced-file assertions to explicit full-archive readers while preserving v15 fixture/legacy tests. Run the broad milestone gate once, plus package/shared-browser checks; record actual coverage and limits. No silent head-only legacy fallback. |
 | W11f · P1 · Complete | Same-destination Save conflict protection; W11c, prioritized during W11d. | Refuse implicit Save/Tag against changed file identity or another v16 version index; preserve edits/peer tags. Only explicit accepted Save As can replace a changed destination. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
@@ -924,3 +924,17 @@ including accepted same-path Save As without a usable old identity. The26-stage
 Versions GUI passes in21.756s (10.479s GUI), including failed pre-submit epoch/name
 preservation. Evidence uses ignored `build/tests/results/w11f` outputs. This
 correctness fix was prioritized before continuing W11d.3 ownership transfer.
+
+W11d.3 complete: the borrowed typed `app/versionpreview` controller fences reader
+adoption by request, runtime write owner and exact immutable store instance.
+It moves the actual owned Working Head and version/file-proof state into protected
+suspension, switches independent historical models and returns the original pointers,
+Undo/Redo, dirty/path and prepared cell-target identities. Data edits accepted during
+a read move with the latest Working Head at adoption. Cancelled/wrong-owner/replaced-
+store replies never adopt; a return refuses to overwrite an unrelated live owner.
+App remains responsible for readiness, submission/cancellation and presentation
+surfaces; no rendering/focus pointer is retained. The `app-preview` gate passes
+controller and historical worker checks under optimized/ASan/UBSan in12.663s,
+including exact history/pointer restoration, cross-preview switching and R+1 edits.
+Visible read-only capabilities and UI/recovery integration remain W11d.4. Evidence:
+ignored `build/tests/results/w11d3-app-preview.log`.
