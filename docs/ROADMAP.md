@@ -1357,3 +1357,17 @@ The1,046-case optimized/ASan/UBSan object gate passes in3.133s;50 tool contracts
 pass in2.334s. Direct/public bytes match, including maximum graphs and late Table
 semantic rejection. Receipts: ignored `w12c3-compound-object-staging*.log/json`.
 Compound envelope/effect/dependency closure and stream handoff remain next.
+
+Closed compound packet capture/decode complete within W12c.3c.2b.2b: Analysis,
+Objects and their Format composites bind exact changed family pairs, nested
+owners and one deduplicated source union. Complete graph/grammar admission
+precedes copied constituents; encoding writes one final private buffer, and
+failure preserves the prior packet/graph. Extra dependencies, false observation
+counts, wrong effects and partial/unsupported children reject. The583-case packet,
+74-case intent and50-case dependency optimized/ASan/UBSan gate passes in3.635s;
+50 tools pass in2.500s. Coverage includes distinct-owner unions, dormant legacy
+scopes, pending bindings and a >16 MiB compound with exact graph budgets. A
+sanitizer-detected intermediate pointer-arithmetic bound was corrected before
+acceptance. Receipts: ignored `w12c3-definition-event*.log/json`. Stream admission
+must accommodate supported large definition packets under the outer governor;
+App producers/publication remain inactive until their own required slices.

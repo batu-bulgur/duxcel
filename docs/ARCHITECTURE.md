@@ -968,3 +968,17 @@ model/capacity/parser scratch first, never allocates a second complete packet,
 and cannot publish bytes. A failed call preserves written while its caller
 cancels/discards the private buffer; the ordinary public object-packet API still
 replaces an independent owned output atomically only after complete encoding.
+
+
+`workbook/definition_event.c` owns the closed Analysis/Object/Format compound
+packet. Explicit effect masks require complete changed constituent pairs;
+canonical headers and exact sheet/owner/counter associations bind nested assets
+with one source-dependency union. Preparation admits shared grammar/uniqueness/
+source-scope scratch before validation; encoding targets one final private buffer
+without intermediate full object/source copies. All child graphs are inspected
+before decode allocation, and full semantic/effect/dependency closure precedes
+atomic output replacement. No-op input creates no packet; malformed/partial/
+unsupported input preserves prior state. Captured counters remain outside Undo.
+The private prepared view never survives input mutation/reentry. Runtime owner/
+revision readiness, baseline completions, large-payload staging policy and actual
+stream/App/file publication remain separate obligations.

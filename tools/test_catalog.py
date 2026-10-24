@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "definition-event": Feature(("definition_event", "definition_state", "definition_dependencies"), "",
+        ("python3 tools/test.py feature --feature history-format", "python3 tools/test.py feature --feature compound-object-staging"),
+        ("src/workbook/definition_event.c", "src/workbook/definition_event.h", "src/workbook/definition_event_internal.h", "tests/test_definition_event.c")),
     "compound-object-staging": Feature(("objects_asset",), "",
         ("python3 tools/test.py feature --feature compound-preflight", "python3 tools/test.py feature --feature compound-preparation"),
         ("src/workbook/objects_asset.c: direct unpublished compound writer", "src/workbook/objects_asset_internal.h", "tests/test_objects_asset.c")),
