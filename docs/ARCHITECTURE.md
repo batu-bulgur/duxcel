@@ -1083,7 +1083,8 @@ from Page ownership and captures them with the shared full object fence. Unknown
 counts protect the whole source column lane. Complete object/manual/source
 rectangle checks, grammar/source closure and optional event reservation precede
 one definition move and action; extent or model changes during reservation cancel.
-App supplies accepted matrix dimensions, keeps schema/scatter and native memory
+App supplies matrix dimensions from an accepted matching object/result ID,
+keeps shared production result readiness, schema/scatter and native memory
 admission, adjusts matching chart selections and re-resolves render pointers after
 adoption. These changes preserve compatible result Pages and query/Marks/title/
 allocator/source clocks. Retained event IO and durable Undo remain separate.

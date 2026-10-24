@@ -1692,12 +1692,20 @@ schema/scatter checks, native memory admission, exact chart-selection resizing
 and compatible Pages/jobs; matrix conversion requires an accepted result extent.
 Render adapters re-resolve object pointers after graph adoption. The265-case
 layout,244-case presentation,290-case recorder and318-case object optimized/
-ASan/UBSan gate passes18.331s;50 tool contracts pass2.312s. The hidden TEST App
-passes18 stages/39 checks (GUI8.958s): real representation menu, size dialog,
-corner gesture, selection extent, no-op Redo, Cmd-Z/Redo, manual collision
+ASan/UBSan gate passes18.047s;50 tool contracts pass2.312s. The hidden TEST App
+passes18 stages/42 checks (GUI9.013s): real representation menu, size dialog,
+corner gesture, selection extent, representation and sizing Undo/Redo, stale
+Page-owner rejection, no-op Redo, Cmd-Z/Redo, manual collision
 rejection, unchanged three Page/job/request caches,150% layout and v16 Save/Open
 including the untouched blocking note. Receipts: ignored
-`w12c3-object-layout-app.log`, `w12c3-object-layout-tools.log` and run summary.
+`w12c3-object-layout-portable-app.log`, `w12c3-object-layout-tools.log` and run summary.
 No broad regression or retained App writer activation is claimed. Remaining
 source/object producers are now explicitly ordered as W12c.3c.3b.4c–4f; next is
 complete Pivot definition admission rather than early durable-history activation.
+
+
+Layout portability correction: the shared-C Wasm build caught the previously
+native-test-only location of the App result-readiness helper. The helper now
+lives in shared production App code and also requires matching result/object ID;
+no Page from another object can supply a matrix extent. The scoped gate above
+includes explicit representation Undo/Redo and stale-result owner rejection.

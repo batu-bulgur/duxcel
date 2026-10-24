@@ -3303,6 +3303,12 @@ static void draw_summary(App *a,float x,float y,float w,float h) {
     if (ui_button(u,box(x+w-162*s,y+h-54*s,144*s,34*s),"Create summary",true,true)) apply_group(a);
 }
 
+static bool object_ready(App *a,size_t index) {
+    ObjectStore *store=&active_sheet(a)->objects;
+    if (index>=store->count) return false;
+    ObjectView *v=&a->objects[index]; SheetObject *o=&store->items[index];
+    return v->id==o->id && !v->dirty && !v->failed && !v->waiting_count && !v->page.count_pending && v->page.column_count && v->revision==o->revision && v->source_revision==object_source_revision(a,o);
+}
 static SheetObject *selected_pivot(App *a) {
     if (a->step_preview.active) return NULL;
     SheetObject *object=selected_object(a);
@@ -14745,12 +14751,7 @@ static void document_smoke_step(App *a,int *step) {
 failed:
     fprintf(stderr,"FAIL: document guard at stage %d phase %u modal=%d action=%d dirty=%d: %s (%s)\n",*step,prompt_phase,a->modal,a->document_action,a->book.dirty,error ? error : "",a->message ? a->message : ""); free(error); *step=-1;
 }
-static bool object_ready(App *a,size_t index) {
-    ObjectStore *store=&active_sheet(a)->objects;
-    if (index>=store->count) return false;
-    ObjectView *v=&a->objects[index]; SheetObject *o=&store->items[index];
-    return !v->dirty && !v->failed && !v->waiting_count && !v->page.count_pending && v->page.column_count && v->revision==o->revision && v->source_revision==object_source_revision(a,o);
-}
+
 static void table_smoke_step(App *a,int *step) {
     if (*step<0 || *step>=73 || a->busy || a->io_busy || a->values_loading) return;
     if (a->fetch_failed || a->modal==MODAL_ERROR) goto failed;
