@@ -8,9 +8,10 @@ import {probeConfig} from './official_worker_probe.mjs';
 const now=()=>globalThis.performance?.now()??Date.now();
 export const PERSISTENCE_LIMITS=Object.freeze({fixtureBytes:32*1024*1024,exportBytes:64*1024*1024,
     metadataTables:32,metadataColumns:512,ddlBytes:1024*1024,timeoutMs:20000});
-const TABLES=Object.freeze(['cells','columns','filters','formats','marks','meta','objects','pivot_fields',
-    'preferences','queries','sheets','sorts','source_options','table_filters','table_sorts','table_sources']);
-const OWNER_TABLES=Object.freeze([...TABLES,'object_counters','format_scopes','format_selectors','format_guards'].sort());
+const TABLES=Object.freeze(['workbook_identity','sheet_identity','meta','sheets','columns','cells','filters','sorts',
+    'queries','source_options','table_sources','table_filters','table_sorts','objects','pivot_fields','marks',
+    'preferences','formats','object_counters','format_scopes','format_selectors','format_state','format_guards',
+    'source_version_counters','source_versions','source_bindings','format_records','format_fields'].sort());
 const OWNER_HIGH_WATER=Object.freeze(['9007199254740994','18446744073709551615','0']);
 const OWNER_SHEETS=Object.freeze(['Owner lifetime','Exhausted owner','Never allocated']);
 const OWNER_COLUMNS=Object.freeze({
@@ -42,7 +43,7 @@ function ownedBytes(value,label,maximum){
 }
 function metadataTables(mode){
     if(mode!==undefined&&mode!=='owners')throw new TypeError('Persistence probe mode must be omitted or owners');
-    return mode==='owners'?OWNER_TABLES:TABLES;
+    return TABLES;
 }
 export function inspectDuckDBHeader(value,maximum=PERSISTENCE_LIMITS.fixtureBytes){
     const bytes=ownedBytes(value,'DuckDB file',maximum);
@@ -103,7 +104,7 @@ function smallText(value,label,maximum=4096){check(typeof value==='string'&&enco
 
 export async function runPersistenceProbe(input={}){
     const config=persistenceProbeConfig(input),started=now(),checks=[],sql=[],workers=[],controller=new AbortController();
-    const ownerMode=config.mode==='owners',expectedVersion=ownerMode?13:12,expectedTables=metadataTables(config.mode);
+    const ownerMode=config.mode==='owners',expectedVersion=15,expectedTables=metadataTables(config.mode);
     let adapter,api,fixture,exported,fixtureBytes,engineVersion=null,failed=false;
     let acceptedOwners;
     async function step(name,action){
@@ -214,7 +215,7 @@ export async function runPersistenceProbe(input={}){
             return {engineVersion,moduleURL:config.moduleURL,workerURL:config.workerURL,threads:1};
         });
         let metadata;
-        await step(ownerMode?'attach-readonly-real-native-v13-owners':'attach-readonly-real-native-v12',async()=>{
+        await step(ownerMode?'attach-readonly-current-core15-owners':'attach-readonly-current-core15',async()=>{
             await adapter.database.registerFileBuffer(SOURCE_FILE,new Uint8Array(fixtureBytes));
             await query(`ATTACH '${SOURCE_FILE}' AS native_fixture (READ_ONLY)`);
             let rejected=false;
@@ -224,7 +225,7 @@ export async function runPersistenceProbe(input={}){
             metadata=await readMetadata('native_fixture');if(ownerMode)acceptedOwners=metadata;
             return {readOnlyWriteRejected:true,...metadata};
         });
-        await step('create-compatible-file-from-native-metadata-ddl',async()=>{
+        await step('create-current-core-file-from-native-metadata-ddl',async()=>{
             // Start from a separately owned valid file. In pinned 1.32.0 an
             // unregistered generated database cannot be copied through the
             // official file API; an empty registered buffer fails ATTACH.
@@ -295,6 +296,6 @@ export async function runPersistenceProbe(input={}){
     return {ok:!failed,engineVersion,fixture,export:exported,checks,sql,milliseconds:now()-started,ownedWorkersCreated:workers.length,
         ...(ownerMode?{mode:'owners',metadataVersion:acceptedOwners?.version,ownerHighWater:acceptedOwners?.ownerHighWater}:{}),
         scope:ownerMode?
-            'BP0 official Worker/native owner-only v13 file compatibility: exact uint64 owner lifetimes and spatial metadata are rewritten, exported and reopened; scopes/guards remain empty. Native workbook_load readback is a separate harness gate. No scoped-format activation, shared C save codec/controller, blank file creation, source relink, OPFS recovery or browser Save acceptance.':
-            'BP0 official Worker/native-v12 file compatibility only: metadata DDL/rows copied from an actual native fixture, exact sentinel types persisted and exported. Native workbook_load readback is a separate harness gate. No shared C save codec/controller, source relink, OPFS recovery or browser Save acceptance.'};
+            'BP0 official Worker/native current-core15 owner cross-engine: exact uint64 owner lifetimes and spatial metadata are rewritten, exported and reopened; scopes/guards remain empty. Native workbook_load readback is a separate harness gate. No scoped-format activation, shared C save codec/controller, blank file creation, source relink, OPFS recovery or browser Save acceptance.':
+            'BP0 official Worker/current-core15 cross-engine component proof: metadata DDL/rows copied from an actual native fixture, exact sentinel types persisted and exported. Native workbook_load readback is a separate harness gate. No shared C save codec/controller, source relink, OPFS recovery or browser Save acceptance.'};
 }

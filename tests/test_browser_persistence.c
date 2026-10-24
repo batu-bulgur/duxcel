@@ -1,4 +1,4 @@
-/* BP0 file-compatibility gate, not a browser workbook codec or Save feature.
+/* BP0 current-core cross-engine gate, not a browser workbook codec or Save feature.
    create uses the actual native workbook writer; verify loads both files using
    that same production reader, then inspects the Worker-written SQL sentinels.
    Run from the checkout root with private output paths; no GUI is opened. */
@@ -13,8 +13,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-/* BP0 remains a legacy v12 compatibility proof, independent of v15 UI support. */
-#include "support/legacy_workbook.h"
+
 
 static unsigned checks;
 static bool fail(const char *message,int line) {
@@ -161,11 +160,11 @@ static bool create_fixture(const char *path) {
     MarkField label={.name="Amount",.aggregate=AGG_SUM,.measure=true},detail={.name="City"};
     REQUIRE(marks_assign(&marks,MARKS_LABEL,&label,&error) && marks_assign(&marks,MARKS_DETAIL,&detail,&error) &&
         objects_marks(&sheet->objects,2,&marks,&error),error ? error : "Set chart Marks");
-    REQUIRE(test_legacy_save(&book,path,&error),error ? error : "Native workbook_save failed");
-    REQUIRE(version_expected(path,12),"The unchanged lossless BP0 fixture must still be written as native v12");
+    REQUIRE(workbook_save(&book,path,&error),error ? error : "Native workbook_save failed");
+    REQUIRE(version_expected(path,15),"The lossless BP0 fixture must be written as current core15");
     REQUIRE(workbook_load(&loaded,path,&error),error ? error : "Native fixture readback failed");
     REQUIRE(fixture_expected(&loaded),"Native fixture readback content mismatch");
-    printf("PASS browser-persistence create: native v12, 2 sheets, 9 sparse cells, 2 formats, 3 objects; %u checks\n",checks); ok=true;
+    printf("PASS browser-persistence create: current core15, 2 sheets, 9 sparse cells, 2 formats, 3 objects; %u checks\n",checks); ok=true;
 done:
     marks_free(&marks); pivot_free(&pivot); analysis_free(&source); workbook_free(&loaded); workbook_free(&book); free(error); return ok;
 }
@@ -206,23 +205,23 @@ static bool create_owner_fixture(const char *path) {
     REQUIRE(cells_set(&live->cells,20,0,"9007199254740993.1234567890",&error) && cells_set(&live->cells,21,0,"NULL",&error),"Create exact sparse owner fixture cells");
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
     REQUIRE(format_apply(&live->formats,(FormatRange){20,21,0,0},FORMAT_BOLD,bold,&error) && format_apply(&book.sheets[2].formats,(FormatRange){0,DX_SHEET_ROWS-1,1,1},FORMAT_BOLD,bold,&error),error ? error : "Create spatial owner fixture formats");
-    REQUIRE(test_legacy_save(&book,path,&error),error ? error : "Write owner fixture"); REQUIRE(version_expected(path,13),"Owner fixture must use actual v13");
+    REQUIRE(workbook_save(&book,path,&error),error ? error : "Write owner fixture"); REQUIRE(version_expected(path,15),"Owner fixture must use current core15");
     REQUIRE(workbook_load(&loaded,path,&error) && owner_fixture_expected(&loaded) && compare_books(&book,&loaded),error ? error : "Owner fixture native readback");
     REQUIRE(objects_add(&loaded.sheets[0].objects,8,8,"After native reopen",&error)==1 && loaded.sheets[0].objects.items[1].id==base+3,"Reopen reused a retired owner ID");
     REQUIRE(objects_add(&loaded.sheets[1].objects,0,8,"Cannot wrap",&error)<0 && error && !loaded.sheets[1].objects.count,"Reopen lost uint64 exhaustion");
-    printf("PASS browser-persistence create-owners: native owner-only v13, 3 sheets, retired IDs above2^53 and UINT64_MAX exhaustion; %u checks\n",checks); ok=true;
+    printf("PASS browser-persistence create-owners: current core15 owner, 3 sheets, retired IDs above2^53 and UINT64_MAX exhaustion; %u checks\n",checks); ok=true;
 done: workbook_free(&book); workbook_free(&loaded); free(error); return ok;
 }
 static bool verify_owner_files(const char *original,const char *exported) {
     bool ok=false; char *error=NULL; struct stat info; Workbook a,b; workbook_init(&a); workbook_init(&b);
     REQUIRE(lstat(original,&info)==0 && S_ISREG(info.st_mode) && info.st_size>0 && info.st_size<=32*1024*1024,"Original owner fixture must be a bounded regular file");
     REQUIRE(lstat(exported,&info)==0 && S_ISREG(info.st_mode) && info.st_size>0 && info.st_size<=64*1024*1024 && !dx_same_file(original,exported),"Owner export must be a different bounded regular file");
-    REQUIRE(version_expected(original,13) && version_expected(exported,13),"Owner fixture/export must retain actual v13");
+    REQUIRE(version_expected(original,15) && version_expected(exported,15),"Owner fixture/export must retain current core15");
     REQUIRE(workbook_load(&a,original,&error) && workbook_load(&b,exported,&error),error ? error : "Read owner fixture/export");
     REQUIRE(owner_fixture_expected(&a) && owner_fixture_expected(&b) && compare_books(&a,&b),"Official Worker changed the native owner model");
     REQUIRE(objects_add(&b.sheets[0].objects,8,8,"After Worker export",&error)==1 && b.sheets[0].objects.items[1].id==UINT64_C(9007199254740995),"Worker export reused a retired owner ID");
     REQUIRE(objects_add(&b.sheets[1].objects,0,8,"Cannot wrap",&error)<0 && error && !b.sheets[1].objects.count,"Worker export lost owner exhaustion");
-    printf("PASS browser-persistence verify-owners: native owner-only v13 metadata and spatial formats retained with exact uint64 lifetimes; %u checks\n",checks); ok=true;
+    printf("PASS browser-persistence verify-owners: current core15 owner metadata and spatial formats retained with exact uint64 lifetimes; %u checks\n",checks); ok=true;
 done: workbook_free(&a); workbook_free(&b); free(error); return ok;
 }
 static bool scalar_text(duckdb_result *result,idx_t column,const char *expected) {
@@ -238,7 +237,7 @@ static bool verify_sentinels(const char *path) {
     REQUIRE(duckdb_open_ext(path,&database,config,&message)==DuckDBSuccess,message ? message : "Open Worker export in native DuckDB");
     REQUIRE(duckdb_connect(database,&connection)==DuckDBSuccess,"Connect native sentinel reader");
     REQUIRE(sql(connection,"SELECT version FROM _duxcel_workspace.meta LIMIT 2",&result) && duckdb_row_count(&result)==1 &&
-        duckdb_value_int32(&result,0,0)==12,"Worker export lost native v12 workspace version");
+        duckdb_value_int32(&result,0,0)==15,"Worker export lost current core15 workspace version");
     duckdb_destroy_result(&result); result=(duckdb_result){0};
     REQUIRE(sql(connection,"SELECT signed_min,above_js_integer,max_unsigned,exact_decimal,negative_decimal,missing,zero_length,literal_null,utf8 FROM _duxcel_browser_probe.sentinels LIMIT 2",&result),"Read isolated Worker-written sentinels");
     REQUIRE(duckdb_row_count(&result)==1 && duckdb_column_count(&result)==9,"Worker sentinel row/column count changed");
@@ -275,7 +274,7 @@ static bool verify_files(const char *original,const char *exported) {
     REQUIRE(fixture_expected(&a) && fixture_expected(&b),"Original/export fixture contents are incomplete");
     REQUIRE(compare_books(&a,&b),"Native model changed after official Worker copy/export");
     REQUIRE(verify_sentinels(exported),"Worker-persisted exact SQL sentinel verification failed");
-    printf("PASS browser-persistence verify: native v12 model/definitions retained; BIGINT, UBIGINT, DECIMAL(38,10), SQL NULL, empty text, literal NULL and UTF-8 exact; %u checks\n",checks); ok=true;
+    printf("PASS browser-persistence verify: current core15 model/definitions retained; BIGINT, UBIGINT, DECIMAL(38,10), SQL NULL, empty text, literal NULL and UTF-8 exact; %u checks\n",checks); ok=true;
 done: workbook_free(&a); workbook_free(&b); free(error); return ok;
 }
 int main(int argc,char **argv) {

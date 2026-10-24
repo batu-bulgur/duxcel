@@ -194,8 +194,8 @@ def parse_options(argv=None):
     parser.add_argument('--canvas-transform',action='store_true',help='Exercise review picking through an inset canvas CSS transform')
     parser.add_argument('--alt-stress',action='store_true',help='Repeat trusted ribbon Alt shortcuts in the owned platform gate')
     parser.add_argument('--platform',action='store_true',help='Real C DPI/pixel pan/zoom gate (review source fixture)')
-    parser.add_argument('--persistence',action='store_true',help='BP0 real native/Worker v12 file compatibility (test-only, no Save UI claim)')
-    parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 v13 owner lifetime/format package rewrite and native readback; no Save UI claim')
+    parser.add_argument('--persistence',action='store_true',help='BP0 real current-core15 native/Worker cross-engine proof (test-only, no Save UI claim)')
+    parser.add_argument('--persistence-owners',action='store_true',help='Separate BP0 current-core15 owner lifetime/format package rewrite and native readback; no Save UI claim')
     options=parser.parse_args(argv)
     if options.metadata_stream_probe:
         if not options.no_build or options.dpr!=1 or any(value for name,value in vars(options).items() if name not in ('metadata_stream_probe','no_build','dpr')):
@@ -364,7 +364,7 @@ def parse_options(argv=None):
     if options.alt_stress and not options.platform:
         parser.error('--alt-stress requires --platform')
     if options.persistence_owners and any((options.persistence,options.worker_probe,options.worker_driver,options.source,options.review,options.filters,options.busy,options.access_only,options.zoom_only,options.review_controls_only,options.analysis_only,options.analysis_columns_only,options.analysis_statistics_only,options.statistics_only,options.review_query_only,options.review_sql_only,options.review_values_only,options.table_statistics_only,options.mixed_statistics_only,options.platform,options.alt_stress,options.canvas_transform,options.query_apply,options.review_outbox,options.review_offline)):
-        parser.error('--persistence-owners is a separate normal-artifact v13 proof without other profiles/source/engine/report options')
+        parser.error('--persistence-owners is a separate normal-artifact current-core15 proof without other profiles/source/engine/report options')
     if options.persistence and (options.review or options.worker_driver or options.source):
         parser.error('--persistence is a separate normal-artifact file proof without source/review/worker-driver')
     if options.review_outbox and not options.review:
@@ -608,8 +608,8 @@ def main():
             if options.review_guide_only:
                 record['scope']='Actual blank-workbook Help/Guide, wide100 and short150 text/key/action/scroll/backdrop picking and composer cancellation, retained nonzero scroll/focus/document state and ordinary dismissal; no database jobs, saved reports or physical gesture acceptance.'
             if options.persistence_owners:
-                record['scope']='BP0 real native v13 owner-only workbook rewritten/exported/reopened in one official Worker, then native release/ASan verification of exact uint64 object lifetimes, sparse cells and spatial formats. Original fixture/helper hashes stay unchanged; no browser Save/Open codec/controller or OPFS acceptance.'
-                record['persistence_fixture']={'path':str(fixture),'sha256':fixture_hash,'version':13}
+                record['scope']='BP0 real current-core15 owner workbook rewritten/exported/reopened in one official Worker, then native release/ASan verification of exact uint64 object lifetimes, sparse cells and spatial formats. Original fixture/helper hashes stay unchanged; no browser Save/Open codec/controller or OPFS acceptance.'
+                record['persistence_fixture']={'path':str(fixture),'sha256':fixture_hash,'version':15}
             if options.review_sql_only:
                 record['scope']='Actual selected-pivot primary Generated SQL and cached pivot SQL with distinct pinned origins, real multiline source Apply, nonzero SQL wheel/clamp and content/Copy/Close/backdrop picking; cancellation retains source/matrix/manual state with no extra jobs. No Copy activation, clipboard or saved reports.'
             if options.mixed_statistics_only:
