@@ -68,7 +68,7 @@ static void workbook_lifecycle_test_frame(AppSession *session) {
     case 17:
         LIFE_GUI_CHECK(a->book.sheets[2].hidden && s->id==lifecycle_b); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 18:
-        LIFE_GUI_CHECK(!s->hidden && s->id==lifecycle_copy); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+        LIFE_GUI_CHECK(!a->book.sheets[2].hidden && s->id==lifecycle_b); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 19:
         LIFE_GUI_CHECK(a->book.count==2 && s->id==lifecycle_a);
         lifecycle_action(a,a->book.active,SHEET_ACTION_DELETE); lifecycle_high=a->book.sheet_high_water; lifecycle_revision=a->book.command_revision;

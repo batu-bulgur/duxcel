@@ -16,6 +16,8 @@ typedef struct {
 /* Session-only action ordering. One mutation owner; no wrap/recycling. Legacy
    void producers get order0 on exhaustion and the coordinator refuses replay. */
 bool worksheet_history_order_available(void);
+/* Process-local issued chronology bound; read-only, no order reservation. */
+uint64_t worksheet_history_high_water(void);
 uint64_t worksheet_history_issue_order(void);
 /* Trusted owned model, not an archive/pointer-ownership parser.
    Pure bounded query: global newest Undo / earliest Redo, stable sheet identity,

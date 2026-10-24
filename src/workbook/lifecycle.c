@@ -14,6 +14,10 @@ struct WorkbookLifecycle {
     size_t undo_count,redo_count;
     uint64_t latest,floor;
 };
+size_t workbook_lifecycle_metadata_staging(const Workbook *b,WorkbookSheetOperation operation) {
+    if (!b || operation<SHEET_RENAME || operation>SHEET_SHOW) return SIZE_MAX;
+    return (b->lifecycle ? 0 : sizeof(struct WorkbookLifecycle))+(operation==SHEET_RENAME ? 4097u : 0);
+}
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
 }
@@ -185,7 +189,12 @@ WorkbookHistoryResult workbook_lifecycle_step(Workbook *b,bool redo,char **error
     } else {
         bool hidden=b->sheets[index].hidden; b->sheets[index].hidden=e->hidden; e->hidden=hidden;
     }
-    size_t next=locate(b,e->active); e->active=active;
+    /* Navigation is not authored metadata. Retain its stable active sheet for
+       metadata replay whenever it remains visible; presence replay keeps its
+       existing captured-active behavior. */
+    size_t next=locate(b,presence ? e->active : active);
+    if (next==b->count || b->sheets[next].hidden) next=locate(b,e->active);
+    e->active=active;
     b->active=next<b->count && !b->sheets[next].hidden ? next : workbook_visible_sheet(b,0);
     SheetEvent moved=*e; memset(e,0,sizeof(*e));
     if (redo) h->redo_count--; else h->undo_count--;

@@ -14,6 +14,12 @@ typedef struct {
    At least one visible sheet remains. Initial document construction uses the
    low-level workbook_add API; this command requires an existing document. */
 bool workbook_sheet_command(Workbook *book,WorkbookSheetCommand command,bool *changed,char **error);
+/* Conservative additional allocation needed by an actual metadata command:
+   first lifecycle ring plus rename normalization scratch. Existing live/history
+   allocations and the separate canonical command plan remain caller charges.
+   Only rename/reorder/hide/show are admitted; invalid input returns SIZE_MAX.
+   No mutation/allocation. Recheck the same owner before applying the command. */
+size_t workbook_lifecycle_metadata_staging(const Workbook *book,WorkbookSheetOperation operation);
 /* Coordinator internals: session-only, never copied into a Save snapshot. */
 void workbook_lifecycle_free(Workbook *book);
 void workbook_lifecycle_clear_redo(Workbook *book);

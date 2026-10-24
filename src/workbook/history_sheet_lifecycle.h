@@ -10,14 +10,15 @@ typedef struct {
 } WorkbookHistorySheetLifecycleRecord;
 typedef struct {
     bool (*reserve)(void *context,const WorkbookHistorySheetLifecycleRecord *record,void **ticket,char **error);
+    void (*publish)(void *context,void *ticket);
     void (*cancel)(void *context,void *ticket);
     void *context;
 } WorkbookHistorySheetLifecycleRecorder;
 /* Family5 uses the existing stream FIFO/clock/entry/byte owner. A complete
    canonical metadata pair is copied before reserve returns. No dependency asset,
    sheet data, dummy worksheet action or durable publication is fabricated.
-   There is deliberately no public publish callback: a future workbook-level
-   coordinator must prove actual after-model/history/revision adoption before
-   invoking the internal stream publication seam. Stream outlives all tickets. */
+   The recorded metadata producer invokes publish only after actual matching
+   workbook-level model/history/revision adoption. No caller-supplied coherent
+   flag authorizes publication. Stream outlives all tickets. */
 WorkbookHistorySheetLifecycleRecorder workbook_history_stream_sheet_lifecycle_recorder(WorkbookHistoryStream *stream);
 #endif

@@ -55,8 +55,8 @@ static void metadata_and_creation(void) {
     command(&b,(WorkbookSheetCommand){.operation=SHEET_REORDER,.sheet=0,.destination=1});
     command(&b,(WorkbookSheetCommand){.operation=SHEET_HIDE,.sheet=1});
     CHECK(b.sheets[1].hidden && b.active==0);
-    step(&b,false,true); CHECK(!b.sheets[1].hidden && b.active==1);
-    step(&b,false,true); CHECK(b.sheets[0].id==id && b.active==0);
+    step(&b,false,true); CHECK(!b.sheets[1].hidden && b.active==0);
+    step(&b,false,true); CHECK(b.sheets[0].id==id && b.active==1);
     step(&b,false,true); CHECK(!strcmp(b.sheets[0].name,"A"));
     step(&b,false,false); CHECK(!*cells_get(&b.sheets[0].cells,3,2));
     step(&b,true,false); step(&b,true,true); step(&b,true,true); step(&b,true,true);

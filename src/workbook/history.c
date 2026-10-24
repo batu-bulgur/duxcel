@@ -4,6 +4,7 @@
 #include <string.h>
 static uint64_t issued_order;
 bool worksheet_history_order_available(void) { return issued_order<UINT64_MAX; }
+uint64_t worksheet_history_high_water(void) { return issued_order; }
 uint64_t worksheet_history_issue_order(void) { return worksheet_history_order_available() ? ++issued_order : 0; }
 static WorkbookHistoryResult fail(WorkbookHistoryResult result,WorkbookHistoryStatus status,char **error,const char *message) {
     result.status=status;

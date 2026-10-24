@@ -21,5 +21,5 @@ static bool reserve(void *context,const WorkbookHistorySheetLifecycleRecord *r,v
     memcpy(workbook_history_reservation_payload(*ticket),data,info.bytes); return true;
 }
 WorkbookHistorySheetLifecycleRecorder workbook_history_stream_sheet_lifecycle_recorder(WorkbookHistoryStream *stream) {
-    return (WorkbookHistorySheetLifecycleRecorder){reserve,workbook_history_stream_cancel,stream};
+    return (WorkbookHistorySheetLifecycleRecorder){reserve,workbook_history_stream_publish,workbook_history_stream_cancel,stream};
 }
