@@ -399,3 +399,12 @@ adapter/test objects; production/native and Wasm inventories exclude them.
 `tests/support/history_preview_app.inc`. Its versioned workbook, deliberately
 unavailable source locator and captures are generated under ignored `build/`;
 no external source is queried during historical inspection.
+
+
+`test_sheet_lifecycle.c` authors finite metadata pairs in C and tests canonical
+framing, all truncated prefixes, malformed text/IDs/visibility, maximum bounds,
+owned decoding and navigation-compatible Undo/Redo admission. It uses no App or
+external fixtures. `test_definition_origin.c` builds finite workbook/source
+models in C, decodes their canonical sealed assets and checks exact owner/reply,
+pressure/stale/terminal fences plus independent Saved/asset lifetime. Its scoped
+plan includes the adjacent baseline module; neither pure gate launches a GUI.

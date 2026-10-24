@@ -1203,3 +1203,18 @@ identity/root, has strict schema/value admission, survives native Save/Open and
 participates in complete-core equality. Ordinary files omit absent provenance;
 older strict readers reject files containing this extension. Missing external
 rows/results are not fabricated, and selected-history export remains W14.
+
+
+`definition_origin.c` provides a runtime-only OPEN→ADMITTED owner, separate from
+Saved/recovery roots. Exact document/sheet/session/request/source descriptors
+fence DATABASE default-relation completion. Completion preserves user history
+and clocks; sealing owns one independent canonical Analysis/Object/source-ledger/
+format arena. Terminal assets cannot be patched or reopened by clearing an App
+flag. The model is verified; App reply/baseline activation remains separate.
+
+`sheet_lifecycle.c` encodes complete ordered metadata pairs for one unchanged
+stable sheet-ID set. Preflight/decode/admission preserve exact names/order/hidden
+flags and allocator bounds. Active-sheet navigation is not an authored effect:
+active-only pairs are no-ops, and admission keeps the live active sheet when
+visible in the target, otherwise using the captured valid fallback. This is a
+payload prerequisite, not workbook action/history adoption or detached sheet data.

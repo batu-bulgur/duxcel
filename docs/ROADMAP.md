@@ -248,7 +248,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3 · P1 · In progress | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
 | W12c.3c.3a · P1 · In progress | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
 | W12c.3c.3a.1 · P1 · Complete | Resolved-relation event admission; W12c.3c.2. | Reject retained events containing unresolved DATABASE primary/Table definitions before reservation; preserve legacy/core packet compatibility and distinguish NULL default selection from invalid empty identifiers. |
-| W12c.3c.3a.2 · P1 · Queued | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
+| W12c.3c.3a.2 · P1 · In progress | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
+| W12c.3c.3a.2a · P1 · Complete | Immutable working-origin model; W12c.3c.3a.1 and canonical definition/source/format assets. | Exact runtime/request/primary/Table fences admit only default-relation completion while OPEN, then one canonical arena seals ADMITTED. No user action, mutation of Saved roots or App activation. |
+| W12c.3c.3a.2b · P1 · In progress | Origin-owned baseline bridge and precise memory admission; W12c.3c.3a.2a. | Derive open/epoch proof from the actual opaque owner, normalize before sealing, budget all owned assets/parser scratch and retain terminal origin bytes. App reply integration and new-primary publication stay explicit. |
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
@@ -290,7 +292,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.4.1 · P1 · In progress | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
-| W12c.5.1 · P1 · In progress | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
+| W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
+| W12c.5.2 · P1 · In progress | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
@@ -2018,3 +2021,22 @@ No user App was launched or closed. The same shared-C normal Wasm target builds
 in 29.428s; this is compile/package portability evidence, not browser runtime or
 workbook-IO acceptance. Fourteen feature-catalog contracts pass in 0.009s after
 correcting W13's deferred worker gate name (`991fe74`); product runtime is unchanged.
+
+
+W12c.5.1 integrated: `7321316` owns canonical ordered metadata pairs, strict
+bounded preflight/decode and navigation-compatible admission. Active-only changes
+are no-ops; Undo keeps a currently visible active sheet or uses the validated
+target fallback, without rewinding allocator high-water. The focused combined
+`sheet-lifecycle` gate passes 485 assertions per optimized/ASan/UBSan build in
+3.698s, zero App stages. Receipt: `runs/20261024T143035-feature-55766/summary.json`
+under `build/tests/results/`. Fourteen catalog contracts pass after preserving
+executable deferred coverage. App adoption/topology payloads remain open.
+
+W12c.3c.3a.2a integrated: `a2bbb7a` owns OPEN→ADMITTED working origins, exact
+primary/Table/routed reply fences and one immutable canonical definition/source/
+format arena. Independent legacy Saved models and user histories stay unchanged;
+sealed bytes survive the live model's disposal. The focused `definition-origin`
+gate passes 240 origin and 24 baseline assertions per optimized/ASan/UBSan build
+in 4.852s, zero App stages. Receipt: `runs/20261024T143049-feature-56008/summary.json`.
+The actual origin-to-baseline bridge, App adapters and new-source publication
+remain dependency work; this does not activate retained-history IO.
