@@ -769,3 +769,11 @@ allocation. Native journal validation/reservation uses this before cell mutation
 The queue still owns one allocation until commit/cancel/disposal; operation clocks
 and document identity belong to the outer envelope. This body is not typed source
 SQL NULL/empty text, a file format or activated cross-session history.
+
+`workbook/cell_delta_codec.c` encodes sparse manual deltas as a closed payload
+family (encoding1), using fixed little-endian integers and exact raw spans.
+Its34-byte DXCD header contains target, lengths and zero reserved flags, followed
+by before/after bytes. Decode borrows the complete immutable asset after strict
+shape/value checks. The outer event/archive adapter must prove document binding,
+operation identity, digest and asset lifetime; this family does not select a
+`.dxls` version or activate durable Undo. No process struct is serialized.

@@ -213,7 +213,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c · P1 · In progress | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
 | W12c.1 · P1 · In progress | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
 | W12c.1a · P1 · Complete | Shared exact sparse-cell payload ownership; W12b.2a. | Validate target/text/clear/no-op and capture exact before/after spans into caller-owned bounded storage before mutation. Existing native recovery reservation uses the same shared controller without another allocation or wire migration. |
-| W12c.1b · P1 · Queued | Closed sparse-cell payload encoding; W12c.1a. | Canonical target/value bytes with explicit family encoding, strict bounds, unsupported/truncated/trailing rejection and borrowed decode lifetime. No raw C struct or process/session clock in the payload. |
+| W12c.1b · P1 · Complete | Closed sparse-cell payload encoding; W12c.1a. | Canonical target/value bytes with explicit family encoding, strict bounds, unsupported/truncated/trailing rejection and borrowed decode lifetime. No raw C struct or process/session clock in the payload. |
 | W12c.1c · P1 · Queued | Retained event admission and producer handoff; W12c.1b. | Reserve owned event/envelope/payload before changing cells or evicting session rings, recheck owner/revisions and cancel on rejection/no-op. Preserve event IDs and exact inverse beyond session retention; activate cross-session history only after all families/publication are ready. |
 | W12c.2 · P1 · Queued | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
@@ -1087,3 +1087,13 @@ App journal workflow pass in22.614s (GUI7.811s). The55 tool contracts pass in13.
 shared Wasm builds. Evidence: ignored `w12c1-{cell-delta,tool-contracts,web-build}.log`.
 This is the common owned payload boundary, not retained cross-session Undo or a
 new `.dxls` profile; source typed NULL/zero-length values are outside sparse text.
+
+W12c.1b complete: sparse-cell encoding1 uses a canonical34-byte DXCD header
+(fixed little-endian target/length fields, zero reserved flags) plus exact value
+bytes, independent of host structs/pointers/session clocks. The closed decoder
+rejects unsupported encoding, truncated/trailing/oversized/NUL/no-op records and
+borrows only the retained input asset. This is an internal payload family, not a
+new `.dxls` profile or activated event producer. The codec and43-case capture
+optimized/sanitized gate passes in2.715s;55 tool contracts pass in11.841s.
+Evidence: ignored `w12c1-codec*.log`. Event admission/producer handoff remains
+W12c.1c; final file binding follows all supported payload families.

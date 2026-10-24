@@ -70,6 +70,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "cell-delta-codec": Feature(("cell_delta_codec", "cell_delta"), "",
+        ("python3 tools/test.py feature --feature cell-delta", "python3 tools/test.py feature --feature history-path"),
+        ("src/workbook/cell_delta_codec.c", "src/workbook/cell_delta_codec.h", "tests/test_cell_delta_codec.c")),
     "cell-delta": Feature(("cell_delta",), "journal-session",
         ("python3 tools/test.py feature --feature journal-faults", "python3 tools/test.py feature --feature recovery-versions"),
         ("src/workbook/cell_delta.c", "src/workbook/cell_delta.h", "src/workbook/journal.c: shared sparse value validation", "src/workbook/journal_queue.c: arena capture before mutation", "tests/test_cell_delta.c"),

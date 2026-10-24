@@ -277,3 +277,10 @@ nonterminated/Unicode/DECIMAL/literal-NULL bytes, clear/inverse, immutable copie
 inputs,64-KiB sides, arena sentinels and no-op/invalid/budget rejection are checked.
 The native consumer keeps its existing single reservation allocation and schema;
 filesystem faults/recovery interactions remain explicitly deferred by this plan.
+
+`cell-delta-codec` selects only its canonical byte-oracle/closed-decode checks and
+`cell_delta`, optimized and sanitized. It covers every truncation of the finite
+oracle, unsupported encoding, reserved bits, target/length bounds, trailing bytes,
+embedded NUL, no-op, raw Unicode/clear, maximum two-sided64-KiB values and unchanged
+outputs/arena on rejection. Native journal/App and history interactions stay
+implemented/deferred; this new family has no activated App/archive consumer.
