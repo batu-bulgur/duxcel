@@ -290,11 +290,13 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4f.2 · P1 · Complete | Already-bound source formatting; W12c.3c.3b.4f.1. | Reuse immutable admitted source versions, reserve/recheck effect8 and exact format history, and preserve Redo/dirty/clocks on no-op without relabeling legacy finite styles. |
 | W12c.3c.3b.4f.3 · P1 · Queued | Verified legacy baseline/origin admission; W12c.3c.3a.2, W12c.3c.3b.4f.2. | Normalize current/Undo/Redo formatting atomically only through an authoritative open working-origin owner. Never rewrite sealed Saved/recovery assets or manufacture a user action. Model precursor remains separate from App activation. |
 | W12c.3c.3b.4f.3a · P1 · Complete | Atomic baseline model prerequisite; W12c.3c.3b.4f.2. | Opaque independent plan owns the full normalized current/Undo/Redo formats, primary binding and immutable ledger; explicit origin epoch/open proof fences adoption without creating an action or altering Saved assets. App authority is still W12c.3c.3a.2. |
-| W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
-| W12c.4.1 · P1 · In progress | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
+| W12c.4 · P1 · In progress | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
+| W12c.4.1 · P1 · Complete | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
+| W12c.4.2 · P1 · In progress | Manual-only row insertion/deletion; W12c.4.1. | Reuse complete sparse cell/format events and owner fences for bounded row actions. Keep column-width metadata, source/object axes and paste as explicit complete-effect prerequisites. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
-| W12c.5.2 · P1 · In progress | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
+| W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
+| W12c.5.3 · P1 · In progress | Guarded sheet-metadata adoption/publication; W12c.5.2 and existing workbook lifecycle coordinator. | Reserve before lifecycle eviction, adopt through the genuine workbook action, then prove exact after-metadata/session/revision/chronology before publication. Native metadata controls are a narrow child; detached topology and parent lifecycle activation remain separate. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
@@ -1908,9 +1910,9 @@ agent or a module result with integrated product acceptance.
 | Lane / managed worktree | Dependency-ready scope | Reconciliation boundary |
 | --- | --- | --- |
 | `roadmap-isolation` · Stopped | Verified build/test isolation infrastructure | No active assignment; leave this agent stopped as requested |
-| `roadmap-object-create` · Active | W12c.4.1 manual-only range event/producer; creation complete | Own range_event/history_range/range_command; family4 reserved; mixed source/object integration waits for closure |
+| `roadmap-object-create` · Active | W12c.4.2 manual row actions; manual move/replace complete | Own range_event/history_range/range_command; family4 reserved; mixed source/object integration waits for closure |
 | `roadmap-source-format` · Active | W12c.3c.3a.2 authoritative working-origin completion | Own source-origin/default relation and verified baseline integration; no retained writer activation |
-| `roadmap-history-save-as` · Active | W12c.5.1 canonical ordered sheet-metadata prerequisite; W13 complete | Own sheet_lifecycle metadata codec; same stable ID set, no topology/App activation; future envelope family5 reserved |
+| `roadmap-history-save-as` · Active | W12c.5.3 guarded metadata adoption; payload/preparation and W13 complete | Own sheet_lifecycle metadata codec; same stable ID set, no topology/App activation; future envelope family5 reserved |
 
 Every checkout keeps private `build/` fixtures/binaries/receipts. The user's
 follow-up supersedes whole-command serialization: take the shared compilation
@@ -2052,3 +2054,25 @@ Combined `definition-origin` passes 275 origin, 136 baseline and 24 readiness
 checks per optimized/ASan/UBSan build in 7.621s, zero App stages; receipt
 `build/tests/results/runs/20261024T143406-feature-59079/summary.json`.
 App adapters and remaining origin publication are not claimed by this model gate.
+
+
+W12c.4.1 integrated: `0e0cc03` routes source/object-free manual Move/Replace
+through one sparse cell/format producer. Family4 DXRE owns sorted exact changed
+cells and optional full FormatDelta with truthful effects2/8/10; reservation and
+full owner recheck precede history eviction/adoption. A captured stale Replace
+cannot bypass fences through a no-op. Main `range-command` passes all four modules
+in optimized/ASan/UBSan plus 16 hidden native stages/36 checks in 23.733s (GUI
+8.450s); receipt `build/tests/results/runs/20261024T143517-feature-59715/summary.json`.
+The modules assert 21 planner, 162 packet, 196 command and 13 recorder checks per
+configuration. Mixed source/object ranges, axes and paste retain their complete
+existing paths; retained App writer and durable Undo remain inactive.
+
+W12c.5.2 integrated: `e0d0cd3` prepares exact stable-ID rename/reorder/visibility
+plans with real naming/chronology semantics and owns cancellable family5 FIFO
+reservations. Callback drift cancels before model/clocks/history change. There is
+no public unchecked publication or dummy worksheet edit. The focused combined
+`sheet-lifecycle-command` gate passes 116 command and 485 codec checks per
+optimized/ASan/UBSan build in 4.212s, zero App stages; receipt
+`build/tests/results/runs/20261024T143659-feature-60476/summary.json`.
+Fourteen catalog contracts also pass. Actual metadata adoption/publication is the
+next child; detached sheet topology remains separate.

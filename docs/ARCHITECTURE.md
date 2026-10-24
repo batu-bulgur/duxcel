@@ -1218,3 +1218,19 @@ flags and allocator bounds. Active-sheet navigation is not an authored effect:
 active-only pairs are no-ops, and admission keeps the live active sheet when
 visible in the target, otherwise using the captured valid fallback. This is a
 payload prerequisite, not workbook action/history adoption or detached sheet data.
+
+
+`range_command.c` owns source/object-free manual range Move/Replace. Independent
+sparse cell and format plans produce truthful effects2/8/10; `range_event.c`
+encodes canonical changed-cell deltas plus optional full format pairs as DXRE.
+`history_range.c` reserves one family4 payload before either session journal can
+evict. Complete owner/request/primary/cell/format fences are rechecked before
+nonfallible transfers and one chronological action/document revision. Captured
+Replace confirmation also fences no-op paths. App owns readiness, budgets,
+selection and dialogs; mixed sources/objects, axes and paste remain separate.
+
+`sheet_lifecycle_command.c` prepares owned metadata pairs using the actual naming
+and chronology helpers. `history_sheet_lifecycle.c` reserves family5 bytes under
+existing FIFO ownership. Preparation/reservation/cancellation do not mutate the
+workbook or publish history; genuine workbook action and validated after-state
+publication remain the next adapter boundary.
