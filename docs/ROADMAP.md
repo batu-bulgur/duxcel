@@ -254,7 +254,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
 | W12c.3c.3b.3 · P1 · In progress | Remaining primary same-connection adapters; W12c.3c.3b.2. | Prepare sort/filter/group/reset/query after-plans before adoption; preserve schema/readiness and source-format budget ownership. Prove each migrated lane with focused module/input coverage. |
 | W12c.3c.3b.3a · P1 · Complete | Primary sort/filter command adapters; W12c.3c.3b.2. | Share typed budget/adoption helpers with unique rows; prepare complete sort/filter plans, preserve runtime query/selection behavior and prove real ribbon input, no-op Redo, Undo/Redo and Save/Open. |
-| W12c.3c.3b.3b · P1 · Queued | Primary group/reset/query adapters; W12c.3c.3b.3a. | Prepare complete after-plans for grouping, reset/clear and validated source queries, rejecting stale/unready input and preserving drafts and source identity. |
+| W12c.3c.3b.3b · P1 · Complete | Primary group/reset/query adapters; W12c.3c.3b.3a. | Prepare complete after-plans for grouping, reset/clear and validated source queries, rejecting stale/unready input and preserving drafts and source identity. |
+| W12c.3c.3b.3c · P1 · Queued | Primary pipeline step edits; W12c.3c.3b.3b. | Route filter/sort reordering and step removal through coherent command admission. Preserve cached result/query epochs for filter-display reordering while recording authored order and preserving Undo/Redo. |
 | W12c.3c.3b.4 · P1 · Queued | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1450,3 +1451,20 @@ checks/config);50 tool contracts pass2.514s. Receipts: ignored
 `w12c3-primary-filter-sort*.log` and run summaries. Broader sort/filter scenarios
 remain registered for milestone coverage. Group/reset/validated-query migration
 is the next primary lane; retained App history remains inactive.
+
+
+W12c.3c.3b.3b complete: grouping, reset, Clear filters and validated primary
+source-query application now adopt independent complete after-plans through the
+shared command boundary. Reset/Clear with no authored change preserve Redo and
+query clocks. Query admission moves the worker reply's already-owned definition
+instead of cloning another full graph; failed validation/admission keeps editor
+text and the current source. Native accounting includes the held reply wrapper.
+The222-case command and290-case recorder optimized/ASan/UBSan gate plus hidden
+TEST App passes16.551s:14 GUI stages/32 checks cover exact grouped totals,
+Cmd-Z/Redo, no-op reset, actual Command-Enter invalid/valid SQL, draft retention,
+query ownership after reply disposal, clear/reset semantics and v16 Save/Open.
+The named sort/filter interaction passes13.785s (release/11 GUI stages);50 tool
+contracts pass2.694s. Receipts: ignored `w12c3-primary-group-query*.log` and run
+summaries. Primary pipeline step editing is the remaining same-connection lane;
+connection replacement/object composites remain separate and retained App history
+is still inactive.

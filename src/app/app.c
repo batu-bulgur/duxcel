@@ -1321,13 +1321,15 @@ static void remember(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
 #include "source_format.inc"
 #endif
-static bool primary_transform_budget(App *a,const Analysis *proposal,size_t *validation,char **error) {
+static bool primary_transform_budget(App *a,const Analysis *proposal,size_t *validation,size_t reply_owned,char **error) {
     if (!workbook_analysis_transform_scratch(active_sheet(a),&a->analysis,proposal,validation,error)) return false;
 #ifndef DUXCEL_BROWSER_HOST
-    if (source_format_budget_status(a,NULL,analysis_bytes(proposal),*validation,0,0,0)) {
+    if (source_format_budget_status(a,NULL,analysis_bytes(proposal),*validation,reply_owned,0,0)) {
         if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Primary transformation exceeds the current memory budget."); }
         return false;
     }
+#else
+    (void)reply_owned;
 #endif
     return true;
 }
@@ -2001,7 +2003,13 @@ static void receive_source_validation(App *a,QueryReply *r) {
         if (!set_table_source(a,(size_t)a->query_object,&r->analysis)) return;
         clear_values_cache(a); a->field_matches_valid=false;
     } else {
-        remember(a); analysis_free(&a->analysis); a->analysis=analysis_copy(&r->analysis); change_analysis(a,true);
+        bool changed=false; size_t validation=0; char *error=NULL;
+        /* The private validation reply already owns the complete after-plan.
+           Move it into the command instead of cloning another full definition. */
+        if (!primary_transform_budget(a,&r->analysis,&validation,sizeof(*r),&error) || !primary_transform_adopt(a,&r->analysis,validation,&changed,&error)) {
+            free(a->query_error); a->query_error=error; return;
+        }
+        if (changed) change_analysis(a,true);
     }
     a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Source query applied. Undo restores the previous definition.");
 }
@@ -2437,7 +2445,7 @@ static void apply_sort_order(App *a,const Analysis *order) {
         AnalysisSort sort=analysis_sort_at(order,i);
         if (!analysis_sort_set(&next,sort.column,sort.descending,true,&error)) { status(a,error); free(error); analysis_free(&next); return; }
     }
-    if (!primary_transform_budget(a,&next,&validation,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
         status(a,error); free(error); analysis_free(&next); return;
     }
     free(error); if (!changed) return;
@@ -2630,10 +2638,18 @@ static void set_source_filter(App *a,const char *column,FilterOp op,const char *
     else if (!analysis_filter_set(&next,column,op,value,&error)) { status(a,error); free(error); analysis_free(&next); return; }
     for (size_t c=0;c<a->page.column_count;c++) if (!strcmp(a->page.columns[c].name,column)) analysis_filter_number(&next,column,a->page.columns[c].number_type);
     bool changed=false; size_t validation=0;
-    if (!primary_transform_budget(a,&next,&validation,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
         status(a,error); free(error); analysis_free(&next); return;
     }
     free(error); a->modal=MODAL_NONE; if (changed) change_analysis(a,false);
+}
+static void clear_primary_filters(App *a) {
+    if (!a->analysis.filter_column && !a->analysis.filter_count) return;
+    Analysis next=analysis_copy(&a->analysis); analysis_filters_clear(&next); bool changed=false; size_t validation=0; char *error=NULL;
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+        status(a,error); free(error); analysis_free(&next); return;
+    }
+    free(error); if (changed) change_analysis(a,false);
 }
 #ifndef DUXCEL_BROWSER_HOST
 static void apply_filter(App *a) {
@@ -2643,19 +2659,21 @@ static void apply_filter(App *a) {
 #endif
 static void apply_group(App *a) {
     if (a->field>=a->page.column_count || a->measure>=a->page.column_count) return;
-    remember(a); free(a->analysis.group_column); free(a->analysis.measure_column); analysis_sorts_clear(&a->analysis);
-    a->analysis.group_column=dx_strdup(a->page.columns[a->field].name);
-    a->analysis.measure_column=dx_strdup(a->page.columns[a->measure].name);
-    a->analysis.aggregate=a->aggregate; a->analysis.sort_column=NULL;
-    a->modal=MODAL_NONE; change_analysis(a,true);
+    Analysis next=analysis_copy(&a->analysis); free(next.group_column); free(next.measure_column); analysis_sorts_clear(&next);
+    next.group_column=dx_strdup(a->page.columns[a->field].name); next.measure_column=dx_strdup(a->page.columns[a->measure].name); next.aggregate=a->aggregate;
+    bool changed=false; size_t validation=0; char *error=NULL;
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+        status(a,error); free(error); analysis_free(&next); return;
+    }
+    free(error); a->modal=MODAL_NONE; if (changed) change_analysis(a,true);
 }
-static void clear_transforms(App *a) {
-    a->analysis.unique_rows=false;
-    analysis_filters_clear(&a->analysis);
-    free(a->analysis.group_column); a->analysis.group_column=NULL;
-    free(a->analysis.measure_column); a->analysis.measure_column=NULL;
-    analysis_sorts_clear(&a->analysis);
+static void clear_analysis_transforms(Analysis *analysis) {
+    analysis->unique_rows=false; analysis_filters_clear(analysis);
+    free(analysis->group_column); analysis->group_column=NULL;
+    free(analysis->measure_column); analysis->measure_column=NULL;
+    analysis_sorts_clear(analysis);
 }
+static void clear_transforms(App *a) { clear_analysis_transforms(&a->analysis); }
 #ifndef DUXCEL_BROWSER_HOST
 static void reset_analysis(App *a) {
     SheetObject *object=selected_object(a);
@@ -2664,7 +2682,11 @@ static void reset_analysis(App *a) {
         free(source.group_column); free(source.measure_column); source.group_column=source.measure_column=NULL;
         set_table_source(a,(size_t)a->selected_object,&source); analysis_free(&source); return;
     }
-    remember(a); clear_transforms(a); change_analysis(a,true);
+    Analysis next=analysis_copy(&a->analysis); clear_analysis_transforms(&next); bool changed=false; size_t validation=0; char *error=NULL;
+    if (!primary_transform_budget(a,&next,&validation,0,&error) || !primary_transform_adopt(a,&next,validation,&changed,&error)) {
+        status(a,error); free(error); analysis_free(&next); return;
+    }
+    free(error); if (changed) change_analysis(a,true);
 }
 #endif
 static bool set_unique_rows(App *a,int index,bool unique) {
@@ -2681,7 +2703,7 @@ static bool set_unique_rows(App *a,int index,bool unique) {
         /* Admit candidate coexistence/grammar before copying the authoritative
            primary. Connection replacement and Table composites keep their owner. */
         Analysis proposal=a->analysis; proposal.unique_rows=unique; size_t validation=0; char *error=NULL;
-        if (!primary_transform_budget(a,&proposal,&validation,&error)) { status(a,error); free(error); return false; }
+        if (!primary_transform_budget(a,&proposal,&validation,0,&error)) { status(a,error); free(error); return false; }
         Analysis next=analysis_copy(&proposal); bool changed=false;
         bool applied=primary_transform_adopt(a,&next,validation,&changed,&error);
         analysis_free(&next);
@@ -7782,7 +7804,7 @@ static void run_action(App *a,UIAction action) {
         else { size_t previous=a->grid.col; a->grid.col=column; open_modal(a,MODAL_FILTER); a->grid.col=previous; } break;
     case ACTION_CLEAR_FILTERS:
         if (source_index>=0) { Analysis copy=analysis_copy(source); analysis_filters_clear(&copy); set_table_source(a,(size_t)source_index,&copy); analysis_free(&copy); }
-        else { remember(a); analysis_filters_clear(&a->analysis); change_analysis(a,false); } break;
+        else clear_primary_filters(a); break;
     case ACTION_CREATE_VIEW: if (!selected_pivot(a)) create_pivot(a); else { a->fields_visible=true; a->pivot_focus=1; } break;
     case ACTION_MATRIX: case ACTION_BAR: case ACTION_LINE:
         if (!selected_pivot(a)) { if (action==ACTION_MATRIX) create_pivot(a); else create_chart(a); }
@@ -15485,6 +15507,9 @@ static void analysis_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_TRANSFORMS
 static void primary_transforms_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_QUERY
+static void primary_query_test_frame(AppSession *session);
+#endif
 struct AppSession {
     App app;
     AppOptions options;
@@ -16336,6 +16361,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_TRANSFORMS
     primary_transforms_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_QUERY
+    primary_query_test_frame(session);
+#endif
 #ifdef DUXCEL_BROWSER_HOST
     bool file_before_shortcuts=a->file_menu;
 #endif
@@ -16576,6 +16604,9 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_PRIMARY_TRANSFORMS
 #include "../../tests/support/primary_transforms_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_PRIMARY_QUERY
+#include "../../tests/support/primary_query_app.inc"
 #endif
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
