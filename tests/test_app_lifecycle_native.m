@@ -82,4 +82,17 @@ bool dx_test_session_native_input(void) {
         return received && !window.visible && !window.keyWindow && IsWindowHidden() && !IsWindowFocused();
     }
 }
+/* Narrow native menu bridge used by the Versions feature fixture. */
+bool dx_test_session_native_versions(void) {
+    @autoreleasepool {
+        NSWindow *window=[NSOpenGLContext currentContext].view.window;
+        if (!window || window.visible || window.keyWindow || !IsWindowHidden()) return false;
+        NSMenuItem *versions=nil;
+        for (NSMenuItem *root in NSApp.mainMenu.itemArray) if ([root.title isEqualToString:@"File"])
+            for (NSMenuItem *item in root.submenu.itemArray) if ([item.title isEqualToString:@"Versions…"]) versions=item;
+        if (!versions || versions.tag!=DX_COMMAND_VERSIONS || versions.keyEquivalent.length) return false;
+        while (dx_take_command()!=DX_COMMAND_NONE) { }
+        return [NSApp sendAction:versions.action to:versions.target from:versions] && !window.visible && !window.keyWindow;
+    }
+}
 #pragma clang diagnostic pop

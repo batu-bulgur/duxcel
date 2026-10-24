@@ -14,6 +14,8 @@ bool worker_archive_tag_job(QueryWorker *worker,QueryJob *job,const WorkbookVers
     WorkbookVersionOwner owner,WorkbookVersionText label,const char *parent,uint64_t reserved_bytes,char **error);
 bool worker_archive_load_job(QueryWorker *worker,QueryJob *job,const char *parent,uint64_t reserved_bytes,char **error);
 bool worker_archive_is_reply(const QueryReply *reply);
+/* True even when Tag preparation failed/cancelled and has no receipt yet. */
+bool worker_archive_is_tag_reply(const QueryReply *reply);
 const WorkbookVersionPlan *worker_archive_plan(const QueryReply *reply);
 const WorkbookVersionTagPlan *worker_archive_tag_plan(const QueryReply *reply);
 const WorkbookVersionCoreSet *worker_archive_versions(const QueryReply *reply);

@@ -454,9 +454,9 @@ void dx_native_setup(void *window) {
         install_application_delegate();
         NSMenuItem *root=[[NSMenuItem alloc] initWithTitle:@"File" action:nil keyEquivalent:@""];
         NSMenu *file=[[NSMenu alloc] initWithTitle:@"File"];
-        NSArray *titles=@[@"Open…",@"Save",@"Save As…",@"New Workbook",@"Settings…",@"Export Parquet…",@"Import Table…",@"Close Window"];
-        NSArray *keys=@[@"o",@"s",@"s",@"n",@",",@"e",@"",@"w"];
-        const DxCommand commands[]={DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_AS,DX_COMMAND_NEW_WORKBOOK,DX_COMMAND_SETTINGS,DX_COMMAND_EXPORT,DX_COMMAND_IMPORT,DX_COMMAND_CLOSE};
+        NSArray *titles=@[@"Open…",@"Save",@"Save As…",@"New Workbook",@"Settings…",@"Export Parquet…",@"Import Table…",@"Close Window",@"Versions…"];
+        NSArray *keys=@[@"o",@"s",@"s",@"n",@",",@"e",@"",@"w",@""];
+        const DxCommand commands[]={DX_COMMAND_OPEN,DX_COMMAND_SAVE,DX_COMMAND_SAVE_AS,DX_COMMAND_NEW_WORKBOOK,DX_COMMAND_SETTINGS,DX_COMMAND_EXPORT,DX_COMMAND_IMPORT,DX_COMMAND_CLOSE,DX_COMMAND_VERSIONS};
         for (NSUInteger i=0;i<titles.count;i++) {
             NSMenuItem *item=[[NSMenuItem alloc] initWithTitle:titles[i] action:@selector(invoke:) keyEquivalent:keys[i]];
             item.target=actions; item.tag=commands[i]; item.keyEquivalentModifierMask=NSEventModifierFlagCommand | (i==2 || i==5 ? NSEventModifierFlagShift : 0);

@@ -32,7 +32,7 @@ extern void dx_test_archive_capture_checkpoint(QueryWorker *worker,JobKind kind,
 extern void dx_test_archive_publish_checkpoint(QueryWorker *worker,WorkbookSaveProgress progress);
 #endif
 static bool capture_update(void *context,WorkbookSaveProgress progress) {
-    WorkbookNativeIO *c=context;
+    (void)progress; WorkbookNativeIO *c=context;
     c->control.prepare(c->control.context,WORKER_SAVE_SNAPSHOT,0,0);
 #ifdef DUXCEL_FEATURE_ARCHIVE_WORKER
     dx_test_archive_capture_checkpoint(c->worker,c->kind,progress);
@@ -88,6 +88,7 @@ static WorkbookNativeIO *context(const QueryReply *r) {
     return r && r->native_file.context && r->native_file.execute==execute && r->native_file.dispose==retire ? r->native_file.context : NULL;
 }
 bool worker_archive_is_reply(const QueryReply *r) { return context(r)!=NULL; }
+bool worker_archive_is_tag_reply(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c && c->label; }
 const WorkbookVersionPlan *worker_archive_plan(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c ? workbook_version_receipt_plan(c->saved) : NULL; }
 const WorkbookVersionTagPlan *worker_archive_tag_plan(const QueryReply *r) { WorkbookNativeIO *c=context(r); return c ? workbook_version_receipt_tag(c->saved) : NULL; }
 const WorkbookVersionCoreSet *worker_archive_versions(const QueryReply *r) {

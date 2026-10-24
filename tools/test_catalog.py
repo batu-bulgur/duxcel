@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "version-controls": ("build/tests/test_version_controls-gui", "PASS: native version controls workflow",
+                         r"^PASS: native version controls workflow \(26 stages, [1-9]\d* checks\)$", 26),
     "recovery-menu": ("build/tests/test_recovery_process-debug", "PASS: native recovery choice workflow",
                        r"^PASS: native recovery choice workflow \(19 stages, [1-9]\d* checks\)$", 19),
     "recovery": ("build/tests/test_recovery-gui", "PASS: native recovery choice workflow",
@@ -64,6 +66,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "version-controls": Feature(("keytips", "choiceview"), "version-controls",
+        ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-versions", "python3 tools/test.py feature --feature tag-worker"),
+        ("src/app/versions.inc", "src/ui/versionview.c", "src/ui/versionview.h", "src/app/app.c: Tag readiness/Save completion", "src/ui/keytips.c: File Versions", "src/ui/choiceview.h: ten bounded File rows", "src/platform/macos.m: native Versions menu adapter", "tests/test_app_lifecycle_native.m: narrow Versions bridge", "tests/support/version_controls_app.inc", "tests/test_version_controls_gui.c")),
     "tag-worker": Feature((), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-versions"),
         ("src/data/worker_archive.c: owned Tag jobs/replies", "src/data/worker_archive.h", "src/app/versionstate.c: complete tag publication fence", "tests/test_worker_archive.c", "tests/test_app_versions.c"),

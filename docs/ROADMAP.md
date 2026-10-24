@@ -192,10 +192,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11b · P1 · Complete | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11b.1 · P1 · Complete | Pure owned Create Tag planning; W11a3. | Validate exact UTF-8 labels/duplicates/capacity, retain an owned plan and fence the atomic Saved-plus-tag generation without IO. |
 | W11b.2 · P1 · Complete | Atomic native tagged-state capture/publication; W11b.1. | Full-core reuse, complete roots, transactional unique labels and failed/cancelled artifact preservation. No App/Tag UI claim yet. |
-| W11c · P1 · In progress | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
+| W11c · P1 · Complete | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11c.1 · P1 · Complete | Owned Tag worker/App publication boundary; W11b. | Copy UI label before ordered Save work, distinguish Tag receipts and fence full generation/label/root publication. |
-| W11c.2 · P1 · In progress | Compact version list and Create Tag flow; W11c.1. | File entry, unique-label feedback, first destination, one Latest Saved plus explicit tags, narrow physical input/Save/reopen gate. |
-| W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
+| W11c.2 · P1 · Complete | Compact version list and Create Tag flow; W11c.1. | File entry, unique-label feedback, first destination, one Latest Saved plus explicit tags, narrow physical input/Save/reopen gate. |
+| W11d · P1 · In progress | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
 | W12 · P1 · Queued | Three-version-state retained Undo and reachability pruning; W10–W11. | With V10 saved, retain V8→V9→V10 plus unsaved suffix across reopen; old tags still restore; assets needed by retained states cannot prune. HI04; A12. |
 | W13 · P1 · Queued | Historical preview Save As, initially current-state-only; W11. | Saving an inspected old state creates an independent artifact with its complete dependency closure; live workbook/recovery unchanged. VE05; first path of A27. |
 | W14 · P2 · Queued | Selected-history export; W12–W13. | Export an explicit history interval with required assets and valid roots; omitted history is absent, new artifact restores every advertised state. VE05; remaining A27. |
@@ -854,3 +854,22 @@ modules under optimized/ASan/UBSan in31.209s, including copied-label lifetime,
 named PUBLISH cancellation boundary, Tag reopen and fresh-owner/repeated-receipt
 checks. Visible controls remain W11c.2. Evidence: ignored
 `build/tests/results/w11c1-tag-worker.log`.
+
+W11c.2/W11c complete: native File → Versions (including the macOS menu bridge)
+shows one Latest Saved row and explicit immutable names. Its shared C widget owns
+only bounded layout/focus/scroll state; App owns destination/name validation and
+ordered Tag Save publication. The panel shrinks for short lists, fits640×640 at150%,
+and supports list scrolling/Home/End, Tab, Escape, duplicate feedback and preserved
+name/draft on cancel/failure. First Tag chooses a destination; ordinary Save never
+adds a tag. The ten-row File registry fits without hiding Quit at normal sizes.
+The final `version-controls` gate passes keytips/choice geometry under optimized/
+ASan/UBSan plus26 real hidden App stages in22.145s (9.954s GUI), including physical
+C-menu selection and a real native-menu command. Only the first destination dialog
+is stubbed; its Save/Cancel routing, writes, reopen, failed target and cancellation
+are real. Named normal Save interaction passes20 stages in15.661s (8.911s GUI);
+Tag worker/App owner interaction passes in33.034s. Production bundle builds without
+compiler warnings, signs strictly and excludes test hooks; shared C web compilation
+passes, along with54 runner/catalog/web contracts in10.876s. Browser workbook UI
+remains unavailable. Evidence uses ignored `build/tests/results/w11c2` outputs.
+Older-state opening is W11d; current tags retain the supported authored core,
+not external source bytes, durable Undo or future full analytical outputs.

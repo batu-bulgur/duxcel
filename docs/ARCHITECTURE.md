@@ -175,8 +175,13 @@ unchanged tags share payloads, and later ordinary Saves can reuse named roots.
 Tag publication always has a new generation, even for an unchanged Saved root.
 Its receipt exposes a complete tag plan separately from an ordinary Save plan;
 App adapters must fence the whole operation. No label operation mutates an older
-root, silently renames a duplicate or evicts protected states. Visible controls
-remain W11c and read-only historical preview remains W11d.
+root, silently renames a duplicate or evicts protected states. `ui/versionview.c` borrows metadata and owns only bounded layout/focus/scroll.
+`app/versions.inc` validates names, obtains a first destination and submits the
+owned Tag job through the existing Save lane. File/access-key and native menu
+commands reach the same C adapter; cancel/failure preserves the name and prior
+state. Successful publication returns to the list unless another document action
+is pending. The panel adapts to list length/viewport; the ten-row File geometry
+retains normal Quit visibility. Read-only historical preview remains W11d.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

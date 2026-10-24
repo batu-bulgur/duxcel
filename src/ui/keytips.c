@@ -56,6 +56,7 @@ static const UIKeytipFileSpec file_specs[]={
     {"I","Import table…","import","command.import_table",CARBON_TABLE},
     {"E","Export Parquet…","export","command.export",CARBON_ARROW_DOWN},
     {"R","Recover session…","recover","command.recover_session",CARBON_UNDO},
+    {"V","Versions…","versions","command.versions",CARBON_SAVE},
     {"X","Quit Duxcel","quit","command.quit",CARBON_CLOSE}
 };
 typedef char FileRegistryMatchesEnum[sizeof(file_specs)/sizeof(*file_specs)==UI_KEYTIP_FILE_COUNT ? 1 : -1];

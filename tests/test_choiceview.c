@@ -242,7 +242,7 @@ int main(void) {
         CHECK(list.items.y+list.items.height<=list.frame.panel.y+list.frame.panel.height);
     }
     UIChoiceListLayout list=ui_choice_list_layout((Vector2){1000,620},(Vector2){1020,640},1.5f,11);
-    CHECK(list.frame.valid && list.visible==9 && list.frame.panel.width==360 && list.frame.panel.height==438);
+    CHECK(list.frame.valid && list.visible==10 && list.frame.panel.width==360 && list.frame.panel.height==480);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,820},NAN,11).frame.valid);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,820},1,0).frame.valid);
     CHECK(!ui_choice_list_layout((Vector2){0},(Vector2){1280,100},2,11).frame.valid);

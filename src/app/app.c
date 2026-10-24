@@ -9,6 +9,7 @@
 #include "../ui/recoveryview.h"
 #endif
 #include "selection.h"
+#include "../ui/versionview.h"
 #include "app.h"
 #include "../data/worker.h"
 #include "../grid/grid.h"
@@ -61,7 +62,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include <string.h>
 #include <ctype.h>
 
-typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY } Modal;
+typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW,SHEET_ACTION_DELETE } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW,DOCUMENT_RECOVER } DocumentAction;
@@ -165,6 +166,9 @@ typedef struct {
     Workbook book;
 #ifndef DUXCEL_BROWSER_HOST
     AppVersionState versions;
+    UIVersionView version_view;
+    char version_message[512];
+    bool save_is_tag;
     char *version_root;
     WorkbookJournalSession *journal;
     WorkbookRecoveryWorker *recovery_worker;
@@ -1364,7 +1368,10 @@ static void activate_sheet(App *a,size_t index,bool capture) {
         grid_schema(&a->grid,&a->page,true); restore_sheet_view(a); status(a,"Ready");
     } else { request_page(a,false); status(a,"Loading worksheet…"); }
 }
-static void workspace_job(App *a,JobKind kind,const char *path) {
+static void workspace_job_context(App *a,JobKind kind,const char *path,const WorkbookVersionText *tag) {
+#ifdef DUXCEL_BROWSER_HOST
+    if (tag) { status(a,"Browser workbook versions are not connected yet."); return; }
+#endif
 #ifndef DUXCEL_BROWSER_HOST
     if (kind==JOB_SAVE && !source_format_save_ready(a)) return;
 #endif
@@ -1393,14 +1400,19 @@ static void workspace_job(App *a,JobKind kind,const char *path) {
     }
 #ifndef DUXCEL_BROWSER_HOST
     char *error=NULL;
-    if (!app_versions_job(&a->versions,&a->worker,j,a->version_root,&error)) {
+    if (!(tag ? app_versions_tag_job(&a->versions,&a->worker,j,*tag,a->version_root,&error) : app_versions_job(&a->versions,&a->worker,j,a->version_root,&error))) {
         worker_job_free(j); status(a,error); free(error); return;
     }
+    a->save_is_tag=tag!=NULL;
 #endif
     a->pivot_drag_role=a->pivot_drag_field=-1; a->grid.moving=a->grid.dragging=false; a->grid.scrollbar=0; a->grid.resizing=-1;
     a->pending_kind=kind; a->busy=a->io_busy=true; a->modal=MODAL_NONE;
     app_worker_submit(a,j); status(a,kind==JOB_SAVE ? "Saving workspace…" : "Opening workspace…");
 }
+static void workspace_job(App *a,JobKind kind,const char *path) { workspace_job_context(a,kind,path,NULL); }
+#ifndef DUXCEL_BROWSER_HOST
+#include "versions.inc"
+#endif
 static void open_source(App *a,const char *path,bool demo) {
     end_step_preview(a);
     if (a->modal==MODAL_SOURCE_QUERY) cancel_source_validation(a);
@@ -2065,12 +2077,18 @@ static void poll_query(App *a) {
     if (r->kind==JOB_SAVE || r->kind==JOB_LOAD) {
         a->io_busy=false;
 #ifndef DUXCEL_BROWSER_HOST
+        bool tagged=worker_archive_is_tag_reply(r);
         if (r->kind==JOB_SAVE && r->save_result==WORKBOOK_SAVE_CANCELLED) {
-            cancel_document_action(a); a->modal=MODAL_NONE; status(a,"Save cancelled. Changes still need saving.");
+            cancel_document_action(a); a->modal=tagged ? MODAL_VERSIONS : MODAL_NONE; status(a,"Save cancelled. Changes still need saving.");
+            if (tagged) snprintf(a->version_message,sizeof(a->version_message),"Version creation cancelled; changes still need saving.");
         }
         else
 #endif
-        if (r->error) { cancel_document_action(a); status(a,r->error); a->modal=MODAL_ERROR; }
+        if (r->error) { cancel_document_action(a); status(a,r->error); a->modal=MODAL_ERROR;
+#ifndef DUXCEL_BROWSER_HOST
+            if (tagged) { a->modal=MODAL_VERSIONS; snprintf(a->version_message,sizeof(a->version_message),"%s",r->error); }
+#endif
+        }
         else if (r->kind==JOB_LOAD) {
 #ifndef DUXCEL_BROWSER_HOST
             char *error=NULL;
@@ -2112,6 +2130,14 @@ static void poll_query(App *a) {
                     fprintf(stderr,"Version checkpoint: %s\n",backup_error ? backup_error : "unavailable");
                 }
                 free(backup_error);
+            }
+            if (tagged && a->document_action==DOCUMENT_NONE) {
+                a->modal=MODAL_VERSIONS; a->version_view.focus=3;
+                const WorkbookVersionIndex *index=workbook_version_core_set_index(a->versions.store);
+                a->version_view.selected=index->tag_count ? index->tag_count-1 : 0;
+                input_set(&a->input,"");
+                snprintf(a->version_message,sizeof(a->version_message),"%s",same ? "Version saved." : "Version captured. Newer changes still need saving.");
+                status(a,a->version_message);
             }
 #else
             a->book.dirty=false; status(a,"Workspace saved.");
@@ -6111,6 +6137,7 @@ static void draw_modal(App *a) {
     if (a->modal==MODAL_NONE) return;
 #ifndef DUXCEL_BROWSER_HOST
     if (a->modal==MODAL_RECOVERY) { recovery_draw(a); return; }
+    if (a->modal==MODAL_VERSIONS) { versions_draw(a); return; }
 #endif
     if (a->modal==MODAL_VIEW) { draw_view_menu(a); return; }
     if (a->modal==MODAL_DENSITY) { draw_density_menu(a); return; }
@@ -7218,6 +7245,11 @@ static void file_action(App *a,UIKeytipFileAction action) {
         recovery_open(a);
 #endif
         break;
+    case UI_KEYTIP_FILE_VERSIONS:
+#ifndef DUXCEL_BROWSER_HOST
+        versions_open(a);
+#endif
+        break;
     case UI_KEYTIP_FILE_NEW: request_document_action(a,DOCUMENT_NEW,NULL); break;
     case UI_KEYTIP_FILE_OPEN: open_modal(a,MODAL_OPEN); break;
     case UI_KEYTIP_FILE_SAVE: if (a->book.path) workspace_job(a,JOB_SAVE,a->book.path); else open_modal(a,MODAL_SAVE); break;
@@ -7317,6 +7349,13 @@ static void shortcuts(App *a) {
     }
 #endif
     DxCommand command=dx_take_command();
+    if (command==DX_COMMAND_VERSIONS) {
+#ifndef DUXCEL_BROWSER_HOST
+        if (a->modal==MODAL_NONE) versions_open(a);
+        else if (a->modal!=MODAL_VERSIONS) status(a,"Close the current dialog before inspecting versions.");
+#endif
+        return;
+    }
     if (command==DX_COMMAND_CLOSE
 #ifndef DUXCEL_BROWSER_HOST
         || (ui_pressed(KEY_W) && ui_key_shortcut(KEY_W) && !ui_key_alt(KEY_W) && !ui_key_shift(KEY_W))
@@ -7399,7 +7438,11 @@ static void shortcuts(App *a) {
             if (command==DX_COMMAND_UNDO || command==DX_COMMAND_REDO) { a->modal=MODAL_NONE; history(a,command==DX_COMMAND_REDO); return; }
             if (ui_pressed(KEY_F5)) { a->modal=MODAL_NONE; a->refresh_plans=true; change_analysis(a,false); return; }
         }
-        bool editing=(a->modal==MODAL_ASSIGN_FIELD && a->pivot_search_focus) || (a->modal==MODAL_SOURCE_QUERY && !a->query_focus) || (a->modal==MODAL_SORT && a->sort_editor.focus==0) || (a->modal==MODAL_OBJECT_NAME && !a->object_name_focus) || (a->modal==MODAL_MOVE_RANGE && !a->range_move_focus) || (a->modal==MODAL_CHART_SIZE && a->chart_size_focus<2) || a->modal==MODAL_CELL || (a->modal==MODAL_WIDTH && !a->width_focus) || a->modal==MODAL_RENAME || (a->modal==MODAL_FILTER && !a->filter_condition_menu && (a->filter_focus==3 || a->filter_focus==7 || a->filter_focus==8)) || a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK;
+        bool version_edit=false;
+#ifndef DUXCEL_BROWSER_HOST
+        version_edit=a->modal==MODAL_VERSIONS && !a->version_view.focus;
+#endif
+        bool editing=version_edit || (a->modal==MODAL_ASSIGN_FIELD && a->pivot_search_focus) || (a->modal==MODAL_SOURCE_QUERY && !a->query_focus) || (a->modal==MODAL_SORT && a->sort_editor.focus==0) || (a->modal==MODAL_OBJECT_NAME && !a->object_name_focus) || (a->modal==MODAL_MOVE_RANGE && !a->range_move_focus) || (a->modal==MODAL_CHART_SIZE && a->chart_size_focus<2) || a->modal==MODAL_CELL || (a->modal==MODAL_WIDTH && !a->width_focus) || a->modal==MODAL_RENAME || (a->modal==MODAL_FILTER && !a->filter_condition_menu && (a->filter_focus==3 || a->filter_focus==7 || a->filter_focus==8)) || a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK;
         if (a->modal==MODAL_FILTER && (a->filter_focus==4 || a->filter_focus==5) && command==DX_COMMAND_SELECT_ALL) { a->values_all=true; clear_value_choices(a); }
         TextInput *field=a->modal==MODAL_FILTER && a->filter_focus==7 ? &a->filter_term : a->modal==MODAL_FILTER && a->filter_focus==8 ? &a->filter_end : a->modal==MODAL_ASSIGN_FIELD ? &a->pivot_search : a->modal==MODAL_SORT ? &a->sort_editor.search : a->modal==MODAL_CHART_SIZE && !a->chart_size_focus ? &a->chart_columns : &a->input;
         if (editing && command==DX_COMMAND_SELECT_ALL) field->select_all=true;
@@ -8093,7 +8136,7 @@ static bool file_action_available(App *a,int action) {
     if (action==UI_KEYTIP_FILE_IMPORT && a->busy) return false;
     if (action==UI_KEYTIP_FILE_EXPORT) return export_ready(a);
 #ifdef DUXCEL_BROWSER_HOST
-    if (action==UI_KEYTIP_FILE_SAVE || action==UI_KEYTIP_FILE_SAVE_AS || action==UI_KEYTIP_FILE_QUIT || action==UI_KEYTIP_FILE_RECOVER) return false;
+    if (action==UI_KEYTIP_FILE_SAVE || action==UI_KEYTIP_FILE_SAVE_AS || action==UI_KEYTIP_FILE_QUIT || action==UI_KEYTIP_FILE_RECOVER || action==UI_KEYTIP_FILE_VERSIONS) return false;
 #endif
     return true;
 }
@@ -8101,7 +8144,7 @@ static UIChoiceListLayout file_menu_layout(const App *a) {
     float s=a->ui.scale; Vector2 origin={dx_native_titlebar_inset()+8*s,28*s},viewport={GetScreenWidth(),GetScreenHeight()};
     UIChoiceListLayout layout={.frame=ui_choice_layout(origin,viewport,s,UI_KEYTIP_FILE_COUNT,4),.visible=UI_KEYTIP_FILE_COUNT};
     if (!layout.frame.valid) return ui_choice_list_layout(origin,viewport,s,UI_KEYTIP_FILE_COUNT);
-    layout.items=layout.frame.rows[0]; Rectangle last=layout.frame.rows[UI_KEYTIP_FILE_COUNT-1];
+    layout.items=layout.frame.rows[0]; Rectangle last=layout.frame.rows[layout.frame.count-1];
     layout.items.height=last.y+last.height-layout.items.y; return layout;
 }
 static void draw_file_menu(App *a) {
@@ -8163,7 +8206,7 @@ static void draw_save_progress(App *a) {
     float x=a->save_panel.x,y=a->save_panel.y,w=a->save_panel.width;
     DrawRectangleRounded(box(x+2*s,y+4*s,w,a->save_panel.height),.05f,4,(Color){20,32,45,28});
     DrawRectangleRounded(a->save_panel,.05f,4,UI_BG); DrawRectangleRoundedLinesEx(a->save_panel,.05f,4,s,UI_BORDER);
-    const char *label=state.cancel_requested ? "Cancelling…" : state.progress.phase>=SAVE_PHASE_PUBLISH ? "Finishing save…" : "Saving workbook…";
+    const char *label=state.cancel_requested ? "Cancelling…" : state.progress.phase>=SAVE_PHASE_PUBLISH ? "Finishing save…" : a->save_is_tag ? "Saving version…" : "Saving workbook…";
     ui_label(u,label,box(x+16*s,y+14*s,w-32*s,20*s),14,UI_TEXT,false,UI_MEDIUM);
     bool publishing=state.progress.phase>=SAVE_PHASE_PUBLISH;
     const char *detail=state.cancel_requested ? "Waiting for the current write to stop." : publishing ? "Publishing the complete workbook." : "You can keep scrolling while saving.";
@@ -15296,6 +15339,9 @@ static void record_frame(App *a,double started) {
 #ifdef DUXCEL_FEATURE_RECOVERY
 static void recovery_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_VERSION_CONTROLS
+static void version_controls_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_SAVE
 static void workbook_save_test_frame(AppSession *session);
 #endif
@@ -16132,6 +16178,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_RECOVERY
     recovery_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_VERSION_CONTROLS
+    version_controls_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_SAVE
     workbook_save_test_frame(session);
 #endif
@@ -16398,4 +16447,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_RECOVERY
 #include "../../tests/support/recovery_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_VERSION_CONTROLS
+#include "../../tests/support/version_controls_app.inc"
 #endif

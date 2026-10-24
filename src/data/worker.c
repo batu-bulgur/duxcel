@@ -312,7 +312,7 @@ static void *worker_main(void *ptr) {
             else database_copy_bound(&w->db, &r->analysis, j->offset, j->rows, j->first_col, j->cols,j->expected_source_stamp,&r->clipboard,&r->error);
         }
         }
-finished:
+finished: ;
         QueryReply *previous=NULL; dx_lock(&w->mutex); w->running = false;
         if (!w->stop && w->latest_id == j->id) {
             previous=w->reply; w->reply = r; w->published_format_owned=format_reply_owned(r); r = NULL;

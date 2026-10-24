@@ -54,7 +54,7 @@ Each row has a stable ID. Identical command labels share a feature; similar comm
 | F001 | Paste | PARTIAL | Unverified | Home > Clipboard > Paste | — | Worksheet paste; imported source is read-only |
 | F002 | Copy | PARTIAL | Unverified | Home > Clipboard > Copy | — | Cached/worker TSV; no complete Excel clipboard type support |
 | F003 | Clear contents | PARTIAL | Unverified | Home > Editing > Clear contents | — | Manual range; distinct from deleting cells |
-| F004 | Save | PARTIAL | Unverified | File > Save | — | Native .dxls; browser workbook Save unavailable |
+| F004 | Save | PARTIAL | Unverified | File > Save | — | Native v16 .dxls with one Latest Saved and explicit named versions; browser workbook Save unavailable |
 | F005 | Undo | PARTIAL | Unverified | Edit > Undo / Home > History | — | Focused text history and worksheet history have separate scopes |
 | F006 | Redo | PARTIAL | Unverified | Edit > Redo / Home > History | — | Not persistent session history |
 | F007 | Cut | PARTIAL | Unverified | Home > Clipboard > Cut | — | Inspect manual-range and focused-editor boundaries |
