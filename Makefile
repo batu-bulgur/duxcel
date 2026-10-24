@@ -819,7 +819,7 @@ distclean:
 # Legacy module-test recipes compile whole source lists and some execution goals
 # mutate shared fixtures or desktop state. Make 3.81 cannot serialize individual
 # targets with .NOTPARALLEL prerequisites, so those invocations remain serial.
-PARALLEL_NATIVE_GOALS = all debug duxcel duxcel-debug bundle review review-debug \
+PARALLEL_NATIVE_GOALS = build/tests/test_workbook_payload build/tests/test_workbook_payload-debug all debug duxcel duxcel-debug bundle review review-debug \
 	build/tests/test_core build/tests/test_core-debug build/tests/test_workbook_schema build/tests/test_workbook_schema-debug build/tests/test_version_index build/tests/test_version_index-debug build/tests/test_workbook build/tests/test_workbook-debug build/tests/test_workbook_identity build/tests/test_workbook_identity-debug build/tests/test_workbook_identity_native build/tests/test_workbook_identity_native-debug build/tests/test_workbook_identity-gui \
 	build/tests/test_workbook_codec_native build/tests/test_workbook_codec_native-debug \
 	build/tests/test_workbook_history build/tests/test_workbook_history-debug build/tests/test_workbook_history-gui \
@@ -1235,6 +1235,14 @@ build/tests/test_journal_performance: $(JOURNAL_PERF_OBJECTS) | build/tests
 build/tests/test_journal_performance-debug: $(JOURNAL_PERF_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(JOURNAL_PERF_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) $(TEST_DL_LIBS) -lm $(SANFLAGS))
 -include $(JOURNAL_PERF_OBJECTS:.o=.d) $(JOURNAL_PERF_SAN_OBJECTS:.o=.d)
+
+WORKBOOK_PAYLOAD_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/tests/test_workbook_payload.o
+WORKBOOK_PAYLOAD_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/sanitize/app/tests/test_workbook_payload.o
+build/tests/test_workbook_payload: $(WORKBOOK_PAYLOAD_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(WORKBOOK_PAYLOAD_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_workbook_payload-debug: $(WORKBOOK_PAYLOAD_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(WORKBOOK_PAYLOAD_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(WORKBOOK_PAYLOAD_OBJECTS:.o=.d) $(WORKBOOK_PAYLOAD_SAN_OBJECTS:.o=.d)
 
 WORKBOOK_SAVE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/release/app/tests/test_workbook_save.o
 WORKBOOK_SAVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(CORE)))) build/obj/sanitize/app/tests/test_workbook_save.o

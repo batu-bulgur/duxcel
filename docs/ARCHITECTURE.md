@@ -82,7 +82,11 @@ document content. A transient write-owner token separates physical runtime
 owners sharing durable document IDs. User Save can move one Latest Saved pointer;
 private checkpoints/exports preserve it, and historical owners can only export.
 The native adapter must retain and verify complete assets before publication.
-Payload codecs and App adoption remain W11a2/W11a3; native files remain v15.
+`workbook_save_core_payload` writes a relocatable v15 core leaf through the
+existing controlled transaction, storing already-resolved primary/Table/ledger
+locators absolutely. It does not read external data, retain results or publish
+an index. Ordinary Save keeps relative references. Sealed payload ownership,
+archive closure and App adoption remain W11a2/W11a3; native files remain v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

@@ -244,3 +244,11 @@ private checkpoint/export policy and stale write-owner publication fences.
 The `version-index` gate runs only its actual module/header in optimized and
 ASan/UBSan configurations. Payload decoding/integrity/closure, native IO and GUI
 publication belong to W11a2/W11a3 and are explicitly deferred interactions.
+
+`test_workbook_payload.c` consumes the authored `transactions.csv` and
+`chart-series.csv` paths as external locators without querying their contents.
+It verifies actual core capture/ordinary Save SQL references, relocation,
+offline paths, identities/exact manual text, preflight preservation and
+controlled cancellation in optimized/ASan/UBSan builds. The `payload-paths`
+gate also runs controlled/worker Save modules and the18-stage hidden Save GUI.
+Full archive/recovery interactions remain named deferred checks.

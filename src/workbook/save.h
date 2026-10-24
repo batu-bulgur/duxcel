@@ -20,4 +20,12 @@ typedef enum { WORKBOOK_SAVE_FAILED,WORKBOOK_SAVE_COMPLETE,WORKBOOK_SAVE_CANCELL
    preserves an existing committed destination; a failed new destination is
    removed. Progress reaches total only after successful COMMIT. */
 WorkbookSaveResult workbook_save_controlled(const Workbook *book,const char *path,WorkbookSaveControl control,char **error);
+/* Native core snapshot for version payload staging. Uses the existing v15
+   model codec and controlled transaction, with every nonempty primary/Table/
+   ledger locator already resolved and stored verbatim as an absolute path.
+   The resulting file can move independently of the private capture directory.
+   Missing absolute external sources remain references; no source is queried or
+   imported. This does not capture history, Data Model assets or analytical
+   output outside the current codec, nor publish a user version/index. */
+WorkbookSaveResult workbook_save_core_payload(const Workbook *book,const char *path,WorkbookSaveControl control,char **error);
 #endif
