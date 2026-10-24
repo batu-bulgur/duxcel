@@ -256,7 +256,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.3a · P1 · Complete | Primary sort/filter command adapters; W12c.3c.3b.2. | Share typed budget/adoption helpers with unique rows; prepare complete sort/filter plans, preserve runtime query/selection behavior and prove real ribbon input, no-op Redo, Undo/Redo and Save/Open. |
 | W12c.3c.3b.3b · P1 · Complete | Primary group/reset/query adapters; W12c.3c.3b.3a. | Prepare complete after-plans for grouping, reset/clear and validated source queries, rejecting stale/unready input and preserving drafts and source identity. |
 | W12c.3c.3b.3c · P1 · Complete | Primary pipeline step edits; W12c.3c.3b.3b. | Route filter/sort reordering and step removal through coherent command admission. Preserve cached result/query epochs for filter-display reordering while recording authored order and preserving Undo/Redo. |
-| W12c.3c.3b.4 · P1 · Queued | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
+| W12c.3c.3b.4 · P1 · In progress | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
+| W12c.3c.3b.4a · P1 · In progress | Same-connection Table source commands; W12c.3c.3b.1. | Prepare an independent full object after-plan, reserve before history eviction, recheck workbook/sheet/object/source/layout fences and adopt once with matching query invalidation. |
+| W12c.3c.3b.4a.1 · P1 · Complete | Independent Table source transform planning; W12c.3c.3b.3. | Measure complete candidate/scratch before cloning, preserve source identity and allocator bounds, own all object definitions independently and leave live Undo/Redo/counters unchanged. |
+| W12c.3c.3b.4a.2 · P1 · Queued | Fenced Table command adoption/App integration; W12c.3c.3b.4a.1. | Reserve complete DXDE assets before any live object-history eviction, recheck all owner/layout/readiness fences and adopt the plan as one action. Keep source/format replacement composites separate. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1482,3 +1485,23 @@ ignored `w12c3-primary-steps*.log` and run summaries. All regular primary
 same-connection paths now prepare after-plans; source replacement/rebinding,
 object/format composites and baseline origin integration remain separate W12
 work. This does not activate durable history or change the native v16 core profile.
+
+
+W12c.3c.3b.4a.1 complete: Table source transforms now have allocation-free complete
+projection measurement and an independent owned after-plan. Connection/binding
+changes and unresolved defaults reject; derived-type no-op owns no new graph;
+filter display reorder preserves query revision, while result changes advance it
+without wrap. Planning admits complete graph/grammar budgets before cloning,
+never clones/prunes Undo/Redo, and preserves prior output on failure. The focused
+planner,1,046-case object asset and74-case intent optimized/ASan/UBSan gate passes
+3.564s;50 tool contracts pass2.729s. Receipts: ignored
+`w12c3-object-source-plan*.log` and run summaries. No App adoption or retained
+history activation is claimed; fenced Table adoption is next.
+
+Primary-producer packaging boundary: source3aea461 has a signed native bundle,
+compiled commit provenance and verified absence of private feature/review hooks.
+The normal shared-C Wasm application compiles/links in28.825s;54 affected sources
+rebuilt. Receipts: ignored `w12c3-primary-producers-bundle.log`,
+`w12c3-primary-producers-package.json` and `w12c3-primary-producers-web.log`.
+No user app was launched/closed and no browser runtime/Open/Save acceptance is
+inferred from compilation. Later Table planner code is scoped component work.

@@ -1013,3 +1013,13 @@ and prior current state into the existing bounded journal. Authored no-op consum
 the independent candidate without Redo loss. Runtime schema verification, epoch
 advancement, query/cache invalidation and focus remain with the App adapter;
 source acquisition/replacement/binding composites have separate owners.
+
+
+`workbook/object_source_plan.c` prepares same-connection Table transforms as an
+independent full object snapshot. Canonical measurement admits the complete new
+graph and peak validation scratch before semantic parsing/copying. Source identity
+and allocation high-water stay fixed; derived type no-op and display-only filter
+reordering do not advance query epochs. A changed result cannot wrap its epoch.
+Only one current graph is cloned, without cloning or pruning history. The final
+command owner still owes runtime/layout fences, dependency/composite closure,
+event reservation and coherent adoption; this primitive does not mutate the App.
