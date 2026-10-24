@@ -1066,10 +1066,23 @@ static bool choose_table_relation(App *a,size_t relation) {
     a->selected_object=(int)index; a->modal=MODAL_NONE; a->consume_grid_input=true;
     status(a,same ? "Table selection unchanged." : "Source table changed. Its filters and sort were cleared."); return true;
 }
-/* Immediate creation adapter; source-format composites retain their own owner. */
-static int admit_object_creation(App *a,ObjectCreateCommand command,char **error) {
-    Worksheet *s=active_sheet(a); ObjectCreatePlanInfo info={0};
-    if (!s || objects_create_measure(&s->objects,command,&a->analysis,&s->cells,source_rows(a),a->page.column_count,&info,error)!=OBJECT_CREATE_READY) return -1;
+#ifndef DUXCEL_BROWSER_HOST
+typedef struct { App *app; size_t primary,proposal; } CreationAdmission;
+static bool admit_creation_memory(void *context,const FormatStore *formats,size_t adopted,size_t scratch,size_t retained,char **error) {
+    CreationAdmission *capture=context; App *a=capture->app; WorkbookFormatReplacement replacement={.sheet=a->book.active,.formats=formats};
+    if (capture->primary<=SIZE_MAX-scratch && !source_format_budget_status(a,&replacement,adopted,scratch+capture->primary,capture->proposal,0,retained)) return true;
+    if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Creation exceeds the current memory budget."); } return false;
+}
+#endif
+static ObjectCreateContext object_creation_context(App *a,bool manual_formats) {
+    return (ObjectCreateContext){.command={.book=&a->book,.request_epoch=&a->request_id,.ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)},
+        .primary=&a->analysis,.primary_epoch=&a->analysis_revision,.source_rows=&a->page.total,.source_columns=&a->page.column_count,.source_count_pending=&a->page.count_pending,
+        .manual_formats=manual_formats};
+}
+/* App owns result readiness/jobs; the producer owns every authored constituent. */
+static int admit_object_creation_target(App *a,ObjectCreateCommand command,bool manual_formats,const ObjectCreateTarget *captured,char **error) {
+    Worksheet *s=active_sheet(a); ObjectCreatePlanInfo info={0}; ObjectCreateContext context=object_creation_context(a,manual_formats);
+    if (!s || workbook_object_create_measure(&context,a->book.active,command,&info,error)!=OBJECT_CREATE_READY) return -1;
     if (info.owned>SIZE_MAX-info.validation_scratch || info.primary_owned>SIZE_MAX-info.validation_scratch) {
         if (error) *error=dx_strdup("Creation planning reservation overflow."); return -1;
     }
@@ -1077,15 +1090,15 @@ static int admit_object_creation(App *a,ObjectCreateCommand command,char **error
     if (source_format_budget_status(a,NULL,info.owned,info.validation_scratch+info.primary_owned,info.proposal_owned,0,0)) {
         if (error) *error=dx_strdup(a->message ? a->message : "Creation exceeds the current memory budget."); return -1;
     }
+    CreationAdmission admission={a,info.primary_owned,info.proposal_owned}; context.admit=admit_creation_memory; context.admission_context=&admission;
 #endif
-    ObjectCreateContext context={.command={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
-        .validation_reserved=info.validation_scratch,.ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)},
-        .primary=&a->analysis,.primary_epoch=&a->analysis_revision,.source_rows=&a->page.total,.source_columns=&a->page.column_count,.source_count_pending=&a->page.count_pending};
+    context.command.plan_reserved=info.owned+info.validation_scratch; context.command.validation_reserved=info.validation_scratch;
     ObjectCreateTarget target;
-    if (!workbook_prepare_object_create(&context,a->book.active,&target,error)) return -1;
-    ObjectCreateResult result=workbook_apply_object_create_recorded(&context,&target,command,NULL,error);
+    if (!captured) { if (!workbook_prepare_object_create(&context,a->book.active,&target,error)) return -1; captured=&target; }
+    ObjectCreateResult result=workbook_apply_object_create_recorded(&context,captured,command,NULL,error);
     return result.status==OBJECT_CREATE_APPLIED ? (int)s->objects.count-1 : -1;
 }
+static int admit_object_creation(App *a,ObjectCreateCommand command,char **error) { return admit_object_creation_target(a,command,false,NULL,error); }
 static bool import_table(App *a,const char *path) {
     if (a->io_busy || a->busy || !active_sheet(a)) return false;
     SourceKind kind=source_kind(path); char *absolute=workbook_is_path(path) ? NULL :
@@ -1103,13 +1116,18 @@ static bool import_table(App *a,const char *path) {
 #endif
     bool admitted=kind!=SOURCE_DATABASE;
 #ifndef DUXCEL_BROWSER_HOST
-    admitted=admitted && !manual_formats;
 #endif
-    int index=admitted ? admit_object_creation(a,(ObjectCreateCommand){.kind=OBJECT_TABLE,.row=a->grid.row,.column=a->grid.col,.name=name,.source=&source},&error) :
+    int index=admitted ? admit_object_creation_target(a,(ObjectCreateCommand){.kind=OBJECT_TABLE,.row=a->grid.row,.column=a->grid.col,.name=name,.source=&source},
+#ifndef DUXCEL_BROWSER_HOST
+        manual_formats,
+#else
+        false,
+#endif
+        NULL,&error) :
         objects_add_table(&sheet->objects,a->grid.row,a->grid.col,name,&source,&error); analysis_free(&source);
     if (index<0) { status(a,error); free(error); return false; }
 #ifndef DUXCEL_BROWSER_HOST
-    if (manual_formats) source_format_manual_adopt(a,true);
+    if (!admitted && manual_formats) source_format_manual_adopt(a,true);
 #endif
     if (!admitted) worksheet_record(sheet,EDIT_OBJECTS); a->selected_object=index; a->pivot_focus=0; a->pivot_search_focus=false; a->pivot_reveal_object=true;
     invalidate_object(a,(size_t)index); a->consume_grid_input=true; status(a,"Loading table at the selected range…"); return true;

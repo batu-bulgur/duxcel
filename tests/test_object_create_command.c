@@ -127,4 +127,53 @@ static void bounds_and_dependencies(void) {
     t=target(&c); rejection(&c,&t,pivot(),NULL,OBJECT_CREATE_PROTECTED);
     workbook_free(&b);
 }
-int main(void) { plans(); callbacks(); sources_and_stream(); bounds_and_dependencies(); printf("PASS: %u admitted object create checks\n",checks); return 0; }
+typedef struct { ObjectCreateContext *context; unsigned mode,reserves,publishes,cancels,admissions; } CompositeProbe;
+static bool composite_admit(void *context,const FormatStore *prospective,size_t adopted,size_t scratch,size_t retained,char **error) {
+    (void)adopted; (void)scratch; (void)retained; (void)error; CompositeProbe *p=context; p->admissions++;
+    CHECK(prospective->source_aware && prospective->undo_count==p->context->command.book->sheets[0].formats.undo_count+1);
+    return p->mode!=1;
+}
+static bool composite_reserve(void *context,const WorkbookHistoryDefinitionRecord *record,void **ticket,char **error) {
+    (void)error; CompositeProbe *p=context; p->reserves++; Worksheet *s=p->context->command.book->sheets;
+    CHECK(record->view.effects==12 && !record->view.before_formats.source_aware && record->view.after_formats.source_aware &&
+        !s->formats.source_aware && !s->objects.count && !s->objects.next_id);
+    if (p->mode==2) return false;
+    *ticket=dx_alloc(1);
+    if (p->mode==3) s->formats.items[0].value.flags^=1;
+    return true;
+}
+static void composite_publish(void *context,void *ticket) { CompositeProbe *p=context; p->publishes++; CHECK(ticket); free(ticket); }
+static void composite_cancel(void *context,void *ticket) { CompositeProbe *p=context; p->cancels++; CHECK(ticket); free(ticket); }
+static void manual_creation(void) {
+    for (unsigned mode=0;mode<=3;mode++) {
+        Workbook b; workbook_init(&b); Analysis empty={0},source={.kind=SOURCE_CSV,.path="/table.csv"}; CHECK(workbook_add(&b,"Manual",&empty,NULL)); Worksheet *s=b.sheets;
+        FormatSnapshot first={0}; CHECK(format_plan_spatial(&s->formats,(FormatRange){20,20,20,20},FORMAT_BOLD,(CellFormat){.flags=1,.size=13,.decimals=2},&first,NULL)); CHECK(format_commit(&s->formats,&first)); worksheet_record(s,EDIT_FORMAT);
+        FormatPatch *prior=s->formats.items; uint64_t format_revision=s->formats.revision; b.dirty=false;
+        ObjectCreateContext c=context(&b); c.manual_formats=true; CompositeProbe p={&c,mode,0,0,0,0}; c.admit=composite_admit; c.admission_context=&p;
+        ObjectCreateCommand table={.kind=OBJECT_TABLE,.row=10,.column=10,.name="Table",.source=&source}; ObjectCreatePlanInfo info={0};
+        CHECK(workbook_object_create_measure(&c,0,table,&info,NULL)==OBJECT_CREATE_READY && info.validation_scratch>=DX_FORMAT_VALIDATION_BYTES);
+        c.command.plan_reserved=info.owned+info.validation_scratch; c.command.validation_reserved=info.validation_scratch;
+        ObjectCreateTarget t=target(&c); WorkbookHistoryDefinitionRecorder recorder={composite_reserve,composite_publish,composite_cancel,&p};
+        ObjectCreateResult r=workbook_apply_object_create_recorded(&c,&t,table,&recorder,NULL);
+        if (!mode) {
+            CHECK(r.status==OBJECT_CREATE_APPLIED && p.publishes==1 && !p.cancels && s->formats.source_aware && s->formats.revision==format_revision+1 && s->undo_actions_count==2 && s->undo_actions[1]==EDIT_OBJECTS_FORMAT);
+            CHECK(s->formats.undo[1].items==prior && !s->formats.undo[1].source_aware && !s->formats.undo[0].source_aware && s->formats.items!=prior);
+            CHECK(objects_history(&s->objects,false) && format_history(&s->formats,false)); worksheet_transfer_history(s,false);
+            CHECK(!s->objects.count && s->objects.next_id==1 && !s->formats.source_aware && s->formats.items==prior && s->redo_actions_count==1);
+            CHECK(objects_history(&s->objects,true) && format_history(&s->formats,true)); worksheet_transfer_history(s,true);
+            CHECK(s->objects.count==1 && s->formats.source_aware && s->objects.next_id==1);
+        } else CHECK(r.status==(mode<=2 ? OBJECT_CREATE_LIMIT : OBJECT_CREATE_STALE) && !p.publishes && p.cancels==(mode==3 ? 1u : 0u) &&
+            !s->objects.count && !s->objects.next_id && !s->formats.source_aware && s->formats.items==prior && s->formats.revision==format_revision && s->undo_actions_count==1 && !b.dirty);
+        workbook_free(&b);
+    }
+    Workbook b; workbook_init(&b); Analysis empty={0},source={.kind=SOURCE_CSV,.path="/table.csv"}; CHECK(workbook_add(&b,"Manual",&empty,NULL));
+    ObjectCreateContext c=context(&b); c.manual_formats=true; ObjectCreateTarget t=target(&c); ObjectCreateCommand table={.kind=OBJECT_TABLE,.row=10,.column=10,.name="Table",.source=&source};
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id}; WorkbookHistoryStream *queue=NULL;
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){64,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK);
+    WorkbookHistoryDefinitionRecorder recorder=workbook_history_stream_definition_recorder(queue); WorkbookHistoryEvent *held=NULL;
+    CHECK(workbook_apply_object_create_recorded(&c,&t,table,&recorder,NULL).status==OBJECT_CREATE_APPLIED);
+    CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); DefinitionEvent event={0}; const WorkbookHistoryEventInfo *info=workbook_history_event_info(held);
+    CHECK(definition_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==DEFINITION_EVENT_OK && event.effects==12 && !event.formats.before.source_aware && event.formats.after.source_aware && !event.formats.before.count && !event.formats.after.count);
+    definition_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK); CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); workbook_free(&b);
+}
+int main(void) { plans(); callbacks(); sources_and_stream(); bounds_and_dependencies(); manual_creation(); printf("PASS: %u admitted object create checks\n",checks); return 0; }
