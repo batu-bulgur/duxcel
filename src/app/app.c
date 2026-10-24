@@ -4,6 +4,7 @@
 #include "../workbook/table_command.h"
 #include "../workbook/object_name_command.h"
 #include "../workbook/object_presentation_command.h"
+#include "../workbook/object_layout_command.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
@@ -3357,6 +3358,25 @@ done:
     if (error) status(a,error);
     free(error); return ok;
 }
+static bool set_object_layout(App *a,ObjectLayoutCommand command,char **error) {
+    SheetObject *o=selected_pivot(a); if (!o) return false;
+    uint64_t id=o->id; Worksheet *sheet=active_sheet(a); ObjectLayoutPlanInfo info={0};
+    ObjectLayoutStatus planned=objects_layout_measure(&sheet->objects,id,command,&sheet->cells,source_rows(a),a->page.column_count,&info,error);
+    if (planned!=OBJECT_LAYOUT_READY && planned!=OBJECT_LAYOUT_NOOP) return false;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { if (error) *error=dx_strdup("Layout planning reservation overflow."); return false; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (planned==OBJECT_LAYOUT_READY && source_format_budget_status(a,NULL,info.owned,info.validation_scratch,0,0,0)) {
+        if (error) *error=dx_strdup(a->message ? a->message : "Layout exceeds the current memory budget."); return false;
+    }
+#endif
+    ObjectLayoutContext context={.command={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy,.read_only=history_locked(a)},
+        .source_rows=&a->page.total,.source_columns=&a->page.column_count,.source_count_pending=&a->page.count_pending};
+    ObjectLayoutTarget target;
+    if (!workbook_prepare_object_layout(&context,a->book.active,id,&target,error)) return false;
+    ObjectLayoutResult result=workbook_apply_object_layout_recorded(&context,&target,command,NULL,error);
+    return result.status==OBJECT_LAYOUT_APPLIED || result.status==OBJECT_LAYOUT_NOOP;
+}
 static void set_chart_mark(App *a,ChartMark mark) {
     SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART || (mark==MARK_SCATTER && !scatter_available(a,o))) return;
     set_object_presentation(a,(ObjectPresentationCommand){OBJECT_PRESENTATION_MARK,(size_t)mark,NULL},"Chart marks updated.");
@@ -4065,13 +4085,12 @@ static Rectangle object_outline(App *a,const SheetObject *o) {
 }
 static bool resize_chart(App *a,uint64_t rows,size_t columns) {
     SheetObject *o=selected_pivot(a); if (!o || o->kind!=OBJECT_CHART) return false;
-    uint64_t old_rows=o->rows; size_t old_columns=o->columns; Grid *g=&a->grid; Worksheet *sheet=active_sheet(a);
+    uint64_t old_rows=o->rows,row=o->row; size_t old_columns=o->columns,col=o->col; ChartMark mark=o->mark; Grid *g=&a->grid;
     free(a->chart_resize_error); a->chart_resize_error=NULL;
-    if (!objects_resize_chart(&sheet->objects,(size_t)a->selected_object,rows,columns,&sheet->cells,source_rows(a),a->page.column_count,&a->chart_resize_error)) return false;
+    if (!set_object_layout(a,(ObjectLayoutCommand){OBJECT_LAYOUT_SIZE,OBJECT_CHART,mark,rows,columns},&a->chart_resize_error)) return false;
     if (rows!=old_rows || columns!=old_columns) {
-        worksheet_record(sheet,EDIT_OBJECTS); a->book.dirty=true;
-        if (g->selection==SELECT_CELLS && g->anchor_row==o->row && g->end_row==o->row+old_rows-1 && g->anchor_col==o->col && g->end_col==o->col+old_columns-1) { g->end_row=o->row+rows-1; g->end_col=o->col+columns-1; }
-        grid_ensure_columns(g,o->col+columns);
+        if (g->selection==SELECT_CELLS && g->anchor_row==row && g->end_row==row+old_rows-1 && g->anchor_col==col && g->end_col==col+old_columns-1) { g->end_row=row+rows-1; g->end_col=col+columns-1; }
+        grid_ensure_columns(g,col+columns);
     }
     status(a,"Chart size updated."); return true;
 }
@@ -4724,6 +4743,7 @@ static void matrix_select_at(App *a,const SheetObject *o,const Page *page,Rectan
 }
 static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
     SheetObject *o=selected_pivot(a); if (!o) return;
+    size_t object_at=(size_t)a->selected_object;
     UIContext *u=&a->ui; float s=u->scale; Vector2 mouse=ui_mouse_position();
     ObjectView *view=&a->objects[a->selected_object]; Page *result=&view->page,*source=object_fields(a,o);
     const SheetObject *owner=objects_source(&active_sheet(a)->objects,o);
@@ -4853,9 +4873,9 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
             if (enabled && ui_take_left_gesture_from(clip,&selection)) {
                 if (!a->matrix_selecting) matrix_select_at(a,o,result,rows,(Vector2){selection.x0,selection.y0},(selection.modifiers&DX_MOD_SHIFT)!=0);
                 matrix_select_at(a,o,result,rows,(Vector2){selection.x1,selection.y1},true); a->matrix_selecting=false;
-                if (!active) set_representation(a,0);
+                if (!active) { set_representation(a,0); o=&active_sheet(a)->objects.items[object_at]; }
             } else if (enabled && CheckCollisionPointRec(mouse,clip) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                matrix_select_at(a,o,result,rows,mouse,ui_shift()); a->matrix_selecting=true; if (!active) set_representation(a,0);
+                matrix_select_at(a,o,result,rows,mouse,ui_shift()); a->matrix_selecting=true; if (!active) { set_representation(a,0); o=&active_sheet(a)->objects.items[object_at]; }
             } else if (enabled && a->matrix_selecting && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                 float speed=GetFrameTime()*480;
                 if (mouse.y<rows.y) a->matrix_vertical-=speed; else if (mouse.y>rows.y+rows.height) a->matrix_vertical+=speed;
@@ -4935,18 +4955,18 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
             DxPointerGesture footer_gesture;
             bool footer_click=totals && enabled && (ui_take_left_gesture_from(footer_clip,&footer_gesture) ||
                 (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse,footer_clip)));
-            if (footer_click) { matrix_select_frame(a,o); if (!active) set_representation(a,0); }
+            if (footer_click) { matrix_select_frame(a,o); if (!active) { set_representation(a,0); o=&active_sheet(a)->objects.items[object_at]; } }
         }
         ui_clear_clip(u);
         DxPointerGesture gesture;
-        if (enabled && !scrollbar_input && ui_take_gesture_from(visible,&gesture)) { if (gesture.right) { a->modal=MODAL_OBJECT; a->context_origin=(Vector2){gesture.x1,gesture.y1}; a->context_focus=a->context_scroll=0; } else { if (!active) set_representation(a,which ? 1 : 0); if (gesture.y0<panel.y+30*s) matrix_select_frame(a,o); } a->consume_grid_input=true; }
+        if (enabled && !scrollbar_input && ui_take_gesture_from(visible,&gesture)) { if (gesture.right) { a->modal=MODAL_OBJECT; a->context_origin=(Vector2){gesture.x1,gesture.y1}; a->context_focus=a->context_scroll=0; } else { if (!active) { set_representation(a,which ? 1 : 0); o=&active_sheet(a)->objects.items[object_at]; } if (gesture.y0<panel.y+30*s) matrix_select_frame(a,o); } a->consume_grid_input=true; }
         else if (enabled && !scrollbar_input && !a->consume_grid_input && a->modal==MODAL_NONE && CheckCollisionPointRec(mouse,visible)) {
             /* Browser input has ordinary button edges without Cocoa's queued
                gestures. Share the same frame/title/context transitions. */
             if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) { a->modal=MODAL_OBJECT; a->context_origin=mouse; a->context_focus=a->context_scroll=0; a->consume_grid_input=true; }
             else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                 Rectangle title=GetCollisionRec(box(panel.x,panel.y,panel.width-34*s,30*s),visible);
-                if (!active) set_representation(a,which ? 1 : 0);
+                if (!active) { set_representation(a,which ? 1 : 0); o=&active_sheet(a)->objects.items[object_at]; }
                 if (CheckCollisionPointRec(mouse,title)) matrix_select_frame(a,o);
             }
         }
@@ -5991,12 +6011,14 @@ static bool set_representation(App *a,int representation) {
     }
     if (o->kind==kind && o->mark==mark) return true;
     Page *page=&a->objects[a->selected_object].page;
-    uint64_t rows=kind==OBJECT_CHART ? o->kind==OBJECT_CHART ? o->rows : 12 : page->column_count && page->total>3 ? page->total+2 : 5;
+    if (kind==OBJECT_PIVOT && (!object_ready(a,(size_t)a->selected_object) || page->total>DX_SHEET_ROWS-2)) {
+        status(a,"Wait for a complete matrix result that fits the worksheet."); return false;
+    }
+    uint64_t rows=kind==OBJECT_CHART ? o->kind==OBJECT_CHART ? o->rows : 12 : page->total>3 ? page->total+2 : 5;
     size_t columns=kind==OBJECT_CHART ? o->kind==OBJECT_CHART ? o->columns : 6 : page->column_count>3 ? page->column_count : 3;
     char *error=NULL;
-    bool ok=objects_representation(&active_sheet(a)->objects,(size_t)a->selected_object,kind,mark,rows,columns,
-        &active_sheet(a)->cells,source_rows(a),a->page.column_count,&error);
-    if (ok) { worksheet_record(active_sheet(a),EDIT_OBJECTS); a->book.dirty=true; a->pivot_reveal_object=true; a->matrix_cells_active=false; status(a,"View representation updated."); }
+    bool ok=set_object_layout(a,(ObjectLayoutCommand){OBJECT_LAYOUT_REPRESENTATION,kind,mark,rows,columns},&error);
+    if (ok) { a->pivot_reveal_object=true; a->matrix_cells_active=false; status(a,"View representation updated."); }
     else status(a,error);
     free(error); return ok;
 }
@@ -14525,6 +14547,7 @@ static void chart_smoke_step(App *a,int *step) {
         SheetObject *o=&store->items[1]; Rectangle old=object_rect(a,o),next=grid_range_rect(&a->grid,a->ui.scale*a->grid.zoom,o->row,o->col,16,9);
         a->consume_grid_input=false; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false;
         ui_note_pointer_gesture((DxPointerGesture){old.x+old.width-1,old.y+old.height-1,next.x+next.width-1,next.y+next.height-1,0,false}); chart_resize_input(a);
+        o=&store->items[1];
         if (o->rows!=16 || o->columns!=9 || a->chart_resizing || a->objects[1].page.cells!=result || a->request_id!=request) goto failed;
         history(a,false); if (store->items[1].rows!=14 || store->items[1].columns!=8) goto failed;
         history(a,true); if (store->items[1].rows!=16 || store->items[1].columns!=9) goto failed;
@@ -15601,6 +15624,9 @@ static void table_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MARKS_COMMAND
 static void object_marks_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_LAYOUT_COMMAND
+static void object_layout_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
 static void object_presentation_command_test_frame(AppSession *session);
 #endif
@@ -16470,6 +16496,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MARKS_COMMAND
     object_marks_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_LAYOUT_COMMAND
+    object_layout_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
     object_presentation_command_test_frame(session);
 #endif
@@ -16768,4 +16797,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_MARKS_COMMAND
 #include "../../tests/support/object_marks_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_LAYOUT_COMMAND
+#include "../../tests/support/object_layout_command_app.inc"
 #endif

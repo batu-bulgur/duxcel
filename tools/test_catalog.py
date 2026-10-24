@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-layout-command": ("build/tests/test_object_layout_command-gui", "PASS: native object layout workflow",
+                              r"^PASS: native object layout workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "object-marks-command": ("build/tests/test_object_marks_command-gui", "PASS: native object Marks workflow",
                              r"^PASS: native object Marks workflow \(15 stages, [1-9]\d* checks\)$", 15),
     "object-presentation-command": ("build/tests/test_object_presentation_command-gui", "PASS: native object presentation workflow",
@@ -88,6 +90,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-layout-command": Feature(("object_layout_command", "object_presentation_command", "history_definition", "objects"), "object-layout-command",
+        ("python3 tools/test.py feature --feature object-marks-command", "python3 tools/test.py native --scenario chart"),
+        ("src/workbook/object_layout_command.c", "src/workbook/object_layout_command.h", "src/app/app.c: representation/size adapters and render ownership", "tests/test_object_layout_command.c", "tests/support/object_layout_command_app.inc")),
     "object-marks-command": Feature(("object_marks_command", "object_presentation_command", "history_definition", "marks_asset"), "object-marks-command",
         ("python3 tools/test.py feature --feature object-presentation-command", "python3 tools/test.py native --scenario chart"),
         ("src/workbook/object_presentation_command.c: complete authored Marks binding admission", "src/app/app.c: set_marks adapter", "tests/test_object_marks_command.c", "tests/support/object_marks_command_app.inc")),

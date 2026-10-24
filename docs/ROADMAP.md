@@ -265,14 +265,18 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4a.2b · P1 · Complete | Table event reservation/fences and App adapter; W12c.3c.3b.4a.2a. | Bind durable/session/object/source/layout ownership, reserve before eviction, recheck and publish the whole action once; verify unrelated Table/Pivot caches and the smallest real GUI lane. |
 | W12c.3c.3b.4a.2b.1 · P1 · Complete | Fenced Table event producer; W12c.3c.3b.4a.2a. | Freeze durable/session/request/object/source/layout state, reserve closed DXDE before eviction, recheck and publish one coherent object action. Reject pressure/stale/cancel without model changes. |
 | W12c.3c.3b.4a.2b.2 · P1 · Complete | Table producer App integration; W12c.3c.3b.4a.2b.1. | Route same-connection Table transforms through admitted planning/adoption; retain replacement/composite owners and prove target/dependent/unrelated caches plus narrow input/Undo/Redo/Save/Open and recovery rotation. |
-| W12c.3c.3b.4b · P1 · In progress | Object presentation command admission; W12c.3c.3b.4a. | Retain names, presentation and chart/Marks definitions as complete object events without unnecessary source queries; preserve source links, identity and layout ownership. |
+| W12c.3c.3b.4b · P1 · Complete | Object presentation command admission; W12c.3c.3b.4a. | Retain names, presentation and chart/Marks definitions as complete object events without unnecessary source queries; preserve source links, identity and layout ownership. |
 | W12c.3c.3b.4b.1 · P1 · Complete | Shared object transaction fences; W12c.3c.3b.4a. | Extract the proven identity/request/layout/source/metadata fence for reuse by Table and presentation controllers; keep kind/readiness semantics in each command owner. |
 | W12c.3c.3b.4b.2 · P1 · Complete | Object name command producer/App adapter; W12c.3c.3b.4b.1. | Capture rename draft identity independently from background result completion, reserve a complete object event before mutation, preserve caches/Redo and verify actual editor/Undo/Redo/Save/Open. |
 | W12c.3c.3b.4b.2a · P1 · Complete | Admitted object name producer; W12c.3c.3b.4b.1. | Preserve exact rename draft identity/prior name, rebase unrelated background completion, reserve/recheck a complete object event and publish one title/action/document revision without source queries. |
 | W12c.3c.3b.4b.2b · P1 · Complete | Rename editor App integration; W12c.3c.3b.4b.2a. | Keep stale/invalid drafts, preserve Table/Pivot/Chart Pages and bind actual editor/Undo/Redo/Save/Open to the admitted producer. |
 | W12c.3c.3b.4b.3 · P1 · Complete | Chart mark/measure presentation commands; W12c.3c.3b.4b.2. | Prepare complete object plans for mark and selected-measure changes, reserve before mutation and preserve query epochs/Pages. Retain App scatter/schema availability checks, no-op Redo and exact title counters. |
 | W12c.3c.3b.4b.4 · P1 · Complete | Marks binding definition commands; W12c.3c.3b.4b.3. | Retain all authored role/aggregate/grain/measure bindings as one event, preserve source/query boundaries and bounded unsupported behavior, and verify cache/invalidation plus Undo/Redo/Save/Open. |
-| W12c.3c.3b.4b.5 · P1 · Queued | Matrix/chart representation and sizing commands; W12c.3c.3b.4b.4. | Recheck placement/manual/source overlap and complete dimensions before admission; preserve compatible cached results and explicit invalidation when representation semantics require it. |
+| W12c.3c.3b.4b.5 · P1 · Complete | Matrix/chart representation and sizing commands; W12c.3c.3b.4b.4. | Recheck placement/manual/source overlap and complete dimensions before admission; preserve compatible cached results and explicit invalidation when representation semantics require it. |
+| W12c.3c.3b.4c · P1 · Queued | Pivot definition commands; W12c.3c.3b.4b. | Admit complete field/aggregate/date/filter/reorder definitions with selected-measure remapping, bounded query revision and one object event. Keep App schema checks, no-op Redo and unrelated caches; verify real authoring, Undo/Redo and Save/Open. |
+| W12c.3c.3b.4d · P1 · Queued | Source connection/binding replacement commands; W12c.3c.3b.4c. | Prepare primary/Table connection and analytical source-binding replacements with complete before/after dependency closure, explicit reset/invalidation and owner/source fences. Default-relation completion remains origin enrichment, not a manufactured edit. |
+| W12c.3c.3b.4e · P1 · Queued | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
+| W12c.3c.3b.4f · P1 · Queued | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1676,3 +1680,24 @@ links in23.511s wall time. Receipts: ignored `w12c3-chart-marks-bundle.log`,
 `w12c3-chart-marks-package.json` and `w12c3-chart-marks-web.log`. No user App was
 launched/closed. This is build/packaging evidence, not browser runtime/Open/Save,
 retained-history activation or full regression acceptance.
+
+
+W12c.3c.3b.4b.5 and presentation admission complete: a layout controller borrows
+live source extent/count scalars and freezes them with the full object fence.
+Complete rectangle/graph/grammar/source validation and event reservation precede
+one ownership move/action/document revision; query/title/Marks/allocator/source
+state stays intact. Pending counts protect the entire source lane. Changed
+extent/manual/object state after reservation cancels atomically. App retains
+schema/scatter checks, native memory admission, exact chart-selection resizing
+and compatible Pages/jobs; matrix conversion requires an accepted result extent.
+Render adapters re-resolve object pointers after graph adoption. The265-case
+layout,244-case presentation,290-case recorder and318-case object optimized/
+ASan/UBSan gate passes18.331s;50 tool contracts pass2.312s. The hidden TEST App
+passes18 stages/39 checks (GUI8.958s): real representation menu, size dialog,
+corner gesture, selection extent, no-op Redo, Cmd-Z/Redo, manual collision
+rejection, unchanged three Page/job/request caches,150% layout and v16 Save/Open
+including the untouched blocking note. Receipts: ignored
+`w12c3-object-layout-app.log`, `w12c3-object-layout-tools.log` and run summary.
+No broad regression or retained App writer activation is claimed. Remaining
+source/object producers are now explicitly ordered as W12c.3c.3b.4c–4f; next is
+complete Pivot definition admission rather than early durable-history activation.

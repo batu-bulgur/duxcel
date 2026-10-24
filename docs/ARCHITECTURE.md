@@ -1075,3 +1075,15 @@ not change query epochs, layout, source links or allocator state. App owns schem
 memory admission (including caller binding staging), and keeps existing result
 Pages/jobs. This is a command seam;
 retained App event writing and durable Undo remain separate roadmap work.
+
+
+`object_layout_command.c` owns representation and chart sizing admission. It
+borrows the live primary source total/column/count-pending scalars separately
+from Page ownership and captures them with the shared full object fence. Unknown
+counts protect the whole source column lane. Complete object/manual/source
+rectangle checks, grammar/source closure and optional event reservation precede
+one definition move and action; extent or model changes during reservation cancel.
+App supplies accepted matrix dimensions, keeps schema/scatter and native memory
+admission, adjusts matching chart selections and re-resolves render pointers after
+adoption. These changes preserve compatible result Pages and query/Marks/title/
+allocator/source clocks. Retained event IO and durable Undo remain separate.
