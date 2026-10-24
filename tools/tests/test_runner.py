@@ -383,6 +383,18 @@ class RunnerTests(unittest.TestCase):
             args = constructor.call_args.args[0]
             self.assertEqual((args.tier, args.config, args.jobs), ("records", "sanitize", 1))
 
+    def test_feature_reports_actual_standalone_sanitizer_configuration(self):
+        for name,expected in (("history-preview-sanitize","standalone-sanitize"),
+                              ("recovery-menu","standalone-sanitize"),("version-controls","release")):
+            with self.subTest(feature=name), tempfile.TemporaryDirectory() as directory:
+                root=pathlib.Path(directory); (root/"Makefile").write_text("")
+                instance=runner.Runner(runner.parser().parse_args(["feature","--feature",name]),root)
+                with mock.patch.object(instance,"headless"), mock.patch.object(instance,"feature_engine_checks"), \
+                     mock.patch.object(instance,"standalone_gui_check") as gui, contextlib.redirect_stdout(io.StringIO()):
+                    instance.feature()
+                gui.assert_called_once_with(runner.feature_plan(name)["gui"])
+                self.assertEqual(instance.summary["app_config"],expected)
+
     def test_formats_tier_builds_retains_and_runs_only_selected_configs_sequentially(self):
         for config in ("release", "sanitize", "both"):
             for no_build in (False, True):

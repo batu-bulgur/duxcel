@@ -234,3 +234,9 @@ Redo/unsaved suffix, fewer than three states, required-history gaps, arbitrary
 boundary order, maximum named-state count and exhausted unsigned clocks. It
 links only its actual C module/header, without a database or GUI. Durable event,
 archive and cross-session replay acceptance remains separate roadmap work.
+
+`history-preview-sanitize` is the explicit milestone interaction for the same
+20-stage historical viewer workflow with the full-App ASan/UBSan object graph.
+It belongs to the full native inventory and is deferred by the ordinary
+`history-preview` feature plan. Standalone GUI receipts report the binary's actual
+sanitizer configuration rather than assuming every feature GUI is release.

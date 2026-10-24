@@ -363,7 +363,9 @@ class Runner:
         self.summary["feature_plan"] = plan
         if plan["fixtures"]:
             self.prepare_feature_fixtures(plan["fixtures"])
-        self.summary["app_config"] = "release" if plan["gui"] and plan["gui"] != "about" else "standalone-sanitize" if plan["gui"] else None
+        gui=plan["gui"]
+        sanitized=gui=="about" or (gui in STANDALONE_GUI and STANDALONE_GUI[gui][0].endswith("-debug"))
+        self.summary["app_config"]="standalone-sanitize" if sanitized else "release" if gui else None
         if plan["tool_tests"]:
             self.record(self.command("feature-tools", [sys.executable, "-m", "unittest", *plan["tool_tests"]], "OK"))
         if plan["modules"]:
