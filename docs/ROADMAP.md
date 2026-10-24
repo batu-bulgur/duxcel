@@ -294,8 +294,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.4 · P1 · In progress | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.4.1 · P1 · Complete | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
 | W12c.4.2 · P1 · Complete | Manual-only row insertion/deletion; W12c.4.1. | Reuse complete sparse cell/format events and owner fences for bounded row actions. Keep column-width metadata, source/object axes and paste as explicit complete-effect prerequisites. |
-| W12c.4.3 · P1 · Queued | Complete manual column-width constituent; W12c.4.2. | Own bounded exact width before/after state and history with explicit presentation effect; fence current width authority and resize ordering. No synthetic cell change or incomplete scalar inverse. |
-| W12c.4.4 · P1 · Queued | Manual column insertion/deletion; W12c.4.3. | Reserve all cells/formats/width effects before eviction, adopt one action and replay exact widths without double App shifts. Keep source/object columns and paste explicit. |
+| W12c.4.3a · P1 · Queued | Complete manual column-width asset/journal; W12c.4.2. | Own canonical sparse nondefault width pairs over the bounded virtual grid and exact inverse, including a truncated edge width. Explicit presentation effect16; no synthetic cell change or incomplete scalar inverse. |
+| W12c.4.3b · P1 · Queued | Manual authored resize producers; W12c.4.3a. | Record source-free drag completion, width dialog and autofit in one chronological action. Visual drag drafts cancel safely; virtual default capacity growth is representation-only. Fence committed width authority and refuse divergent replay. |
+| W12c.4.4 · P1 · Queued | Manual column insertion/deletion; W12c.4.3b. | Reserve all cells/formats/width effects before eviction, adopt one action and replay exact widths without double App shifts. Keep source/object columns and paste explicit. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
@@ -2195,3 +2196,15 @@ no-ops remain valid at exhausted command revision. Combined
 `build/tests/results/runs/20261024T150909-feature-1849/summary.json`.
 The separate lifecycle GUI is running in its owning lane; native command adapter
 W12c.5.3b and detached sheet topology remain outstanding.
+
+Metadata navigation and current fixture interaction acceptance also closed in the
+history lane at source `103e94d`: workbook-save passes22 hidden App stages in
+27.547s (GUI11.478s), and workbook-lifecycle passes24 stages in18.620s
+(GUI6.920s). The changed active-sheet navigation assertion passes through actual
+App Undo/Redo. These are separate focused gates; no full application regression
+was run. Desktop is released for Object's current cross-engine Worker proof.
+
+A clean ordinary production executable at source `1e2203a` builds successfully
+in13.482s; receipt `build/tests/results/lanes/integrator-3335-1792854613591532000.json`.
+It was not launched or copied over the user's packaged edge. Bundle publication
+waits for the coherent native metadata and cross-engine acceptance boundary.
