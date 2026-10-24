@@ -29,6 +29,8 @@ static void basic(bool external) {
     Workbook before=b; Worksheet sheet=*s; CellStore cells=s->cells; Analysis primary=*c.command.primary; SourceFormatBaselinePlan *p=NULL; SourceFormatBaselineInfo info={0};
     CHECK(workbook_prepare_source_format_baseline(&c,0,&e,&result,source_format_baseline_reservation(),&p,&info,NULL)==SOURCE_FORMAT_COMMAND_READY && p && info.version==1 && info.owned<source_format_baseline_reservation() && info.validation_scratch>0);
     CHECK(!memcmp(&before,&b,sizeof(b)) && !memcmp(&sheet,s,sizeof(sheet)) && !memcmp(&primary,c.command.primary,sizeof(primary)));
+    SourceFormatBaselineView view=source_format_baseline_view(p);
+    CHECK(view.formats && view.sources && view.formats->items!=s->formats.items && view.sources->high_water==1 && info.model_owned==format_owned_bytes(view.formats,true)+view.sources->bytes && info.owned>info.model_owned);
     source_packet_free(&e.raw); source_packet_free(&result);
     CHECK(workbook_apply_source_format_baseline(&c,&p,NULL)==SOURCE_FORMAT_COMMAND_APPLIED && !p);
     CHECK(b.dirty && b.command_revision==before.command_revision && b.history_branch==before.history_branch && s->history_last==sheet.history_last &&
@@ -46,7 +48,7 @@ static void basic(bool external) {
     source_packet_free(&e.raw); source_packet_free(&result); analysis_free(&live); workbook_free(saved); free(saved); workbook_free(&b);
 }
 static void reject_prepare(SourceFormatBaselineContext *c,const SourceVersion *e,const SourcePacket *result,size_t reserved,SourceFormatCommandStatus expected) {
-    Workbook before=*c->command.book; Worksheet sheet=c->command.book->sheets[0]; Analysis primary=*c->command.primary; SourceFormatBaselinePlan *p=NULL; SourceFormatBaselineInfo info={7,8,9},original=info; char *error=NULL;
+    Workbook before=*c->command.book; Worksheet sheet=c->command.book->sheets[0]; Analysis primary=*c->command.primary; SourceFormatBaselinePlan *p=NULL; SourceFormatBaselineInfo info={.owned=7,.validation_scratch=8,.version=9,.model_owned=10},original=info; char *error=NULL;
     CHECK(workbook_prepare_source_format_baseline(c,0,e,result,reserved,&p,&info,&error)==expected && !p && error && !memcmp(&info,&original,sizeof(info)) &&
         !memcmp(&before,c->command.book,sizeof(before)) && !memcmp(&sheet,c->command.book->sheets,sizeof(sheet)) && !memcmp(&primary,c->command.primary,sizeof(primary))); free(error);
 }

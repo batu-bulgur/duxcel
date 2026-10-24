@@ -71,7 +71,8 @@ SourceFormatCommandStatus workbook_prepare_source_format_baseline(SourceFormatBa
     status=check(c,&target,origin,error); if (status!=SOURCE_FORMAT_COMMAND_READY) { source_format_baseline_plan_free(&p); return status; }
     SourceFormatCommandPlan projection={.primary=*a,.formats={.scope_count=DX_FORMAT_PATCHES*DX_FORMAT_GUARDS}}; size_t validation=0;
     workbook_source_format_scratch(s,a,&projection,&validation,NULL);
-    *info=(SourceFormatBaselineInfo){sizeof(*p)+p->sources.bytes+format_owned_bytes(&p->formats,true),validation,verified->version}; *out=p; return SOURCE_FORMAT_COMMAND_READY;
+    size_t model_owned=p->sources.bytes+format_owned_bytes(&p->formats,true);
+    *info=(SourceFormatBaselineInfo){.owned=sizeof(*p)+model_owned,.validation_scratch=validation,.version=verified->version,.model_owned=model_owned}; *out=p; return SOURCE_FORMAT_COMMAND_READY;
 }
 SourceFormatCommandStatus workbook_apply_source_format_baseline(SourceFormatBaselineContext *c,SourceFormatBaselinePlan **owned,char **error) {
     if (!owned || !*owned) { fail(error,"Choose a complete prepared source baseline."); return SOURCE_FORMAT_COMMAND_INVALID; }
@@ -81,3 +82,5 @@ SourceFormatCommandStatus workbook_apply_source_format_baseline(SourceFormatBase
     format_adopt_guard_store(&s->formats,&p->formats); c->command.primary->source_version=s->source_versions.high_water; c->command.book->dirty=true;
     source_format_baseline_plan_free(owned); return SOURCE_FORMAT_COMMAND_APPLIED;
 }
+
+SourceFormatBaselineView source_format_baseline_view(const SourceFormatBaselinePlan *p) { return p ? (SourceFormatBaselineView){&p->sources,&p->formats} : (SourceFormatBaselineView){0}; }

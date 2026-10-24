@@ -1782,7 +1782,7 @@ build/tests/test_source_format_command-debug: $(SOURCE_FORMAT_COMMAND_SAN_OBJECT
 	$(call link_binary,-O1 -g $(SANFLAGS) $(SOURCE_FORMAT_COMMAND_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SOURCE_FORMAT_COMMAND_OBJECTS:.o=.d) $(SOURCE_FORMAT_COMMAND_SAN_OBJECTS:.o=.d)
 
-SOURCE_FORMAT_BASELINE_SRC = $(filter-out tests/test_source_format_command.c,$(SOURCE_FORMAT_COMMAND_SRC)) src/workbook/source_format_baseline.c tests/test_source_format_baseline.c
+SOURCE_FORMAT_BASELINE_SRC = $(filter-out tests/test_source_format_command.c src/workbook/source_format_baseline.c,$(SOURCE_FORMAT_COMMAND_SRC)) src/workbook/source_format_baseline.c tests/test_source_format_baseline.c
 SOURCE_FORMAT_BASELINE_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SOURCE_FORMAT_BASELINE_SRC))))
 SOURCE_FORMAT_BASELINE_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SOURCE_FORMAT_BASELINE_SRC))))
 build/tests/test_source_format_baseline: $(SOURCE_FORMAT_BASELINE_OBJECTS) build/web-tests/platform-model.o | build/tests
@@ -1791,7 +1791,7 @@ build/tests/test_source_format_baseline-debug: $(SOURCE_FORMAT_BASELINE_SAN_OBJE
 	$(call link_binary,-O1 -g $(SANFLAGS) $(SOURCE_FORMAT_BASELINE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SOURCE_FORMAT_BASELINE_OBJECTS:.o=.d) $(SOURCE_FORMAT_BASELINE_SAN_OBJECTS:.o=.d)
 
-DEFINITION_ORIGIN_SRC = $(filter-out tests/test_source_format_command.c,$(SOURCE_FORMAT_COMMAND_SRC)) src/workbook/definition_origin.c tests/test_definition_origin.c
+DEFINITION_ORIGIN_SRC = $(filter-out tests/test_source_format_command.c src/workbook/source_format_baseline.c src/workbook/definition_origin.c,$(SOURCE_FORMAT_COMMAND_SRC)) src/workbook/source_format_baseline.c src/workbook/definition_origin.c tests/test_definition_origin.c
 DEFINITION_ORIGIN_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(DEFINITION_ORIGIN_SRC))))
 DEFINITION_ORIGIN_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(DEFINITION_ORIGIN_SRC))))
 build/tests/test_definition_origin: $(DEFINITION_ORIGIN_OBJECTS) build/web-tests/platform-model.o | build/tests

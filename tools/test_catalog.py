@@ -161,7 +161,7 @@ FEATURES = {
     "analysis-command": Feature(("analysis_command", "history_definition", "workbook_history"), "analysis-command",
         ("python3 tools/test.py native --scenario unique", "python3 tools/test.py feature --feature source-result-format"),
         ("src/workbook/analysis_command.c", "src/workbook/analysis_command.h", "src/app/app.c: primary Remove duplicates adapter", "tests/test_analysis_command.c", "tests/support/analysis_command_app.inc", "tests/test_journal_session.c: primary transform checkpoint rotation"), ("journal_session",)),
-    "definition-origin": Feature(("definition_origin", "definition_baseline"), "",
+    "definition-origin": Feature(("definition_origin", "definition_baseline", "source_format_baseline"), "",
         ("python3 tools/test.py feature --feature source-format-baseline", "python3 tools/test.py native --scenario table"),
         ("src/workbook/definition_origin.c", "src/workbook/definition_origin.h", "tests/test_definition_origin.c: exact open-to-immutable canonical working definition origin; App adapters remain separate")),
     "definition-baseline": Feature(("definition_baseline", "history_definition"), "",

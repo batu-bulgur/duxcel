@@ -7,7 +7,11 @@ typedef struct {
     const uint64_t *origin_epoch; /* Working baseline admission epoch, not Saved. */
     bool origin_open; /* Explicit owner proof: no immutable working origin sealed. */
 } SourceFormatBaselineContext;
-typedef struct { size_t owned,validation_scratch; uint64_t version; } SourceFormatBaselineInfo;
+typedef struct { size_t owned,validation_scratch; uint64_t version; size_t model_owned; } SourceFormatBaselineInfo;
+typedef struct { const SourceVersions *sources; const FormatStore *formats; } SourceFormatBaselineView;
+/* Read-only prospective replacement for the outer App governor. Borrowed only
+   until the opaque plan is adopted/freed; no caller may edit these graphs. */
+SourceFormatBaselineView source_format_baseline_view(const SourceFormatBaselinePlan *plan);
 /* Conservative NEW plan-owned ceiling, including opaque preimage/whole current,
    Undo/Redo formats and full ledger. Parser scratch/input/live plans are separate.
    The App must admit this before any cloning; actual owned is returned on success. */

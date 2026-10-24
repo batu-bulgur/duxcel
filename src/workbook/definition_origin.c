@@ -72,6 +72,9 @@ static DefinitionOriginStatus projection(DefinitionOriginContext *c,const Defini
         definition_baseline_status((DefinitionDependencyView){r->analysis,NULL})!=DEFINITION_BASELINE_READY) {
         fail(error,"Only a pending DATABASE default relation can enrich an open origin."); return DEFINITION_ORIGIN_PROTECTED;
     }
+    if (old->schema && (!*old->schema || strcmp(old->schema,r->analysis->schema))) {
+        fail(error,"A resolved default cannot replace an explicitly selected schema."); return DEFINITION_ORIGIN_STALE;
+    }
     Analysis unchanged=*r->analysis; unchanged.schema=old->schema; unchanged.table=old->table;
     if (!definition_analysis_equal(old,&unchanged)) { fail(error,"The default relation reply changed authored source settings."); return DEFINITION_ORIGIN_STALE; }
     *primary=*c->primary;
@@ -112,7 +115,23 @@ static bool finite_legacy(const Worksheet *s,const Analysis *primary) {
     for (size_t i=0;i<s->formats.count;i++) if (s->formats.items[i].range.r0 || s->formats.items[i].range.r1!=DX_SHEET_ROWS-1) return true;
     return false;
 }
-DefinitionOriginStatus definition_origin_seal(DefinitionOriginContext *c,DefinitionOrigin *p,size_t reserved,char **error) {
+DefinitionOriginStatus definition_origin_scratch(DefinitionOriginContext *c,const DefinitionOrigin *p,size_t *out,char **error) {
+    DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
+    if (!out) { fail(error,"Choose a definition origin scratch result."); return DEFINITION_ORIGIN_INVALID; }
+    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); ObjectSnapshot objects={s->objects.items,s->objects.count};
+    AnalysisAssetMeasure a={0}; ObjectsAssetInfo o={0};
+    if (analysis_asset_measure(s->id,0,c->primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK || objects_asset_measure(s->id,&objects,s->objects.next_id,&o)!=OBJECTS_ASSET_OK || s->formats.scope_count>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS) {
+        fail(error,"Invalid bounded definition origin assets."); return DEFINITION_ORIGIN_INVALID;
+    }
+    size_t validation=a.validation_scratch>o.measure.validation_scratch ? a.validation_scratch : o.measure.validation_scratch;
+    if (s->formats.scope_count) {
+        size_t n=analysis_filter_validation_scratch(FILTER_COMPOSITE,DX_SOURCE_SCOPE_TEXT_BYTES,true)+s->formats.scope_count;
+        if (s->formats.scope_count>DX_FORMAT_GUARDS && s->formats.scope_count*sizeof(const FormatScope *)>n) n=s->formats.scope_count*sizeof(const FormatScope *);
+        if (n>validation) validation=n;
+    }
+    *out=validation; return DEFINITION_ORIGIN_READY;
+}
+static DefinitionOriginStatus seal_measure(DefinitionOriginContext *c,const DefinitionOrigin *p,DefinitionOriginSealInfo *out,char **error) {
     DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
     Worksheet *s=resolve(c->book,p->before.owner.sheet_id); ObjectSnapshot objects={s->objects.items,s->objects.count};
     if (definition_baseline_status((DefinitionDependencyView){c->primary,&objects})!=DEFINITION_BASELINE_READY) { fail(error,"Resolve all primary and Table defaults before admitting this definition origin."); return DEFINITION_ORIGIN_UNRESOLVED; }
@@ -137,7 +156,25 @@ DefinitionOriginStatus definition_origin_seal(DefinitionOriginContext *c,Definit
     }
     if (finite_legacy(s,c->primary)) { fail(error,"Complete the verified legacy format baseline before sealing its working origin."); return DEFINITION_ORIGIN_UNRESOLVED; }
     size_t bytes=a.bytes+o.measure.bytes+source_bytes+format_bytes;
-    if (bytes>reserved) { fail(error,"The complete definition origin exceeds its admitted asset reservation."); return DEFINITION_ORIGIN_LIMIT; }
+    if (formats==FORMAT_DELTA_NOOP && (s->formats.count || s->formats.scope_count || s->formats.source_aware)) {
+        fail(error,"The empty definition origin format asset must have no dormant payload."); return DEFINITION_ORIGIN_INVALID;
+    }
+    *out=(DefinitionOriginSealInfo){bytes,validation}; return DEFINITION_ORIGIN_READY;
+}
+DefinitionOriginStatus definition_origin_seal_measure(DefinitionOriginContext *c,const DefinitionOrigin *p,DefinitionOriginSealInfo *out,char **error) {
+    if (!out) { fail(error,"Choose a complete definition origin asset measure."); return DEFINITION_ORIGIN_INVALID; }
+    DefinitionOriginSealInfo info={0}; DefinitionOriginStatus status=seal_measure(c,p,&info,error);
+    if (status==DEFINITION_ORIGIN_READY) *out=info; return status;
+}
+DefinitionOriginStatus definition_origin_seal(DefinitionOriginContext *c,DefinitionOrigin *p,size_t reserved,char **error) {
+    DefinitionOriginSealInfo info={0}; DefinitionOriginStatus status=seal_measure(c,p,&info,error); if (status!=DEFINITION_ORIGIN_READY) return status;
+    if (info.asset_bytes>reserved) { fail(error,"The complete definition origin exceeds its admitted asset reservation."); return DEFINITION_ORIGIN_LIMIT; }
+    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); ObjectSnapshot objects={s->objects.items,s->objects.count};
+    AnalysisAssetMeasure a={0}; ObjectsAssetInfo o={0}; size_t source_bytes=0,format_bytes=0;
+    analysis_asset_measure(s->id,0,c->primary,s->objects.next_id,&a); objects_asset_measure(s->id,&objects,s->objects.next_id,&o);
+    source_versions_asset_size(s->id,&s->source_versions,s->objects.next_id,&source_bytes);
+    format_delta_encoded_size(s->id,(FormatSnapshotView){0},format_delta_store_view(&s->formats),&format_bytes);
+    size_t bytes=info.asset_bytes;
     unsigned char *arena=dx_alloc(bytes),*at=arena; size_t written=0; bool ok=true;
     DefinitionOriginAssets assets={.sheet=s->id,.object_high_water=s->objects.next_id,.source_high_water=s->source_versions.high_water,
         .primary=at,.primary_bytes=a.bytes,.object_bytes=o.measure.bytes,.source_bytes=source_bytes,.format_bytes=format_bytes};
@@ -150,6 +187,27 @@ DefinitionOriginStatus definition_origin_seal(DefinitionOriginContext *c,Definit
     if (!ok) { free(arena); fail(error,"The canonical definition origin assets could not be admitted together."); return DEFINITION_ORIGIN_INVALID; }
     status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) { free(arena); return status; }
     p->arena=arena; p->arena_bytes=bytes; p->assets=assets; p->phase=DEFINITION_ORIGIN_ADMITTED; p->epoch++; return DEFINITION_ORIGIN_APPLIED;
+}
+static SourceFormatBaselineContext baseline_context(DefinitionOriginContext *c,DefinitionOrigin *p) {
+    return (SourceFormatBaselineContext){.command={c->book,c->primary,c->request_epoch,c->validation_reserved,c->ready,c->read_only},.origin_epoch=&p->epoch,.origin_open=p->phase==DEFINITION_ORIGIN_OPEN};
+}
+static DefinitionOriginStatus baseline_status(SourceFormatCommandStatus status) {
+    return status==SOURCE_FORMAT_COMMAND_APPLIED ? DEFINITION_ORIGIN_APPLIED : status==SOURCE_FORMAT_COMMAND_READY ? DEFINITION_ORIGIN_READY :
+        status==SOURCE_FORMAT_COMMAND_STALE ? DEFINITION_ORIGIN_STALE : status==SOURCE_FORMAT_COMMAND_PROTECTED ? DEFINITION_ORIGIN_PROTECTED : status==SOURCE_FORMAT_COMMAND_LIMIT ? DEFINITION_ORIGIN_LIMIT : DEFINITION_ORIGIN_INVALID;
+}
+DefinitionOriginStatus definition_origin_legacy_prepare(DefinitionOriginContext *c,DefinitionOrigin *p,const SourceVersion *entry,const SourcePacket *result,size_t reserved,
+    SourceFormatBaselinePlan **out,SourceFormatBaselineInfo *info,char **error) {
+    DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
+    size_t sheet=0; while (sheet<c->book->count && c->book->sheets[sheet].id!=p->before.owner.sheet_id) sheet++;
+    SourceFormatBaselineContext baseline=baseline_context(c,p);
+    return baseline_status(workbook_prepare_source_format_baseline(&baseline,sheet,entry,result,reserved,out,info,error));
+}
+DefinitionOriginStatus definition_origin_legacy_apply(DefinitionOriginContext *c,DefinitionOrigin *p,SourceFormatBaselinePlan **owned,char **error) {
+    DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
+    if (p->epoch==UINT64_MAX) { fail(error,"Definition origin epoch space is exhausted."); return DEFINITION_ORIGIN_LIMIT; }
+    SourceFormatBaselineContext baseline=baseline_context(c,p); status=baseline_status(workbook_apply_source_format_baseline(&baseline,owned,error));
+    if (status==DEFINITION_ORIGIN_APPLIED) { capture(p,c,resolve(c->book,p->before.owner.sheet_id)); p->epoch++; }
+    return status;
 }
 DefinitionOriginAssets definition_origin_assets(const DefinitionOrigin *p) { return p && p->phase==DEFINITION_ORIGIN_ADMITTED ? p->assets : (DefinitionOriginAssets){0}; }
 void definition_origin_free(DefinitionOrigin **owned) { if (owned && *owned) { free((*owned)->arena); free(*owned); *owned=NULL; } }
