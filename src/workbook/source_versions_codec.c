@@ -12,6 +12,22 @@ SourceVersionsCodecStatus source_versions_asset_size(uint64_t sheet,const Source
     if (total>DX_SOURCE_VERSIONS_MAX_BYTES) return SOURCE_VERSIONS_CODEC_INVALID;
     if (bytes) *bytes=total; return SOURCE_VERSIONS_CODEC_OK;
 }
+SourceVersionsCodecStatus source_versions_asset_select(uint64_t sheet,const SourceVersions *ledger,uint64_t owners,
+    const bool *selected,size_t selection_count,size_t reserved,SourceVersionsAsset *out) {
+    if (!sheet || !out || ledger==&out->versions || !source_versions_valid(ledger,owners,NULL) ||
+        selection_count!=ledger->count || (selection_count && !selected)) return SOURCE_VERSIONS_CODEC_INVALID;
+    size_t count=0,bytes=0;
+    for (size_t i=0;i<ledger->count;i++) if (selected[i]) { count++; bytes+=sizeof(SourceVersion)+strlen(ledger->items[i].path)+1+ledger->items[i].raw.bytes; }
+    if (bytes>reserved) return SOURCE_VERSIONS_CODEC_LIMIT;
+    SourceVersionsAsset next={.sheet=sheet,.versions={.high_water=ledger->high_water,.count=count,.capacity=count,.bytes=bytes}};
+    if (count) next.versions.items=dx_alloc(count*sizeof(SourceVersion));
+    size_t at=0;
+    for (size_t i=0;i<ledger->count;i++) if (selected[i]) {
+        const SourceVersion *from=ledger->items+i; SourceVersion *to=next.versions.items+at++; *to=*from; to->path=dx_strdup(from->path);
+        if (from->raw.bytes) { to->raw.data=dx_alloc(from->raw.bytes); memcpy(to->raw.data,from->raw.data,from->raw.bytes); }
+    }
+    source_versions_asset_free(out); *out=next; return SOURCE_VERSIONS_CODEC_OK;
+}
 typedef struct { unsigned char *p; } Writer;
 static void put(Writer *w,uint64_t value,unsigned bytes) { for (unsigned i=0;i<bytes;i++) { *w->p++=(unsigned char)(value&255u); value>>=8; } }
 SourceVersionsCodecStatus source_versions_asset_encode(uint64_t sheet,const SourceVersions *versions,uint64_t owners,void *arena,size_t capacity,size_t *written) {

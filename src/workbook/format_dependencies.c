@@ -5,11 +5,6 @@ static bool valid(FormatSnapshotView v) {
     FormatStore s={.items=(FormatPatch *)v.items,.count=v.count,.scopes=(FormatScope *)v.scopes,.scope_count=v.scope_count,.source_aware=v.source_aware};
     return format_valid(&s,NULL);
 }
-static size_t find(const SourceVersions *ledger,uint64_t version) {
-    size_t lo=0,hi=ledger->count;
-    while (lo<hi) { size_t mid=lo+(hi-lo)/2; if (ledger->items[mid].version<version) lo=mid+1; else hi=mid; }
-    return lo<ledger->count && ledger->items[lo].version==version ? lo : ledger->count;
-}
 static FormatDependenciesStatus collect(FormatSnapshotView view,const SourceVersions *ledger,bool needed[DX_SOURCE_VERSIONS],size_t *legacy) {
     if (!view.scope_count) return FORMAT_DEPENDENCIES_OK;
     unsigned char *used=dx_alloc(view.scope_count);
@@ -25,9 +20,8 @@ static FormatDependenciesStatus collect(FormatSnapshotView view,const SourceVers
         SourceScopeInfo info={0};
         if (!source_scope_validate(scope->definition,scope->bytes,&info,NULL) || info.owner!=scope->owner ||
             ((used[i]&2) && info.kind!=SOURCE_SCOPE_RAW)) { status=FORMAT_DEPENDENCIES_INVALID; continue; }
-        size_t at=find(ledger,info.version);
-        if (at==ledger->count || !ledger->items[at].raw.bytes) { status=FORMAT_DEPENDENCIES_MISSING; continue; }
-        const SourceVersion *entry=ledger->items+at;
+        const SourceVersion *entry=source_versions_find(ledger,info.version);
+        if (!entry || !entry->raw.bytes) { status=FORMAT_DEPENDENCIES_MISSING; continue; }
         if (entry->owner!=info.owner || entry->kind!=info.source_kind || entry->raw.bytes!=info.raw_bytes || memcmp(entry->raw.data,info.raw,info.raw_bytes)) {
             status=FORMAT_DEPENDENCIES_CONFLICT; continue;
         }
@@ -36,7 +30,7 @@ static FormatDependenciesStatus collect(FormatSnapshotView view,const SourceVers
             if (patch->selector!=FORMAT_RECORDS || patch->guard_ids[0]!=i) continue;
             for (size_t f=0;f<patch->field_count;f++) if (patch->fields[f]>=info.field_count) { status=FORMAT_DEPENDENCIES_INVALID; break; }
         }
-        if (status==FORMAT_DEPENDENCIES_OK) needed[at]=true;
+        if (status==FORMAT_DEPENDENCIES_OK) needed[(size_t)(entry-ledger->items)]=true;
     }
     free(used); return status;
 }
@@ -51,15 +45,8 @@ FormatDependenciesStatus format_dependencies_build(uint64_t sheet,FormatSnapshot
     FormatDependenciesStatus status=collect(before,ledger,needed,&legacy);
     if (status==FORMAT_DEPENDENCIES_OK) status=collect(after,ledger,needed,&legacy);
     if (status!=FORMAT_DEPENDENCIES_OK) return status;
-    size_t count=0,bytes=0;
-    for (size_t i=0;i<ledger->count;i++) if (needed[i]) { count++; bytes+=sizeof(SourceVersion)+strlen(ledger->items[i].path)+1+ledger->items[i].raw.bytes; }
-    if (bytes>reserved) return FORMAT_DEPENDENCIES_LIMIT;
-    FormatDependencies next={.sources={.sheet=sheet,.versions={.high_water=ledger->high_water,.count=count,.capacity=count,.bytes=bytes}},.legacy_scopes=legacy};
-    if (count) next.sources.versions.items=dx_alloc(count*sizeof(SourceVersion));
-    size_t at=0;
-    for (size_t i=0;i<ledger->count;i++) if (needed[i]) {
-        const SourceVersion *from=ledger->items+i; SourceVersion *to=next.sources.versions.items+at++; *to=*from;
-        to->path=dx_strdup(from->path); to->raw.data=dx_alloc(from->raw.bytes); memcpy(to->raw.data,from->raw.data,from->raw.bytes);
-    }
+    FormatDependencies next={.legacy_scopes=legacy};
+    SourceVersionsCodecStatus copied=source_versions_asset_select(sheet,ledger,owners,needed,ledger->count,reserved,&next.sources);
+    if (copied!=SOURCE_VERSIONS_CODEC_OK) return copied==SOURCE_VERSIONS_CODEC_LIMIT ? FORMAT_DEPENDENCIES_LIMIT : FORMAT_DEPENDENCIES_INVALID;
     format_dependencies_free(out); *out=next; return FORMAT_DEPENDENCIES_OK;
 }

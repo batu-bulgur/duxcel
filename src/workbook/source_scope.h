@@ -109,6 +109,9 @@ typedef struct {
 bool source_versions_valid(const SourceVersions *versions,uint64_t object_high_water,char **error);
 bool source_versions_copy(SourceVersions *out,const SourceVersions *from,char **error);
 void source_versions_free(SourceVersions *versions);
+/* Borrowed ordered-ledger lookup; caller has validated the immutable ledger.
+   NULL/missing/zero version returns NULL. This is not source activation proof. */
+const SourceVersion *source_versions_find(const SourceVersions *versions,uint64_t version);
 /* issue=true requires entry.version==current.high_water+1, with no wrap/reuse.
    issue=false completes one pending entry exactly once, preserving its locator.
    Preflights the next <=1 MiB ledger before allocating it. current is untouched;

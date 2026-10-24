@@ -31,5 +31,14 @@ SourceVersionsCodecStatus source_versions_asset_encode(uint64_t sheet,const Sour
    No IO, live-ledger adoption, version issuance, replay or activation proof. */
 SourceVersionsCodecStatus source_versions_asset_decode(const void *data,size_t bytes,uint64_t object_high_water,
     size_t reserved,SourceVersionsAsset *out);
+/* Capture exactly the selected immutable ledger rows in original version order.
+   selection_count equals ledger.count (NULL selection is allowed only for0).
+   Pending rows are preserved; typed consumers must prove which rows must be
+   complete and their exact owner/kind/locator/RAW bindings before selection.
+   reserved covers copied rows/locators/RAW bytes, excluding borrowed inputs and
+   existing independent out. All failures preserve out/input; no alias of the
+   input ledger with out. Captured high-water is never a live Undo assignment. */
+SourceVersionsCodecStatus source_versions_asset_select(uint64_t sheet,const SourceVersions *ledger,uint64_t object_high_water,
+    const bool *selection,size_t selection_count,size_t reserved,SourceVersionsAsset *out);
 void source_versions_asset_free(SourceVersionsAsset *asset);
 #endif

@@ -236,7 +236,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3b.3 · P1 · Complete | Closed object snapshot/envelope; W12c.3a–W12c.3b.2. | Preserve stable IDs, geometry, names, source links, chart representation/measure and complete nested definitions under one owned bound. Captured allocator obligations cannot rewind live counters or runtime query epochs. |
 | W12c.3b.3a · P1 · Complete | Allocation-free nested definition preflight; W12c.3a–W12c.3b.2. | Inspect exact header owner, framing/text and owned/scratch requirements before allocating any constituent of an object graph. Full decode remains mandatory for semantic/grammar admission. |
 | W12c.3b.3b · P1 · Complete | Bounded complete object asset capture/decode; W12c.3b.3a. | Compose geometry/source links and all nested definitions, prove exact sheet/owner associations and source/Table graph closure, and preflight the complete owned graph before allocation/adoption. |
-| W12c.3c · P1 · Queued | Analysis/object producer and composite event admission; W12c.3a–W12c.3b. | Reserve every changed definition/dependency before adoption, recheck source/request/workbook state and publish once; coordinate source-bound formats and preserve allocator high-water. |
+| W12c.3c · P1 · In progress | Analysis/object producer and composite event admission; W12c.3a–W12c.3b. | Reserve every changed definition/dependency before adoption, recheck source/request/workbook state and publish once; coordinate source-bound formats and preserve allocator high-water. |
+| W12c.3c.1 · P1 · Complete | Primary/Table source-version closure; W12c.3b. | Pin exact owner/kind/locator rows across both definition states, preserving pending/complete distinction, explicit unbound observations and captured allocator bounds. Share immutable subset ownership with format closure; never infer source identity or execute queries. |
+| W12c.3c.2 · P1 · Queued | Canonical definition/composite event ownership; W12c.3c.1. | Capture exact before/after Analysis/object/format constituents and their union of source dependencies before mutation; one event owns all assets under explicit staging/scratch budgets. No partial composite publication. |
+| W12c.3c.3 · P1 · Queued | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1294,3 +1297,13 @@ Coverage includes exact nested owner associations, unsupported/corrupt children,
 late semantic rejection, independent ownership, byte-identical recapture despite
 runtime-epoch reset, all32 objects and8 MiB owned boundaries. Receipts: ignored
 `w12c3-objects-asset*.log/json`. No retained App/file publication or cached outputs.
+
+W12c.3c.1 complete: primary/Table source closure pins both definition states'
+exact owner/kind/locator rows, deduplicates immutable versions, preserves pending
+metadata and classifies version0 as unbound observations. A source change retains
+old and new versions; missing/conflicting/unsupported bindings reject atomically.
+Shared selected-row ownership now serves both format and definition closure.
+The44-case closure,34-case format,271-case source codec and13,894-case source-scope
+optimized/ASan/UBSan gate passes in2.751s;50 tool contracts pass in2.325s.
+Receipts: ignored `w12c3-definition-dependencies*.log/json`. Source materialization,
+full definition semantics and event/App admission remain separate obligations.

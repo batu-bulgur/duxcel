@@ -912,3 +912,15 @@ Captured object high-water is a monotonic obligation, not an Undo assignment.
 Source-version ledger closure, verified typed execution, cached analytical output
 and retained event/file publication remain separate owners. App conservative
 array-slack/global/job reservation policy is not replaced by codec graph accounting.
+
+
+`workbook/definition_dependencies.c` closes primary/Table version references
+across complete before/after definition pairs. Nonzero CSV/Parquet bindings
+require exact ledger owner/kind/locator matches; pending metadata is retained,
+while version0 remains explicitly unbound. Missing/conflicting or unsupported
+bindings fail without mutation. Definition and format closure share the ordered
+borrowed ledger lookup and canonical selected-row ownership helper. The resulting
+metadata subset pins required versions and allocator obligations without issuing
+queries, retaining datasets or assigning historical high-water over live state.
+Full canonical definition validation, source/schema activation proof and compound
+event/revision admission remain separate owners.

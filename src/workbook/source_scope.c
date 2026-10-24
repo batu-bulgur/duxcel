@@ -384,6 +384,12 @@ static bool entry_valid(const SourceVersion *entry,uint64_t owners,size_t *bytes
     if (!add(&owned,entry->raw.bytes,DX_SOURCE_VERSIONS_BYTES)) return fail(error,"Source-version proof exceeds its owned storage limit.");
     *bytes=owned; return true;
 }
+const SourceVersion *source_versions_find(const SourceVersions *versions,uint64_t version) {
+    if (!versions || !version) return NULL;
+    size_t lo=0,hi=versions->count;
+    while (lo<hi) { size_t mid=lo+(hi-lo)/2; if (versions->items[mid].version<version) lo=mid+1; else hi=mid; }
+    return lo<versions->count && versions->items[lo].version==version ? versions->items+lo : NULL;
+}
 bool source_versions_valid(const SourceVersions *versions,uint64_t owners,char **error) {
     if (!versions || versions->count>DX_SOURCE_VERSIONS || versions->capacity>DX_SOURCE_VERSIONS || versions->count>versions->capacity || ((versions->items!=NULL)!=(versions->capacity!=0))) return fail(error,"Invalid bounded source-version ledger.");
     size_t bytes=versions->capacity*sizeof(*versions->items);
