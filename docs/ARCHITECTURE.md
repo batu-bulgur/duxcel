@@ -872,3 +872,13 @@ metadata before execution; a cache-only refresh is not a retained user action.
 The asset preserves source-version IDs without adopting a ledger, issuing queries
 or proving the outer owner/source dependency closure. Missing-source definitions
 remain inspectable metadata, not implicitly executable relations.
+
+
+`workbook/definition_wire.c` shares checked little-endian/text ownership and
+nonrecursive filter-grammar scratch accounting across typed definition codecs.
+`workbook/pivot_asset.c` retains Pivot/Chart query shelves in order with explicit
+aggregate/filter/date-grain tags and exact nullable payloads. Framing, owned
+memory and parser scratch are admitted before copied strings; full shelf and
+grammar rules precede atomic output replacement. Derived schema caches require
+verified rebinding before execution. The enclosing Object asset remains owner of
+geometry/source links; this asset contains no result cells or source dataset.

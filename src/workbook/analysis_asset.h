@@ -1,13 +1,13 @@
 #ifndef DUXCEL_ANALYSIS_ASSET_H
 #define DUXCEL_ANALYSIS_ASSET_H
-#include "../transforms/analysis.h"
+#include "definition_wire.h"
 #define DX_ANALYSIS_ASSET_ENCODING 1u
 #define DX_ANALYSIS_ASSET_HEADER_BYTES 32u
 #define DX_ANALYSIS_ASSET_BODY_BYTES 16u
-#define DX_ANALYSIS_ASSET_OWNED_BYTES (8u*1024u*1024u)
+#define DX_ANALYSIS_ASSET_OWNED_BYTES DX_DEFINITION_OWNED_BYTES
 #define DX_ANALYSIS_ASSET_MAX_BYTES (DX_ANALYSIS_ASSET_OWNED_BYTES+1024u)
 typedef struct { uint64_t sheet,owner; Analysis definition; } AnalysisAsset;
-typedef struct { size_t bytes,owned,validation_scratch; } AnalysisAssetMeasure;
+typedef DefinitionWireMeasure AnalysisAssetMeasure;
 typedef enum { ANALYSIS_ASSET_OK,ANALYSIS_ASSET_INVALID,ANALYSIS_ASSET_LIMIT,ANALYSIS_ASSET_UNSUPPORTED } AnalysisAssetStatus;
 /* Closed definition asset, not data/results or an executable relation. Owner0
    is the worksheet primary source; positive owner IDs require outer Table proof.

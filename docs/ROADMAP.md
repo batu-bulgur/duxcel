@@ -230,7 +230,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.2c.3b.2 · P1 · Queued | Source-bound composite format producer; W12c.2c.3b.1, W12c.3. | Admit source ledger plus primary/Table bindings and format assets together, preserving immutable baseline normalization and all source/readiness/revision fences. No partial constituent publication or early retained-history activation. |
 | W12c.3 · P1 · In progress | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.3a · P1 · Complete | Closed primary/Table Analysis definition asset; W12c.1. | Preserve stable sheet/owner/source-version IDs, exact nullable texts, query/unique/group/aggregate, ordered filters/sorts and finite enum tags. Preflight owned memory and grammar scratch before copying; exclude derived schema caches and require verified rebinding before execution. |
-| W12c.3b · P1 · Queued | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
+| W12c.3b · P1 · In progress | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
+| W12c.3b.1 · P1 · Complete | Closed Pivot/Chart query-definition asset; W12c.3a. | Preserve ordered role fields, exact names/filter values, aggregation and date-grain tags; enforce shelf/duplicate/grammar rules after bounded scratch admission. Share checked definition-wire primitives with Analysis; derived schema caches require rebinding. |
+| W12c.3b.2 · P1 · Queued | Closed Marks bindings; W12c.3b.1. | Preserve all six ordered role bindings, measure/dimension distinction, aggregation and date grain with strict role limits. |
+| W12c.3b.3 · P1 · Queued | Closed object snapshot/envelope; W12c.3a–W12c.3b.2. | Preserve stable IDs, geometry, names, source links, chart representation/measure and complete nested definitions under one owned bound. Captured allocator obligations cannot rewind live counters or runtime query epochs. |
 | W12c.3c · P1 · Queued | Analysis/object producer and composite event admission; W12c.3a–W12c.3b. | Reserve every changed definition/dependency before adoption, recheck source/request/workbook state and publish once; coordinate source-bound formats and preserve allocator high-water. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1251,3 +1254,13 @@ in2.613s;50 runner/catalog contracts pass. Byte oracle, inner/outer truncation,
 invalid grammar/tags/UTF-8, exact budgets, full vectors,64 KiB query and8 MiB owned
 boundaries pass. Receipts: ignored `w12c3-analysis-asset*.log/json`. No App/file
 profile activation or source materialization claim; object/composite work follows.
+
+W12c.3b.1 complete: Pivot/Chart definition encoding1 preserves all ordered shelves,
+aggregates, date grains and nullable filter payloads. Shared checked definition
+wire/text/scratch primitives preserve the existing Analysis byte contract. The
+350-case Pivot and383-case Analysis optimized/ASan/UBSan gate passes in4.081s;
+50 runner/catalog contracts pass in2.550s. Malformed Pivot validation now safely
+accepts an omitted diagnostic pointer instead of dereferencing NULL. Byte oracles,
+inner/outer truncation, grammar/UTF-8/tag errors, full vectors, duplicate shelves
+and8 MiB boundaries pass. Receipts: ignored `w12c3-pivot-asset*.log/json`.
+No output materialization, source execution, App profile activation or GUI change.
