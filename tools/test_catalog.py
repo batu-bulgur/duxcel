@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-definition": Feature(("history_definition", "history_stream", "history_format", "definition_event"), "",
+        ("python3 tools/test.py feature --feature format-command", "python3 tools/test.py feature --feature workbook-history"),
+        ("src/workbook/history_definition.c", "src/workbook/history_definition.h", "src/workbook/history_stream.h: explicit larger staging bound", "tests/test_history_definition.c")),
     "definition-event": Feature(("definition_event", "definition_state", "definition_dependencies"), "",
         ("python3 tools/test.py feature --feature history-format", "python3 tools/test.py feature --feature compound-object-staging"),
         ("src/workbook/definition_event.c", "src/workbook/definition_event.h", "src/workbook/definition_event_internal.h", "tests/test_definition_event.c")),

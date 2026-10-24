@@ -793,8 +793,10 @@ Fork metadata preserves the old branch's owned assets. One dispatched immutable
 event can be read by a writer without accessing stream state; the mutation owner
 later completes or retries that exact lease. Pending/reserved/in-flight bytes all
 remain charged, and active leases block destruction. The adapter must separately
-prove asset/metadata durability before releasing a completed event. This8-MiB/
-256-entry resident staging bound cannot prune accepted history. It has no IO or
+prove asset/metadata durability before releasing a completed event. The recommended8-MiB
+capacity and256-entry resident bound cannot prune accepted history. Explicit
+capacities up to32 MiB admit complete supported compound packets under the outer
+memory governor; capacity does not preallocate a pool. It has no IO or
 App activation; other producer/cursor families and composed recovery/retained
 admission remain prerequisites of the final publication/replay integration.
 
@@ -982,3 +984,12 @@ unsupported input preserves prior state. Captured counters remain outside Undo.
 The private prepared view never survives input mutation/reentry. Runtime owner/
 revision readiness, baseline completions, large-payload staging policy and actual
 stream/App/file publication remain separate obligations.
+
+
+`workbook/history_definition.c` reserves complete DXDE events in the shared
+cell/format stream without an intermediate full packet. The producer supplies
+separately admitted grammar scratch and immutable before/after inputs, rechecks
+runtime ownership after reservation, adopts every constituent coherently, then
+publishes once. Cancellation consumes no action/transition identity or Redo.
+The adapter owns event bytes, not App readiness, source execution or durability;
+retained App activation still requires the remaining producer/publication families.

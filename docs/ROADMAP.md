@@ -238,13 +238,13 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3b.3b · P1 · Complete | Bounded complete object asset capture/decode; W12c.3b.3a. | Compose geometry/source links and all nested definitions, prove exact sheet/owner associations and source/Table graph closure, and preflight the complete owned graph before allocation/adoption. |
 | W12c.3c · P1 · In progress | Analysis/object producer and composite event admission; W12c.3a–W12c.3b. | Reserve every changed definition/dependency before adoption, recheck source/request/workbook state and publish once; coordinate source-bound formats and preserve allocator high-water. |
 | W12c.3c.1 · P1 · Complete | Primary/Table source-version closure; W12c.3b. | Pin exact owner/kind/locator rows across both definition states, preserving pending/complete distinction, explicit unbound observations and captured allocator bounds. Share immutable subset ownership with format closure; never infer source identity or execute queries. |
-| W12c.3c.2 · P1 · In progress | Canonical definition/composite event ownership; W12c.3c.1. | Capture exact before/after Analysis/object/format constituents and their union of source dependencies before mutation; one event owns all assets under explicit staging/scratch budgets. No partial composite publication. |
+| W12c.3c.2 · P1 · Complete | Canonical definition/composite event ownership; W12c.3c.1. | Capture exact before/after Analysis/object/format constituents and their union of source dependencies before mutation; one event owns all assets under explicit staging/scratch budgets. No partial composite publication. |
 | W12c.3c.2a · P1 · Complete | Authored definition/preimage projection; W12c.3c.1. | Compare exact persisted definitions/order without derived NumberType/query epochs. Ignore computed Pivot/Table extents, retain authored Chart dimensions, and keep schema/table identity strict until an explicit resolution owner closes baseline enrichment. |
-| W12c.3c.2b · P1 · In progress | Owned canonical compound event; W12c.3c.2a. | Capture complete changed constituent pairs plus one union of source dependencies under explicit staging/scratch admission; immutable ownership precedes any model mutation. |
+| W12c.3c.2b · P1 · Complete | Owned canonical compound event; W12c.3c.2a. | Capture complete changed constituent pairs plus one union of source dependencies under explicit staging/scratch admission; immutable ownership precedes any model mutation. |
 | W12c.3c.2b.1 · P1 · Complete | Bounded compound preparation without metadata clones; W12c.3c.2a. | Share parser-scratch accounting, select dependency indices atomically against one immutable ledger and encode their canonical union directly. Preserve format-event bytes; keep metadata-reader tests cached by actual dependencies. |
-| W12c.3c.2b.2 · P1 · In progress | Closed compound packet and event handoff; W12c.3c.2b.1. | Budget all required constituent graphs/validation before allocation, capture their complete before/after payloads and source union, reject mismatched effects/no-op/owner bindings and hand off one immutable event before mutation. |
+| W12c.3c.2b.2 · P1 · Complete | Closed compound packet and event handoff; W12c.3c.2b.1. | Budget all required constituent graphs/validation before allocation, capture their complete before/after payloads and source union, reject mismatched effects/no-op/owner bindings and hand off one immutable event before mutation. |
 | W12c.3c.2b.2a · P1 · Complete | Compound format/source graph preflight; W12c.3c.2b.1. | Inspect format before/after framing/owned/uniqueness scratch and source-row header/order/owned needs before any constituent allocation. Full semantic decode remains mandatory. |
-| W12c.3c.2b.2b · P1 · In progress | Atomic compound capture/decode and stream adapter; W12c.3c.2b.2a. | Bind exact changed family pairs and one source union, enforce effect/owner/grammar/budget closure, and hand off one immutable event without partial mutation or intermediate full-asset copies. |
+| W12c.3c.2b.2b · P1 · Complete | Atomic compound capture/decode and stream adapter; W12c.3c.2b.2a. | Bind exact changed family pairs and one source union, enforce effect/owner/grammar/budget closure, and hand off one immutable event without partial mutation or intermediate full-asset copies. |
 | W12c.3c.3 · P1 · Queued | Fenced definition producers and App adapters; W12c.3c.2. | Recheck complete workbook/sheet/source/request/model ownership after reservation, adopt all changed constituents once, then publish. Preserve cancellation/Redo and runtime query invalidation; activate retained history only after every producer/publication family. |
 | W12c.3c.3a · P1 · Queued | Baseline completion/readiness ownership; W12c.3c.2a. | Close worker-resolved default schema/table and other non-user enrichments against retained origins/replay. Do not turn them into user actions, silently waive changed source identity, or let cache extents invalidate authored preimages. Required before retained App activation. |
 | W12c.3c.3b · P1 · Queued | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
@@ -1156,7 +1156,7 @@ sanitized gate passes in4.174s, including a40-edit lease surviving32-ring evicti
 not durable IO. The current App still uses its existing recovery recorder;
 retained-stream activation, composed recovery/history reservations, cursor
 transitions and full file publication wait for all producer families and W12d/e.
-The8-MiB/256-entry staging ceiling is backpressure, never history truncation.
+The recommended8-MiB staging capacity and256-entry ceiling are backpressure, never history truncation. Explicit capacities up to32 MiB admit supported compound packets under the outer memory governor; capacity is not a preallocated pool.
 
 W12c.2a complete: spatial/scoped format apply now uses public owned planning
 helpers, matching the existing record planner. Candidates preserve full scope/
@@ -1371,3 +1371,16 @@ sanitizer-detected intermediate pointer-arithmetic bound was corrected before
 acceptance. Receipts: ignored `w12c3-definition-event*.log/json`. Stream admission
 must accommodate supported large definition packets under the outer governor;
 App producers/publication remain inactive until their own required slices.
+
+
+W12c.3c.2 complete: the typed definition recorder reserves closed DXDE packets
+in the same FIFO/action/transition/lineage clocks as cell and format events.
+Encoding writes one admitted event allocation; cancellation, queue pressure and
+invalid/no-op input preserve clocks and Redo. The276-case recorder gate plus
+stream/format/packet optimized and ASan/UBSan tests passes in4.366s. The named
+cell-command/stream interaction passes in5.911s;50 tool contracts pass in2.314s.
+A >16 MiB before/after packet rejects an8 MiB capacity without mutation and
+succeeds with explicitly admitted32 MiB, retaining bytes after inputs are freed.
+Receipts: ignored `w12c3-history-definition*.log` and corresponding run summaries.
+No App producer, file profile or durable-history activation is implied. Next:
+baseline/readiness ownership and fenced definition producers (W12c.3c.3).

@@ -3,7 +3,11 @@
 #include "cell_command.h"
 #include "version_index.h"
 #define DX_HISTORY_STREAM_ENTRIES 256u
-#define DX_HISTORY_STREAM_BYTES (8u*1024u*1024u)
+#define DX_HISTORY_STREAM_DEFAULT_BYTES (8u*1024u*1024u)
+/* Explicit options can admit complete definition pairs; this is a hard bound,
+   never preallocated memory or retained-history truncation. Outer resource
+   accounting must cover resident events plus validation and prepared models. */
+#define DX_HISTORY_STREAM_BYTES (32u*1024u*1024u)
 #define DX_HISTORY_CELL_FAMILY 1u
 typedef struct WorkbookHistoryStream WorkbookHistoryStream;
 typedef struct WorkbookHistoryEvent WorkbookHistoryEvent;
