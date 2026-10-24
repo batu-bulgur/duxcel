@@ -311,3 +311,13 @@ also checks independent nested record/scope ownership and late budget failure
 preserving an existing plan. Wider148-stage format-controls and source-format
 interactions remain deferred. Ribbon fixture input uses the production logical-
 to-screen transform; hooks/stage state are absent from shipping builds.
+
+`format-delta-codec` selects405 codec cases plus the format module in both builds.
+A canonical byte oracle, all finite-oracle truncations, adjusted inner-frame cuts,
+unsupported/reserved fields, bad bounds/values/guards, duplicate scopes/records/
+fields, no-op records and failed replacement ownership are checked. Valid cases
+cover binary scope bytes, mixed selector precedence, mode-only changes, complete
+20,000-record/16,384-field vectors, exact large IDs and input-independent graphs.
+A34-scope case requires exactly the owned graph plus peak uniqueness scratch;
+under-reservation rejects before allocation. No App/source-version/file profile
+consumer is activated by this codec; its named interactions stay deferred.

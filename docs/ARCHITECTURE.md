@@ -805,3 +805,13 @@ future event admission complete before/after state before mutation without
 changing current compaction, source-aware precedence or history budgets. Plans
 are independent owned graphs; cancellation/failure preserves live mode, revision
 and Undo/Redo. Callers still own workbook/source/revision commit fences.
+
+`workbook/format_delta_codec.c` is the closed scoped-format payload family. It
+serializes explicit little-endian fields, snapshot mode, exact opaque scope bytes
+and selector vectors, excluding native layouts, derived rendering state and live
+display defaults. Decode preflights both graphs' arrays/definitions and the peak
+scope-uniqueness scratch before allocation, then validates full format semantics
+and replaces the owned result only on success. It does not prove source-version
+closure or activate scopes. The producer must capture after any required guarded
+baseline, pin immutable source-version dependencies without rewinding high-water,
+and preserve source/import/lifecycle composites before retained-history activation.

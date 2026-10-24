@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "format-delta-codec": Feature(("format_delta_codec", "format"), "",
+        ("python3 tools/test.py feature --feature format-plan", "python3 tools/test.py feature --feature history-stream"),
+        ("src/workbook/format_delta_codec.c", "src/workbook/format_delta_codec.h", "tests/test_format_delta_codec.c")),
     "format-plan": Feature(("format",), "format-plan",
         ("python3 tools/test.py feature --feature format-controls", "python3 tools/test.py affected --feature source-format --modules source_scope format --config sanitize"),
         ("src/workbook/format.c: owned spatial/scoped plans and shared apply wrappers", "src/workbook/format.h", "tests/test_format.c", "tests/support/format_plan_app.inc", "tests/test_format_plan_gui.c")),

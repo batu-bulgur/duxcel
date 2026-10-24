@@ -219,7 +219,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.1c.2 · P1 · Complete | Retained cell event owner/envelope handoff; W12c.1c.1. | Bind independent durable operation/lineage positions and canonical owned assets before ring eviction. Bounded backpressure cannot mutate data/history; event ownership survives pending persistence and session rings. Keep App retained history inactive until every producer/publication family is supported. |
 | W12c.2 · P1 · In progress | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
 | W12c.2a · P1 · Complete | Cancellable spatial/result format planning; W12c.1. | Prepare independent owned candidates and detect semantic no-op before reservation. Cancel/failure preserves live styles, mode, Undo/Redo and revision; ordinary apply uses the same planner. Narrow actual input/Save/Open workflow. |
-| W12c.2b · P1 · Queued | Closed scoped-format payload encoding; W12c.2a. | Capture stored style properties, snapshot mode, exact opaque scopes, guard indices and record/original-field membership in canonical before/after bytes. Strict bounded owned decoding; derived rendering state and native structs are absent. |
+| W12c.2b · P1 · Complete | Closed scoped-format payload encoding; W12c.2a. | Capture stored style properties, snapshot mode, exact opaque scopes, guard indices and record/original-field membership in canonical before/after bytes. Strict bounded owned decoding; derived rendering state and native structs are absent. |
 | W12c.2c · P1 · Queued | Format event admission and source dependency closure; W12c.2b. | Reserve copied assets before commit, fence workbook/sheet/format/source revisions and preserve all referenced immutable source versions without rewinding high-water or display defaults. Reject partial composite bindings; coordinate range/analysis/lifecycle consumers in their own slices. |
 | W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
@@ -1142,3 +1142,24 @@ canceled scoped/no-op plans,100/150 percent and versioned Save/Open. Gate12.923s
 GUI3.838s;55 tool contracts13.149s. Evidence: ignored
 `w12c2-format-plan*.log`. The148-stage format-controls/source-format interactions
 stay registered/deferred. No format-event file profile is activated yet.
+
+W12c.2b complete: format encoding1 stores canonical before/after snapshots,
+including mode, six stored style properties, exact binary scopes, guard indices
+and64-bit record/original-field vectors. Derived specified bits, native structs,
+revision clocks, live defaults and source high-water are absent. Two-pass decode
+preflights exact owned arrays/bytes plus peak uniqueness scratch before allocation;
+full model validation and semantic-change checks precede replacing an owned out.
+The405-case codec and89,276-case format optimized/sanitized gate passes in3.709s;
+55 tools pass in12.238s. Coverage includes an independent byte oracle, inner/outer
+truncation, duplicate scopes/membership, bounded scratch, maximum membership,
+UINT64_MAX/large integers, mode-only state and input-independent owned graphs.
+Evidence: ignored `w12c2-format-codec*.log`. File/document/source-version closure
+and producer activation remain W12c.2c; opaque scope bytes alone never prove them.
+
+W12 format integration boundary: source-version issuance/completion stays outside
+Undo. Legacy guarded-baseline preparation must precede the retained format
+producer's captured before-state/origin; source/import/refresh migration effects
+must be explicit composites, not silent rewrites of immutable historical assets.
+Source-version rows/locators/packets referenced by scopes must remain owned through
+pending publication and later sheet/object deletion. Closure work is coordinated
+with W12c.3 source-definition assets and W12c.5 lifecycle payloads before activation.
