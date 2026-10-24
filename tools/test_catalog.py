@@ -80,6 +80,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "table-command": Feature(("table_command", "object_source_plan", "history_definition", "workbook_history"), "",
+        ("python3 tools/test.py native --scenario table unique", "python3 tools/test.py feature --feature source-result-format"),
+        ("src/workbook/table_command.c", "src/workbook/table_command.h", "tests/test_table_command.c")),
     "object-source-plan": Feature(("object_source_plan", "objects_asset", "definition_state", "objects"), "",
         ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py native --scenario table"),
         ("src/workbook/object_source_plan.c", "src/workbook/object_source_plan.h", "src/workbook/objects.c: admitted source-plan ownership transfer", "src/workbook/objects.h", "tests/test_object_source_plan.c")),

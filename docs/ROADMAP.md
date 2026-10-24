@@ -262,7 +262,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4a.1 · P1 · Complete | Independent Table source transform planning; W12c.3c.3b.3. | Measure complete candidate/scratch before cloning, preserve source identity and allocator bounds, own all object definitions independently and leave live Undo/Redo/counters unchanged. |
 | W12c.3c.3b.4a.2 · P1 · In progress | Fenced Table command adoption/App integration; W12c.3c.3b.4a.1. | Reserve complete DXDE assets before any live object-history eviction, recheck all owner/layout/readiness fences and adopt the plan as one action. Keep source/format replacement composites separate. |
 | W12c.3c.3b.4a.2a · P1 · Complete | Table plan model ownership transfer; W12c.3c.3b.4a.1. | Move the old current graph into bounded Undo and consume the independent after-plan without copying again; preserve store counters and prove count/byte-pressure history transfers. No unchecked App command admission. |
-| W12c.3c.3b.4a.2b · P1 · Queued | Table event reservation/fences and App adapter; W12c.3c.3b.4a.2a. | Bind durable/session/object/source/layout ownership, reserve before eviction, recheck and publish the whole action once; verify unrelated Table/Pivot caches and the smallest real GUI lane. |
+| W12c.3c.3b.4a.2b · P1 · In progress | Table event reservation/fences and App adapter; W12c.3c.3b.4a.2a. | Bind durable/session/object/source/layout ownership, reserve before eviction, recheck and publish the whole action once; verify unrelated Table/Pivot caches and the smallest real GUI lane. |
+| W12c.3c.3b.4a.2b.1 · P1 · Complete | Fenced Table event producer; W12c.3c.3b.4a.2a. | Freeze durable/session/request/object/source/layout state, reserve closed DXDE before eviction, recheck and publish one coherent object action. Reject pressure/stale/cancel without model changes. |
+| W12c.3c.3b.4a.2b.2 · P1 · Queued | Table producer App integration; W12c.3c.3b.4a.2b.1. | Route same-connection Table transforms through admitted planning/adoption; retain replacement/composite owners and prove target/dependent/unrelated caches plus narrow input/Undo/Redo/Save/Open and recovery rotation. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1538,3 +1540,19 @@ multi-snapshot eviction under the independent8 MiB history limit. Receipts:
 ignored `w12c3-object-source-adopt*.log` and run summaries. This primitive requires
 prior complete command/event admission; it is not installed in the App yet.
 Fenced Table reservation/adoption/App integration remains W12c.3c.3b.4a.2b.
+
+
+W12c.3c.3b.4a.2b.1 complete: the typed Table controller owns prepare/check/plan/
+reserve/recheck/adopt/publish for same-connection definitions. Runtime fences
+capture durable/session IDs, request/document/cell/format/history state, complete
+native object/store headers and immutable source ledger row descriptors. Non-user
+extent/cache/default completion cannot silently overwrite a prepared graph.
+The controller closes complete before/after source dependencies and reserves DXDE
+before any bounded object-history eviction. Input proposals remain caller-owned;
+no-op/pressure/cancellation preserve history/Redo/clocks. The focused four-module
+optimized/ASan/UBSan gate passes8.347s;50 tool contracts pass4.005s. Coverage
+includes sheet reorder, callback stale/denial paths, pending-source completion,
+query-cache fences, display-only filter order, immutable first events beyond32
+commands and queue pressure. Receipts: ignored `w12c3-table-command*.log` and run
+summaries. App readiness/invalidation and complete global staging accounting
+remain with the next Table adapter; retained history is not activated.

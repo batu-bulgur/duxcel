@@ -1032,3 +1032,14 @@ and store title/Marks counters; query epochs come from the admitted plan. The
 outer command must reserve before count/byte eviction, recheck fences, record one
 worksheet action, advance document/dirty/branch state and invalidate runtime jobs.
 This primitive alone is not App command admission or retained-history activation.
+
+
+`workbook/table_command.c` owns the same-connection Table command transaction.
+Borrowed context provides definition readiness, request epoch and separately
+admitted plan/event-validation budgets. Its bounded native runtime fences compare
+exact object/store/ledger descriptors without dereferencing stale ownership; they
+are never file bytes. One independent after-plan and closed source union precede
+optional immutable DXDE reservation; a full recheck precedes nonfallible graph
+transfer and one object action/document revision/dirty branch publication. The
+App still owns request/cache invalidation and full transient accounting. Source
+replacement/binding/format composites and retained App activation remain separate.
