@@ -96,6 +96,11 @@ static void push(ObjectSnapshot *stack,size_t *count,ObjectSnapshot state) {
     stack[(*count)++]=state;
 }
 static void remember(ObjectStore *s) { clear(s->redo,&s->redo_count); push(s->undo,&s->undo_count,snapshot(s)); }
+void objects_adopt_source_transform(ObjectStore *s,ObjectSnapshot *owned) {
+    assert(s && owned && owned->items && owned->items!=s->items && owned->count==s->count && s->undo_count<=32 && s->redo_count<=32);
+    clear(s->redo,&s->redo_count); push(s->undo,&s->undo_count,(ObjectSnapshot){s->items,s->count});
+    s->items=owned->items; s->count=owned->count; *owned=(ObjectSnapshot){0};
+}
 void objects_free(ObjectStore *s) {
     ObjectSnapshot data={s->items,s->count}; objects_snapshot_free(&data); clear(s->undo,&s->undo_count); clear(s->redo,&s->redo_count); memset(s,0,sizeof(*s));
 }

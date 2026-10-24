@@ -57,6 +57,38 @@ static void noops_order_and_epochs(void) {
     CHECK(objects_plan_source_transform(&s,s.items[0].id,&source,SIZE_MAX,&out,&info)==OBJECT_SOURCE_PLAN_OK && info.result_changed && info.after_revision==18 && !strcmp(out.items[0].source.sort_column,"City"));
     analysis_free(&source); objects_snapshot_free(&out); objects_free(&s);
 }
+static void adoption_and_retention(void) {
+    ObjectStore s=fixture(); uint64_t id=s.items[0].id,high=s.next_id,titles=s.title_revision,marks=s.marks_revision;
+    Analysis source=analysis_copy(&s.items[0].source); source.unique_rows=true; ObjectSnapshot out={0}; ObjectSourcePlanInfo info={0};
+    CHECK(objects_plan_source_transform(&s,id,&source,SIZE_MAX,&out,&info)==OBJECT_SOURCE_PLAN_OK);
+    SheetObject *old=s.items,*next=out.items; objects_adopt_source_transform(&s,&out);
+    CHECK(!out.items && !out.count && s.items==next && s.undo_count==32 && !s.redo_count && s.undo[31].items==old && s.items[0].source.unique_rows &&
+        s.next_id==high && s.title_revision==titles && s.marks_revision==marks && s.items[0].revision==info.after_revision);
+    CHECK(objects_history(&s,false) && s.items==old && !s.items[0].source.unique_rows && s.redo_count==1);
+    CHECK(objects_history(&s,true) && s.items==next && s.items[0].source.unique_rows && !s.redo_count);
+    analysis_free(&source);
+    for (unsigned i=0;i<40;i++) {
+        source=analysis_copy(&s.items[0].source); source.unique_rows=!source.unique_rows;
+        CHECK(objects_plan_source_transform(&s,id,&source,SIZE_MAX,&out,&info)==OBJECT_SOURCE_PLAN_OK);
+        objects_adopt_source_transform(&s,&out); CHECK(s.undo_count==32 && !s.redo_count && !out.items && s.items[0].source.unique_rows==source.unique_rows && s.next_id==high);
+        analysis_free(&source);
+    }
+    /* Byte pressure can evict several old snapshots, independently from the
+       action-count ceiling. The outer command must reserve before this move. */
+    source=analysis_copy(&s.items[0].source); analysis_filters_clear(&source);
+    source.filter_column=dx_strdup("Value"); source.filter_op=FILTER_CONTAINS; source.filter_value=dx_alloc(3u*1024u*1024u+1);
+    memset(source.filter_value,'x',3u*1024u*1024u);
+    source.filter_count=1; source.filters[0]=(AnalysisFilter){.column=dx_strdup("City"),.value=dx_alloc(3u*1024u*1024u+1),.op=FILTER_CONTAINS};
+    memset(source.filters[0].value,'y',3u*1024u*1024u); /* Each predicate stays below4 MiB. */
+    CHECK(objects_plan_source_transform(&s,id,&source,SIZE_MAX,&out,&info)==OBJECT_SOURCE_PLAN_OK); objects_adopt_source_transform(&s,&out); analysis_free(&source);
+    for (unsigned i=0;i<2;i++) {
+        source=analysis_copy(&s.items[0].source); source.unique_rows=!source.unique_rows;
+        CHECK(objects_plan_source_transform(&s,id,&source,SIZE_MAX,&out,&info)==OBJECT_SOURCE_PLAN_OK); objects_adopt_source_transform(&s,&out); analysis_free(&source);
+    }
+    CHECK(s.undo_count==1 && s.next_id==high && s.title_revision==titles && s.marks_revision==marks && objects_valid(&s,NULL));
+    CHECK(objects_history(&s,false) && s.redo_count==1 && strlen(s.items[0].source.filter_value)==3u*1024u*1024u && strlen(s.items[0].source.filters[0].value)==3u*1024u*1024u);
+    objects_free(&s);
+}
 static void grammar_and_defaults(void) {
     ObjectStore s=fixture(); Analysis source=analysis_copy(&s.items[0].source); ObjectSnapshot out={0}; ObjectSourcePlanInfo info={0};
     CHECK(analysis_filter_set(&source,"Amount",FILTER_BETWEEN,"[\"1\",\"100\"]",NULL));
@@ -72,4 +104,4 @@ static void grammar_and_defaults(void) {
     CHECK(objects_plan_source_transform(&s,s.items[0].id,&source,SIZE_MAX,&out,&info)==OBJECT_SOURCE_PLAN_OK && out.items[0].source.kind==SOURCE_DATABASE && !strcmp(out.items[0].source.table,"Sales"));
     analysis_free(&source); objects_snapshot_free(&out); objects_free(&s);
 }
-int main(void) { ownership_and_budget(); noops_order_and_epochs(); grammar_and_defaults(); printf("PASS: %u independent Table source plan checks\n",checks); return 0; }
+int main(void) { ownership_and_budget(); noops_order_and_epochs(); adoption_and_retention(); grammar_and_defaults(); printf("PASS: %u independent Table source plan checks\n",checks); return 0; }

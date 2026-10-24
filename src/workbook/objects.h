@@ -47,6 +47,15 @@ bool objects_plan_source_version(const ObjectStore *store,uint64_t owner,
    and unmodified. Moves the previous current snapshot into undo, clears redo,
    and preserves allocation/query/title/Marks counters. */
 void objects_adopt_source_version(ObjectStore *store,ObjectSnapshot *owned);
+/* Nonfallible model transfer after successful objects_plan_source_transform
+   and complete command admission. The live store/independent plan are unchanged
+   since planning. Move the prior current graph into bounded Undo, clear Redo
+   and consume the after-plan; never clone history/current text again. Preserve
+   store allocation/title/Marks counters and install the planned object query
+   epochs. Caller reserves its event BEFORE any eviction, records the matching
+   worksheet action once, publishes dirty/document clocks and invalidates jobs.
+   This is not a standalone command or safe unchecked snapshot installer. */
+void objects_adopt_source_transform(ObjectStore *store,ObjectSnapshot *owned);
 void objects_snapshot_free(ObjectSnapshot *owned);
 /* Conservative source-binding reservation, not exact allocator measurement:
    a non-NULL array reserves DX_MAX_OBJECTS* sizeof(SheetObject), including when

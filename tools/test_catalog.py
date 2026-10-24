@@ -80,9 +80,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
-    "object-source-plan": Feature(("object_source_plan", "objects_asset", "definition_state"), "",
+    "object-source-plan": Feature(("object_source_plan", "objects_asset", "definition_state", "objects"), "",
         ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py native --scenario table"),
-        ("src/workbook/object_source_plan.c", "src/workbook/object_source_plan.h", "tests/test_object_source_plan.c")),
+        ("src/workbook/object_source_plan.c", "src/workbook/object_source_plan.h", "src/workbook/objects.c: admitted source-plan ownership transfer", "src/workbook/objects.h", "tests/test_object_source_plan.c")),
     "primary-steps": Feature(("analysis_command", "history_definition"), "primary-steps",
         ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py native --scenario layout"),
         ("src/app/app.c: primary pipeline step command admission", "tests/support/primary_steps_app.inc", "tests/test_primary_steps_gui.c")),

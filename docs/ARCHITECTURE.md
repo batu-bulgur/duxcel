@@ -1023,3 +1023,12 @@ reordering do not advance query epochs. A changed result cannot wrap its epoch.
 Only one current graph is cloned, without cloning or pruning history. The final
 command owner still owes runtime/layout fences, dependency/composite closure,
 event reservation and coherent adoption; this primitive does not mutate the App.
+
+
+After complete Table command admission, `objects_adopt_source_transform` moves
+the previous current object graph into bounded Undo and consumes the independent
+after-plan without allocating/copying another graph. It preserves object allocator
+and store title/Marks counters; query epochs come from the admitted plan. The
+outer command must reserve before count/byte eviction, recheck fences, record one
+worksheet action, advance document/dirty/branch state and invalidate runtime jobs.
+This primitive alone is not App command admission or retained-history activation.
