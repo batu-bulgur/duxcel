@@ -72,6 +72,9 @@ void objects_snapshot_free(ObjectSnapshot *owned);
 size_t objects_snapshot_owned_bytes(const ObjectSnapshot *state);
 /* Pin a worker-resolved default relation without a new edit or query revision. */
 bool objects_resolve_source(ObjectStore *store,size_t index,const Analysis *resolved,char **error);
+/* Borrow valid bounded definitions. Preserve field/aggregate identity across
+   reorder; aggregate edits retain the slot, removal falls back to measure zero. */
+size_t objects_pivot_measure_selection(const PivotDefinition *before,size_t selected,const PivotDefinition *after);
 bool objects_update(ObjectStore *store,size_t index,const PivotDefinition *definition,char **error);
 /* Presentation-only change: retain query revision and cached result. */
 bool objects_mark(ObjectStore *store,size_t index,ChartMark mark,char **error);

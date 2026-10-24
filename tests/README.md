@@ -35,6 +35,9 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | `test_object_marks_command_gui.c`, `support/object_marks_command_app.inc` | Fifteen-stage Color/Size menus, keyboard clear/Undo/Redo, complete roles/cache/no-op and150% Save/Open; consumes finite `fixtures/duplicates.csv` | Hidden TEST release App; production excludes fixture |
 | `test_object_layout_command.c` | Source-count/extent and full-owner fences, bounded geometry/collision/no-op, reservation cancellation and immutable sizes beyond32 actions | Cached optimized/ASan/UBSan model objects |
 | `test_object_layout_command_gui.c`, `support/object_layout_command_app.inc` | Eighteen-stage representation menu, size dialog/corner gesture, selection/Undo/Redo, collision/cache and150% Save/Open; consumes finite `fixtures/duplicates.csv` | Hidden TEST release App; production excludes fixture |
+| `test_object_pivot_command.c` | Whole Pivot proposal/grammar/budget ownership, measure remapping, query exhaustion, callback cancellation and immutable definitions beyond32 actions | Cached optimized/ASan/UBSan model objects |
+| `test_object_pivot_command_gui.c`, `support/object_pivot_command_app.inc` | Eighteen-stage field/aggregate/filter/month/year authoring, unrelated caches, no-op/Undo/Redo and150% Save/Open | Hidden TEST release App; production excludes fixture |
+| `fixtures/pivot-command.csv` | Eight Date/City/Amount records across two months and three cities; the Pivot command GUI proves Amount >40 produces yearly AVG65 | Tracked finite authored input; consumed by `support/object_pivot_command_app.inc` |
 | `test_object_presentation_command.c` | Mark/measure ownership, no-op/counter/overflow rules, reservation cancellation and immutable events beyond32 actions | Cached optimized/ASan/UBSan model objects |
 | `test_object_presentation_command_gui.c`, `support/object_presentation_command_app.inc` | Fifteen-stage real mark shortcut/measure menu, cache/scatter/no-op/Undo/Redo and150% Save/Open; consumes finite `fixtures/duplicates.csv` | Hidden TEST release App; production excludes fixture |
 | `test_object_name_command.c` | Rename draft identity, background rebase, canonical names, counters, reservation/cancel and immutable events beyond the session ring | Cached optimized/ASan/UBSan model objects |
@@ -44,7 +47,7 @@ stay in `src/`; generated programs/databases/reports stay in `build/tests/`.
 | `test_about_native.m` | Standalone real AppKit history scrolling, TEST icon/Dock identity and repeated cleanup; consumes canonical `assets/icons/duxcel.icns` | Tracked macOS adapter test; hidden ASan/UBSan GUI |
 | `test_cell_regions.c` | Pure shared-C sparse region shapes, blank ties, read ownership, edges and 20,000-cell traversal limit | Tracked C test; optimized/sanitizer targets |
 | `fixtures/workbook/transactions.sql` | Finite v12 four-sheet workbook input for the Python generator | Tracked SQL test input |
-| `fixtures/*.csv` | Seven tiny input datasets: NULL/text/quoting/sort/chart cases | Tracked authored inputs |
+| `fixtures/*.csv` | Eight tiny input datasets: NULL/text/quoting/sort/chart/date command cases | Tracked authored inputs |
 | `fixtures/ui/*.json` | Versioned expected UI geometry/scroll/paint contracts | Tracked finite regression inputs |
 | `fixtures/rendering/*.h` | C pixel-array oracles used by native paint tests | Tracked test input; preserve values |
 | `../tools/tests/` | Python tests for automation, queues, packaging and cleanup | Tracked tool tests |

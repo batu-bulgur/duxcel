@@ -208,6 +208,16 @@ bool objects_resolve_source(ObjectStore *s,size_t index,const Analysis *resolved
     char *schema=dx_strdup(candidate.schema),*table=dx_strdup(candidate.table);
     free(source->schema); source->schema=schema; source->table=table; return true;
 }
+size_t objects_pivot_measure_selection(const PivotDefinition *old,size_t selected,const PivotDefinition *definition) {
+    if (selected<old->counts[PIVOT_VALUES]) {
+        const PivotField *value=&old->fields[PIVOT_VALUES][selected]; bool found=false;
+        for (size_t i=0;i<definition->counts[PIVOT_VALUES];i++) if (!strcmp(value->name,definition->fields[PIVOT_VALUES][i].name) && value->aggregate==definition->fields[PIVOT_VALUES][i].aggregate) { selected=i; found=true; break; }
+        /* An aggregate edit changes the identity but keeps the same measure
+           slot. A removed assignment must not select an unrelated field. */
+        if (!found) selected=selected<definition->counts[PIVOT_VALUES] && !strcmp(value->name,definition->fields[PIVOT_VALUES][selected].name) ? selected : 0;
+    } else selected=0;
+    return selected;
+}
 bool objects_update(ObjectStore *s,size_t index,const PivotDefinition *definition,char **error) {
     if (index>=s->count || s->items[index].kind==OBJECT_TABLE || !pivot_valid(definition,error)) return false;
     const PivotDefinition *old=&s->items[index].pivot; bool same=true;
@@ -222,14 +232,7 @@ bool objects_update(ObjectStore *s,size_t index,const PivotDefinition *definitio
     SheetObject candidate=s->items[index]; candidate.pivot=*definition;
     ObjectSnapshot current={s->items,s->count},before={&s->items[index],1},after={&candidate,1};
     if (bytes(&current)-bytes(&before)+bytes(&after)>DX_OBJECT_CURRENT_BYTES) return fail(error,"Pivot definitions are limited to 8 MiB per sheet. Narrow the value selection.");
-    size_t selected=s->items[index].chart_measure;
-    if (selected<old->counts[PIVOT_VALUES]) {
-        const PivotField *value=&old->fields[PIVOT_VALUES][selected]; bool found=false;
-        for (size_t i=0;i<definition->counts[PIVOT_VALUES];i++) if (!strcmp(value->name,definition->fields[PIVOT_VALUES][i].name) && value->aggregate==definition->fields[PIVOT_VALUES][i].aggregate) { selected=i; found=true; break; }
-        /* An aggregate edit changes the identity but keeps the same measure
-           slot. A removed assignment must not select an unrelated field. */
-        if (!found) selected=selected<definition->counts[PIVOT_VALUES] && !strcmp(value->name,definition->fields[PIVOT_VALUES][selected].name) ? selected : 0;
-    } else selected=0;
+    size_t selected=objects_pivot_measure_selection(old,s->items[index].chart_measure,definition);
     PivotDefinition copy=pivot_copy(definition); remember(s); pivot_free(&s->items[index].pivot); s->items[index].pivot=copy; s->items[index].chart_measure=(unsigned char)selected; s->items[index].revision++; return true;
 }
 bool objects_mark(ObjectStore *s,size_t index,ChartMark mark,char **error) {

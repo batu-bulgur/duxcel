@@ -273,7 +273,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b.4b.3 · P1 · Complete | Chart mark/measure presentation commands; W12c.3c.3b.4b.2. | Prepare complete object plans for mark and selected-measure changes, reserve before mutation and preserve query epochs/Pages. Retain App scatter/schema availability checks, no-op Redo and exact title counters. |
 | W12c.3c.3b.4b.4 · P1 · Complete | Marks binding definition commands; W12c.3c.3b.4b.3. | Retain all authored role/aggregate/grain/measure bindings as one event, preserve source/query boundaries and bounded unsupported behavior, and verify cache/invalidation plus Undo/Redo/Save/Open. |
 | W12c.3c.3b.4b.5 · P1 · Complete | Matrix/chart representation and sizing commands; W12c.3c.3b.4b.4. | Recheck placement/manual/source overlap and complete dimensions before admission; preserve compatible cached results and explicit invalidation when representation semantics require it. |
-| W12c.3c.3b.4c · P1 · Queued | Pivot definition commands; W12c.3c.3b.4b. | Admit complete field/aggregate/date/filter/reorder definitions with selected-measure remapping, bounded query revision and one object event. Keep App schema checks, no-op Redo and unrelated caches; verify real authoring, Undo/Redo and Save/Open. |
+| W12c.3c.3b.4c · P1 · Complete | Pivot definition commands; W12c.3c.3b.4b. | Admit complete field/aggregate/date/filter/reorder definitions with selected-measure remapping, bounded query revision and one object event. Keep App schema checks, no-op Redo and unrelated caches; verify real authoring, Undo/Redo and Save/Open. |
 | W12c.3c.3b.4d · P1 · Queued | Source connection/binding replacement commands; W12c.3c.3b.4c. | Prepare primary/Table connection and analytical source-binding replacements with complete before/after dependency closure, explicit reset/invalidation and owner/source fences. Default-relation completion remains origin enrichment, not a manufactured edit. |
 | W12c.3c.3b.4e · P1 · Queued | Object topology and placement commands; W12c.3c.3b.4d. | Admit create/delete/move with full graph/geometry/dependency validation and monotonic allocator obligations before eviction; preserve dependent-source deletion guards, chronological Undo/Redo and independent caches. |
 | W12c.3c.3b.4f · P1 · Queued | Source/definition/format composite adoption; W12c.3c.3b.4d–W12c.3c.3b.4e, W12c.2c.3b.2. | Coordinate complete source ledger, primary/object binding and format effects under one reservation/recheck/publication. Prove no half-adoption on pressure, stale, cancellation or failure; close every remaining legacy producer before retained App activation. |
@@ -1718,3 +1718,26 @@ symbol exclusions pass. Receipts: ignored `w12c3-object-layout-bundle.log`,
 `w12c3-object-layout-package.json` and `w12c3-object-layout-web.log`. No user App
 was launched/closed. Compile/link acceptance does not imply browser runtime or
 browser workbook Open/Save, durable history or full regression acceptance.
+
+
+W12c.3c.3b.4c complete: a Pivot definition controller admits full field/aggregate/
+date/filter/reorder proposals with canonical graph/grammar/source closure and
+optional DXDE reservation before history eviction. Changed definitions advance
+one object query revision/document action without wrap; no-op (including derived
+NumberType-only changes) preserves Redo and cache. Shared allocation-free measure
+selection remapping keeps the legacy model and admitted producer consistent.
+App field authoring and the separate filter editor now use this owner; only the
+changed object's result is invalidated. Native memory admission includes caller
+proposal staging; render/input owners re-resolve pointers after adoption.
+The234-case command,290-case recorder,383-case Pivot asset and318-case object
+modules pass optimized/ASan/UBSan. The hidden TEST App passes18 stages/39 checks
+(GUI9.550s; combined19.056s): actual Alt-Left reorder, aggregate/delete keys,
+filter Apply, month/year authoring, no-op Redo, Cmd-Z/Redo, unrelated Table/Pivot
+Page preservation and150% v16 Save/Open. The finite eight-row Date/City/Amount
+fixture proves the filtered yearly average is65 before and after reopen. Resize
+settles before Save so subsequent viewport publication is not mistaken for a
+failed save of the captured state. Fifty tool contracts pass2.348s. Packaging
+evidence follows below. Receipts: ignored `w12c3-object-pivot-app.log`,
+`w12c3-object-pivot-tools.log` and run summary. No broad regression or retained
+App writer activation is claimed. Next: W12c.3c.3b.4d source connection/binding
+replacement, retaining the separate complete format-composite boundary.

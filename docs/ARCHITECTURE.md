@@ -1088,3 +1088,16 @@ keeps shared production result readiness, schema/scatter and native memory
 admission, adjusts matching chart selections and re-resolves render pointers after
 adoption. These changes preserve compatible result Pages and query/Marks/title/
 allocator/source clocks. Retained event IO and durable Undo remain separate.
+
+
+`object_pivot_command.c` admits whole Pivot definitions for analytical objects.
+Its allocation-free projection measures full graph and caller staging, ignores
+derived NumberType-only changes, guards query revision exhaustion and uses the
+same measure-selection remapping as `objects_update`. Grammar/source closure and
+optional complete DXDE reservation precede one graph/action/document/query
+revision publication. App authoring and filter adapters share this producer,
+preserve unrelated result Pages, invalidate the changed object and retain schema/
+aggregate/date checks, job cancellation and focus. Caller definitions remain
+borrowed in the controller; the selected-object adapter consumes its owned draft.
+Retained event writing, source binding replacement and format composites remain
+separate roadmap boundaries.

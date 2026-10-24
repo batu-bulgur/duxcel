@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "object-pivot-command": ("build/tests/test_object_pivot_command-gui", "PASS: native object Pivot workflow",
+                             r"^PASS: native object Pivot workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "object-layout-command": ("build/tests/test_object_layout_command-gui", "PASS: native object layout workflow",
                               r"^PASS: native object layout workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "object-marks-command": ("build/tests/test_object_marks_command-gui", "PASS: native object Marks workflow",
@@ -90,6 +92,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "object-pivot-command": Feature(("object_pivot_command", "history_definition", "pivot_asset", "objects"), "object-pivot-command",
+        ("python3 tools/test.py feature --feature object-layout-command", "python3 tools/test.py native --scenario chart filter"),
+        ("src/workbook/object_pivot_command.c", "src/workbook/object_pivot_command.h", "src/workbook/objects.c: shared measure selection remapping", "src/app/app.c: field/filter definition adapters", "tests/test_object_pivot_command.c", "tests/support/object_pivot_command_app.inc")),
     "object-layout-command": Feature(("object_layout_command", "object_presentation_command", "history_definition", "objects"), "object-layout-command",
         ("python3 tools/test.py feature --feature object-marks-command", "python3 tools/test.py native --scenario chart"),
         ("src/workbook/object_layout_command.c", "src/workbook/object_layout_command.h", "src/app/app.c: representation/size adapters and render ownership", "tests/test_object_layout_command.c", "tests/support/object_layout_command_app.inc")),

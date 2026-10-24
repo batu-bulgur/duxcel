@@ -5,6 +5,7 @@
 #include "../workbook/object_name_command.h"
 #include "../workbook/object_presentation_command.h"
 #include "../workbook/object_layout_command.h"
+#include "../workbook/object_pivot_command.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
@@ -472,6 +473,7 @@ typedef struct {
     double frame_samples[600];
     unsigned frames;
 } App;
+static bool set_pivot_definition_at(App *a,size_t index,const PivotDefinition *p);
 static SheetObject *selected_pivot(App *a);
 static bool set_representation(App *a,int representation);
 static void preview_to_source(App *a,uint64_t row,size_t column);
@@ -2998,12 +3000,10 @@ static bool commit_object_filter(App *a,FilterOp op,const char *value,bool clear
     if (a->filter_pill<0 && !pivot_assign(&copy,PIVOT_FILTERS,fields->columns[a->field].name,AGG_SUM,&error)) { status(a,error); free(error); pivot_free(&copy); return true; }
     if (clear) pivot_remove(&copy,PIVOT_FILTERS,index);
     else { PivotField *f=&copy.fields[PIVOT_FILTERS][index]; f->number=fields->columns[a->field].number_type; free(f->value); f->filter=op; f->value=dx_strdup(value); }
-    uint64_t previous=store->items[target].revision;
-    if (objects_update(store,(size_t)target,&copy,&error)) {
-        if (store->items[target].revision!=previous) { worksheet_record(active_sheet(a),EDIT_OBJECTS); invalidate_object(a,(size_t)target); a->book.dirty=true; }
+    if (set_pivot_definition_at(a,(size_t)target,&copy)) {
         a->pivot_focus=PIVOT_FILTERS+2; a->pivot_value=(int)index; a->author_reveal=true;
     }
-    else { status(a,error); free(error); }
+    free(error);
     pivot_free(&copy); a->modal=MODAL_NONE; a->filter_object=-1; return true;
 }
 #ifndef DUXCEL_BROWSER_HOST
@@ -3314,11 +3314,29 @@ static SheetObject *selected_pivot(App *a) {
     SheetObject *object=selected_object(a);
     return object && object->kind!=OBJECT_TABLE ? object : NULL;
 }
+static bool set_pivot_definition_at(App *a,size_t index,const PivotDefinition *p) {
+    Worksheet *sheet=active_sheet(a); if (!sheet || index>=sheet->objects.count) return false;
+    uint64_t id=sheet->objects.items[index].id; char *error=NULL; bool ok=false;
+    ObjectPivotPlanInfo info={0}; ObjectPivotStatus planned=objects_pivot_measure(&sheet->objects,id,p,&info,&error);
+    if (planned!=OBJECT_PIVOT_READY && planned!=OBJECT_PIVOT_NOOP) goto done;
+    if (info.owned>SIZE_MAX-info.validation_scratch) { error=dx_strdup("Pivot planning reservation overflow."); goto done; }
+#ifndef DUXCEL_BROWSER_HOST
+    if (planned==OBJECT_PIVOT_READY && source_format_budget_status(a,NULL,info.owned,info.validation_scratch,info.proposal_owned,0,0)) goto done;
+#endif
+    ObjectCommandContext context={.book=&a->book,.request_epoch=&a->request_id,.plan_reserved=info.owned+info.validation_scratch,
+        .validation_reserved=info.validation_scratch,.ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)};
+    ObjectCommandTarget target;
+    if (!workbook_prepare_object_fence(&context,a->book.active,id,&target,&error)) goto done;
+    ObjectPivotResult result=workbook_apply_object_pivot_recorded(&context,&target,p,NULL,&error);
+    ok=result.status==OBJECT_PIVOT_APPLIED || result.status==OBJECT_PIVOT_NOOP;
+    if (result.status==OBJECT_PIVOT_APPLIED) invalidate_object(a,index);
+done:
+    if (error) status(a,error);
+    free(error); return ok;
+}
 static bool set_pivot_definition(App *a,PivotDefinition *p) {
-    SheetObject *o=selected_pivot(a); uint64_t previous=o ? o->revision : 0;
-    char *error=NULL; bool ok=o && objects_update(&active_sheet(a)->objects,(size_t)a->selected_object,p,&error);
-    if (ok && o->revision!=previous) { worksheet_record(active_sheet(a),EDIT_OBJECTS); invalidate_object(a,(size_t)a->selected_object); } else if (error) status(a,error);
-    free(error); pivot_free(p); return ok;
+    bool ok=selected_pivot(a) && set_pivot_definition_at(a,(size_t)a->selected_object,p);
+    pivot_free(p); return ok;
 }
 static bool field_numeric(App *a,const char *name) {
     for (size_t c=0;c<context_fields(a)->column_count;c++) if (!strcmp(context_fields(a)->columns[c].name,name)) return context_fields(a)->columns[c].numeric;
@@ -7434,6 +7452,7 @@ static bool pivot_keyboard(App *a) {
             if ((ui_key_alt(direction<0 ? KEY_LEFT : KEY_RIGHT) || ui_key_alt(direction<0 ? KEY_UP : KEY_DOWN)) && next!=a->pivot_value) {
                 PivotDefinition copy=pivot_copy(&o->pivot); char *error=NULL;
                 if (pivot_move(&copy,(PivotRole)role,(size_t)a->pivot_value,(PivotRole)role,(size_t)next,&error)) set_pivot_definition(a,&copy); else { status(a,error); free(error); pivot_free(&copy); }
+                o=selected_pivot(a);
             }
             a->pivot_value=next;
             a->author_reveal=true;
@@ -15628,6 +15647,9 @@ static void object_marks_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_LAYOUT_COMMAND
 static void object_layout_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_PIVOT_COMMAND
+static void object_pivot_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
 static void object_presentation_command_test_frame(AppSession *session);
 #endif
@@ -16500,6 +16522,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_LAYOUT_COMMAND
     object_layout_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_OBJECT_PIVOT_COMMAND
+    object_pivot_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_PRESENTATION_COMMAND
     object_presentation_command_test_frame(session);
 #endif
@@ -16802,4 +16827,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_OBJECT_LAYOUT_COMMAND
 #include "../../tests/support/object_layout_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_OBJECT_PIVOT_COMMAND
+#include "../../tests/support/object_pivot_command_app.inc"
 #endif
