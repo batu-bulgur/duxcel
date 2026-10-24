@@ -530,6 +530,7 @@ class RunnerTests(unittest.TestCase):
                     expected.append(["./"+binary,"--source-versions-only"])
                     expected.append(["./"+binary,"--source-bindings-only"])
                     expected.append(["./"+binary,"--format-rows-only"])
+                    expected.append(["./"+binary,"--format-tags-only"])
                 module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
                 if module in runner.ENGINE_PROCESS_CHECKS:
                     check=runner.ENGINE_PROCESS_CHECKS[module]

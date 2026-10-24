@@ -2149,3 +2149,15 @@ full/cross-hole inventories no longer report deleted cases as executed.
 The 63 focused runner/catalog/fixture tool contracts pass in6.929s; output
 `build/tests/results/current-tool-contracts.txt`. No broad native layout run was
 performed for this metadata-only reconciliation.
+
+Current metadata matrices integrated as `01fd2dc` (native families) and `e5ff61c`
+(cross-engine current rewrite). The last legacy workbook downgrade helper and
+its Make prerequisites are removed. All 28 current tables, exact identity and
+NULL/text/precision/independent ownership remain in the rewrite proof. The runner
+now dispatches all 15 optional metadata families, including format-tags, from
+both focused and milestone gates. Combined runner/catalog contracts pass57tests
+in4.656s and the10Node persistence probe contracts pass83ms. Coherent native
+release/sanitizer matrix and actual Worker gates are still active in their
+owning lanes; these component changes are not yet packaged or marked fully
+accepted. Evidence: `build/tests/results/current-metadata-runner-contracts.txt`
+and `build/tests/results/current-persistence-node-contracts.txt`.
