@@ -860,3 +860,15 @@ the plan; semantic no-op consumes it without a reservation or losing Redo. Norma
 App manual formatting uses this same controller with no retained recorder. Source
 baseline normalization and source/analysis/object composites keep their existing
 App owner until their complete retained constituents are available.
+
+
+`workbook/analysis_asset.c` owns canonical primary/Table Analysis metadata assets.
+Explicit closed enum tags and nullable UTF-8 spans retain source/query/group and
+filter/sort display order. Measurement is allocation-free; encode admits grammar
+scratch before validation/writing, and decode preflights framing plus owned texts
+and parser scratch before allocation. Output replacement is atomic. Schema-derived
+NumberType caches are excluded and must be rebound against verified source/schema
+metadata before execution; a cache-only refresh is not a retained user action.
+The asset preserves source-version IDs without adopting a ledger, issuing queries
+or proving the outer owner/source dependency closure. Missing-source definitions
+remain inspectable metadata, not implicitly executable relations.

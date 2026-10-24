@@ -228,7 +228,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.2c.3b · P1 · In progress | Fenced format producer and composite admission; W12c.2c.3a, W12c.3. | Recheck workbook/sheet/format/source state after reservation, then atomically adopt every constituent and publish once. Preserve prepared input on failure; cover analysis/object source-version changes before activating retained App history. |
 | W12c.2c.3b.1 · P1 · Complete | Fenced manual-format producer; W12c.2c.3a. | Source-free/object-free spatial formatting reserves before mutation, rechecks durable/session/cell/format/document fences, then publishes one complete worksheet action. Failure preserves the owned plan; no-op preserves Redo and clocks. Normal manual App formatting uses this controller with session-only history. |
 | W12c.2c.3b.2 · P1 · Queued | Source-bound composite format producer; W12c.2c.3b.1, W12c.3. | Admit source ledger plus primary/Table bindings and format assets together, preserving immutable baseline normalization and all source/readiness/revision fences. No partial constituent publication or early retained-history activation. |
-| W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
+| W12c.3 · P1 · In progress | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
+| W12c.3a · P1 · Complete | Closed primary/Table Analysis definition asset; W12c.1. | Preserve stable sheet/owner/source-version IDs, exact nullable texts, query/unique/group/aggregate, ordered filters/sorts and finite enum tags. Preflight owned memory and grammar scratch before copying; exclude derived schema caches and require verified rebinding before execution. |
+| W12c.3b · P1 · Queued | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
+| W12c.3c · P1 · Queued | Analysis/object producer and composite event admission; W12c.3a–W12c.3b. | Reserve every changed definition/dependency before adoption, recheck source/request/workbook state and publish once; coordinate source-bound formats and preserve allocator high-water. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1238,3 +1241,13 @@ local gate13.073s; GUI3.092s;50 runner/catalog contracts pass in2.403s. Receipts
 Retained event reservations are exercised with the real controller through40
 edits beyond the32-entry session ring, but retained history remains inactive in
 the App until all producer families and ordered publication are ready.
+
+W12c.3a complete: closed Analysis encoding1 retains exact nullable UTF-8 texts,
+query/unique/group/aggregate state, ordered filters/sorts and stable source-version
+bindings. Framing and owned+grammar-scratch admission precede decode allocation;
+encode failure preserves its arena. Derived schema caches require later verified
+rebinding, not replay as user edits. The focused optimized/ASan/UBSan gate passes
+in2.613s;50 runner/catalog contracts pass. Byte oracle, inner/outer truncation,
+invalid grammar/tags/UTF-8, exact budgets, full vectors,64 KiB query and8 MiB owned
+boundaries pass. Receipts: ignored `w12c3-analysis-asset*.log/json`. No App/file
+profile activation or source materialization claim; object/composite work follows.

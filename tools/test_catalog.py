@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "analysis-asset": Feature(("analysis_asset",), "",
+        ("python3 tools/test.py feature --feature history-format", "python3 tools/test.py feature --feature source-result-format"),
+        ("src/workbook/analysis_asset.c", "src/workbook/analysis_asset.h", "tests/test_analysis_asset.c")),
     "format-command": Feature(("format_command", "history_format", "workbook_history"), "format-plan",
         ("python3 tools/test.py feature --feature format-controls", "python3 tools/test.py affected --feature source-format --modules source_scope format --config sanitize"),
         ("src/workbook/format_command.c", "src/workbook/format_command.h", "src/app/app.c: manual apply_format adapter", "tests/test_format_command.c", "tests/support/format_plan_app.inc", "tests/test_journal_session.c: admitted-format checkpoint rotation"), ("journal_session",)),
