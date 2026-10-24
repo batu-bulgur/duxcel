@@ -208,6 +208,11 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12b.1 · P1 · Complete | Closed public anchor/index bindings; W12a. | Validate exact document, tag-publication identity, Saved root, anchor high-water and complete public references. Reused content/positions never substitute anchor identity; no event/payload or cross-session Undo claim. |
 | W12b.2 · P1 · Queued | Event/path continuity and durable metadata profile; W12b.1. | Prove current lineage/cursor and retained ranges, classify checkpoint-only legacy history explicitly, and bind each reversible payload family before selecting a file profile. Never fabricate old Undo from saved snapshots. |
 | W12c · P1 · Queued | Persist supported reversible payload families; W12b. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
+| W12c.1 · P1 · Queued | Sparse-cell reversible events and admission; W12b.2. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
+| W12c.2 · P1 · Queued | Format/scoped-selector payloads; W12c.1. | Preserve complete before/after manual/result/record selectors, scope/membership bytes and composite bindings. Source-version high-water stays monotonic; no inferred record identity or live-default replay. |
+| W12c.3 · P1 · Queued | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
+| W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
+| W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
@@ -979,3 +984,10 @@ operation positions/lineages, zero IDs and exhausted counters stay explicit.
 The31-case binding proof plus33-case window passed optimized/sanitized in2.081s,
 including maximum1,025 public anchors sharing one content root. Event/path proof,
 wire admission and actual durable Undo remain W12b.2–W12g; no file profile changed.
+
+W12 producer boundary: existing worksheet/lifecycle Undo rings retain at most32
+session actions and can evict detached content. Save-time ring serialization is
+therefore insufficient. W12c.1–W12c.5 admit owned reversible events before mutation
+and eviction, including composite actions; a late void record hook cannot promise
+durability. Keep the current session behavior until all supported producer families
+and the W12d publication path are ready; do not expose partial cross-session Undo.

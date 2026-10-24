@@ -393,6 +393,17 @@ Redo, and an older active cursor must remain reachable. The pure W12a planner
 checks this window but does not persist anchors or make existing session Undo
 durable; adapters must prove actual event/payload continuity before publication.
 
+Implementation constraint: current worksheet and lifecycle rings retain at most
+32 session actions. Saving those rings later cannot recover already evicted
+operations or detached sheet contents. Durable event admission must precede
+coordinated mutation and ring eviction, with explicit owned before/after payloads
+for cells, formats/selectors, analysis, objects, structural composites and sheet
+lifecycle. Queue/admission failure must not leave half a mutation or half an event;
+no-op changes do not consume history. Do not serialize process structs or process
+session-order IDs as the durable format. Live display defaults remain outside data
+Undo. Keep durable history inactive until all supported producer families and
+Save/checkpoint/Open publication preserve the complete accepted window.
+
 Use an explicit resource policy for unusually large intervals. Byte/age/operation budgets must not silently reduce the accepted window: report a storage limit and offer deliberate pruning/export or reject the operation before protected history is lost. Do not promise all-time fine-grained history.
 
 Prune only after replacement checkpoints and their manifests are durable. Reachability includes named tags, Latest Saved, active head, retained Undo/Redo, recoverable continuations, historical preview and in-flight Save/read snapshots. Enforce storage limits without deleting the only recovery path or silently evicting a named tag. Tag deletion can free data only after all other references retire. Large intervals may exhaust budget even when their count is small.
