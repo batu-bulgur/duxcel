@@ -18,8 +18,12 @@ static bool history_return(App *a) {
     free(error); ui_history_free(&a->history_view); a->modal=MODAL_NONE; a->consume_grid_input=true;
     status(a,"Returned to Working Head."); return true;
 }
+static bool history_surface_pending(App *a) {
+    return a->pending_sheet || a->pending_new_sheet || a->pending_relation || a->sheet_action!=SHEET_ACTION_NONE ||
+        a->grid.dragging || a->grid.moving || a->grid.resizing>=0 || a->grid.scrollbar;
+}
 static bool history_ready(App *a) {
-    if (a->busy || a->io_busy || a->values_loading || a->query_loading || a->count_deferred || SOURCE_FORMAT_PENDING(a) || a->pending_sheet || a->pending_new_sheet || a->pending_relation) return false;
+    if (a->busy || a->io_busy || a->values_loading || a->query_loading || a->count_deferred || SOURCE_FORMAT_PENDING(a) || history_surface_pending(a)) return false;
     dx_lock(&a->worker.mutex); bool idle=!a->worker.running && !a->worker.pending && !a->worker.reply; dx_unlock(&a->worker.mutex); return idle;
 }
 static void history_open(App *a) {
@@ -50,6 +54,7 @@ static void history_reply(App *a,QueryReply *reply) {
 }
 static void versions_open(App *a) {
     if (a->io_busy || a->document_action!=DOCUMENT_NONE) return;
+    if (!historical(a) && history_surface_pending(a)) { status(a,"Finish the current worksheet interaction before inspecting versions."); return; }
     if (!historical(a)) { end_step_preview(a); cancel_values(a); cancel_source_validation(a);
         SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by version inspection."); }
     a->version_view=(UIVersionView){.selected=SIZE_MAX}; a->version_message[0]=0;

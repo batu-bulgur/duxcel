@@ -69,7 +69,18 @@ static void history_preview_test_frame(AppSession *session) {
         HP_CHECK(hp_undo && hp_redo);
         text_lines_layout_sized(&a->query_editor.lines,&a->ui,"Retained editor layout",200,12);
         hp_page=a->page.cells; hp_widths=a->grid.widths; hp_editor=a->query_editor;
-        versions_open(a); a->version_view.selected=0; a->version_view.focus=4; ui_note_key_press(KEY_ENTER,0); break;
+        a->grid.dragging=true; versions_open(a);
+        HP_CHECK(a->modal==MODAL_NONE && !a->history.pending.request); a->grid.dragging=false;
+        versions_open(a); a->version_view.selected=0; a->version_view.focus=4;
+        { uint64_t request=a->request_id;
+          a->grid.dragging=true; history_open(a);
+          HP_CHECK(!a->history.pending.request && !a->io_busy && a->request_id==request); a->grid.dragging=false;
+          a->grid.moving=true; HP_CHECK(!history_ready(a)); a->grid.moving=false;
+          a->grid.resizing=0; HP_CHECK(!history_ready(a)); a->grid.resizing=-1;
+          a->grid.scrollbar=1; HP_CHECK(!history_ready(a)); a->grid.scrollbar=0;
+          a->sheet_action=SHEET_ACTION_DUPLICATE; HP_CHECK(!history_ready(a)); a->sheet_action=SHEET_ACTION_NONE;
+        }
+        ui_note_key_press(KEY_ENTER,0); break;
     case 5:
         HP_CHECK(historical(a) && a->modal==MODAL_NONE && !a->book.path && !a->book.dirty);
         HP_CHECK(!strcmp(cells_get(&a->book.sheets[0].cells,0,0),"Version one") && !strcmp(cells_get(&a->book.sheets[0].cells,9000,30),"Offscreen retained"));
