@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "format-dependencies": Feature(("format_dependencies", "source_versions_codec", "format_delta_codec"), "",
+        ("python3 tools/test.py feature --feature format-plan", "python3 tools/test.py feature --feature history-stream"),
+        ("src/workbook/format_dependencies.c", "src/workbook/format_dependencies.h", "tests/test_format_dependencies.c")),
     "source-versions-codec": Feature(("source_versions_codec", "source_scope"), "",
         ("python3 tools/test.py feature --feature format-delta-codec", "python3 tools/test.py feature --feature history-stream"),
         ("src/workbook/source_versions_codec.c", "src/workbook/source_versions_codec.h", "tests/test_source_versions_codec.c")),

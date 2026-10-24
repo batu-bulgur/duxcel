@@ -824,3 +824,13 @@ framing/memory and full packet/ledger checks; it does not read source files,
 materialize datasets, adopt a live ledger or prove a currently displayed Page.
 Final history projection must preserve known immutable completions, maximum
 allocator bounds and every referenced dependency through source/lifecycle changes.
+
+
+`workbook/format_dependencies.c` closes a format before/after pair over the
+referenced immutable source ledger rows. It checks exact RAW owner/version/kind
+and original-field bounds, rejects pending/missing/conflicting bindings, and owns
+an ordered deduplicated subset with the captured allocator obligation. Referenced
+opaque non-record legacy scopes are counted without activation; unknown record
+identity rejects. Unreferenced scope rows remain format bytes without fabricated
+source dependencies. All failure paths preserve inputs and the existing owned
+output. This is metadata closure, not source file/Page proof or live adoption.
