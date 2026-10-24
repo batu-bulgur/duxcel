@@ -161,10 +161,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11 · P1 · In progress | Latest Saved pointer and immutable named versions; W09. | Repeated Save updates one saved entry; unchanged tags share payload, older named states open directly. VE01–VE03; A11. Admit complete assets/results as their slices land. |
 | W11a · P1 · In progress | Version identities, manifest/index invariants and Latest Saved codec; W09/W10. | Persist one replaceable saved pointer with stable document/state identities; legacy Open stays non-writing and first Save upgrades safely. Malformed references reject without replacing the live book or destination. Focused optimized/sanitizer codec gate. |
 | W11a1 · P1 · Complete | Bounded version manifest/index controller and publication intents; W10. | Stable state IDs and one saved pointer; reject duplicate/dangling/exhausted metadata. Prepare changes without publishing them before successful IO. Recovery checkpoints never advance the user pointer. Pure optimized/sanitizer module gate; no archive/tag UI claim. |
-| W11a2 · P1 · In progress | Immutable supported-state payload closure and native version codec; W11a1. | Archive every advertised root independently of the editable head, without recursive history copies. Reject missing/invalid payloads and preserve non-writing legacy Open/safe upgrade. Scoped archive gate; no tag UI claim. |
+| W11a2 · P1 · Complete | Immutable supported-state payload closure and native version codec; W11a1. | Archive every advertised root independently of the editable head, without recursive history copies. Reject missing/invalid payloads and preserve non-writing legacy Open/safe upgrade. Scoped archive gate; no tag UI claim. |
 | W11a2.1 · P1 · Complete | Relocatable core snapshot references; W11a1. | Preserve resolved primary/Table/ledger locators across private payload relocation, including offline sources. Reject unresolved inputs before modifying a destination; retain controlled cancellation and ordinary Save behavior. Native payload/Save modules plus narrow Save GUI. |
 | W11a2.2 · P1 · Complete | Sealed immutable payload ownership and content proof; W11a2.1. | Closed private core bytes, explicit lease/lifetime, bounded hashing and cancel/failure cleanup; no user publication or recursive history payloads. |
-| W11a2.3 · P1 · In progress | Native version root/payload archive codec; W11a2.2. | Complete root closure, chunk integrity, non-writing legacy Open and safe upgrade/overwrite. No advertised unresolved roots; scoped archive gate. |
+| W11a2.3 · P1 · Complete | Native version root/payload archive codec; W11a2.2. | Complete root closure, chunk integrity, non-writing legacy Open and safe upgrade/overwrite. No advertised unresolved roots; scoped archive gate. |
 | W11a2.3a · P1 · Complete | Complete admitted core equality proof; W11a2.2. | Compare all current typed codec rows/columns with read-only IO and pre/post integrity, cancellation and bounded memory. No reuse based only on clocks, SQL or byte count. |
 | W11a2.3b · P1 · Complete | Bounded version index and chunk codec; W11a2.3a. | Round-trip all reachable core payloads with exact bytes/closure and bounded per-chunk memory. Reject missing/duplicate/corrupt chunks; rollback cancellation/failure. No App publication yet. |
 | W11a2.3b1 · P1 · Complete | Pure bounded chunk framing; W11a2.3a. | Reserved uint64 byte bounds, exact64 KiB framing, gap/duplicate/NULL/trailing/truncation rejection without allocation or IO. Shared optimized/sanitizer module gate. |
@@ -174,10 +174,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W11a2.3b3b · P1 · Complete | Owned chunk extraction and core admission; W11a2.3b3a. | Stream exact complete chunks into private leased leaves; validate hashes, inner v15 model/document association and full core root closure before return. |
 | W11a2.3b3b1 · P1 · Complete | Strict owned core reconstruction from a bounded stream; W11a2.3b3a. | Exact bytes/hash, inner v15/document/absolute-reference/nonrecursive admission, fixed input blocks, cancel/failure cleanup and out preservation. |
 | W11a2.3b3b2 · P1 · Complete | Whole root-set chunk extraction and closure; W11a2.3b3b1. | Reject orphan/missing/duplicate/trailing/oversized chunks and return only a fully admitted leased root set. Preserve metadata/live model on all failures. |
-| W11a2.3c · P1 · In progress | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
+| W11a2.3c · P1 · Complete | Native archive compatibility and safe upgrade; W11a2.3b. | Connect version codec to staged native Open/Save with a new version discriminator, non-writing legacy Open and failed-overwrite preservation. |
 | W11a2.3c1 · P1 · Complete | Staged native archive reader and discriminator; W11a2.3b. | Read-only legacy candidates or v16 head plus complete independent core roots; validate document/source identity and preserve older Latest Saved in an R+1 head. Ordinary App Open/Save stays unchanged until integration. |
-| W11a2.3c2 · P1 · Queued | Safe native versioned writer/upgrade; W11a2.3c1. | Prepare owned output before commit, preserve existing valid artifacts/unrelated data, reject corrupt targets and source aliases, and cancel/fail without replacing the named file. Scoped native file gate before App adoption. |
-| W11a3 · P1 · Queued | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
+| W11a2.3c2 · P1 · Complete | Safe native versioned writer/upgrade; W11a2.3c1. | Prepare owned output before commit, preserve existing valid artifacts/unrelated data, reject corrupt targets and source aliases, and cancel/fail without replacing the named file. Scoped native file gate before App adoption. |
+| W11a3 · P1 · In progress | Latest Saved publication, Save purpose and recovery snapshot integration; W11a2. | Publish captured R only after successful user Save; retain R+1 dirty. A private R+1 checkpoint keeps the complete older Latest Saved R closure without moving that pointer. Failure/cancel preserves file, index and recovery material. Hidden Save/recovery gates. |
 | W11b · P1 · Queued | Transactional named-state retention and tag operation; W11a3. | A tag binds a complete supported authored state; unchanged tags share its payload. Later Save cannot mutate older tagged cells/styles/definitions. Reuse requires complete content evidence, beyond command revision or SQL text. Cancel/failure leaves labels, pointers and the prior artifact intact. |
 | W11c · P1 · Queued | Compact current-version/tag controls; W11b. | Create a named tag from a blank or named workbook, list one Latest Saved plus explicit tags, and show duplicate/invalid-name or IO errors without losing edits. Repeated Save creates no tags. Narrow hidden input gate; no routine hands-on-pending flag. |
 | W11d · P1 · Queued | Isolated read-only named-version preview and return to Working Head; W11c. | Open an older tag directly, inspect its sheets/cells/styles/definitions, then return with the current draft, Undo/Redo and recovery continuation unchanged. Late jobs/cancel cannot adopt into the wrong owner. External availability and missing future retained outputs remain explicit; historical Save As is W13. |
@@ -302,6 +302,20 @@ checks per optimized/ASan/UBSan build in12.730s, including v15/v14 non-writing O
 exact file hashes/identity, cancellation/cleanup and missing older-root rejection.
 The prepared candidate owns transferable model/core-set outputs. Normal App
 Open/Save still uses v1-v15; safe writing/upgrade and App adoption remain next.
+
+W11a2.3c2 complete: native v16 writing extends the existing transaction through
+an internal typed adapter, leaving ordinary v1-v15 Save behavior unchanged.
+Existing core/version closure is admitted before mutation; unrelated tables stay
+intact. New core sets/receipts are owned before cancellable PUBLISH/COMMIT; optional
+post-close identity capture cannot report a false failure. Borrowed leaf and
+external source aliases reject before writing. The `archive-write` gate passes210
+new checks per optimized/ASan/UBSan build, controlled/worker Save and archive-read
+modules plus18 hidden Save stages in69.092s (5.726s GUI). Cancel during inspection,
+chunk writes, receipt preparation or PUBLISH rolls back/removes new output;
+v14 upgrade, corrupt-target preservation and older Saved R in R+1 pass.54 tool
+contracts and the shared-C Wasm build pass; browser persistence remains unavailable.
+W11a2's current core-profile codec is complete. App Save/Open/publication and
+private recovery adoption remain W11a3; future retained data/results stay separate.
 
 W05a uses `CellEditTarget`/`CellEditCommand` in `src/workbook/cell_command.c`.
 The App captures a draft once and supplies its freshly resolved live source

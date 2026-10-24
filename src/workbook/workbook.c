@@ -5,7 +5,7 @@
 #include "../platform/platform.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include <duckdb.h>
-#include "save.h"
+#include "save_native.h"
 #include "schema.h"
 #endif
 #include <math.h>
@@ -1218,7 +1218,7 @@ static bool payload_sources_resolved(const Workbook *book,char **error) {
 unresolved:
     error_set(error,"Core payload sources must be resolved absolute locators before capture."); return false;
 }
-static WorkbookSaveResult save_core(const Workbook *b,const char *path,WorkbookSaveControl control,bool absolute_sources,char **error) {
+static WorkbookSaveResult save_core(const Workbook *b,const char *path,WorkbookSaveControl control,bool absolute_sources,const WorkbookNativeSave *adapter,char **error) {
     if (!b || !path || !*path || (b->count && !b->sheets)) { if (error) error_set(error,"No valid workbook or destination to save."); return WORKBOOK_SAVE_FAILED; }
     if (!b->count || b->count>DX_MAX_SHEETS || b->active>=b->count) { error_set(error,"No valid worksheet to save."); return WORKBOOK_SAVE_FAILED; }
     if (b->sheets[b->active].hidden) { error_set(error,"The active worksheet must be visible."); return WORKBOOK_SAVE_FAILED; }
@@ -1269,12 +1269,16 @@ static WorkbookSaveResult save_core(const Workbook *b,const char *path,WorkbookS
     duckdb_database db=NULL; duckdb_connection c=NULL; duckdb_prepared_statement sheet=NULL,column=NULL,meta=NULL,cell=NULL;
     bool ok=false,transaction=false; char *temporary=NULL; int existing_version=0; unsigned write_version=minimum;
     if (!open_metadata(target,false,&db,&c,&temporary,error)) goto done;
-    if (!version(c,existing,&existing_version,error)) goto done;
+    if (adapter) {
+        if (!exec(c,"BEGIN TRANSACTION",error)) goto done; transaction=true;
+        WorkbookSaveResult inspected=adapter->inspect(adapter->context,c,target,existing,&existing_version,error);
+        if (inspected!=WORKBOOK_SAVE_COMPLETE) { tracker.cancelled=inspected==WORKBOOK_SAVE_CANCELLED; goto done; }
+    } else if (!version(c,existing,&existing_version,error)) goto done;
     if (!workbook_codec_select_write_version(minimum,existing_version,&write_version)) { error_set(error,"Unsupported or invalid Duxcel workspace version."); goto done; }
     if (existing_version>=14 && !source_archive_valid(c,target,existing_version,error)) goto done;
     if (write_version>=14 && (!source_package_inventory(c,write_version,false,error) || !source_model_valid(b,error) || !source_target_valid(b,target,error))) goto done;
     if (!save_progress(&tracker,SAVE_PHASE_PREPARE,true,error)) goto done;
-    if (!exec(c,"BEGIN TRANSACTION",error)) goto done; transaction=true;
+    if (!transaction) { if (!exec(c,"BEGIN TRANSACTION",error)) goto done; transaction=true; }
     if (!exec(c,"CREATE SCHEMA IF NOT EXISTS _duxcel_workspace; "
         "CREATE TABLE IF NOT EXISTS _duxcel_workspace.meta(version INTEGER,active_sheet UBIGINT,user_scale DOUBLE);"
         "CREATE TABLE IF NOT EXISTS _duxcel_workspace.sheets("
@@ -1325,7 +1329,12 @@ static WorkbookSaveResult save_core(const Workbook *b,const char *path,WorkbookS
     }
     if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
     if (!save_identity_package(c,b,error) || !source_package_shape(c,write_version,error)) goto done;
-    if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error) || !save_progress(&tracker,SAVE_PHASE_PUBLISH,false,error)) goto done;
+    if (!save_progress(&tracker,SAVE_PHASE_WRITE,true,error)) goto done;
+    if (adapter) {
+        WorkbookSaveResult staged=adapter->stage(adapter->context,c,error);
+        if (staged!=WORKBOOK_SAVE_COMPLETE) { tracker.cancelled=staged==WORKBOOK_SAVE_CANCELLED; goto done; }
+    }
+    if (!save_progress(&tracker,SAVE_PHASE_PUBLISH,false,error)) goto done;
     if (!exec(c,"COMMIT",error)) goto done;
     transaction=false; ok=true; save_progress(&tracker,SAVE_PHASE_COMPLETE,true,error);
  done:
@@ -1338,10 +1347,14 @@ static WorkbookSaveResult save_core(const Workbook *b,const char *path,WorkbookS
     free(target); return ok ? WORKBOOK_SAVE_COMPLETE : tracker.cancelled ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;
 }
 WorkbookSaveResult workbook_save_controlled(const Workbook *b,const char *path,WorkbookSaveControl control,char **error) {
-    return save_core(b,path,control,false,error);
+    return save_core(b,path,control,false,NULL,error);
 }
 WorkbookSaveResult workbook_save_core_payload(const Workbook *b,const char *path,WorkbookSaveControl control,char **error) {
-    return save_core(b,path,control,true,error);
+    return save_core(b,path,control,true,NULL,error);
+}
+WorkbookSaveResult workbook_save_native(const Workbook *b,const char *path,WorkbookSaveControl control,WorkbookNativeSave adapter,char **error) {
+    if (!adapter.context || !adapter.inspect || !adapter.stage) { error_set(error,"Choose a complete owned native Save adapter."); return WORKBOOK_SAVE_FAILED; }
+    return save_core(b,path,control,false,&adapter,error);
 }
 bool workbook_save(const Workbook *b,const char *path,char **error) {
     return workbook_save_controlled(b,path,(WorkbookSaveControl){0},error)==WORKBOOK_SAVE_COMPLETE;
@@ -1941,6 +1954,22 @@ static bool read_workbook(duckdb_connection c,const char *target,int workspace_v
     workbook_free(out); *out=book; workbook_init(&book); ok=true;
  done:
     duckdb_destroy_result(&r); workbook_free(&book); return ok;
+}
+bool workbook_read_native_core(duckdb_connection c,const char *path,Workbook *out,unsigned *actual,char **error) {
+    if (!c || !path || !absolute(path) || !out || !actual) return range_fail(error,"Choose a native transaction, source and independent core result.");
+    duckdb_result r={0};
+    bool ok=duckdb_query(c,"SELECT count(*) FROM information_schema.tables WHERE table_catalog=current_database() AND table_schema='_duxcel_workspace' AND table_name='meta' AND table_type='BASE TABLE'",&r)==DuckDBSuccess;
+    if (!ok) range_fail(error,duckdb_result_error(&r));
+    else if (duckdb_row_count(&r)!=1 || duckdb_value_uint64(&r,0,0)!=1) ok=range_fail(error,"Native Save requires a known base header table.");
+    duckdb_destroy_result(&r); if (!ok) return false;
+    ok=duckdb_query(c,"SELECT version FROM _duxcel_workspace.meta LIMIT 2",&r)==DuckDBSuccess;
+    int found=ok ? duckdb_value_int32(&r,0,0) : 0;
+    if (!ok) range_fail(error,duckdb_result_error(&r));
+    else if (duckdb_row_count(&r)!=1 || duckdb_value_is_null(&r,0,0) || found<1 || found>16 || (found>12 && duckdb_column_type(&r,0)!=DUCKDB_TYPE_INTEGER)) ok=range_fail(error,"Unsupported or invalid native core version.");
+    duckdb_destroy_result(&r); if (!ok) return false;
+    if (found==16) ok=workbook_read_versioned_core(c,path,out,error);
+    else { int checked=0; ok=version(c,true,&checked,error) && read_workbook(c,path,checked,out,error); }
+    if (ok) *actual=(unsigned)found; return ok;
 }
 bool workbook_read_versioned_core(duckdb_connection c,const char *path,Workbook *out,char **error) {
     if (!c || !path || !absolute(path) || !out) return range_fail(error,"Choose a selected native archive transaction and independent workbook result.");

@@ -1,4 +1,5 @@
 #include "archive_read.h"
+#include "save_native.h"
 #include "../platform/platform.h"
 #include "../platform/directory.h"
 #include <stdlib.h>

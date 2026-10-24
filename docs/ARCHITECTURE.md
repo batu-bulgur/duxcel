@@ -128,8 +128,15 @@ owns its independent complete core set and validates head/index document identit
 closed-WAL policy and unchanged native file identity. It preserves an older
 Latest Saved R in an R+1 head. Legacy reads remain non-writing and cannot silently
 ignore a reserved version schema. Borrowed head decoding stays in the existing
-core reader; candidate adoption belongs to the caller. Safe v16 writing/upgrade
-and App adoption remain W11a2.3c2/W11a3; normal App files still use v1-v15.
+core reader; candidate adoption belongs to the caller. `archive_write.c` adds v16 through the existing native transaction using an
+internal typed borrowed adapter (`save_native.h`). Inspection validates prior
+core/index closure before mutation; staging preserves unrelated tables and owns
+a complete new receipt/core set before PUBLISH/COMMIT. Failure/cancel rolls back
+and releases ordinary staging. External sources/borrowed leaf aliases are protected.
+Post-close identity is optional observation and cannot turn COMMIT into a failure.
+The adapter chooses no live Save purpose or pointer itself. Core-only tests keep
+native archive dependencies outside their ordinary link boundary. App Save/Open/
+publication and recovery adoption remain W11a3; normal App files still use v1-v15.
 
 `src/workbook/history.c` coordinates the existing session journals. Each
 worksheet_record receives a non-recycled process-order stamp; transfers retain

@@ -315,3 +315,13 @@ input hash/identity preservation. Native v15/v14 Open remains non-writing;
 hidden legacy version metadata and missing old chunks reject. The `archive-read`
 gate is module-only: normal App entry/writing/upgrade remain explicit integration
 work, with ordinary unsupported v16 Open also asserted to preserve the model.
+
+`test_archive_write.c` tests real v16 COMMIT/rollback through the native typed
+adapter, prepared owned receipts, source/borrowed-leaf alias protection,
+inspection/chunk/receipt/PUBLISH cancellation, v14 upgrade, unrelated-table
+preservation, corrupt-target refusal and Saved R beneath a current R+1 head.
+The `archive-write` gate also runs ordinary controlled/worker Save and staged
+archive-read modules, then18 hidden TEST App Save stages. This establishes
+backend integration while normal App v16 adoption remains W11a3. The W11a2
+boundary also builds shared-C Wasm and checks native-code exclusion; it does not
+claim browser persistence or rerun the full browser regression.

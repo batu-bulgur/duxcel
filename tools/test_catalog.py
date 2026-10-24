@@ -64,6 +64,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "archive-write": Feature((), "workbook-save",
+        ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature recovery-disposition"),
+        ("src/workbook/archive_write.c", "src/workbook/archive_write.h", "src/workbook/save_native.h", "src/workbook/workbook.c: typed native Save transaction adapter", "tests/test_archive_write.c"),
+        ("archive_write", "workbook_save", "worker_save", "archive_read")),
     "archive-read": Feature((), "",
         ("python3 tools/test.py feature --feature workbook-archive", "python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature recovery-disposition"),
         ("src/workbook/archive_read.c", "src/workbook/archive_read.h", "src/workbook/workbook.c: borrowed v16 head reader", "tests/test_archive_read.c"),
