@@ -2208,3 +2208,33 @@ A clean ordinary production executable at source `1e2203a` builds successfully
 in13.482s; receipt `build/tests/results/lanes/integrator-3335-1792854613591532000.json`.
 It was not launched or copied over the user's packaged edge. Bundle publication
 waits for the coherent native metadata and cross-engine acceptance boundary.
+
+
+## User-requested clean pause — 24 October 2026
+
+All implementation lanes and root work are paused at the user's request. No
+new slice, build, test or App launch is authorized until the user resumes.
+All lane worktrees are clean and owned test/build processes have terminated;
+the user's running App was not touched. Isolation remains stopped.
+
+| Checkout / resume reference | Exact saved state | Remaining next work |
+| --- | --- | --- |
+| Main `/Users/h2o/dev/duxcel` | Code through `1f5261c`; this pause record is the following commit | Integrate remaining acceptance, then publish a clean signed edge bundle |
+| History lane; `refs/tags/codex/wip-history-save-as-paused` | `1e2203aa5257e22028cb53ee8b83b29374cdb30b`, clean; verified original producer protected by `codex/history-save-as-verified-103e94d` | W12c.5.3b App adapter is proposed only, no authored edits |
+| Object lane; `refs/heads/codex/wip-object-create-current-only-pause` | `a32230628ce4612784c0bdfa5f578981e0d8c850`, clean | Normal App Wasm artifact, then BP0 actual Worker rewrite/export and native release/sanitizer readback; width asset/journal remains proposed only |
+| Source lane; `refs/tags/codex/wip-source-format-paused` | `1e2203aa5257e22028cb53ee8b83b29374cdb30b`, clean; browser original protected by `codex/source-format-browser-verified-7081299` | W12c.3c.3a.2c.1 origin App adapter is proposed only, no authored edits |
+
+Before pause cleanup, the frozen Object `current-core-metadata` gate naturally
+completed PASS332.446s, all40 results, zero GUI. Receipt in its checkout:
+`build/tests/results/runs/20261024T150624-feature-98095/summary.json`;
+`build/tests/results/lanes/object-create-95610-1792854384656711000.json`.
+Private Emscripten6.0.12, npm dependencies and raylib Web bootstrap also completed;
+there is no unfinished dependency build to restart blindly. BP0 actual Worker
+profiles were not launched and remain required. Root production compile
+completed at `1e2203a`, but the edge bundle remains the previously packaged
+`a8522e3` at `build/Duxcel.app`; no newer package publication occurred.
+
+On resume, inspect these exact references and current processes before starting
+work. Preserve completed acceptance; do not rerun the entire native metadata
+matrix without a changed boundary. Start with the remaining focused BP0 Worker
+acceptance and subsequent packaging, then continue the recorded roadmap slices.
