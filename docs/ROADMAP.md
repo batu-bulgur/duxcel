@@ -252,10 +252,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
-| W12c.3c.3b.3 · P1 · In progress | Remaining primary same-connection adapters; W12c.3c.3b.2. | Prepare sort/filter/group/reset/query after-plans before adoption; preserve schema/readiness and source-format budget ownership. Prove each migrated lane with focused module/input coverage. |
+| W12c.3c.3b.3 · P1 · Complete | Remaining primary same-connection adapters; W12c.3c.3b.2. | Prepare sort/filter/group/reset/query after-plans before adoption; preserve schema/readiness and source-format budget ownership. Prove each migrated lane with focused module/input coverage. |
 | W12c.3c.3b.3a · P1 · Complete | Primary sort/filter command adapters; W12c.3c.3b.2. | Share typed budget/adoption helpers with unique rows; prepare complete sort/filter plans, preserve runtime query/selection behavior and prove real ribbon input, no-op Redo, Undo/Redo and Save/Open. |
 | W12c.3c.3b.3b · P1 · Complete | Primary group/reset/query adapters; W12c.3c.3b.3a. | Prepare complete after-plans for grouping, reset/clear and validated source queries, rejecting stale/unready input and preserving drafts and source identity. |
-| W12c.3c.3b.3c · P1 · Queued | Primary pipeline step edits; W12c.3c.3b.3b. | Route filter/sort reordering and step removal through coherent command admission. Preserve cached result/query epochs for filter-display reordering while recording authored order and preserving Undo/Redo. |
+| W12c.3c.3b.3c · P1 · Complete | Primary pipeline step edits; W12c.3c.3b.3b. | Route filter/sort reordering and step removal through coherent command admission. Preserve cached result/query epochs for filter-display reordering while recording authored order and preserving Undo/Redo. |
 | W12c.3c.3b.4 · P1 · Queued | Source/object/composite producers; W12c.3c.3b.1. | Close complete source binding/replacement, object and format constituents before adoption, retaining allocator high-water and one chronological action. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
@@ -1468,3 +1468,17 @@ contracts pass2.694s. Receipts: ignored `w12c3-primary-group-query*.log` and run
 summaries. Primary pipeline step editing is the remaining same-connection lane;
 connection replacement/object composites remain separate and retained App history
 is still inactive.
+
+
+W12c.3c.3b.3 complete: the final same-connection primary lane, pipeline step
+removal/reordering, now reserves/adopts through the same command boundary. Filter
+display order remains authored history while preserving the exact current Page,
+request, Analysis epoch and worker query/job counts; result-changing removal still
+invalidates/refetches. The222-case command/290-case recorder optimized/ASan/UBSan
+gate plus hidden TEST App passes14.763s. Its11 stages exercise actual Alt-Up and
+Delete input, Cmd-Z/Redo across both cache-preserving and result-changing edits,
+command clocks and v16 Save/Open. Fifty tool contracts pass2.528s. Receipts:
+ignored `w12c3-primary-steps*.log` and run summaries. All regular primary
+same-connection paths now prepare after-plans; source replacement/rebinding,
+object/format composites and baseline origin integration remain separate W12
+work. This does not activate durable history or change the native v16 core profile.

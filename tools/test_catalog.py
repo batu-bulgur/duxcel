@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "primary-steps": ("build/tests/test_primary_steps-gui", "PASS: native primary step workflow",
+                      r"^PASS: native primary step workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "primary-query": ("build/tests/test_primary_query-gui", "PASS: native primary group/query workflow",
                       r"^PASS: native primary group/query workflow \(14 stages, [1-9]\d* checks\)$", 14),
     "primary-transforms": ("build/tests/test_primary_transforms-gui", "PASS: native primary sort/filter workflow",
@@ -78,6 +80,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "primary-steps": Feature(("analysis_command", "history_definition"), "primary-steps",
+        ("python3 tools/test.py feature --feature primary-group-query", "python3 tools/test.py native --scenario layout"),
+        ("src/app/app.c: primary pipeline step command admission", "tests/support/primary_steps_app.inc", "tests/test_primary_steps_gui.c")),
     "primary-group-query": Feature(("analysis_command", "history_definition"), "primary-query",
         ("python3 tools/test.py feature --feature primary-filter-sort", "python3 tools/test.py native --scenario query unique"),
         ("src/app/app.c: primary group/reset/clear/validated-query admission", "tests/support/primary_query_app.inc", "tests/test_primary_query_gui.c")),

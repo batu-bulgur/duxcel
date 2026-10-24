@@ -6694,8 +6694,12 @@ static bool pipeline_step_change(App *a,size_t index,int direction,bool remove) 
     if (table) ok=set_table_source(a,(size_t)(table-active_sheet(a)->objects.items),&copy);
     else {
         bool same=analysis_same_result(&a->analysis,&copy),schema=(a->analysis.group_column!=NULL)!=(copy.group_column!=NULL);
-        remember(a); analysis_free(&a->analysis); a->analysis=copy; memset(&copy,0,sizeof(copy));
-        if (same) cache_pipeline(a); else change_analysis(a,schema);
+        size_t validation=0; char *error=NULL;
+        ok=primary_transform_budget(a,&copy,&validation,0,&error) && primary_transform_adopt(a,&copy,validation,&changed,&error);
+        if (!ok) status(a,error);
+        else if (!changed) ok=false;
+        else if (same) cache_pipeline(a); else change_analysis(a,schema);
+        free(error);
     }
     analysis_free(&copy);
     if (ok) { a->pipeline_rows_valid=false; a->pipeline_focus_index=(int)index+(remove ? 0 : direction); a->pipeline_reveal=true; a->consume_grid_input=true; status(a,remove ? "Step removed." : "Step order updated."); }
@@ -15510,6 +15514,9 @@ static void primary_transforms_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PRIMARY_QUERY
 static void primary_query_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_STEPS
+static void primary_steps_test_frame(AppSession *session);
+#endif
 struct AppSession {
     App app;
     AppOptions options;
@@ -16364,6 +16371,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PRIMARY_QUERY
     primary_query_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_STEPS
+    primary_steps_test_frame(session);
+#endif
 #ifdef DUXCEL_BROWSER_HOST
     bool file_before_shortcuts=a->file_menu;
 #endif
@@ -16607,6 +16617,9 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_PRIMARY_QUERY
 #include "../../tests/support/primary_query_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_PRIMARY_STEPS
+#include "../../tests/support/primary_steps_app.inc"
 #endif
 
 #ifdef DUXCEL_FEATURE_WORKBOOK_IDENTITY
