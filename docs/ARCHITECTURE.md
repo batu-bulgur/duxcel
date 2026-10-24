@@ -1002,3 +1002,14 @@ selection. Typed retained definition admission requires both sides ready. Legacy
 core/packet codecs may still represent unresolved definitions. Final origin
 admission must use this boundary after completion; it cannot amend an earlier
 immutable event or turn derived type/extent publication into a user edit.
+
+
+`workbook/analysis_command.c` owns same-connection primary transform adoption.
+Its typed borrowed context distinguishes the authoritative App Analysis from the
+worksheet Save cache. Durable/session/cell/format/document/history/source fences
+are rechecked after optional typed definition reservation. Complete owned states,
+parser scratch and source dependencies are validated before moving the candidate
+and prior current state into the existing bounded journal. Authored no-op consumes
+the independent candidate without Redo loss. Runtime schema verification, epoch
+advancement, query/cache invalidation and focus remain with the App adapter;
+source acquisition/replacement/binding composites have separate owners.

@@ -250,6 +250,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3a.1 · P1 · Complete | Resolved-relation event admission; W12c.3c.2. | Reject retained events containing unresolved DATABASE primary/Table definitions before reservation; preserve legacy/core packet compatibility and distinguish NULL default selection from invalid empty identifiers. |
 | W12c.3c.3a.2 · P1 · Queued | Origin completion integration; W12c.3c.3a.1. | Establish legacy/new-source origins only after default relation completion, without rewriting admitted assets or manufacturing user edits; integrate with closed-profile admission before App activation. |
 | W12c.3c.3b · P1 · Queued | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
+| W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
+| W12c.3c.3b.2 · P1 · In progress | Primary transform App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with narrow real-input/Undo/Redo/Save/Open coverage; migrate other same-connection transform lanes separately. Keep source replacements/composites with their full owner. |
 | W12c.4 · P1 · Queued | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
@@ -1396,3 +1398,18 @@ queue ownership or Redo changes. The24-case readiness and290-case recorder gate
 passes optimized/ASan/UBSan in3.988s;50 tool contracts pass in2.606s. Receipts:
 ignored `w12c3-definition-baseline*.log` and corresponding run summaries. Full
 origin completion integration remains W12c.3c.3a.2; no App activation changed.
+
+
+W12c.3c.3b.1 complete: the borrowed-context primary transform controller accepts
+independent same-connection candidates and binds actual App/worksheet authority,
+durable/session identity, runtime source epoch, cell/format/document clocks,
+history order and source high-water. It admits parser scratch before retained
+state validation, proves source closure, reserves before bounded-history eviction
+and publishes one coherent Analysis action. Authored no-op ignores derived types
+and preserves Redo. The201-case command,290-case recorder and565-case chronology
+optimized/ASan/UBSan gate passes in4.328s;50 tool contracts pass in2.684s. Coverage
+includes independent App Save caches, sheet reorder, callback cancellation/stale
+fences, unresolved defaults, ownership aliases, pressure and immutable first-event
+bytes beyond32 session actions. Receipts: ignored `w12c3-analysis-command*.log`.
+App query/cache invalidation remains the adapter's responsibility; retained App
+history and source replacement/composite producers remain inactive/queued.

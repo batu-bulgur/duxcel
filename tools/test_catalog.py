@@ -72,6 +72,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "analysis-command": Feature(("analysis_command", "history_definition", "workbook_history"), "",
+        ("python3 tools/test.py native --scenario unique", "python3 tools/test.py feature --feature source-result-format"),
+        ("src/workbook/analysis_command.c", "src/workbook/analysis_command.h", "tests/test_analysis_command.c")),
     "definition-baseline": Feature(("definition_baseline", "history_definition"), "",
         ("python3 tools/test.py feature --feature definition-event", "python3 tools/test.py native --scenario table"),
         ("src/workbook/definition_baseline.c", "src/workbook/definition_baseline.h", "src/workbook/history_definition.c: resolved relation admission", "tests/test_definition_baseline.c", "tests/test_history_definition.c")),
