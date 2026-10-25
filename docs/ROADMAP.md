@@ -300,6 +300,12 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.4.3a · P1 · Complete | Complete manual column-width asset/journal; W12c.4.2. | Own canonical sparse nondefault width pairs over the bounded virtual grid and exact inverse, including a truncated edge width. Explicit presentation effect16; no synthetic cell change or incomplete scalar inverse. |
 | W12c.4.3b · P1 · Complete | Manual authored resize producers; W12c.4.3a. | Record source-free drag completion, width dialog and autofit in one chronological action. Visual drag drafts cancel safely; virtual default capacity growth is representation-only. Fence committed width authority and refuse divergent replay. |
 | W12c.4.4 · P1 · Complete | Manual column insertion/deletion; W12c.4.3b. | Reserve all cells/formats/width effects before eviction, adopt one action and replay exact widths without double App shifts. Keep source/object columns and paste explicit. |
+| W12c.4.5 · P1 · Complete | Manual text paste; W12c.4.1. | Validate the complete bounded TSV before allocation; reserve/recheck one exact cell event, preserve no-op Redo and complete selection, and prove real clipboard/Save/Open behavior. |
+| W12c.4.6 · P1 · Complete | Source-free mixed template range MOVE; W12c.4.4. | Move complete unbound Pivot/Chart templates, sparse cells and spatial styles as one truthful action; reject partial templates, occupied/protected destinations and stale/pressure before mutation. |
+| W12c.4.7 · P1 · Complete | Finite sparse Clear; W12c.4.5. | Remove only selected manual values in one admitted cell action; preserve styles, widths and templates, including no-op Redo and whole-range bounds. |
+| W12c.4.8 · P1 · Complete | Source-free template row/column axes; W12c.4.6. | Adopt exact cells/objects/styles/width effects once, retain fixed physical labels and truncated edge widths, and prove integrated inverses without changing source editing policy. |
+| W12c.4.9 · P1 · Complete | Source-free template paste/Clear; W12c.4.7–W12c.4.8. | Paste protects the full rectangle including ragged holes; Clear removes sparse cells only. Both preserve object definitions, styles and physical widths through Undo/Redo/Save/Open. |
+| W12c.4.10 · P1 · In progress | Source-bearing result-fenced ranges and producer closure; W12c.4.9. | Prove actual primary/Table/active-Pivot result association and full extents; close MOVE/Replace/axes/keyboard Clear with complete effects. Private native acceptance is verified; linear main integration remains separate. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
@@ -2582,3 +2588,22 @@ Browser workbook Open/Save and retained Undo/data/output activation remain off.
 Final clean bundle/signature/LaunchServices and Pages-subpath smoke, followed by
 origin push and matching CI/CD/deployment verification, are the remaining delivery
 steps; their disposable evidence stays under `build/tests/results/`.
+
+Delivery completed at `a215eb1`: origin/main is updated; workflow
+[40242246482](https://github.com/batu-bulgur/duxcel/actions/runs/40242246482)
+passes all3 jobs. Actual live Pages smoke passes (`20261025T225550-pages`), and the
+served Wasm hash matches the same deployed release manifest/commit. The normal
+`build/Duxcel.app` is clean a215eb1, strictly signed, private-review/test-symbol
+free and verified with Unicode cold/warm LaunchServices Open. Artifact and remote
+proofs: `build/tests/results/milestone-final-artifacts-current.json`. This remains
+the last fully delivered checkpoint while the next local feature group advances.
+
+Source-free range group integrated linearly as `b075219` through `ee8eef9`.
+Focused main acceptance passes51 actual App stages: mixed MOVE13 in24.045s,
+manual Clear8 in14.867s, template rows10 in14.663s, columns10 in15.005s and template
+paste/Clear10 in16.257s, each with registered optimized/sanitizer modules. Receipts
+are `20261025T225752-feature-26015`, `225817-feature-26670`,
+`225833-feature-27102`, `225849-feature-27444`, `225905-feature-27800` under the
+same run-date directory. W12c.4.6–4.9 are complete under scoped automation;
+source-bearing producers, durable retained history and browser file Open/Save
+remain explicit later work. No broad suite or hands-on approval was repeated.
