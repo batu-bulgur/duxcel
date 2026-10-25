@@ -2,6 +2,7 @@
 #define DUXCEL_RANGE_COMMAND_H
 #include "object_fence.h"
 #include "cell_range_plan.h"
+#include "cell_paste_plan.h"
 #include "history_range.h"
 #include "workbook_width_command.h"
 typedef bool (*RangeCommandAdmission)(void *context,const FormatStore *prospective,size_t adopted,size_t scratch,char **error);
@@ -17,17 +18,18 @@ typedef struct {
     FormatStore formats; FormatPatch patches[DX_FORMAT_PATCHES];
     WorkbookWidthTarget widths;
 } RangeCommandTarget;
-typedef enum { RANGE_OPERATION_MOVE,RANGE_OPERATION_INSERT_ROWS,RANGE_OPERATION_DELETE_ROWS,RANGE_OPERATION_INSERT_COLUMNS,RANGE_OPERATION_DELETE_COLUMNS } RangeCommandOperation;
+typedef enum { RANGE_OPERATION_MOVE,RANGE_OPERATION_INSERT_ROWS,RANGE_OPERATION_DELETE_ROWS,RANGE_OPERATION_INSERT_COLUMNS,RANGE_OPERATION_DELETE_COLUMNS,RANGE_OPERATION_PASTE } RangeCommandOperation;
 typedef struct {
     SheetRange range; int64_t dr; int dc; bool replace;
     RangeCommandOperation operation;
     uint64_t row,row_count;
     size_t column,column_count; /* Current compound column owner admits count1. */
+    const char *text; /* PASTE: borrowed immutable TSV until planning completes. */
 } RangeCommand;
-typedef struct { size_t owned,validation_scratch; } RangeCommandPlanInfo;
+typedef struct { size_t owned,validation_scratch,rows,columns; } RangeCommandPlanInfo;
 typedef enum { RANGE_COMMAND_APPLIED,RANGE_COMMAND_NOOP,RANGE_COMMAND_READY,RANGE_COMMAND_STALE,
     RANGE_COMMAND_INVALID,RANGE_COMMAND_PROTECTED,RANGE_COMMAND_OCCUPIED,RANGE_COMMAND_LIMIT } RangeCommandStatus;
-typedef struct { RangeCommandStatus status; unsigned effects; uint64_t before_revision,after_revision; } RangeCommandResult;
+typedef struct { RangeCommandStatus status; unsigned effects; uint64_t before_revision,after_revision; size_t rows,columns; } RangeCommandResult;
 /* Immediate single-owner native descriptor fences; captured strings/packets
    remain immutable. Primary means actual App authority, separate from Save
    cache. This first owner admits source/object-free spatial manual formats only;
@@ -42,10 +44,14 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *con
    Format history even with no global admission callback. Reserve before either
    model journal can evict, recheck all owners and transfer independent graphs.
    App owns budget/readiness, input/confirmation, selection and rendering. No IO,
-   retained App writer, source activation or paste/mixed-range admission.
+   retained App writer, source activation or mixed-range admission.
    Manual row and single-column insertion/deletion use this complete effect owner.
    Physical widths use committed Worksheet.view; App projects the admitted view
-   into Grid. Non-Chart/source/object column paths remain separately protected. */
+   into Grid. Source/object column paths remain separately protected. Text-only
+   manual paste preserves existing styles; rows/columns are returned on change.
+   The shared scanner validates the whole text before allocation. Its complete
+   independent cell plan supplies the event and adoption; callbacks never read
+   the original clipboard text, which is no longer part of admitted ownership. */
 RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *context,const RangeCommandTarget *target,RangeCommand command,
     const WorkbookHistoryRangeRecorder *recorder,char **error);
 #endif

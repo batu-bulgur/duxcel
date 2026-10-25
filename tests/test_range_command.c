@@ -179,4 +179,55 @@ static void columns_compound(void) {
     b.sheets[0].width_revision++; CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_STALE); b.sheets[0].width_revision--;
     free(t); workbook_free(&b);
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+typedef struct { RangeCommandContext *context; char *text; bool stale,deny; unsigned cancel,publish; } PasteProbe;
+static bool paste_reserve(void *context,const WorkbookHistoryRangeRecord *record,void **ticket,char **error) {
+    (void)error; PasteProbe *p=context; CHECK(record->view.effects==2 && record->view.count && !record->view.widths.before.count && !record->view.before_formats.count);
+    if (p->deny) return false;
+    *ticket=dx_alloc(1); memset(p->text,'Z',strlen(p->text));
+    if (p->stale) (*(uint64_t *)p->context->command.request_epoch)++;
+    return true;
+}
+static void paste_publish(void *context,void *ticket) { PasteProbe *p=context; p->publish++; free(ticket); }
+static void paste_cancel(void *context,void *ticket) { PasteProbe *p=context; p->cancel++; free(ticket); }
+static void paste_compound(void) {
+    for (unsigned mode=0;mode<3;mode++) {
+        Workbook b=book(); uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c); Worksheet *s=b.sheets;
+        char *text=dx_strdup("New\t\"\"\n\"two\tparts\"\t9007199254740993.0123456789\n");
+        RangeCommand command={.operation=RANGE_OPERATION_PASTE,.row=1,.column=1,.text=text};
+        RangeCommandPlanInfo info={0}; CHECK(workbook_range_command_measure(&c,0,command,&info,NULL)==RANGE_COMMAND_READY && !info.validation_scratch && info.rows==2 && info.columns==2);
+        FormatStore formats=s->formats; CellStore cells=s->cells; size_t actions=s->undo_actions_count;
+        c.command.plan_reserved=info.owned-1;
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_LIMIT && !memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&formats,&s->formats,sizeof(formats)));
+        c.command.plan_reserved=SIZE_MAX;
+        PasteProbe probe={&c,text,mode==1,mode==2,0,0}; WorkbookHistoryRangeRecorder recorder={paste_reserve,paste_publish,paste_cancel,&probe};
+        RangeCommandResult result=workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL);
+        if (!mode) {
+            CHECK(result.status==RANGE_COMMAND_APPLIED && result.effects==2 && result.rows==2 && result.columns==2 && probe.publish==1 && !probe.cancel);
+            CHECK(!strcmp(cells_get(&s->cells,1,1),"New") && !*cells_get(&s->cells,1,2) && !strcmp(cells_get(&s->cells,2,1),"two\tparts") && !strcmp(cells_get(&s->cells,2,2),"9007199254740993.0123456789"));
+            CHECK(!memcmp(&formats,&s->formats,sizeof(formats)) && !s->width_revision && s->undo_actions_count==actions+1 && s->undo_actions[actions]==EDIT_CELLS);
+            CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && !strcmp(cells_get(&s->cells,1,1),"NULL") && !*cells_get(&s->cells,2,1));
+            free(t); t=target(&c); command.text="NULL"; c.command.plan_reserved=c.command.validation_reserved=0; size_t redo=s->redo_actions_count; uint64_t revision=b.command_revision;
+            CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_NOOP && s->redo_actions_count==redo && b.command_revision==revision);
+            request++; CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_STALE); request--;
+            CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED && !strcmp(cells_get(&s->cells,2,1),"two\tparts"));
+        } else CHECK(result.status==(mode==1 ? RANGE_COMMAND_STALE : RANGE_COMMAND_LIMIT) && !probe.publish && probe.cancel==(mode==1) && !b.command_revision && !b.dirty && !memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&formats,&s->formats,sizeof(formats)) && s->undo_actions_count==actions);
+        free(text); free(t); workbook_free(&b);
+    }
+    Workbook b=book(); uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
+    RangeCommand command={.operation=RANGE_OPERATION_PASTE,.row=0,.column=0,.text="Good\t\"unterminated"};
+    CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_INVALID && !b.command_revision && !b.dirty);
+    b.sheets[0].analysis.kind=SOURCE_DEMO; CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_STALE); b.sheets[0].analysis.kind=SOURCE_NONE;
+    free(t); workbook_free(&b);
+    b=book(); c=context(&b,&request,&epoch); t=target(&c);
+    char *owned=dx_strdup("New\tx"); command=(RangeCommand){.operation=RANGE_OPERATION_PASTE,.row=1,.column=1,.text=owned};
+    WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id};
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK);
+    WorkbookHistoryRangeRecorder recorder=workbook_history_stream_range_recorder(queue);
+    CHECK(workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL).status==RANGE_COMMAND_APPLIED); free(owned);
+    WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+    CHECK(info->encoding==2 && range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==2 && event.count==2);
+    CHECK(event.cells[0].before_bytes==4 && !memcmp(event.cells[0].before,"NULL",4) && event.cells[0].after_bytes==3 && !memcmp(event.cells[0].after,"New",3) && !event.cells[1].before_bytes && event.cells[1].after_bytes==1 && event.cells[1].after[0]=='x');
+    range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK && workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK);
+    free(t); workbook_free(&b);
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
