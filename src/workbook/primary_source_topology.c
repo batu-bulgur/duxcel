@@ -139,7 +139,7 @@ PrimarySourceTopologyStatus primary_source_topology_apply(PrimarySourceDraftCont
        Never return a rollback-looking failure after a published model. */
     WorkbookHistoryResult action=workbook_history_peek(book,false,NULL);
     bool matches=false; Worksheet *sheet=book->sheets+book->active;
-    if (book->edit_session_id!=session || book->command_revision!=revision+1 || action.status!=WORKBOOK_HISTORY_READY || !action.lifecycle ||
+    if (book->edit_session_id!=session || book->command_revision!=revision+1 || (action.status!=WORKBOOK_HISTORY_READY && action.status!=WORKBOOK_HISTORY_LIMIT) || !action.lifecycle ||
         action.sheet_id!=result.sheet || action.order!=order+1 || worksheet_history_high_water()!=action.order || !adopted_catalog(plan,book) ||
         result.sheet!=plan->usage.prospective_sheet || sheet_presence_matches(result.presence,(SheetPresenceView){book->id,book->sheet_high_water,sheet,&result.candidate.source},&matches)!=SHEET_PRESENCE_OK || !matches) abort();
     workbook_lifecycle_topology_adopt(book,action.order,book->command_revision,result.sheet,SHEET_CREATE,&plan->packet);
