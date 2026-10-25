@@ -31,6 +31,39 @@ void column_width_history_free(ColumnWidthHistory **owned) {
     for (size_t i=0;i<h->redo_count;i++) packet_free(h->redo+i);
     free(h); *owned=NULL;
 }
+static ColumnWidthStatus prune_measure(const ColumnWidthHistory *h,size_t undo,size_t redo,size_t *retained) {
+    if (!h || undo>h->undo_count || redo>h->redo_count) return COLUMN_WIDTH_INVALID;
+    if (undo==h->undo_count && redo==h->redo_count) return COLUMN_WIDTH_NOOP;
+    if (h->generation==UINT64_MAX) return COLUMN_WIDTH_LIMIT;
+    size_t bytes=0;
+    for (size_t i=h->undo_count-undo;i<h->undo_count;i++) bytes+=h->undo[i].bytes;
+    for (size_t i=h->redo_count-redo;i<h->redo_count;i++) bytes+=h->redo[i].bytes;
+    *retained=bytes; return COLUMN_WIDTH_OK;
+}
+ColumnWidthStatus column_width_history_prune_prepare(const ColumnWidthHistory *h,size_t undo,size_t redo,ColumnWidthPrune *out) {
+    if (!out) return COLUMN_WIDTH_INVALID;
+    size_t retained=0; ColumnWidthStatus status=prune_measure(h,undo,redo,&retained); if (status) return status;
+    *out=(ColumnWidthPrune){h,column_width_history_info(h),undo,redo,h->bytes-retained,retained}; return COLUMN_WIDTH_OK;
+}
+static void prune_stack(ColumnWidthPacket *stack,size_t *count,size_t keep) {
+    size_t dropped=*count-keep;
+    for (size_t i=0;i<dropped;i++) packet_free(stack+i);
+    memmove(stack,stack+dropped,keep*sizeof(*stack)); memset(stack+keep,0,dropped*sizeof(*stack)); *count=keep;
+}
+ColumnWidthStatus column_width_history_prune_commit(ColumnWidthHistory *h,const ColumnWidthPrune *p) {
+    if (!h || !p) return COLUMN_WIDTH_INVALID;
+    if (p->owner!=h || p->before.generation!=h->generation || p->before.undo!=h->undo_count || p->before.redo!=h->redo_count || p->before.owned_bytes!=h->bytes) return COLUMN_WIDTH_STALE;
+    size_t retained=0; ColumnWidthStatus status=prune_measure(h,p->undo_keep,p->redo_keep,&retained); if (status) return status;
+    if (p->retained_bytes!=retained || p->released_bytes!=h->bytes-retained) return COLUMN_WIDTH_INVALID;
+    /* All bounds, clocks and accounting are proved before any release. */
+    prune_stack(h->undo,&h->undo_count,p->undo_keep); prune_stack(h->redo,&h->redo_count,p->redo_keep);
+    h->bytes=retained; ++h->generation; return COLUMN_WIDTH_OK;
+}
+ColumnWidthStatus column_width_history_trim(ColumnWidthHistory *h,size_t undo,size_t redo) {
+    ColumnWidthPrune plan; ColumnWidthStatus status=column_width_history_prune_prepare(h,undo,redo,&plan);
+    return status ? status : column_width_history_prune_commit(h,&plan);
+}
+ColumnWidthStatus column_width_history_clear_redo(ColumnWidthHistory *h) { return h ? column_width_history_trim(h,h->undo_count,0) : COLUMN_WIDTH_INVALID; }
 static bool context_valid(ColumnWidthContext c) { return c.current && c.revision && c.history && column_width_valid(column_width_view(c.current)); }
 static ColumnWidthStatus room(ColumnWidthContext c,size_t packet,size_t target,size_t *owned) {
     if (*c.revision==UINT64_MAX || c.history->generation==UINT64_MAX) return COLUMN_WIDTH_LIMIT;
@@ -72,6 +105,26 @@ ColumnWidthStatus column_width_history_replay(ColumnWidthContext c,bool redo,Col
     status=column_width_extract(event->data,event->bytes,redo,c.staging_reserved,&p->target);
     if (status) { column_width_plan_free(&p); return status; }
     *out=p; return COLUMN_WIDTH_OK;
+}
+ColumnWidthStatus column_width_plan_history(const ColumnWidthPlan *p,ColumnWidthHistoryInfo *out) {
+    if (!p || !out) return COLUMN_WIDTH_INVALID;
+    const ColumnWidthHistory *h=p->history;
+    if (p->generation!=h->generation || p->revision!=*p->revision_owner ||
+        !column_width_matches(p->packet.data,p->packet.bytes,p->mode==1,column_width_view(p->owner))) return COLUMN_WIDTH_STALE;
+    ColumnWidthHistoryInfo next=column_width_history_info(h); ++next.generation;
+    if (!p->mode) {
+        next.undo=h->undo_count-p->evict+1; next.redo=0; next.owned_bytes=p->packet.bytes;
+        for (size_t i=p->evict;i<h->undo_count;i++) next.owned_bytes+=h->undo[i].bytes;
+    } else if (p->mode==1) { --next.undo; ++next.redo; }
+    else { ++next.undo; --next.redo; }
+    *out=next; return COLUMN_WIDTH_OK;
+}
+ColumnWidthStatus column_width_plan_retain_undo(ColumnWidthPlan *p,size_t keep) {
+    if (!p || p->mode) return COLUMN_WIDTH_INVALID;
+    ColumnWidthHistoryInfo next; ColumnWidthStatus status=column_width_plan_history(p,&next); if (status) return status;
+    if (!keep || keep>next.undo) return COLUMN_WIDTH_INVALID;
+    if (keep==next.undo) return COLUMN_WIDTH_NOOP;
+    p->evict+=next.undo-keep; return COLUMN_WIDTH_OK;
 }
 size_t column_width_plan_owned(const ColumnWidthPlan *p) { return p ? p->owned : 0; }
 ColumnWidthView column_width_plan_target(const ColumnWidthPlan *p) { return p ? column_width_view(&p->target) : (ColumnWidthView){0}; }

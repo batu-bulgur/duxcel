@@ -17,6 +17,103 @@ static void replay(ColumnWidthContext c,bool redo) {
     CHECK(column_width_history_replay(c,redo,&p)==COLUMN_WIDTH_OK);
     CHECK(column_width_history_commit(c,&p)==COLUMN_WIDTH_OK && !p && *c.revision==revision+1);
 }
+static void retention(void) {
+    ColumnWidthHistory *h=NULL,*other=NULL;
+    size_t allocation=column_width_history_allocation();
+    CHECK(column_width_history_new((ColumnWidthHistoryOptions){32,4096},allocation,&h)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_new((ColumnWidthHistoryOptions){32,4096},allocation,&other)==COLUMN_WIDTH_OK);
+    ColumnWidthState current={0},next={0}; uint64_t revision=200;
+    ColumnWidthContext c={&current,&revision,h,SIZE_MAX};
+    for (unsigned i=0;i<5;i++) edit(c,0,100+i);
+    replay(c,false); replay(c,false);
+    CHECK(column_width_at(column_width_view(&current),0)==column_width_bits(102));
+    ColumnWidthHistoryInfo before=column_width_history_info(h);
+    CHECK(before.undo==3 && before.redo==2 && before.owned_bytes==154);
+    ColumnWidthPrune prune={0};
+    CHECK(column_width_history_prune_prepare(h,2,1,&prune)==COLUMN_WIDTH_OK);
+    CHECK(same(before,prune.before) && prune.released_bytes==58 && prune.retained_bytes==96 && prune.owner==h);
+    CHECK(same(before,column_width_history_info(h)));
+    ColumnWidthPlan *undo=NULL,*redo=NULL,*new_edit=NULL;
+    CHECK(column_width_history_replay(c,false,&undo)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_replay(c,true,&redo)==COLUMN_WIDTH_OK);
+    CHECK(column_width_resize(column_width_view(&current),0,110,SIZE_MAX,&next)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_prepare(c,column_width_view(&next),&new_edit)==COLUMN_WIDTH_OK); column_width_free(&next);
+    uint64_t prior_revision=revision; ColumnWidthState prior=current;
+    CHECK(column_width_history_prune_commit(h,&prune)==COLUMN_WIDTH_OK);
+    CHECK(revision==prior_revision && current.entries==prior.entries && current.count==prior.count && current.entries[0].bits==column_width_bits(102));
+    ColumnWidthHistoryInfo after=column_width_history_info(h);
+    CHECK(after.undo==2 && after.redo==1 && after.owned_bytes==96 && after.generation==before.generation+1);
+    CHECK(column_width_history_commit(c,&undo)==COLUMN_WIDTH_STALE && undo);
+    CHECK(column_width_history_commit(c,&redo)==COLUMN_WIDTH_STALE && redo);
+    CHECK(column_width_history_commit(c,&new_edit)==COLUMN_WIDTH_STALE && new_edit);
+    ColumnWidthHistoryInfo sentinel={55,66,77,88},inspected=sentinel;
+    CHECK(column_width_plan_history(new_edit,&inspected)==COLUMN_WIDTH_STALE && same(inspected,sentinel));
+    column_width_plan_free(&undo); column_width_plan_free(&redo); column_width_plan_free(&new_edit);
+    CHECK(column_width_history_prune_commit(h,&prune)==COLUMN_WIDTH_STALE && same(after,column_width_history_info(h)));
+    /* Trimming Redo drops the far future, retaining its immediate next step. */
+    replay(c,true); CHECK(current.entries[0].bits==column_width_bits(103));
+    replay(c,false); CHECK(current.entries[0].bits==column_width_bits(102));
+    replay(c,false); CHECK(current.entries[0].bits==column_width_bits(101));
+    replay(c,false); CHECK(current.entries[0].bits==column_width_bits(100));
+    CHECK(column_width_history_replay(c,false,&undo)==COLUMN_WIDTH_EMPTY && !undo);
+    prior_revision=revision; before=column_width_history_info(h);
+    CHECK(column_width_history_clear_redo(h)==COLUMN_WIDTH_OK && revision==prior_revision && current.entries[0].bits==column_width_bits(100));
+    after=column_width_history_info(h); CHECK(!after.undo && !after.redo && !after.owned_bytes && after.generation==before.generation+1);
+    /* No-op/invalid retention leaves already prepared edits and their clocks. */
+    CHECK(column_width_resize(column_width_view(&current),0,110,SIZE_MAX,&next)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_prepare(c,column_width_view(&next),&new_edit)==COLUMN_WIDTH_OK); column_width_free(&next);
+    ColumnWidthPrune untouched={0}; untouched.undo_keep=999; unsigned char bytes[sizeof(untouched)]; memcpy(bytes,&untouched,sizeof(bytes));
+    before=column_width_history_info(h);
+    CHECK(column_width_history_prune_prepare(h,0,0,&untouched)==COLUMN_WIDTH_NOOP && !memcmp(bytes,&untouched,sizeof(bytes)));
+    CHECK(column_width_history_prune_prepare(h,1,0,&untouched)==COLUMN_WIDTH_INVALID && !memcmp(bytes,&untouched,sizeof(bytes)));
+    CHECK(column_width_history_clear_redo(h)==COLUMN_WIDTH_NOOP && same(before,column_width_history_info(h)));
+    CHECK(column_width_history_trim(h,1,0)==COLUMN_WIDTH_INVALID && same(before,column_width_history_info(h)));
+    CHECK(column_width_history_commit(c,&new_edit)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_prune_prepare(h,0,0,&prune)==COLUMN_WIDTH_OK);
+    before=column_width_history_info(h); ColumnWidthHistoryInfo other_before=column_width_history_info(other);
+    CHECK(column_width_history_prune_commit(other,&prune)==COLUMN_WIDTH_STALE && same(other_before,column_width_history_info(other)));
+    ColumnWidthPrune changed=prune; changed.retained_bytes++;
+    CHECK(column_width_history_prune_commit(h,&changed)==COLUMN_WIDTH_INVALID && same(before,column_width_history_info(h)));
+    changed=prune; changed.released_bytes++;
+    CHECK(column_width_history_prune_commit(h,&changed)==COLUMN_WIDTH_INVALID && same(before,column_width_history_info(h)));
+    changed=prune; changed.undo_keep=2;
+    CHECK(column_width_history_prune_commit(h,&changed)==COLUMN_WIDTH_INVALID && same(before,column_width_history_info(h)));
+    replay(c,false); CHECK(column_width_history_prune_commit(h,&prune)==COLUMN_WIDTH_STALE);
+    prior_revision=revision; CHECK(column_width_history_clear_redo(h)==COLUMN_WIDTH_OK && revision==prior_revision);
+    /* Fold additional global-prefix pruning into the pending NEW width action,
+       so no second retention operation can fail after model adoption. */
+    edit(c,0,110); edit(c,0,111); edit(c,0,112);
+    CHECK(column_width_resize(column_width_view(&current),0,113,SIZE_MAX,&next)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_prepare(c,column_width_view(&next),&new_edit)==COLUMN_WIDTH_OK); column_width_free(&next);
+    before=column_width_history_info(h); prior_revision=revision;
+    CHECK(column_width_plan_history(new_edit,&inspected)==COLUMN_WIDTH_OK && inspected.undo==4 && !inspected.redo && inspected.owned_bytes==128);
+    revision++; inspected=sentinel;
+    CHECK(column_width_plan_history(new_edit,&inspected)==COLUMN_WIDTH_STALE && same(inspected,sentinel));
+    CHECK(column_width_plan_retain_undo(new_edit,2)==COLUMN_WIDTH_STALE && same(before,column_width_history_info(h)));
+    revision--; current.entries[0].bits=column_width_bits(114); inspected=sentinel;
+    CHECK(column_width_plan_history(new_edit,&inspected)==COLUMN_WIDTH_STALE && same(inspected,sentinel));
+    CHECK(column_width_plan_retain_undo(new_edit,2)==COLUMN_WIDTH_STALE && same(before,column_width_history_info(h)));
+    current.entries[0].bits=column_width_bits(112);
+    CHECK(column_width_plan_retain_undo(new_edit,0)==COLUMN_WIDTH_INVALID);
+    CHECK(column_width_plan_retain_undo(new_edit,5)==COLUMN_WIDTH_INVALID);
+    CHECK(column_width_plan_retain_undo(new_edit,4)==COLUMN_WIDTH_NOOP && same(before,column_width_history_info(h)) && revision==prior_revision);
+    CHECK(column_width_plan_retain_undo(new_edit,2)==COLUMN_WIDTH_OK && same(before,column_width_history_info(h)) && revision==prior_revision);
+    CHECK(column_width_plan_history(new_edit,&inspected)==COLUMN_WIDTH_OK && inspected.undo==2 && !inspected.redo && inspected.owned_bytes==64 && inspected.generation==before.generation+1);
+    CHECK(column_width_history_prune_prepare(h,2,0,&prune)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_commit(c,&new_edit)==COLUMN_WIDTH_OK && same(inspected,column_width_history_info(h)));
+    CHECK(column_width_history_prune_commit(h,&prune)==COLUMN_WIDTH_STALE);
+    CHECK(column_width_history_replay(c,false,&undo)==COLUMN_WIDTH_OK);
+    CHECK(column_width_plan_retain_undo(undo,1)==COLUMN_WIDTH_INVALID);
+    CHECK(column_width_plan_history(undo,&inspected)==COLUMN_WIDTH_OK && inspected.undo==1 && inspected.redo==1 && inspected.owned_bytes==64);
+    CHECK(column_width_history_commit(c,&undo)==COLUMN_WIDTH_OK && same(inspected,column_width_history_info(h)));
+    replay(c,false); CHECK(current.entries[0].bits==column_width_bits(111));
+    CHECK(column_width_history_replay(c,false,&undo)==COLUMN_WIDTH_EMPTY && !undo);
+    prior_revision=revision; CHECK(column_width_history_trim(h,0,0)==COLUMN_WIDTH_OK && revision==prior_revision && !column_width_history_info(h).owned_bytes);
+    CHECK(column_width_history_clear_redo(NULL)==COLUMN_WIDTH_INVALID);
+    CHECK(column_width_history_prune_prepare(NULL,0,0,&prune)==COLUMN_WIDTH_INVALID);
+    CHECK(column_width_history_prune_commit(h,NULL)==COLUMN_WIDTH_INVALID);
+    column_width_free(&current); column_width_history_free(&h); column_width_history_free(&other);
+}
 int main(void) {
     ColumnWidthHistory *h=NULL; size_t allocation=column_width_history_allocation();
     CHECK(column_width_history_new((ColumnWidthHistoryOptions){33,100},allocation,&h)==COLUMN_WIDTH_INVALID && !h);
@@ -82,5 +179,6 @@ int main(void) {
     for (unsigned i=0;i<32;i++) replay(c,true);
     CHECK(column_width_at(column_width_view(&current),16383)==column_width_bits(91));
     column_width_free(&current); column_width_history_free(&h); column_width_plan_free(&p); column_width_plan_free(NULL); column_width_history_free(NULL);
+    retention();
     printf("PASS: %u bounded column width journal checks; exact inverse, monotonic revision and divergence guards\n",checks); return 0;
 }
