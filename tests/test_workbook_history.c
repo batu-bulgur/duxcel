@@ -1,4 +1,5 @@
 #include "workbook/history.h"
+#include "workbook/lifecycle.h"
 #include "workbook/cell_command.h"
 #include "workbook/workbook_width_command.h"
 #include <stdio.h>
@@ -199,7 +200,51 @@ static void widths(void) {
     CHECK(workbook_history_peek(&b,false,NULL).status==WORKBOOK_HISTORY_READY);
     workbook_free(&b);
 }
+/* Public-producer regression: newer constituent Redo belongs to a detached
+   duplicate while its lifecycle action is undone. It must keep the branch alive. */
+static void detached_duplicate_chronology(void) {
+    Workbook b; workbook_init(&b); Analysis source={.kind=SOURCE_CSV,.path="/reference.csv"};
+    CHECK(workbook_add(&b,"Source",&source,NULL)); edit(&b,0,"Original");
+    CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply(&b.sheets[0].formats,(FormatRange){1,1,1,1},FORMAT_BOLD,bold,NULL));
+    worksheet_record(&b.sheets[0],EDIT_FORMAT); workbook_history_note_edit(&b);
+    CHECK(width(&b,0,190).status==COLUMN_WIDTH_OK);
+    b.sheets[0].source_versions.high_water=37;
+    uint64_t original=b.sheets[0].id,revision=b.command_revision;
+    CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=0},NULL,NULL));
+    CHECK(b.count==2 && b.active==1 && b.command_revision==revision+1);
+    uint64_t duplicate=b.sheets[1].id,high=b.sheet_high_water;
+    CHECK(duplicate!=original && high==duplicate && b.sheets[1].analysis.path!=b.sheets[0].analysis.path);
+    CHECK(!strcmp(b.sheets[1].analysis.path,"/reference.csv") && b.sheets[1].source_versions.high_water==37);
+    CHECK(format_at(&b.sheets[1].formats,1,1).flags==FORMAT_BOLD && b.sheets[1].view.widths[16383]==190);
+    edit(&b,1,"Edited duplicate"); CHECK(width(&b,1,321).status==COLUMN_WIDTH_OK);
+    uint64_t order=worksheet_history_high_water(),branch=b.history_branch;
+    CHECK(workbook_history_peek(&b,false,NULL).kind==EDIT_WIDTHS);
+    step(&b,false,1); CHECK(b.sheets[1].view.widths[16383]==190);
+    step(&b,false,1); CHECK(!strcmp(cells_get(&b.sheets[1].cells,1,1),"Original"));
+    CHECK(b.sheets[1].redo_actions_count==2 && column_width_history_info(b.sheets[1].width_history).redo==1);
+    revision=b.command_revision; WorkbookHistoryResult target=workbook_history_peek(&b,false,NULL);
+    CHECK(target.status==WORKBOOK_HISTORY_READY && target.lifecycle && target.sheet_id==duplicate);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && b.command_revision==revision+1);
+    CHECK(b.count==1 && b.sheets[0].id==original && b.sheet_high_water==high);
+    CHECK(!strcmp(cells_get(&b.sheets[0].cells,1,1),"Original") && b.sheets[0].view.widths[16383]==190 && format_at(&b.sheets[0].formats,1,1).flags==FORMAT_BOLD);
+    target=workbook_history_peek(&b,true,NULL);
+    CHECK(target.status==WORKBOOK_HISTORY_READY && target.lifecycle && target.sheet_id==duplicate);
+    CHECK(b.history_branch==branch && worksheet_history_high_water()==order);
+    revision=b.command_revision;
+    CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED && b.command_revision==revision+1);
+    CHECK(b.count==2 && b.sheets[1].id==duplicate && b.sheets[0].id==original && b.sheet_high_water==high);
+    CHECK(b.sheets[1].redo_actions_count==2 && !strcmp(cells_get(&b.sheets[1].cells,1,1),"Original") && b.sheets[1].view.widths[16383]==190);
+    CHECK(b.sheets[1].analysis.kind==SOURCE_CSV && !strcmp(b.sheets[1].analysis.path,"/reference.csv") && b.sheets[1].source_versions.high_water==37);
+    CHECK(format_at(&b.sheets[1].formats,1,1).flags==FORMAT_BOLD);
+    step(&b,true,1); CHECK(!strcmp(cells_get(&b.sheets[1].cells,1,1),"Edited duplicate"));
+    step(&b,true,1); CHECK(b.sheets[1].view.widths[16383]==321);
+    CHECK(!workbook_history_available(&b,true) && !b.sheets[1].redo_actions_count && !column_width_history_info(b.sheets[1].width_history).redo);
+    CHECK(b.sheet_high_water==high && b.sheets[1].source_versions.high_water==37 && b.history_branch==branch && worksheet_history_high_water()==order);
+    CHECK(!strcmp(cells_get(&b.sheets[0].cells,1,1),"Original") && b.sheets[0].view.widths[16383]==190 && format_at(&b.sheets[1].formats,1,1).flags==FORMAT_BOLD);
+    workbook_free(&b);
+}
 int main(void) {
-    widths(); chronology(); branching_and_identity(); mixed_history_and_legacy_branch(); composite_and_abandoned_styles(); missing_future_barrier(); bounds_and_failures();
+    detached_duplicate_chronology(); widths(); chronology(); branching_and_identity(); mixed_history_and_legacy_branch(); composite_and_abandoned_styles(); missing_future_barrier(); bounds_and_failures();
     printf("PASS: %u workbook chronology checks\n",checks); return 0;
 }
