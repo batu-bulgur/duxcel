@@ -2399,3 +2399,13 @@ Receipt `build/tests/results/runs/20261025T182228-feature-52109/summary.json`.
 An earlier affected invocation was intentionally stopped during its unnecessary
 all-module build at54.379s, zero App stages. All native scenarios will restart
 after this test-only fix; the original failed reports remain explicit.
+
+The restarted native layout passed the repaired menu but stopped at587: the
+readout fixture called raw objects_move without its worksheet history action.
+It now uses the actual governed Move command and asserts valid global history.
+Registered `active-cell` passes cellreadout release/sanitizer plus41 App stages
+in31.549s; receipt `build/tests/results/runs/20261025T183044-feature-53948/summary.json`.
+Runner/catalog contracts pass59 tests. Remaining layout checks are first
+isolated from the existing522 bootstrap before the final full native replay;
+this avoids repeatedly running the unchanged first500 stages while fixing
+old test setup paths. No product/history admission checks were weakened.

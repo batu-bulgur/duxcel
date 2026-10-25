@@ -12285,7 +12285,10 @@ static void layout_smoke_step(App *a,int *step) {
     case 586:
         if (!a->active_readout.value.valid || a->active_readout.value.is_null || strcmp(a->active_readout.value.text,"NULL")) goto failed;
         remember_source_location(a);
-        if (!objects_move(&s->objects,0,3,8,&s->cells,source_rows(a),a->page.column_count,&error)) goto failed;
+        { int64_t dr=3-(int64_t)s->objects.items[0].row; int dc=8-(int)s->objects.items[0].col;
+          begin_move_range(a,true); if (a->modal!=MODAL_MOVE_RANGE) goto failed;
+          a->modal=MODAL_NONE;
+          if (!move_selection(a,dr,dc,false,&error) || workbook_history_peek(&a->book,false,NULL).status==WORKBOOK_HISTORY_INVALID) goto failed; }
         browse_source(a);
         if (a->grid.row!=5 || a->grid.col!=8 || a->grid.anchor_row!=5 || a->grid.end_row!=5) goto failed;
         invalidate_object(a,0); if (active_value(a)) goto failed; break;
