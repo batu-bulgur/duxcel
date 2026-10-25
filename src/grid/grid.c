@@ -76,6 +76,22 @@ void grid_set_width(Grid *g,size_t col,float value) {
     float next=clamp(value,52,1200), delta=next-g->widths[col]; if (!delta) return; g->widths[col]=next; g->width_revision++;
     for (size_t c=col+1;c<=g->width_count;c++) g->offsets[c]+=delta;
 }
+bool grid_project_widths(Grid *g,const float *widths,size_t count) {
+    if (!g || count>16384 || (count && !widths)) return false;
+    for (size_t c=0;c<count;c++) if (!isfinite(widths[c]) || widths[c]<52 || widths[c]>1200) return false;
+    grid_ensure_columns(g,count);
+    bool changed=false;
+    for (size_t c=0;c<g->width_count;c++) {
+        float width=c<count ? widths[c] : 96;
+        changed|=g->widths[c]!=width; g->widths[c]=width;
+    }
+    if (changed) {
+        g->offsets[0]=0;
+        for (size_t c=0;c<g->width_count;c++) g->offsets[c+1]=g->offsets[c]+g->widths[c];
+        g->width_revision++;
+    }
+    return true;
+}
 void grid_ensure_columns(Grid *g,size_t count) {
     count=MIN(count,16384); if (g->width_count>=count) return;
     size_t old=g->width_count,next=MIN(16384,old+((count-old+51)/52)*52);

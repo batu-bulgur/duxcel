@@ -2381,3 +2381,11 @@ visual drag draft. Pure foundation refs `7b302ec`/`0ae03cec` stay reachable unti
 integrated. W12c.4.3b and W12c.4.4 ship together only after all physical width
 writers and compound column replay use the complete owner. No retained-history
 App activation or browser workbook Open/Save is inferred from these prerequisites.
+
+Width projection prerequisite complete: Grid can project an independently owned
+committed dense width prefix over its full physical domain, resetting the omitted
+tail to96 without changing source labels or authoring history. Invalid input
+preserves the cache; renamed schemas, no-op revisions and virtual right-edge
+coverage pass the focused Grid optimized/ASan/UBSan module gate in14.658s,
+zero App stages (`20261025T195942-fast-75765`). App command adoption is not yet
+claimed; the three implementation lanes continue their owned prerequisites.

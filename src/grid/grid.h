@@ -92,6 +92,10 @@ bool grid_restore_location(Grid *g,const GridLocation *location);
 void grid_schema(Grid *g, const Page *p, bool reset);
 void grid_ensure_columns(Grid *g, size_t count);
 void grid_set_width(Grid *g, size_t col, float width);
+/* Project committed physical widths, independent of source names/schema. The
+   omitted virtual tail is96. Validate before changing any cache or geometry;
+   this does not author a worksheet action. Input must not alias Grid arrays. */
+bool grid_project_widths(Grid *g,const float *widths,size_t count);
 void grid_fit_column(Grid *g,UIContext *ui,const Page *page,size_t column);
 /* Presentation-only navigation: preserves active cell, selection and row offset. */
 void grid_reveal_column(Grid *g,const Page *page,float scale,size_t column,bool center);

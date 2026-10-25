@@ -1438,7 +1438,31 @@ static void test_range_move_gestures(void) {
         grid_destroy(&g);
     }
 }
+static void test_committed_width_projection(void) {
+    Grid grid; grid_init(&grid); Page empty={0}; grid_schema(&grid,&empty,true);
+    float widths[]={177.5f,52,1200};
+    CHECK(grid_project_widths(&grid,widths,3));
+    CHECK(grid.widths[0]==177.5f && grid.widths[1]==52 && grid.widths[2]==1200 && grid.widths[3]==96);
+    CHECK(grid.offsets[3]==1429.5f && grid.offsets[4]==1525.5f);
+    uint64_t revision=grid.width_revision; float *owned=grid.widths;
+    CHECK(grid_project_widths(&grid,widths,3) && grid.width_revision==revision && grid.widths==owned);
+    float invalid[]={150,NAN};
+    CHECK(!grid_project_widths(&grid,invalid,2) && grid.width_revision==revision && grid.widths[0]==177.5f);
+    CHECK(!grid_project_widths(&grid,NULL,1) && !grid_project_widths(&grid,widths,16385));
+    Column column={.name="Renamed source",.type=DUCKDB_TYPE_TIMESTAMP}; Page changed={.columns=&column,.column_count=1};
+    grid_schema(&grid,&changed,false); CHECK(grid.widths[0]==190);
+    CHECK(grid_project_widths(&grid,widths,3) && grid.widths[0]==177.5f && !strcmp(grid.column_names[0],column.name));
+    grid_set_width(&grid,20,400);
+    CHECK(grid_project_widths(&grid,widths,3) && grid.widths[20]==96);
+    float *wide=calloc(16384,sizeof(*wide)); CHECK(wide);
+    for (size_t i=0;i<16384;i++) wide[i]=96;
+    wide[16383]=1199.5f;
+    CHECK(grid_project_widths(&grid,wide,16384) && grid.width_count==16384 && grid.widths[16383]==1199.5f);
+    CHECK(grid_project_widths(&grid,NULL,0) && grid.widths[16383]==96 && grid.offsets[16384]==16384*96);
+    free(wide); grid_destroy(&grid);
+}
 int main(int argc,char **argv) {
+    test_committed_width_projection();
     if (argc==2 && !strcmp(argv[1],"--column-benchmark")) return column_benchmark();
     if (argc==2 && !strcmp(argv[1],"--font-benchmark")) return font_benchmark();
     if (argc==2 && !strcmp(argv[1],"--overscroll")) { test_overscroll_return(); test_overscroll_gestures(); test_boundary_tail_noise(); printf("PASS: %u precise overscroll/return checks\n",checks); return 0; }
