@@ -5520,11 +5520,11 @@ static bool template_range_owner(const App *a,const Worksheet *sheet);
 static RangeCommandContext app_range_context(App *a,RangeCommandOperation operation) {
     RangeCommandContext context=manual_range_context(a); Worksheet *sheet=active_sheet(a);
     if (!manual_range_owner(a,sheet) && !template_range_owner(a,sheet) &&
-        (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_INSERT_ROWS || operation==RANGE_OPERATION_DELETE_ROWS || operation==RANGE_OPERATION_PASTE || operation==RANGE_OPERATION_CLEAR)) {
+        (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_INSERT_ROWS || operation==RANGE_OPERATION_DELETE_ROWS || operation==RANGE_OPERATION_INSERT_COLUMNS || operation==RANGE_OPERATION_DELETE_COLUMNS || operation==RANGE_OPERATION_PASTE || operation==RANGE_OPERATION_CLEAR)) {
         a->range_result_ready=context.command.ready;
         a->range_source_policy=(RangeSourcePolicy){&a->page.total,&a->page.column_count,&a->page.count_pending,&a->fetch_failed,&a->range_result_ready};
         context.source=&a->range_source_policy;
-        if (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_INSERT_ROWS || operation==RANGE_OPERATION_DELETE_ROWS) {
+        if (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_INSERT_ROWS || operation==RANGE_OPERATION_DELETE_ROWS || operation==RANGE_OPERATION_INSERT_COLUMNS || operation==RANGE_OPERATION_DELETE_COLUMNS) {
             a->range_result_context=(RangeResultContext){app_range_result,a}; context.results=&a->range_result_context;
         }
     }
@@ -5747,18 +5747,9 @@ static void column_action(App *a,ColumnAction action) {
         status(a,changed ? text : "These rows have no worksheet content to shift.");
     } else {
         size_t col=g->col+(action==COLUMN_RIGHT); char *error=NULL;
-        size_t source_columns=a->analysis.kind!=SOURCE_NONE && !a->page.column_count ? 16384 : a->page.column_count;
-        if (manual_range_owner(a,sheet) || template_range_owner(a,sheet)) {
-            if (!move_manual_range(a,(RangeCommand){.operation=action==COLUMN_DELETE ? RANGE_OPERATION_DELETE_COLUMNS : RANGE_OPERATION_INSERT_COLUMNS,
-                .column=col,.column_count=1},NULL,&error)) { status(a,error); free(error); return; }
-            project_sheet_widths(a); return;
-        }
-#ifndef DUXCEL_BROWSER_HOST
-        if (source_format_budget_status(a,NULL,DX_COLUMN_WIDTH_HISTORY_BYTES,0,0,0,0)) return;
-#endif
-        if (!worksheet_column(sheet,col,action!=COLUMN_DELETE,source_columns,&error)) { status(a,error); free(error); return; }
+        if (!move_manual_range(a,(RangeCommand){.operation=action==COLUMN_DELETE ? RANGE_OPERATION_DELETE_COLUMNS : RANGE_OPERATION_INSERT_COLUMNS,
+            .column=col,.column_count=1},NULL,&error)) { status(a,error); free(error); return; }
         project_sheet_widths(a);
-        a->book.dirty=true;
     }
 }
 static void draw_column_width(App *a) {

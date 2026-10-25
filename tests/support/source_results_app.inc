@@ -13,6 +13,11 @@ static size_t source_rows_redo;
 static void source_rows_select(App *a,uint64_t row) { grid_select_cell(&a->grid,row,0,false); a->grid.selection=SELECT_ROWS; a->grid.end_row=row+1; }
 static void source_rows_menu(App *a,int action) { a->modal=MODAL_CONTEXT; a->context_origin=(Vector2){300,200}; a->context_focus=action; a->context_scroll=0; a->chrome_focus=a->pivot_focus=0; ui_note_key_press(KEY_ENTER,0); }
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_COLUMNS
+static uint64_t source_columns_revision,source_columns_high,source_columns_ledger;
+static const char *source_columns_name;
+static void source_columns_menu(App *a,size_t col,int action) { grid_select_cell(&a->grid,0,col,false); a->grid.selection=SELECT_COLUMNS; a->modal=MODAL_CONTEXT; a->context_origin=(Vector2){300,200}; a->context_focus=action; a->context_scroll=0; a->chrome_focus=a->pivot_focus=0; ui_note_key_press(KEY_ENTER,0); }
+#endif
 static RangeSourcePolicy source_results_policy;
 static RangeResultContext source_results_resolver;
 static RangeCommandTarget *source_results_target;
@@ -104,7 +109,7 @@ static void source_results_test_frame(AppSession *session) {
         if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
         RangeResultProof proof={0}; SR_CHECK(app_range_result(a,source_results_first,&proof) && proof.ready && proof.object==source_results_first && proof.owner==&a->objects[1] && proof.definition==&s->objects.items[0].source && proof.query_epoch==s->objects.items[1].revision && proof.source_epoch==s->objects.items[0].revision && proof.request==a->request_id);
         SR_CHECK(source_results_noop(a).status==RANGE_COMMAND_STALE && source_results_prepare(a,true) && source_results_noop(a).status==RANGE_COMMAND_NOOP && !s->cells.count);
-#if !defined(DUXCEL_FEATURE_SOURCE_MOVE) && !defined(DUXCEL_FEATURE_SOURCE_ROWS)
+#if !defined(DUXCEL_FEATURE_SOURCE_MOVE) && !defined(DUXCEL_FEATURE_SOURCE_ROWS) && !defined(DUXCEL_FEATURE_SOURCE_COLUMNS)
         source_results_result=1; printf("PASS: native actual source result association workflow (13 stages, %u checks)\n",source_results_checks);
 #endif
         break;
@@ -172,6 +177,41 @@ static void source_results_test_frame(AppSession *session) {
         SR_CHECK(s->objects.items[0].row==330 && !strcmp(cells_get(&s->cells,740,15),"9007199254740993.0123456789") && (format_at(&s->formats,740,15).flags&FORMAT_BOLD));
         SR_CHECK(s->objects.next_id==source_rows_high && s->source_versions.high_water==source_rows_ledger && s->width_revision==source_rows_width && a->analysis.kind==SOURCE_CSV);
         source_results_result=1; printf("PASS: native source mixed row workflow (24 stages, %u checks)\n",source_results_checks); break;
+#endif
+#ifdef DUXCEL_FEATURE_SOURCE_COLUMNS
+    case 13: {
+        char *error=NULL; SR_CHECK(cells_set(&s->cells,740,15,"9007199254740993.0123456789",&error)); worksheet_record(s,EDIT_CELLS);
+        grid_select_cell(&a->grid,740,15,false); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; SR_CHECK(apply_format(a,FORMAT_BOLD,bold)); free(error);
+        grid_ensure_columns(&a->grid,16384); grid_set_width(&a->grid,16,123); grid_set_width(&a->grid,16383,333); SR_CHECK(commit_grid_widths(a));
+        source_columns_high=s->objects.next_id; source_columns_ledger=s->source_versions.high_water; source_columns_name=s->view.columns[15]; source_columns_revision=a->book.command_revision; break;
+    }
+    case 14: source_columns_menu(a,15,2); break;
+    case 15:
+        SR_CHECK(a->modal==MODAL_NONE && a->book.command_revision==source_columns_revision+1 && s->objects.items[0].col==17 && worksheet_edit_effects(s->undo_actions[s->undo_actions_count-1])==30);
+        SR_CHECK(!strcmp(cells_get(&s->cells,740,16),"9007199254740993.0123456789") && (format_at(&s->formats,740,16).flags&FORMAT_BOLD) && s->view.widths[17]==123 && s->view.widths[16383]==96 && a->grid.widths[16383]==96); history(a,false); break;
+    case 16:
+        SR_CHECK(s->objects.items[0].col==16 && !strcmp(cells_get(&s->cells,740,15),"9007199254740993.0123456789") && s->view.widths[16]==123 && s->view.widths[16383]==333 && a->grid.widths[16383]==333); history(a,true); break;
+    case 17:
+        SR_CHECK(s->objects.items[0].col==17 && s->view.widths[16383]==96); history(a,false); break;
+    case 18:
+        SR_CHECK(s->objects.items[0].col==16 && s->view.widths[16383]==333); source_columns_menu(a,15,4); break;
+    case 19:
+        SR_CHECK(s->objects.items[0].col==15 && !strcmp(cells_get(&s->cells,740,14),"9007199254740993.0123456789") && (format_at(&s->formats,740,14).flags&FORMAT_BOLD) && s->view.widths[15]==123 && s->view.widths[16382]==333); history(a,false); break;
+    case 20:
+        SR_CHECK(s->objects.items[0].col==16 && s->view.widths[16383]==333); source_columns_revision=a->book.command_revision;
+        grid_select_cell(&a->grid,0,5,false); column_action(a,COLUMN_LEFT); break;
+    case 21:
+        SR_CHECK(a->book.command_revision==source_columns_revision && s->objects.items[0].col==16 && s->view.widths[16383]==333); source_columns_menu(a,17,2); break;
+    case 22:
+        SR_CHECK(a->book.command_revision==source_columns_revision && s->objects.items[0].col==16 && s->view.widths[16383]==333); source_columns_menu(a,16383,2); break;
+    case 23:
+        SR_CHECK(a->book.command_revision==source_columns_revision+1 && worksheet_edit_effects(s->undo_actions[s->undo_actions_count-1])==16 && s->objects.items[0].col==16 && s->view.widths[16383]==96 && a->grid.widths[16383]==96); history(a,false); break;
+    case 24:
+        SR_CHECK(s->view.widths[16383]==333 && a->grid.widths[16383]==333); history(a,true); break;
+    case 25:
+        SR_CHECK(s->view.widths[16383]==96 && a->grid.widths[16383]==96 && s->view.columns[15]==source_columns_name && !strcmp(cells_get(&s->cells,740,15),"9007199254740993.0123456789"));
+        SR_CHECK(s->objects.next_id==source_columns_high && s->source_versions.high_water==source_columns_ledger && a->analysis.kind==SOURCE_CSV && s->objects.items[0].col==16);
+        source_results_result=1; printf("PASS: native source mixed column workflow (26 stages, %u checks)\n",source_results_checks); break;
 #endif
     }
     source_results_stage++;
