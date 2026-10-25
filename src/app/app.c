@@ -13074,8 +13074,16 @@ static void layout_smoke_step(App *a,int *step) {
                 v->id || v->revision || v->source_revision || v->counted_total || v->count_layout_key ||
                 !v->dirty || v->failed || v->waiting_count || v->count_paused || v->count_resolved) goto failed;
         }
-        const unsigned char empty_locations[sizeof(a->source_locations)]={0};
-        if (memcmp(a->source_locations,empty_locations,sizeof(empty_locations))) goto failed;
+        /* Normal painting may already remember the NEW primary viewport.
+           Retired Table bookmarks stay empty; any primary bookmark must bind
+           the new revision and its fresh origin rather than the old source. */
+        const SourceLocation *primary_location=&a->source_locations[0];
+        if (primary_location->location.valid && (primary_location->id || primary_location->revision!=a->analysis_revision ||
+            primary_location->row || primary_location->column || primary_location->location.row || primary_location->location.col ||
+            primary_location->location.anchor_row || primary_location->location.anchor_col || primary_location->location.end_row ||
+            primary_location->location.end_col || primary_location->location.top || primary_location->location.horizontal || primary_location->location.fraction)) goto failed;
+        const unsigned char empty_locations[sizeof(a->source_locations)-sizeof(SourceLocation)]={0};
+        if (memcmp(a->source_locations+1,empty_locations,sizeof(empty_locations))) goto failed;
         const Worksheet *previous=&a->book.sheets[cache_source_sheet];
         if (a->book.count!=cache_source_sheets+1 || a->page.total!=5 || a->page.column_count!=6 ||
             strcmp(a->page.columns[1].name,"City") || strcmp(a->page.cells[1].text,"İstanbul") ||
