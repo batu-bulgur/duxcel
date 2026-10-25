@@ -2371,10 +2371,10 @@ handoff instead of waiting for routine human approval.
 
 | Lane | Owned work | Integration boundary |
 | --- | --- | --- |
-| Source (`roadmap-source-format`) | W12c.3c.3a.2c.2 loaded-Table actual replies, then source-origin publication prerequisites | Narrow source/query adapters; exact reply fences and focused native acceptance |
-| History (`roadmap-history-save-as`) | W12c.4.3a width assets/journal, typed width controller and worksheet chronology | Own model/history constituent; no App/Grid or archive codec edits |
-| Object (`roadmap-object-create`) | W12c.4.4 compound range event width payload and current encoding | Own family4 codec/strict validation; depends on agreed pure width asset API |
-| Coordinator (main) | Shared interface review, App/Grid width writers and atomic manual column adoption | Integrate verified refs in dependency order; focused combined gates; full delivery at coherent milestones |
+| Source (`roadmap-source-format`) | Native pending source/CREATE ownership and read-only source-subset admission | Private source publication accepted at `codex/source-publication-native-accepted`; retained writer/browser activation remain off |
+| History (`roadmap-history-save-as`) | Sheet topology/metadata payload ownership and genuine session replay | Private topology12/lifecycle28 gates accepted; detached chronology and final-valid metadata fixes integrated separately on main |
+| Object (`roadmap-object-create`) | Mixed ranges, complete source result fences, source MOVE/axes and keyboard Clear | Codec/controllers verified; native routing children pass their own focused interaction gates before integration |
+| Coordinator (main) | Shared interfaces, dependency integration and current milestone delivery | Scoped acceptance per slice; full native/Wasm inventory at milestones, then verified origin/CI delivery |
 
 Width authority remains committed `SheetView.widths`; Grid is a projection and
 visual drag draft. Pure foundation refs `7b302ec`/`0ae03cec` stay reachable until
@@ -2538,3 +2538,23 @@ requires historical preview fit to preserve it. Its12-stage sanitizer interactio
 passes54.900s (`20261025T215654-affected-71163`). The original failed native report
 is preserved; prefix evidence and a fresh zoom/tail plus remaining native
 scenarios will be audited explicitly, without claiming one successful full run.
+
+Detached duplicate chronology defect closed on main as `ce76bd1`/`0c133f9`:
+newer cell/width Redo remains owned when Undo detaches the duplicate. The shared
+branch/save stamp now includes retained detached worksheet journals, without
+changing the lifecycle action clock. Independent public-API reproduction failed
+before the fix and passes afterward; main chronology863/lifecycle871 checks pass
+per optimized/sanitizer mode in16.090s (`20261025T220941-fast-78092`). The existing
+native chronology fixture retains21 stages and adds9 real keyboard/dialog stages.
+Main metadata final-valid-revision fix `8c6dfe7` preserves the genuine last action
+when peek reports LIMIT after MAX-1 to MAX; metadata359/lifecycle485 checks pass
+per mode (`20261025T221733-fast-84899`, 50.732s including compilation-lease wait).
+Current main interaction acceptance for these changes remains part of delivery.
+
+Next integration queue is source-scoped, not part of the frozen shipping claim:
+Source publication at `f31a469` passes144 hidden native stages across7 workflows;
+its130-source shared-C Wasm target compiles/links fresh in53.201s (no browser
+runtime claim). History at `6b689d3` passes topology12/lifecycle28 actual stages.
+Object association/paste gates pass25 stages; source MOVE/rows/columns/key Clear
+have separate queued native gates. Exact refs/evidence remain in their isolated
+checkouts and Git tags until linear integration; no routine human approval gate.
