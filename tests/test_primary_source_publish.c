@@ -71,7 +71,7 @@ static void assets_and_unresolved(void) {
     Workbook b=book(); uint64_t request=12,epoch=4; PrimarySourceDraftContext c={&b,&b.sheets[0].analysis,&request,&epoch,true,false};
     Analysis proposal={.kind=SOURCE_DATABASE,.path="/next.duckdb"}; PrimarySourceDraft *draft=NULL;
     CHECK(primary_source_draft_begin(c,&proposal,"Next",SIZE_MAX,&draft,NULL)==PRIMARY_SOURCE_READY);
-    PrimarySourcePublishInfo info={1,2,3,4,5,6,7,8},old=info;
+    PrimarySourcePublishInfo info={.coexisting=1,.live=2,.draft=3,.presence=4,.creation=5,.origin=6,.scratch=7,.prospective_sheet=8},old=info;
     CHECK(primary_source_publish_measure(c,draft,&info,NULL)==PRIMARY_PUBLISH_PROTECTED && !memcmp(&old,&info,sizeof(info)));
     primary_source_draft_free(&draft);
     DefinitionOriginAssetView view={b.sheets,&b.sheets[0].analysis}; DefinitionOriginSealInfo shape={0},measure={0};

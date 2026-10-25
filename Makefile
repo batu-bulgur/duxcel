@@ -1143,6 +1143,8 @@ PARALLEL_NATIVE_GOALS += build/tests/test_primary_source_publish build/tests/tes
 
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_source_view build/tests/test_sheet_source_view-debug
 
+PARALLEL_NATIVE_GOALS += build/tests/test_primary_source_topology build/tests/test_primary_source_topology-debug
+
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2539,4 +2541,13 @@ build/tests/test_sheet_source_view: $(SHEET_SOURCE_VIEW_OBJECTS) build/web-tests
 build/tests/test_sheet_source_view-debug: $(SHEET_SOURCE_VIEW_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(SHEET_SOURCE_VIEW_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_SOURCE_VIEW_OBJECTS:.o=.d) $(SHEET_SOURCE_VIEW_SAN_OBJECTS:.o=.d)
+
+PRIMARY_SOURCE_TOPOLOGY_SRC = $(filter-out tests/test_primary_source_publish.c,$(PRIMARY_SOURCE_PUBLISH_SRC)) src/workbook/sheet_topology_event.c src/workbook/history_sheet_topology.c src/workbook/primary_source_topology.c tests/test_primary_source_topology.c
+PRIMARY_SOURCE_TOPOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_TOPOLOGY_SRC))))
+PRIMARY_SOURCE_TOPOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_TOPOLOGY_SRC))))
+build/tests/test_primary_source_topology: $(PRIMARY_SOURCE_TOPOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $(PRIMARY_SOURCE_TOPOLOGY_OBJECTS) build/web-tests/platform-model.o,$(THREAD_LIBS) -lm)
+build/tests/test_primary_source_topology-debug: $(PRIMARY_SOURCE_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(PRIMARY_SOURCE_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(PRIMARY_SOURCE_TOPOLOGY_OBJECTS:.o=.d) $(PRIMARY_SOURCE_TOPOLOGY_SAN_OBJECTS:.o=.d)
 

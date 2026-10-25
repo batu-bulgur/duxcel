@@ -61,6 +61,12 @@ static SheetLifecycleStatus measure(SheetLifecycle view,State *a,State *b,SheetL
     *out=(SheetLifecycleInfo){DX_SHEET_LIFECYCLE_HEADER_BYTES+ab+bb,sizeof(SheetLifecycle)+2*a->count*sizeof(SheetLifecycleEntry)+an+bn,a->count};
     return SHEET_LIFECYCLE_OK;
 }
+SheetLifecycleStatus sheet_lifecycle_state_measure(SheetLifecycleState view,SheetLifecycleInfo *out) {
+    if (!out) return SHEET_LIFECYCLE_INVALID;
+    State state; size_t bytes=0,names=0; SheetLifecycleStatus status=state_view(view,&state,&bytes,&names);
+    if (status==SHEET_LIFECYCLE_OK) *out=(SheetLifecycleInfo){bytes,state.count*sizeof(SheetLifecycleEntry)+names,state.count};
+    return status;
+}
 SheetLifecycleStatus sheet_lifecycle_measure(SheetLifecycle view,SheetLifecycleInfo *out) {
     if (!out) return SHEET_LIFECYCLE_INVALID;
     State a,b; SheetLifecycleInfo info; SheetLifecycleStatus status=measure(view,&a,&b,&info);

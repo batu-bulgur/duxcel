@@ -25,6 +25,12 @@ typedef enum { SHEET_LIFECYCLE_OK,SHEET_LIFECYCLE_NOOP,SHEET_LIFECYCLE_INVALID,
    the shared UTF-8 contract, 1..4096 bytes and no ASCII control characters.
    Each side has a visible active sheet and at least one visible sheet. */
 /* Active-only navigation is a semantic NOOP, not an authored metadata event. */
+/* One complete catalog, independent of a same-ID metadata pair. bytes is the
+   exact ordered row encoding WITHOUT a DXSL/DXTP header; owned is a decoded
+   entry array and terminated names. Valid unchanged catalogs return OK.
+   This shares the real codec state validation/counting and allocates nothing.
+   Failure preserves out; it does not change pair NOOP semantics. */
+SheetLifecycleStatus sheet_lifecycle_state_measure(SheetLifecycleState state,SheetLifecycleInfo *out);
 SheetLifecycleStatus sheet_lifecycle_measure(SheetLifecycle view,SheetLifecycleInfo *out);
 /* DXSL/u16 encoding/u16 zero/document high+low/u64 allocator/u32 count/u32 zero,
    before+after active IDs/u32 before+after lengths, then ordered rows on each
