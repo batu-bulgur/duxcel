@@ -75,11 +75,12 @@ static void sheet_topology_test_frame(AppSession *session) {
     }
     case 12:
         TOPOLOGY_GUI_CHECK(s->id==topology_copy && a->analysis.kind==SOURCE_CSV && !a->analysis.source_version && !s->source_versions.count && a->page.column_count==3 && !a->fetch_failed);
+        grid_select_cell(&a->grid,0,2,false); grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom);
         if (!topology_menu(a,topology_copy,1)) return; break;
     case 13:
         TOPOLOGY_GUI_CHECK(a->book.count==4 && s->id!=topology_copy && !s->undo_actions_count && !s->source_versions.count);
         topology_enriched=s->id; topology_binding_revision=a->book.command_revision; topology_page=a->page.cells; topology_analysis_revision=a->analysis_revision;
-        TOPOLOGY_GUI_CHECK(a->page.total==6 && a->page.cells[1].is_null && !a->page.cells[4].is_null && !strcmp(a->page.cells[4].text,"NULL"));
+        TOPOLOGY_GUI_CHECK(a->page.total==6 && a->page.cells && a->page.offset==0 && a->page.row_count>=2 && a->page.cells[1].is_null && !a->page.cells[4].is_null && !strcmp(a->page.cells[4].text,"NULL"));
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false;
         grid_select_cell(&a->grid,0,2,false); ui_note_key_press(KEY_B,DX_MOD_SUPER); break;
     case 14:
@@ -136,7 +137,7 @@ static void sheet_topology_test_frame(AppSession *session) {
         topology_page=a->page.cells; ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 24:
         TOPOLOGY_GUI_CHECK(s->id==topology_objects && s->objects.count==1 && s->objects.items[0].id==topology_object_high && s->objects.next_id==topology_object_high && !s->redo_actions_count && a->book.command_revision==topology_object_revision+5);
-        TOPOLOGY_GUI_CHECK(a->page.cells==topology_page && a->page.total==6 && a->page.cells[1].is_null && !a->page.cells[4].is_null && !strcmp(a->page.cells[4].text,"NULL") && a->analysis.source_version==1 && s->source_versions.high_water==1);
+        TOPOLOGY_GUI_CHECK(a->page.cells==topology_page && a->page.total==6 && a->page.cells && a->page.offset==0 && a->page.row_count>=2 && a->page.cells[1].is_null && !a->page.cells[4].is_null && !strcmp(a->page.cells[4].text,"NULL") && a->analysis.source_version==1 && s->source_versions.high_water==1);
         TOPOLOGY_GUI_CHECK(!strcmp(cells_get(&s->cells,20,200),"Topology note") && s->view.widths[200]==1199.75f);
         printf("PASS: native sheet topology workflow (25 stages, %u checks)\n",topology_checks); topology_result=1; break;
     }
