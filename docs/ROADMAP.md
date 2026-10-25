@@ -252,7 +252,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3a.2a · P1 · Complete | Immutable working-origin model; W12c.3c.3a.1 and canonical definition/source/format assets. | Exact runtime/request/primary/Table fences admit only default-relation completion while OPEN, then one canonical arena seals ADMITTED. No user action, mutation of Saved roots or App activation. |
 | W12c.3c.3a.2b · P1 · Complete | Precise origin memory admission; W12c.3c.3a.2a. | Budget all owned assets/parser scratch and retain terminal origin bytes. The former migration baseline bridge is retired by current-only policy. App reply integration and new-primary publication stay explicit. |
 | W12c.3c.3a.2c · P1 · In progress | Native default-reply and origin adapters; W12c.3c.3a.2b. | Charge every live OPEN/ADMITTED origin, including suspended Working Head ownership, and route primary/loaded-Table completions through the actual typed owner before sealing. New-primary pending publication remains separate. |
-| W12c.3c.3a.2c.1 · P1 · In progress | Current primary DATABASE default-reply and origin ownership; W12c.3c.3a.2b. | Exact accepted request/default-table completion, bounded OPEN/ADMITTED registry and background retirement; no authored action/clock or sealed-root mutation. Table completion and new-primary publication remain separate. |
+| W12c.3c.3a.2c.1 · P1 · Complete | Current primary DATABASE default-reply and origin ownership; W12c.3c.3a.2b. | Exact accepted request/default-table completion, bounded OPEN/ADMITTED registry and background retirement; no authored action/clock or sealed-root mutation. Table completion and new-primary publication remain separate. |
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
@@ -300,9 +300,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
-| W12c.5.3 · P1 · In progress | Guarded sheet-metadata adoption/publication; W12c.5.2 and existing workbook lifecycle coordinator. | Reserve before lifecycle eviction, adopt through the genuine workbook action, then prove exact after-metadata/session/revision/chronology before publication. Native metadata controls are a narrow child; detached topology and parent lifecycle activation remain separate. |
+| W12c.5.3 · P1 · Complete | Guarded sheet-metadata adoption/publication; W12c.5.2 and existing workbook lifecycle coordinator. | Reserve before lifecycle eviction, adopt through the genuine workbook action, then prove exact after-metadata/session/revision/chronology before publication. Native metadata controls are a narrow child; detached topology and parent lifecycle activation remain separate. |
 | W12c.5.3a · P1 · Complete | Genuine governed metadata adoption and family5 publication; W12c.5.2. | Prove all owner/model/chronology/budget checks before mutation; call actual metadata coordinator and validate after-state before nonfallible publication. Session-only and recorded paths share semantics; navigation stays independent of metadata replay. |
-| W12c.5.3b · P1 · Queued | Native sheet metadata command adapter; W12c.5.3a. | Route rename/reorder/hide/show through the shared prepared command with exact App ownership/adoption accounting; narrow real UI and stale/no-op checks. Detached topology and retained history IO remain separate. |
+| W12c.5.3b · P1 · Complete | Native sheet metadata command adapter; W12c.5.3a. | Route rename/reorder/hide/show through the shared prepared command with exact App ownership/adoption accounting; narrow real UI and stale/no-op checks. Detached topology and retained history IO remain separate. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
@@ -2278,3 +2278,37 @@ hashes unchanged. Object lane receipts are
 `4099c0ea3c8c2db790ee` builds102.856s on the same clean source. These close the
 component probe, not browser workbook Open/Save. Desktop passed to History for
 its final28-stage metadata adapter gate; Source follows for primary-origin GUI.
+
+
+## Coherent milestone freeze — 25 October 2026
+
+W12c.5.3b integrated as `586f232`: rename/reorder/hide/show use the actual
+prepared metadata command, bounded admission and a shared transient session
+helper. Normalized no-op and first metadata edit after Open create no cell
+action/query. The lane's final two-module optimized/sanitizer gate passes
+21.072s, including28 hidden native stages/38 checks (GUI7.456s); metadata275
+and cell1,010 checks per configuration. Source `d0b16a2`; source/binary evidence
+is retained in the history lane's feature receipt. This completes the metadata
+adoption child, not detached sheet topology or durable App history activation.
+
+W12c.3c.3a.2c.1 integrated as `3364411`: actual primary DATABASE default replies
+complete only the exact current OPEN origin; pressure leaves origin pending while
+allowing a valid Page. Whole registries retire through the worker queue with
+queued/actively freeing ownership charged until disposal completes. Loaded
+Table/new-primary completion and parent origin readiness remain outstanding.
+Lane `definition-origin` passes8.324s including5 hidden native stages/24 checks
+(GUI3.094s),261 origin/24 baseline assertions each optimized/sanitizer;
+worker retirement passes243 release and661 sanitizer checks, with variable
+wait-loop assertions. Source `f88938b`; receipt
+`build/tests/results/runs/20261025T170653-feature-15458/summary.json` in Source.
+
+Before this merge, all225 Python orchestration contracts passed47.166s and
+all337 Node adapter/contracts passed3.773s. The merged tools/catalog boundary
+will be checked again; unchanged JavaScript source retains its full Node proof.
+The production executable's linked review/test exclusion check also passes,
+with report `build/tests/results/milestone-production-exclusion.json`; that
+preliminary binary does not replace final rebuilt artifact verification.
+
+Root now owns broad native engine/desktop verification and final local Wasm/
+browser/package verification. Lanes are read-only during this frozen boundary.
+Push and actual matching CI/CD verification remain required after local success.
