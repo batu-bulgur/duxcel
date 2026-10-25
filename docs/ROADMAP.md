@@ -2607,3 +2607,14 @@ are `20261025T225752-feature-26015`, `225817-feature-26670`,
 same run-date directory. W12c.4.6–4.9 are complete under scoped automation;
 source-bearing producers, durable retained history and browser file Open/Save
 remain explicit later work. No broad suite or hands-on approval was repeated.
+
+Read-only admission prerequisites integrate as `f673abc` through `d49f86c`,
+sharing one current frame checker, assigned-slot checker and source subset
+classifier. Actual family1/2/3 bytes, selected source closure, exact parser
+scratch and immutable observations are validated without activating sources or
+retained traversal. Four registered main pure plans pass both configurations:
+source-history-slot6.551s, cell-history-payload3.996s,
+source-dependency-admission6.459s and compound-preflight3.081s; catalog14 passes.
+Receipts: `20261025T230134-feature-30619`, `230142-feature-31225`,
+`230147-feature-31490`, `230155-feature-31835`. These close leaf prerequisites
+only; W12b.2c remains open for complete profile/publication ownership.
