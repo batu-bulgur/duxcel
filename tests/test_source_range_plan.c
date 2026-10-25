@@ -144,4 +144,18 @@ static void column_projection(void) {
         workbook_free(reference); free(reference); workbook_free(&b); CHECK(out.objects.items[0].name && out.cells.cells[0].text && out.widths.entries); mixed_range_plan_free(&out);
     }
 }
-int main(void) { paste(); clear(); move(); rows_projection(); column_projection(); printf("PASS: %u guarded source range projection checks\n",checks); return 0; }
+static void broad_result_axes(void) {
+    Workbook b=fixture(); Worksheet *s=b.sheets; Analysis primary={.kind=SOURCE_DEMO};
+    const char scope[]="opaque-result"; FormatScopeView view={0,scope,sizeof(scope)-1}; CellFormat bold=format_default(); bold.flags=FORMAT_ITALIC;
+    CHECK(format_apply_scoped(&s->formats,(FormatRange){0,DX_SHEET_ROWS-1,0,16383},FORMAT_ITALIC,bold,&view,1,false,NULL)); worksheet_record(s,EDIT_FORMAT);
+    SourceTableExtent table={s->objects.items[0].id,3,2,true,false,false}; SourceMoveContext c={{s,&primary,10,3,false,false,true},&table,1};
+    Worksheet before=*s; MixedRangePlan out={0};
+    CHECK(source_range_rows_plan(c,1000,1,true,0,0,&out,NULL)==SOURCE_RANGE_NOOP && !out.objects.items);
+    CHECK(source_range_column_plan(c,1000,true,0,0,&out,NULL)==SOURCE_RANGE_NOOP && !out.objects.items);
+    CHECK(source_range_rows_plan(c,1000,1,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_READY && out.effects==8);
+    Workbook *reference=workbook_snapshot(&b); CHECK(reference && worksheet_rows(reference->sheets,1000,1,false,10,NULL) && format_snapshot_matches(&reference->sheets[0].formats,&out.formats)); workbook_free(reference); free(reference);
+    CHECK(source_range_column_plan(c,1000,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_READY && out.effects==8);
+    reference=workbook_snapshot(&b); CHECK(reference && worksheet_column(reference->sheets,1000,false,3,NULL) && format_snapshot_matches(&reference->sheets[0].formats,&out.formats)); workbook_free(reference); free(reference);
+    CHECK(!memcmp(&before,s,sizeof(before))); workbook_free(&b); mixed_range_plan_free(&out);
+}
+int main(void) { paste(); clear(); move(); rows_projection(); column_projection(); broad_result_axes(); printf("PASS: %u guarded source range projection checks\n",checks); return 0; }

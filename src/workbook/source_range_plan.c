@@ -154,7 +154,7 @@ SourceRangeStatus source_range_rows_measure(SourceMoveContext c,uint64_t row,uin
     uint32_t mask=0;
     if (!source_row_mask(&s->objects,row,count,insert,&mask,error)) return SOURCE_RANGE_INVALID;
     bool relevant=false;
-    for (size_t i=0;i<s->formats.count;i++) { const FormatPatch *p=s->formats.items+i; FormatRange r=p->range; relevant|=p->selector!=FORMAT_RECORDS && r.r1>=row && !(p->selector==FORMAT_SPATIAL && !r.r0 && r.r1==DX_SHEET_ROWS-1); }
+    for (size_t i=0;i<s->formats.count;i++) { const FormatPatch *p=s->formats.items+i; FormatRange r=p->range; relevant|=p->selector!=FORMAT_RECORDS && r.r1>=row && !(p->selector==FORMAT_SPATIAL && !r.r0 && r.r1==DX_SHEET_ROWS-1) && (!insert || r.r0>=row || r.r1<DX_SHEET_ROWS-1); }
     if (status==CELL_RANGE_NOOP && !mask && !relevant) return SOURCE_RANGE_NOOP;
     size_t object_bytes=objects_snapshot_owned_bytes(&before); if (object_bytes==SIZE_MAX) return SOURCE_RANGE_INVALID;
     if (status==CELL_RANGE_NOOP) cells.owned=s->cells.count*sizeof(SheetCell)+s->cells.bytes;
@@ -218,7 +218,7 @@ SourceRangeStatus source_range_column_measure(SourceMoveContext c,size_t column,
     uint32_t mask=0; size_t sparse=0; bool widths=false;
     if (!source_column_mask(&s->objects,column,insert,&mask,error) || !source_width_shape(&s->view,column,&sparse,&widths)) return SOURCE_RANGE_INVALID;
     bool relevant=false;
-    for (size_t i=0;i<s->formats.count;i++) { const FormatPatch *p=s->formats.items+i; FormatRange r=p->range; relevant|=p->selector!=FORMAT_RECORDS && r.c1>=column && !(p->selector==FORMAT_SPATIAL && !r.c0 && r.c1==16383 && !r.r0 && r.r1==DX_SHEET_ROWS-1); }
+    for (size_t i=0;i<s->formats.count;i++) { const FormatPatch *p=s->formats.items+i; FormatRange r=p->range; relevant|=p->selector!=FORMAT_RECORDS && r.c1>=column && !(p->selector==FORMAT_SPATIAL && !r.c0 && r.c1==16383 && !r.r0 && r.r1==DX_SHEET_ROWS-1) && (!insert || r.c0>=column || r.c1<16383); }
     if (status==CELL_RANGE_NOOP && !mask && !relevant && !widths) return SOURCE_RANGE_NOOP;
     size_t object_bytes=objects_snapshot_owned_bytes(&before); if (object_bytes==SIZE_MAX) return SOURCE_RANGE_INVALID;
     if (status==CELL_RANGE_NOOP) cells.owned=s->cells.count*sizeof(SheetCell)+s->cells.bytes;
