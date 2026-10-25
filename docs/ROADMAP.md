@@ -2503,3 +2503,14 @@ workbook test: EditKind9 is now a valid width kind. Its invalid-enum assertion n
 uses the first value after the current last kind, retaining both upper-bound and
 negative rejection checks. This failed report remains unchanged; final broad
 acceptance will include the new projection source and updated fixture.
+
+Native fixture setup now admits authored test widths through the same committed
+width owner before capturing history or immediately saving. The existing
+assertions remain: variable-width column inverse, Move/Replace, far-column view
+and workspace Save/Open. Focused foundation-layout-end68, ribbon64 and workspace4
+stages pass43.993s/39.083s/7.590s respectively (receipts
+`20261025T211324-affected-41061`, `20261025T211410-affected-41698`,
+`20261025T211451-native-42620`). The paste controller plan no longer reruns its
+unchanged standalone TSV scanner; scanner coverage remains registered separately
+and in full regression. Deferred source plans now contain runnable existing gates.
+All14 feature catalog contracts pass. Major milestone acceptance remains open.

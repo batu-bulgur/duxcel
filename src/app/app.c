@@ -9409,10 +9409,13 @@ static void workspace_smoke_step(App *a,int *step) {
     case 0:
         if (!a->page.column_count) return;
         grid_ensure_columns(&a->grid,104); grid_set_width(&a->grid,80,144);
+        if (!commit_grid_widths(a)) goto failed;
         grid_select_cell(&a->grid,500000,80,false); a->grid.top=499990; a->grid.fraction=.25;
         new_sheet(a);
         grid_ensure_columns(&a->grid,104); grid_set_width(&a->grid,80,177);
         char *cell_error=NULL; if (!cells_set(&active_sheet(a)->cells,9000,80,"Saved manual cell",&cell_error)) { free(cell_error); goto failed; }
+        worksheet_record(active_sheet(a),EDIT_CELLS);
+        if (!commit_grid_widths(a)) goto failed;
         a->grid.zoom=1.25f; grid_select_cell(&a->grid,9000,80,false); a->grid.top=8990; a->grid.fraction=.5; a->grid.horizontal=7500;
         workspace_job(a,JOB_SAVE,"build/tests/generated/app-workspace.dxls");
         break;
@@ -10424,12 +10427,14 @@ static void layout_smoke_step(App *a,int *step) {
         grid_set_width(&a->grid,column,width);
         int selected=a->selected_object; size_t old_col=a->grid.col,shift=a->page.column_count; float old_width=a->grid.widths[shift];
         uint64_t object_col=s->objects.items[0].col; Cell *cached=a->objects[0].page.cells;
-        grid_set_width(&a->grid,shift,149); a->grid.col=shift; column_action(a,COLUMN_LEFT);
+        grid_set_width(&a->grid,shift,149); if (!commit_grid_widths(a)) goto failed;
+        a->grid.col=shift; column_action(a,COLUMN_LEFT);
         if (s->objects.items[0].col!=object_col+1 || a->grid.widths[shift]!=96 || a->grid.widths[shift+1]!=149 || a->objects[0].page.cells!=cached) goto failed;
         history(a,false); if (s->objects.items[0].col!=object_col || a->grid.widths[shift]!=149 || a->objects[0].page.cells!=cached) goto failed;
         history(a,true); if (s->objects.items[0].col!=object_col+1 || a->grid.widths[shift+1]!=149) goto failed;
         history(a,false); if (s->objects.items[0].col!=object_col || a->grid.widths[shift]!=149 || a->request_id!=request) goto failed;
-        grid_set_width(&a->grid,shift,old_width); a->grid.col=old_col; a->selected_object=selected;
+        grid_set_width(&a->grid,shift,old_width); if (!commit_grid_widths(a)) goto failed;
+        a->grid.col=old_col; a->selected_object=selected;
         a->chrome_focus=0; a->ribbon_focus=false; a->pivot_focus=0;
         cycle_focus(a,false); if (a->chrome_focus!=10) goto failed;
         cycle_focus(a,false); if (!a->ribbon_focus) goto failed;
@@ -14070,6 +14075,7 @@ static void layout_smoke_step(App *a,int *step) {
         worksheet_record(s,EDIT_CELLS); worksheet_record(s,EDIT_FORMAT);
         for (size_t i=0;i<10;i++) grid_set_width(&a->grid,i,80);
         grid_set_width(&a->grid,1,75); grid_set_width(&a->grid,2,160); grid_set_width(&a->grid,3,90); grid_set_width(&a->grid,4,135);
+        if (!commit_grid_widths(a)) goto failed;
         grid_select_cell(&a->grid,1,1,false); grid_select_cell(&a->grid,3,3,true);
         a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0;
         draft_history=s->undo_actions_count; request=a->request_id; break;
@@ -14131,6 +14137,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!format_apply(&s->formats,(FormatRange){20000,20002,26,28},FORMAT_ITALIC,style,&error)) goto failed;
         worksheet_record(s,EDIT_FORMAT);
         for (size_t i=0;i<35;i++) grid_set_width(&a->grid,i,80);
+        if (!commit_grid_widths(a)) goto failed;
         grid_select_cell(&a->grid,1,1,false); grid_select_cell(&a->grid,3,3,true);
         a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0;
         workspace_job(a,JOB_SAVE,"build/tests/generated/move-replace-demo.dxls"); break;
@@ -14214,6 +14221,7 @@ static void layout_smoke_step(App *a,int *step) {
         if (!format_apply(&s->formats,(FormatRange){20004,20004,26,26},FORMAT_BOLD,style,&error)) goto failed;
         worksheet_record(s,EDIT_FORMAT);
         for (size_t c=0;c<30;c++) grid_set_width(&a->grid,c,100);
+        if (!commit_grid_widths(a)) goto failed;
         grid_select_cell(&a->grid,1,1,false); a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0;
         workspace_job(a,JOB_SAVE,"build/tests/generated/region-selection-demo.dxls"); break;
     }
