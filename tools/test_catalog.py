@@ -86,7 +86,7 @@ STANDALONE_GUI = {
     "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
                         r"^PASS: native checkpoint journal workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "sheet-topology-app": ("build/tests/test_sheet_topology-gui", "PASS: native sheet topology workflow",
-                           r"^PASS: native sheet topology workflow \(12 stages, [1-9]\d* checks\)$", 12),
+                           r"^PASS: native sheet topology workflow \(25 stages, [1-9]\d* checks\)$", 25),
     "workbook-lifecycle": ("build/tests/test_workbook_lifecycle-gui", "PASS: native workbook lifecycle workflow",
                            r"^PASS: native workbook lifecycle workflow \(28 stages, [1-9]\d* checks\)$", 28),
     "workbook-history": ("build/tests/test_workbook_history-gui", "PASS: native workbook chronology workflow",
