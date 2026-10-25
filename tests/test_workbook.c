@@ -1495,7 +1495,7 @@ static void test_source_format_budget(void) {
 static void journal_counts(const Worksheet *s) {
     const unsigned expected[]={1,2,4,6,8,10,12,14,9};
     for (size_t i=0;i<sizeof(expected)/sizeof(*expected);i++) CHECK(worksheet_edit_effects((EditKind)i)==expected[i]);
-    CHECK(!worksheet_edit_effects((EditKind)9) && !worksheet_edit_effects((EditKind)-1));
+    CHECK(!worksheet_edit_effects((EditKind)(EDIT_RANGE_FORMAT_WIDTHS+1)) && !worksheet_edit_effects((EditKind)-1));
     for (size_t h=0;h<2;h++) {
         const EditKind *actions=h ? s->redo_actions : s->undo_actions; size_t count=h ? s->redo_actions_count : s->undo_actions_count,n[4]={0}; CHECK(count<=DX_HISTORY);
         for (size_t i=0;i<count;i++) { unsigned effects=worksheet_edit_effects(actions[i]); CHECK(effects); for (size_t k=0;k<4;k++) n[k]+=!!(effects&(1u<<k)); }

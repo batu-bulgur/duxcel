@@ -2490,3 +2490,16 @@ Table-origin12 stages pass15.928s/28.080s/23.498s respectively, both module mode
 The original full report `20261025T202853-full-2085` remains failed (all202 pure
 module configurations passed); it is not relabelled successful. Broad acceptance
 resumes on the corrected App source; later private lane commits remain queued.
+
+Projection boundary follow-up: new source sheets initialize128/190 widths from
+actual Page schema instead of inheriting a same-schema outgoing Grid cache.
+Stored default-width-only far-column selections/pan restore sufficient virtual
+Grid capacity before clamping, without a width action. The expanded32-stage
+width workflow passes29.821s (GUI18.534s), both module modes, including a second
+same-schema source and a default-column80 bookmark (`20261025T205649-feature-32978`).
+The corrected full run `20261025T203909-full-14584` passes all202 pure configurations
+and all33 standalone App workflows (568 stages), then exposes one stale native
+workbook test: EditKind9 is now a valid width kind. Its invalid-enum assertion now
+uses the first value after the current last kind, retaining both upper-bound and
+negative rejection checks. This failed report remains unchanged; final broad
+acceptance will include the new projection source and updated fixture.

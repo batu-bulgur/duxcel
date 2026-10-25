@@ -1389,7 +1389,7 @@ static void app_grid_schema(App *a,bool reset) {
     v->columns=dx_realloc(v->columns,count*sizeof(*v->columns));
     v->widths=dx_realloc(v->widths,count*sizeof(*v->widths));
     for (size_t c=0;c<count;c++) {
-        if (c>=old) v->widths[c]=old ? 96 : g->widths[c];
+        if (c>=old) v->widths[c]=!old && c<a->page.column_count ? (a->page.columns[c].type==DUCKDB_TYPE_TIMESTAMP ? 190 : 128) : 96;
         else free(v->columns[c]);
         v->columns[c]=dx_strdup(c<g->width_count && g->column_names[c] ? g->column_names[c] : "");
     }
@@ -1565,8 +1565,18 @@ static void restore_sheet_view(App *a) {
     Worksheet *sheet=active_sheet(a); if (!sheet) return;
     SheetView *v=&sheet->view; Grid *g=&a->grid;
     g->elastic=g->spring_velocity=(Vector2){0};
+    size_t last=v->col;
+    if (v->anchor_col>last) last=v->anchor_col;
+    if (v->end_col>last) last=v->end_col;
+    grid_ensure_columns(g,last<16384 ? last+1 : 16384);
     grid_ensure_columns(g,v->column_count);
     grid_project_widths(g,v->widths,v->column_count);
+    float zoom=v->canvas_zoom>0 ? v->canvas_zoom : 1;
+    float visible=(float)GetScreenWidth()/(a->ui.scale*zoom);
+    /* Default virtual columns are representation, not authored widths. Restore
+       enough cache for the stored viewport before Grid clamps its position. */
+    while (g->width_count<16384 && g->offsets[g->width_count]<v->horizontal+visible)
+        grid_ensure_columns(g,g->width_count+52);
     g->row=v->row; g->col=v->col; g->anchor_row=v->anchor_row; g->anchor_col=v->anchor_col;
     g->end_row=v->end_row; g->end_col=v->end_col; g->top=v->top; g->horizontal=v->horizontal; g->fraction=v->fraction;
     g->zoom=v->canvas_zoom>0 ? v->canvas_zoom : 1;

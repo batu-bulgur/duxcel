@@ -14,6 +14,13 @@ static void column_width_test_frame(AppSession *session) {
     switch (width_stage) {
     case 0:
         remove(width_path); WIDTH_CHECK(s->view.column_count && s->view.widths[0]==96);
+        width_revision=a->book.command_revision;
+        grid_ensure_columns(&a->grid,104); grid_select_cell(&a->grid,22,80,false); a->grid.horizontal=7000;
+        capture_sheet_view(a); WIDTH_CHECK(s->view.col==80 && s->view.column_count==52);
+        a->restore_view=true; app_grid_schema(a,true); restore_sheet_view(a);
+        WIDTH_CHECK(a->grid.col==80 && a->grid.row==22 && a->grid.horizontal==7000 && a->grid.width_count>=104 &&
+            s->view.widths[80]==96 && a->book.command_revision==width_revision && !s->undo_actions_count);
+        grid_select_cell(&a->grid,0,0,false); a->grid.horizontal=0; capture_sheet_view(a);
         width_revision=a->book.command_revision; a->restore_view=true; grid_set_width(&a->grid,0,333);
         WIDTH_CHECK(!commit_grid_widths(a) && s->view.widths[0]==96 && a->book.command_revision==width_revision && !s->undo_actions_count);
         a->restore_view=false; project_sheet_widths(a);
@@ -61,22 +68,28 @@ static void column_width_test_frame(AppSession *session) {
         a->new_schema=false; project_sheet_widths(a); width_dialog_input(a,"220"); break;
     case 14:
         WIDTH_CHECK(a->grid.widths[0]==220 && s->view.widths[0]==220);
-        begin_source_query(a); input_set(&a->input,"SELECT City AS Renamed, Amount FROM input"); ui_note_key_press(KEY_ENTER,DX_MOD_SUPER); break;
+        open_source(a,"tests/fixtures/duplicates.csv",false); break;
     case 15:
+        WIDTH_CHECK(a->page.total==8 && a->grid.widths[0]==128 && s->view.widths[0]==128 && a->book.sheets[2].view.widths[0]==220);
+        width_dialog_input(a,"220"); break;
+    case 16:
+        WIDTH_CHECK(a->grid.widths[0]==220 && s->view.widths[0]==220);
+        begin_source_query(a); input_set(&a->input,"SELECT City AS Renamed, Amount FROM input"); ui_note_key_press(KEY_ENTER,DX_MOD_SUPER); break;
+    case 17:
         WIDTH_CHECK(a->analysis.query && a->page.column_count==2 && !strcmp(a->page.columns[0].name,"Renamed") && a->grid.widths[0]==220 && s->view.widths[0]==220);
         ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
-    case 16:
-        WIDTH_CHECK(!a->analysis.query && a->grid.widths[0]==220); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
-    case 17:
-        WIDTH_CHECK(a->grid.widths[0]==128 && s->view.widths[0]==128); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 18:
-        WIDTH_CHECK(a->grid.widths[0]==220); workspace_job(a,JOB_SAVE,width_path); break;
+        WIDTH_CHECK(!a->analysis.query && a->grid.widths[0]==220); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 19:
-        WIDTH_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,width_path); break;
+        WIDTH_CHECK(a->grid.widths[0]==128 && s->view.widths[0]==128); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 20:
+        WIDTH_CHECK(a->grid.widths[0]==220); workspace_job(a,JOB_SAVE,width_path); break;
+    case 21:
+        WIDTH_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,width_path); break;
+    case 22:
         WIDTH_CHECK(!a->book.dirty && !s->undo_actions_count && a->grid.widths[0]==220 && s->view.widths[0]==220 && a->book.sheets[0].view.widths[0]==229.5f);
         WIDTH_CHECK(activate_sheet(a,0,true)); break;
-    case 21: {
+    case 23: {
         char *error=NULL; WIDTH_CHECK(cells_set(&s->cells,2,3,"NULL",&error)); worksheet_record(s,EDIT_CELLS);
         CellFormat format=format_default(); format.flags=FORMAT_BOLD;
         WIDTH_CHECK(format_apply(&s->formats,(FormatRange){2,2,3,3},FORMAT_BOLD,format,&error)); worksheet_record(s,EDIT_FORMAT);
@@ -84,30 +97,30 @@ static void column_width_test_frame(AppSession *session) {
         WIDTH_CHECK(commit_grid_widths(a)); free(error); width_revision=a->book.command_revision;
         a->grid.col=1; column_action(a,COLUMN_LEFT); break;
     }
-    case 22:
+    case 24:
         WIDTH_CHECK(a->book.command_revision==width_revision+1 && !strcmp(cells_get(&s->cells,2,4),"NULL") && !*cells_get(&s->cells,2,3) &&
             (format_at(&s->formats,2,4).flags&FORMAT_BOLD) && a->grid.widths[4]==150 && a->grid.widths[16383]==96);
         ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
-    case 23:
+    case 25:
         WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,3),"NULL") && (format_at(&s->formats,2,3).flags&FORMAT_BOLD) && a->grid.widths[3]==150 && a->grid.widths[16383]==166);
         ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
-    case 24:
+    case 26:
         WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,4),"NULL") && a->grid.widths[4]==150 && a->grid.widths[16383]==96);
         a->grid.col=1; column_action(a,COLUMN_DELETE); break;
-    case 25:
+    case 27:
         WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,3),"NULL") && (format_at(&s->formats,2,3).flags&FORMAT_BOLD) && a->grid.widths[3]==150 && a->grid.widths[16383]==96);
         ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
-    case 26:
+    case 28:
         WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,4),"NULL") && a->grid.widths[4]==150); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
-    case 27:
+    case 29:
         WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,3),"NULL") && a->grid.widths[3]==150 && a->grid.widths[16383]==166);
         workspace_job(a,JOB_SAVE,width_path); break;
-    case 28:
+    case 30:
         WIDTH_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,width_path); break;
-    case 29:
+    case 31:
         WIDTH_CHECK(!a->book.dirty && !s->undo_actions_count && !strcmp(cells_get(&s->cells,2,3),"NULL") &&
             (format_at(&s->formats,2,3).flags&FORMAT_BOLD) && a->grid.widths[3]==150 && a->grid.widths[16383]==166);
-        width_result=1; printf("PASS: native column width workflow (30 stages, %u checks)\n",width_checks); break;
+        width_result=1; printf("PASS: native column width workflow (32 stages, %u checks)\n",width_checks); break;
     }
     width_stage++;
 }

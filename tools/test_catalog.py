@@ -20,7 +20,7 @@ STANDALONE_GUI = {
     "paste-command": ("build/tests/test_paste_command-gui", "PASS: native manual paste workflow",
                       r"^PASS: native manual paste workflow \(13 stages, [1-9]\d* checks\)$", 13),
     "column-width": ("build/tests/test_column_width-gui", "PASS: native column width workflow",
-                     r"^PASS: native column width workflow \(30 stages, [1-9]\d* checks\)$", 30),
+                     r"^PASS: native column width workflow \(32 stages, [1-9]\d* checks\)$", 32),
     "table-origin": ("build/tests/test_table_origin-gui", "PASS: native loaded Table origin workflow",
                      r"^PASS: native loaded Table origin workflow \(12 stages, [1-9]\d* checks\)$", 12),
     "definition-origin": ("build/tests/test_definition_origin-gui", "PASS: native primary origin workflow",
