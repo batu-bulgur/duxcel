@@ -3,6 +3,7 @@
 #include "objects_asset.h"
 #include "objects_asset_internal.h"
 #include "definition_dependencies.h"
+#include "definition_state.h"
 #include "format_dependencies.h"
 #include <math.h>
 #include <stdlib.h>
@@ -42,16 +43,27 @@ SheetPresenceStatus sheet_presence_measure(SheetPresenceView view,SheetPresenceM
     if (cell_text!=cells->bytes || cell_text>DX_CELL_BYTES) return SHEET_PRESENCE_INVALID;
     size_t formats=format_owned_bytes(&s->formats,false);
     if (formats==SIZE_MAX || formats>DX_FORMAT_CURRENT_BYTES) return SHEET_PRESENCE_INVALID;
+    for (size_t i=0;i<s->formats.scope_count;i++) if (!s->formats.scopes[i].definition || !s->formats.scopes[i].bytes || s->formats.scopes[i].bytes>=DX_FORMAT_SCOPE_BYTES) return SHEET_PRESENCE_INVALID;
+    for (size_t i=0;i<s->formats.count;i++) {
+        const FormatPatch *p=s->formats.items+i;
+        if ((p->guard_count && !p->guard_ids) || (p->record_count && !p->record_ids) || (p->field_count && !p->fields)) return SHEET_PRESENCE_INVALID;
+    }
     if (!add(&next.owned,cells->count*sizeof(SheetCell)) || !add(&next.owned,cell_text) || !add(&next.owned,formats) ||
         !add(&next.owned,v->column_count*(sizeof(char *)+sizeof(float)))) return SHEET_PRESENCE_LIMIT;
     for (size_t i=0;i<v->column_count;i++) if (!isfinite(v->widths[i]) || v->widths[i]<52 || v->widths[i]>1200 || !text(v->columns[i],65536,&next.owned,false)) return SHEET_PRESENCE_INVALID;
     const SourceVersions *ledger=&s->source_versions;
-    if (ledger->count>DX_SOURCE_VERSIONS || ledger->capacity>DX_SOURCE_VERSIONS || ledger->count>ledger->capacity || (ledger->capacity && !ledger->items)) return SHEET_PRESENCE_INVALID;
+    if (ledger->count>DX_SOURCE_VERSIONS || ledger->capacity>DX_SOURCE_VERSIONS || ledger->count>ledger->capacity || ((ledger->items!=NULL)!=(ledger->capacity!=0))) return SHEET_PRESENCE_INVALID;
     size_t source_bytes=ledger->count*sizeof(SourceVersion);
     for (size_t i=0;i<ledger->count;i++) {
         const SourceVersion *row=ledger->items+i;
-        if (row->raw.bytes>DX_SOURCE_VERSIONS_BYTES || (row->raw.bytes && !row->raw.data) || !text(row->path,65536,&source_bytes,true) || !add(&source_bytes,row->raw.bytes)) return SHEET_PRESENCE_INVALID;
+        if (row->raw.bytes>DX_SOURCE_VERSIONS_BYTES || ((row->raw.bytes!=0)!=(row->raw.data!=NULL)) || !text(row->path,65536,&source_bytes,true) || !add(&source_bytes,row->raw.bytes)) return SHEET_PRESENCE_INVALID;
     }
+    for (size_t i=ledger->count;i<ledger->capacity;i++) {
+        const SourceVersion *row=ledger->items+i;
+        if (row->version || row->owner || row->kind || row->path || row->raw.data || row->raw.bytes) return SHEET_PRESENCE_INVALID;
+    }
+    size_t capacity_bytes=source_bytes+(ledger->capacity-ledger->count)*sizeof(SourceVersion);
+    if (capacity_bytes!=ledger->bytes) return SHEET_PRESENCE_INVALID;
     if (source_bytes>DX_SOURCE_VERSIONS_BYTES || !add(&next.owned,source_bytes)) return SHEET_PRESENCE_LIMIT;
     size_t grammar=analysis_filter_validation_scratch(FILTER_COMPOSITE,DX_SOURCE_SCOPE_TEXT_BYTES,true);
     next.validation_scratch=primary.validation_scratch;
@@ -118,9 +130,9 @@ static uint32_t float_bits(float value) { uint32_t bits; memcpy(&bits,&value,4);
 static uint64_t double_bits(double value) { uint64_t bits; memcpy(&bits,&value,8); return bits; }
 static float read_float(uint32_t bits) { float value; memcpy(&value,&bits,4); return value; }
 static double read_double(uint64_t bits) { double value; memcpy(&value,&bits,8); return value; }
-static SheetPresenceStatus wire_plan(const SheetPresenceAsset *asset,PresencePlan *out) {
-    if (!asset || !out) return SHEET_PRESENCE_INVALID;
-    SheetPresenceView v=sheet_presence_view(asset); const Worksheet *s=v.sheet; SheetPresenceMeasure m;
+static SheetPresenceStatus wire_view_plan(SheetPresenceView v,PresencePlan *out) {
+    if (!out) return SHEET_PRESENCE_INVALID;
+    const Worksheet *s=v.sheet; SheetPresenceMeasure m;
     SheetPresenceStatus status=sheet_presence_measure(v,&m); if (status) return status;
     AnalysisAssetMeasure a; ObjectsAssetInfo o; ObjectSnapshot objects={s->objects.items,s->objects.count}; FormatSnapshotBodyInfo f;
     if (analysis_asset_measure(s->id,0,v.primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK || objects_asset_measure(s->id,&objects,s->objects.next_id,&o)!=OBJECTS_ASSET_OK ||
@@ -135,6 +147,10 @@ static SheetPresenceStatus wire_plan(const SheetPresenceAsset *asset,PresencePla
     for (size_t i=0;i<s->cells.count;i++) if (!add(&bytes,16+strlen(s->cells.cells[i].text))) return SHEET_PRESENCE_LIMIT;
     if (bytes>DX_SHEET_PRESENCE_WIRE_BYTES) return SHEET_PRESENCE_LIMIT;
     p.info.bytes=bytes; *out=p; return SHEET_PRESENCE_OK;
+}
+static SheetPresenceStatus wire_plan(const SheetPresenceAsset *asset,PresencePlan *out) { return asset ? wire_view_plan(sheet_presence_view(asset),out) : SHEET_PRESENCE_INVALID; }
+SheetPresenceStatus sheet_presence_wire_view_measure(SheetPresenceView view,SheetPresenceWireInfo *out) {
+    if (!out) return SHEET_PRESENCE_INVALID; PresencePlan p; SheetPresenceStatus status=wire_view_plan(view,&p); if (!status) *out=p.info; return status;
 }
 SheetPresenceStatus sheet_presence_wire_measure(const SheetPresenceAsset *asset,SheetPresenceWireInfo *out) {
     if (!out) return SHEET_PRESENCE_INVALID; PresencePlan p; SheetPresenceStatus status=wire_plan(asset,&p); if (!status) *out=p.info; return status;
@@ -235,4 +251,41 @@ SheetPresenceStatus sheet_presence_decode(const void *data,size_t bytes,size_t r
     analysis_asset_free(&a); objects_asset_free(&o); format_snapshot_free(&f); source_versions_asset_free(&ledger);
     if (!ok) { workbook_free(book); free(book); return SHEET_PRESENCE_INVALID; }
     SheetPresenceAsset *next=dx_alloc(sizeof(*next)); next->snapshot=book; sheet_presence_free(out); *out=next; return SHEET_PRESENCE_OK;
+}
+
+static bool same_view(const SheetView *a,const SheetView *b) {
+    if (a->row!=b->row || a->anchor_row!=b->anchor_row || a->end_row!=b->end_row || a->top!=b->top || a->col!=b->col || a->anchor_col!=b->anchor_col || a->end_col!=b->end_col ||
+        a->selection!=b->selection || float_bits(a->horizontal)!=float_bits(b->horizontal) || float_bits(a->canvas_zoom)!=float_bits(b->canvas_zoom) || double_bits(a->fraction)!=double_bits(b->fraction) || a->column_count!=b->column_count) return false;
+    for (size_t i=0;i<a->column_count;i++) if (strcmp(a->columns[i],b->columns[i]) || float_bits(a->widths[i])!=float_bits(b->widths[i])) return false;
+    return true;
+}
+static bool same_formats(const FormatStore *a,const FormatStore *b) {
+    if (a->count!=b->count || a->scope_count!=b->scope_count || a->source_aware!=b->source_aware) return false;
+    for (size_t i=0;i<a->scope_count;i++) if (a->scopes[i].owner!=b->scopes[i].owner || a->scopes[i].bytes!=b->scopes[i].bytes || memcmp(a->scopes[i].definition,b->scopes[i].definition,a->scopes[i].bytes)) return false;
+    for (size_t i=0;i<a->count;i++) {
+        const FormatPatch *x=a->items+i,*y=b->items+i;
+        if (x->range.r0!=y->range.r0 || x->range.r1!=y->range.r1 || x->range.c0!=y->range.c0 || x->range.c1!=y->range.c1 || x->mask!=y->mask || x->selector!=y->selector ||
+            x->value.flags!=y->value.flags || x->value.align!=y->value.align || x->value.color!=y->value.color || x->value.size!=y->value.size || x->value.number!=y->value.number || x->value.decimals!=y->value.decimals ||
+            x->guard_count!=y->guard_count || x->record_count!=y->record_count || x->field_count!=y->field_count) return false;
+        if ((x->guard_count && memcmp(x->guard_ids,y->guard_ids,x->guard_count*sizeof(size_t))) || (x->record_count && memcmp(x->record_ids,y->record_ids,x->record_count*sizeof(uint64_t))) || (x->field_count && memcmp(x->fields,y->fields,x->field_count*sizeof(size_t)))) return false;
+    }
+    return true;
+}
+SheetPresenceStatus sheet_presence_matches(const SheetPresenceAsset *asset,SheetPresenceView current,bool *out) {
+    if (!asset || !out) return SHEET_PRESENCE_INVALID;
+    SheetPresenceMeasure measured; SheetPresenceStatus status=sheet_presence_measure(current,&measured); if (status) return status;
+    SheetPresenceView captured=sheet_presence_view(asset); const Worksheet *a=captured.sheet,*b=current.sheet;
+    bool same=captured.document.high==current.document.high && captured.document.low==current.document.low && captured.sheet_high_water==current.sheet_high_water && a->id==b->id &&
+        a->hidden==b->hidden && !strcmp(a->name,b->name) && definition_analysis_equal(captured.primary,current.primary) && same_view(&a->view,&b->view) &&
+        a->cells.count==b->cells.count && a->cells.bytes==b->cells.bytes && a->objects.next_id==b->objects.next_id && a->source_versions.high_water==b->source_versions.high_water && a->source_versions.count==b->source_versions.count;
+    for (size_t i=0;same && i<a->cells.count;i++) same=a->cells.cells[i].row==b->cells.cells[i].row && a->cells.cells[i].col==b->cells.cells[i].col && !strcmp(a->cells.cells[i].text,b->cells.cells[i].text);
+    ObjectSnapshot x={a->objects.items,a->objects.count},y={b->objects.items,b->objects.count};
+    if (same) same=definition_objects_equal(&x,&y);
+    for (size_t i=0;same && i<a->objects.count;i++) same=a->objects.items[i].row==b->objects.items[i].row && a->objects.items[i].col==b->objects.items[i].col && a->objects.items[i].rows==b->objects.items[i].rows && a->objects.items[i].columns==b->objects.items[i].columns;
+    if (same) same=same_formats(&a->formats,&b->formats);
+    for (size_t i=0;same && i<a->source_versions.count;i++) {
+        const SourceVersion *x=a->source_versions.items+i,*y=b->source_versions.items+i;
+        same=x->version==y->version && x->owner==y->owner && x->kind==y->kind && !strcmp(x->path,y->path) && x->raw.bytes==y->raw.bytes && (!x->raw.bytes || !memcmp(x->raw.data,y->raw.data,x->raw.bytes));
+    }
+    *out=same; return SHEET_PRESENCE_OK;
 }

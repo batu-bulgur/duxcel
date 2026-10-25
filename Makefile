@@ -2224,6 +2224,7 @@ build/tests/test_cell_paste_plan-debug: $(CELL_PASTE_PLAN_SAN_OBJECTS) | build/t
 -include $(CELL_PASTE_PLAN_OBJECTS:.o=.d) $(CELL_PASTE_PLAN_SAN_OBJECTS:.o=.d)
 # Complete current sheet capture uses only its model/asset dependencies.
 SHEET_PRESENCE_SRC = src/common.c src/transforms/analysis.c src/transforms/distinct.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/workbook/cells_tsv_scan.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/source_versions_codec.c src/workbook/objects.c src/workbook/workbook.c src/workbook/identity.c src/workbook/history.c src/workbook/lifecycle.c src/workbook/column_widths.c src/workbook/column_width_history.c src/workbook/column_width_command.c src/workbook/analysis_asset.c src/workbook/pivot_asset.c src/workbook/marks_asset.c src/workbook/objects_asset.c src/workbook/definition_wire.c src/workbook/definition_dependencies.c src/workbook/format_delta_codec.c src/workbook/format_dependencies.c src/workbook/sheet_presence_asset.c tests/test_sheet_presence_asset.c
+SHEET_PRESENCE_SRC += src/workbook/definition_state.c
 SHEET_PRESENCE_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_PRESENCE_SRC))))
 SHEET_PRESENCE_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_PRESENCE_SRC))))
 build/tests/test_sheet_presence_asset: $(SHEET_PRESENCE_OBJECTS) build/web-tests/platform-model.o | build/tests

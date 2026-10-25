@@ -33,6 +33,11 @@ SheetPresenceStatus sheet_presence_measure(SheetPresenceView view,SheetPresenceM
    component semantics/source closure precede copying. Success atomically replaces
    an independent previous asset; rejection leaves every input/old output owned.
    Allocation exhaustion follows the existing process-fatal allocator policy. */
+/* Allocation-free exact authored/preference comparison against an owned asset.
+   Actual primary is explicit; store clocks, capacity and inference caches are
+   excluded. Structural invalidity preserves matches; valid difference returns
+   OK/false. Inputs and the independent scalar output must be disjoint. */
+SheetPresenceStatus sheet_presence_matches(const SheetPresenceAsset *asset,SheetPresenceView current,bool *matches);
 SheetPresenceStatus sheet_presence_capture(SheetPresenceView view,size_t reserved,SheetPresenceAsset **out,char **error);
 /* Borrowed immutable graph; the asset outlives every reader. */
 SheetPresenceView sheet_presence_view(const SheetPresenceAsset *asset);
@@ -55,6 +60,9 @@ typedef struct {
    Capture reserve covers NEW packet+validation scratch; decode reserve covers
    NEW complete model+validation scratch. Input/previous output remain separate
    coexistence charges. Cancellation is freeing the unpublished owned result. */
+/* Exact packet/owned bounds from a borrowed structural view, before capture.
+   This does not replace full capture/decoded source closure validation. */
+SheetPresenceStatus sheet_presence_wire_view_measure(SheetPresenceView view,SheetPresenceWireInfo *out);
 SheetPresenceStatus sheet_presence_wire_measure(const SheetPresenceAsset *asset,SheetPresenceWireInfo *out);
 SheetPresenceStatus sheet_presence_encode(const SheetPresenceAsset *asset,size_t reserved,SheetPresencePacket *out);
 SheetPresenceStatus sheet_presence_preflight(const void *data,size_t bytes,SheetPresenceWireInfo *out);
