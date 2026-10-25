@@ -84,6 +84,30 @@ int main(void) {
     CHECK(workbook_sheet_batch_measure(changed,out,&replacement)==SHEET_BATCH_OK && replacement.count==DX_SHEET_HISTORY_BATCH_ENTRIES);
     CHECK(workbook_sheet_batch_decode(changed,replacement.staging-1,&out)==SHEET_BATCH_LIMIT);
     changed.count++; reject(changed,out,SHEET_BATCH_LIMIT);
+    /* Finite current metadata near its per-packet name bound makes the
+       aggregate owned-byte cap observable without allocating decoded batches. */
+    SheetLifecycleEntry heavy_before[DX_MAX_SHEETS],heavy_after[DX_MAX_SHEETS];
+    char names[DX_MAX_SHEETS][DX_SHEET_LIFECYCLE_NAME_BYTES+1],renamed[DX_SHEET_LIFECYCLE_NAME_BYTES+1];
+    for (size_t i=0;i<DX_MAX_SHEETS;i++) {
+        memset(names[i],'a',DX_SHEET_LIFECYCLE_NAME_BYTES); snprintf(names[i]+DX_SHEET_LIFECYCLE_NAME_BYTES-6,7,"%06zu",i);
+        heavy_before[i]=heavy_after[i]=(SheetLifecycleEntry){i+1,names[i],false};
+    }
+    memcpy(renamed,names[0],sizeof(renamed)); renamed[0]='Z'; heavy_after[0].name=renamed;
+    SheetLifecyclePacket heavy={0}; SheetLifecycle pair={{b.id,DX_MAX_SHEETS,1,heavy_before,DX_MAX_SHEETS},{b.id,DX_MAX_SHEETS,1,heavy_after,DX_MAX_SHEETS}};
+    CHECK(sheet_lifecycle_capture(pair,SIZE_MAX,&heavy)==SHEET_LIFECYCLE_OK);
+    for (size_t i=0;i<DX_SHEET_HISTORY_BATCH_ENTRIES;i++) {
+        many_frames[i].bytes=heavy.bytes; many[i].payload.data=heavy.data; many[i].payload.bytes=heavy.bytes; many[i].payload.sheet=1;
+    }
+    bounded.event_count=bounded.tail=bounded.operation_high_water=DX_SHEET_HISTORY_BATCH_ENTRIES; bounded_segment.through=bounded.tail;
+    changed.count=1; WorkbookSheetBatchInfo first,second;
+    CHECK(workbook_sheet_batch_measure(changed,out,&first)==SHEET_BATCH_OK); changed.count=2;
+    CHECK(workbook_sheet_batch_measure(changed,out,&second)==SHEET_BATCH_OK && second.owned>first.owned);
+    size_t per_entry=second.owned-first.owned,base=first.owned-per_entry;
+    size_t admitted=(DX_SHEET_HISTORY_BATCH_OWNED_BYTES-base)/per_entry;
+    CHECK(admitted>2 && admitted<DX_SHEET_HISTORY_BATCH_ENTRIES);
+    changed.count=admitted; CHECK(workbook_sheet_batch_measure(changed,out,&replacement)==SHEET_BATCH_OK && replacement.owned<=DX_SHEET_HISTORY_BATCH_OWNED_BYTES);
+    old=out; changed.count++; reject(changed,out,SHEET_BATCH_LIMIT); CHECK(out==old && workbook_sheet_batch_count(out)==2);
+    sheet_lifecycle_packet_free(&heavy);
     CHECK(workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK); workbook_free(&b);
     for (size_t i=0;i<3;i++) free(bytes[i]); memset(&path,0,sizeof(path)); memset(frames,0,sizeof(frames));
     const WorkbookSheetPayload *metadata=workbook_sheet_batch_at(out,0),*added=workbook_sheet_batch_at(out,1);
