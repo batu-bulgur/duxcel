@@ -211,8 +211,46 @@ static void primary_source_test_frame(AppSession *session) {
             PRIMARY_SOURCE_CHECK(current && bytes==primary_source_file_bytes && !memcmp(current,primary_source_file,(size_t)bytes));
             UnloadFileData(current); UnloadFileData(primary_source_file); primary_source_file=NULL;
         }
+        break;
+    case 18:
+        primary_source_file=LoadFileData("build/tests/generated/source-connection-b.duckdb",&primary_source_file_bytes);
+        PRIMARY_SOURCE_CHECK(primary_source_file && primary_source_file_bytes>0);
+        primary_source_count=a->book.count; primary_source_index=a->book.active; primary_source_command=a->book.command_revision;
+        primary_source_high=a->book.sheet_high_water; primary_source_sheet=active_sheet(a)->id; primary_source_cells=a->page.cells; primary_source_before=a->analysis;
+        primary_source_aba_order=worksheet_history_high_water();
+        open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a));
+        primary_source_b_request=a->request_id; a->source_format.bytes=SIZE_MAX; break;
+    case 19:
+        PRIMARY_SOURCE_CHECK(a->primary_source_reply && primary_source_unchanged(a));
+        a->source_format.bytes=0;
+        /* The held probe keeps the old sheet editable under existing input
+           policy. Exercise its normal F2/Enter path outside the result block. */
+        grid_select_cell(&a->grid,20,20,false); a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false;
+        PRIMARY_SOURCE_CHECK(manual_cell(a) && !*cells_get(&active_sheet(a)->cells,20,20));
+        ui_note_key_press(KEY_F2,0); break;
+    case 20:
+        PRIMARY_SOURCE_CHECK(a->modal==MODAL_CELL && a->cell_edit_target_valid && a->primary_source_reply && primary_source_unchanged(a));
+        input_set(&a->input,"Edit survives stale source probe"); ui_note_key_press(KEY_ENTER,0); break;
+    case 21:
+        PRIMARY_SOURCE_CHECK(a->modal==MODAL_NONE && !a->primary_source_pending_owner && !a->primary_source_reply && !app_primary_source_owned(a));
+        PRIMARY_SOURCE_CHECK(a->book.count==primary_source_count && a->book.active==primary_source_index && active_sheet(a)->id==primary_source_sheet && a->book.sheet_high_water==primary_source_high);
+        PRIMARY_SOURCE_CHECK(a->book.command_revision==primary_source_command+1 && worksheet_history_high_water()==primary_source_aba_order+1 && a->request_id>primary_source_b_request);
+        PRIMARY_SOURCE_CHECK(a->page.cells==primary_source_cells && !memcmp(&a->analysis,&primary_source_before,sizeof(Analysis)) && !strcmp(cells_get(&active_sheet(a)->cells,20,20),"Edit survives stale source probe"));
+        open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && a->book.count==primary_source_count); break;
+    case 22:
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && !app_primary_source_owned(a));
+        PRIMARY_SOURCE_CHECK(a->book.count==primary_source_count+1 && a->book.command_revision==primary_source_command+2 && a->book.sheet_high_water==primary_source_high+1 && worksheet_history_high_water()==primary_source_aba_order+2);
+        PRIMARY_SOURCE_CHECK(a->analysis.path && strstr(a->analysis.path,"source-connection-b.duckdb") && a->page.total==3);
+        PRIMARY_SOURCE_CHECK(a->book.sheets[primary_source_index].id==primary_source_sheet && !strcmp(cells_get(&a->book.sheets[primary_source_index].cells,20,20),"Edit survives stale source probe"));
+        {
+            int bytes=0; unsigned char *current=LoadFileData("build/tests/generated/source-connection-b.duckdb",&bytes);
+            PRIMARY_SOURCE_CHECK(current && bytes==primary_source_file_bytes && !memcmp(current,primary_source_file,(size_t)bytes));
+            UnloadFileData(current); UnloadFileData(primary_source_file); primary_source_file=NULL;
+        }
         primary_source_result=1;
-        printf("PASS: native pending primary workflow (18 stages, %u checks)\n",primary_source_checks); return;
+        printf("PASS: native pending primary workflow (23 stages, %u checks)\n",primary_source_checks); return;
     }
     primary_source_stage++;
 }
