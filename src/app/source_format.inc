@@ -563,6 +563,44 @@ static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat 
     }
     source_format_verify(a); return true;
 }
+/* Spatial fallback after result/record eligibility has been resolved by App.
+   Existing source-aware mode is required; no historical mode normalization. */
+static bool source_format_spatial_apply(App *a,FormatRange range,unsigned mask,CellFormat value) {
+    Worksheet *sheet=active_sheet(a); char *error=NULL; FormatSnapshot plan={0};
+    SourceFormatCommandContext context={.book=&a->book,.primary=&a->analysis,.request_epoch=&a->request_id,
+        .ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)};
+    SourceFormatCommandTarget target;
+    if (!workbook_prepare_source_aware_spatial_format(&context,a->book.active,&target,&error)) goto rejected;
+    SourceFormatCommandPlan candidate={.formats={.scope_count=sheet->formats.scope_count}};
+    size_t validation=0,staging=format_owned_bytes(&sheet->formats,false);
+    /* Shared current-owner sizing plus explicit realloc/compaction peaks of
+       format_plan_spatial. Current/history owners remain charged by governor. */
+    if (staging==SIZE_MAX || !source_format_add(&staging,(sheet->formats.count+1)*sizeof(FormatPatch)) ||
+        !source_format_add(&staging,sheet->formats.scope_count*sizeof(size_t)) ||
+        !workbook_source_format_scratch(sheet,&a->analysis,&candidate,&validation,&error) ||
+        !source_format_add(&staging,validation)) goto rejected;
+    if (!source_format_budget(a,NULL,0,staging,0,0,0)) return false;
+    if (!format_plan_spatial(&sheet->formats,range,mask,value,&plan,&error)) goto rejected;
+    candidate.formats=plan;
+    if (!workbook_source_format_scratch(sheet,&a->analysis,&candidate,&validation,&error)) goto rejected;
+    FormatStore projected=sheet->formats;
+    projected.items=plan.items; projected.count=plan.count; projected.scopes=plan.scopes;
+    projected.scope_count=plan.scope_count; projected.source_aware=plan.source_aware; projected.redo_count=0;
+    if (projected.undo_count==DX_FORMAT_HISTORY) {
+        memmove(projected.undo,projected.undo+1,(DX_FORMAT_HISTORY-1)*sizeof(*projected.undo)); projected.undo_count--;
+    }
+    projected.undo[projected.undo_count++]=(FormatSnapshot){sheet->formats.items,sheet->formats.count,sheet->formats.scopes,sheet->formats.scope_count,sheet->formats.source_aware};
+    FormatStore next={.items=plan.items,.count=plan.count,.scopes=plan.scopes,.scope_count=plan.scope_count,.source_aware=plan.source_aware};
+    WorkbookFormatReplacement replacement={.sheet=a->book.active,.formats=&projected};
+    size_t adopted=format_owned_bytes(&next,false);
+    if (adopted==SIZE_MAX || !source_format_budget(a,&replacement,adopted,validation,0,0,0)) { format_snapshot_free(&plan); return false; }
+    context.validation_reserved=validation;
+    SourceFormatCommandStatus result=workbook_apply_source_aware_spatial_format_recorded(&context,&target,&plan,NULL,&error).status;
+    if (result!=SOURCE_FORMAT_COMMAND_APPLIED && result!=SOURCE_FORMAT_COMMAND_NOOP) goto rejected;
+    free(error); return true;
+rejected:
+    format_snapshot_free(&plan); status(a,error ? error : "Spatial formatting was not admitted. The prepared worksheet is unchanged."); free(error); return false;
+}
 static bool source_format_reply_apply(App *a,QueryReply *reply) {
     if (reply->kind!=JOB_VERIFY_SOURCE && reply->kind!=JOB_COLLECT_RECORDS) return false;
     SourceFormatIntent *intent=&a->source_format;

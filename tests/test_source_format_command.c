@@ -299,6 +299,32 @@ static void spatial(bool table) {
     CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_NOOP && !p.items && !b.dirty);
     analysis_free(&actual); source_format_command_plan_free(&first); workbook_free(&b);
 }
+static void spatial_scoped(void) {
+    Workbook b=book(false); Worksheet *s=b.sheets; uint64_t epoch=1;
+    SourceFormatCommandContext c={&b,&s->analysis,&epoch,SIZE_MAX,true,false};
+    SourceFormatCommandTarget t=target(&c,false); SourceFormatCommandPlan first=plan(&c,false);
+    CHECK(workbook_apply_source_format_recorded(&c,&t,&first,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+    const SourceVersion *entry=s->source_versions.items; SourceVersions ledger=s->source_versions; SourcePacket result={0};
+    CHECK(source_scope_result_build(&entry->raw,&s->analysis,&result,NULL));
+    FormatScopeView view={0,result.data,result.bytes}; CellFormat style=format_default(); style.align=FORMAT_CENTER; style.color=2; style.flags=FORMAT_ITALIC;
+    CHECK(format_apply_scoped(&s->formats,(FormatRange){0,0,0,0},FORMAT_ALIGN,style,&view,1,false,NULL));
+    worksheet_record(s,EDIT_FORMAT); b.command_revision++; workbook_history_note_edit(&b);
+    CHECK(format_apply_scoped(&s->formats,(FormatRange){20,20,0,0},FORMAT_COLOR,style,&view,1,true,NULL));
+    worksheet_record(s,EDIT_FORMAT); b.command_revision++; workbook_history_note_edit(&b);
+    FormatSnapshot p={0}; CHECK(format_plan_spatial(&s->formats,(FormatRange){0,DX_SHEET_ROWS-1,0,0},FORMAT_ITALIC,style,&p,NULL));
+    t=spatial_target(&c); uint64_t revision=b.command_revision;
+    CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && b.command_revision==revision+1 && !memcmp(&ledger,&s->source_versions,sizeof(ledger)));
+    size_t raw=format_scope_token(&s->formats,&(FormatScopeView){0,entry->raw.data,entry->raw.bytes}),token=format_scope_token(&s->formats,&view);
+    CHECK(raw && raw!=SIZE_MAX && token && token!=SIZE_MAX && raw!=token);
+    CellFormat exact=format_resolve_record_token(&s->formats,0,0,token,raw,1,0);
+    CHECK(exact.flags==(FORMAT_BOLD|FORMAT_ITALIC) && exact.align==FORMAT_CENTER);
+    CellFormat unavailable=format_resolve_record_token(&s->formats,0,0,SIZE_MAX,raw,1,0);
+    CHECK(unavailable.flags==(FORMAT_BOLD|FORMAT_ITALIC) && unavailable.align!=FORMAT_CENTER);
+    CellFormat manual=format_at(&s->formats,20,0); CHECK(manual.color==2 && manual.flags==FORMAT_ITALIC);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && format_at(&s->formats,20,0).flags==0 && format_at(&s->formats,20,0).color==2);
+    CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED && format_at(&s->formats,20,0).flags==FORMAT_ITALIC);
+    source_packet_free(&result); source_format_command_plan_free(&first); workbook_free(&b);
+}
 static void spatial_rejections(void) {
     for (unsigned mode=0;mode<10;mode++) {
         Workbook b=book(false); Worksheet *s=b.sheets; s->formats.source_aware=true;
@@ -355,7 +381,7 @@ static void spatial_callbacks(void) {
     }
 }
 int main(void) {
-    spatial(false); spatial(true); spatial_rejections(); spatial_callbacks();
+    spatial(false); spatial(true); spatial_scoped(); spatial_rejections(); spatial_callbacks();
     fences(false); fences(true); callbacks(false); callbacks(true); history(false); history(true); retained_sources(false); retained_sources(true); manual_policy(); stream_handoff(false); stream_handoff(true); bound(false); bound(true); bound_callbacks(false); bound_callbacks(true); limits();
     source_format_command_plan_free(NULL); printf("PASS: %u atomic source format command checks\n",checks); return 0;
 }

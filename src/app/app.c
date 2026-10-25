@@ -6774,6 +6774,7 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
         if (imported) { status(a,"Source-bound cell formatting needs verified record collection. Whole-column defaults remain available."); return false; }
     }
 #ifndef DUXCEL_BROWSER_HOST
+    if (sheet->formats.source_aware) return source_format_spatial_apply(a,range,mask,value);
     bool imported_owner=a->analysis.kind!=SOURCE_NONE;
     for (size_t i=0;!imported_owner && i<sheet->objects.count;i++) imported_owner=sheet->objects.items[i].kind==OBJECT_TABLE;
     bool manual_mode=imported_owner && !sheet->formats.source_aware && source_format_first_safe(&sheet->formats);
@@ -15865,6 +15866,9 @@ static void column_width_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 static void paste_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_SPATIAL_FORMAT
+static void source_spatial_format_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_INITIAL_VIEW
 static void source_initial_view_test_frame(AppSession *session);
 #endif
@@ -16809,6 +16813,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
     paste_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_SPATIAL_FORMAT
+    source_spatial_format_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_INITIAL_VIEW
     source_initial_view_test_frame(session);
 #endif
@@ -17240,4 +17247,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_SOURCE_INITIAL_VIEW
 #include "../../tests/support/source_initial_view_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_SOURCE_SPATIAL_FORMAT
+#include "../../tests/support/source_spatial_format_app.inc"
 #endif

@@ -1155,6 +1155,8 @@ PARALLEL_NATIVE_GOALS += build/tests/test_primary_source_kinds-gui
 
 PARALLEL_NATIVE_GOALS += build/tests/test_source_initial_view-gui
 
+PARALLEL_NATIVE_GOALS += build/tests/test_source_spatial_format-gui
+
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2596,4 +2598,12 @@ SOURCE_INITIAL_VIEW_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o 
 build/tests/test_source_initial_view-gui: tests/test_source_initial_view_gui.c $(SOURCE_INITIAL_VIEW_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_initial_view_gui.c $(SOURCE_INITIAL_VIEW_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(SOURCE_INITIAL_VIEW_GUI_OBJECT:.o=.d)
+
+SOURCE_SPATIAL_GUI_OBJECT = build/obj/feature-source-spatial-format/app.o
+$(SOURCE_SPATIAL_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_SOURCE_SPATIAL_FORMAT)
+SOURCE_SPATIAL_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(SOURCE_SPATIAL_GUI_OBJECT)
+build/tests/test_source_spatial_format-gui: tests/test_source_spatial_format_gui.c $(SOURCE_SPATIAL_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_spatial_format_gui.c $(SOURCE_SPATIAL_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(SOURCE_SPATIAL_GUI_OBJECT:.o=.d)
 
