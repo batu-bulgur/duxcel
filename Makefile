@@ -1947,7 +1947,7 @@ build/tests/test_source_format_command-debug: $(SOURCE_FORMAT_COMMAND_SAN_OBJECT
 	$(call link_binary,-O1 -g $(SANFLAGS) $(SOURCE_FORMAT_COMMAND_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SOURCE_FORMAT_COMMAND_OBJECTS:.o=.d) $(SOURCE_FORMAT_COMMAND_SAN_OBJECTS:.o=.d)
 
-PRIMARY_SOURCE_DRAFT_SRC = $(filter-out tests/test_cell_command.c,$(CELL_COMMAND_TEST_SRC)) src/workbook/primary_source_draft.c tests/test_primary_source_draft.c
+PRIMARY_SOURCE_DRAFT_SRC = $(sort $(filter-out tests/test_cell_command.c,$(CELL_COMMAND_TEST_SRC)) src/workbook/primary_source_draft.c tests/test_primary_source_draft.c)
 PRIMARY_SOURCE_DRAFT_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_DRAFT_SRC))))
 PRIMARY_SOURCE_DRAFT_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_DRAFT_SRC))))
 build/tests/test_primary_source_draft: $(PRIMARY_SOURCE_DRAFT_OBJECTS) build/web-tests/platform-model.o | build/tests
@@ -2525,7 +2525,8 @@ build/tests/test_range_history_slot-debug: $(RANGE_HISTORY_SLOT_SAN_OBJECTS) | b
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(RANGE_HISTORY_SLOT_OBJECTS:.o=.d) $(RANGE_HISTORY_SLOT_SAN_OBJECTS:.o=.d)
 
-PRIMARY_SOURCE_PUBLISH_SRC = $(filter-out tests/test_primary_source_draft.c,$(PRIMARY_SOURCE_DRAFT_SRC)) src/workbook/sheet_presence_asset.c src/workbook/sheet_source_view.c src/workbook/primary_source_publish.c tests/test_primary_source_publish.c
+
+PRIMARY_SOURCE_PUBLISH_SRC = $(sort $(filter-out tests/test_primary_source_draft.c,$(PRIMARY_SOURCE_DRAFT_SRC)) src/workbook/sheet_presence_asset.c src/workbook/sheet_source_view.c src/workbook/primary_source_publish.c tests/test_primary_source_publish.c)
 
 PRIMARY_SOURCE_PUBLISH_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_PUBLISH_SRC))))
 PRIMARY_SOURCE_PUBLISH_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_PUBLISH_SRC))))
@@ -2535,7 +2536,7 @@ build/tests/test_primary_source_publish-debug: $(PRIMARY_SOURCE_PUBLISH_SAN_OBJE
 	$(call link_binary,-O1 -g $(SANFLAGS) $(PRIMARY_SOURCE_PUBLISH_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(PRIMARY_SOURCE_PUBLISH_OBJECTS:.o=.d) $(PRIMARY_SOURCE_PUBLISH_SAN_OBJECTS:.o=.d)
 
-SHEET_SOURCE_VIEW_SRC = $(filter-out tests/test_primary_source_publish.c,$(PRIMARY_SOURCE_PUBLISH_SRC)) tests/test_sheet_source_view.c
+SHEET_SOURCE_VIEW_SRC = $(sort $(filter-out tests/test_primary_source_publish.c,$(PRIMARY_SOURCE_PUBLISH_SRC)) tests/test_sheet_source_view.c)
 SHEET_SOURCE_VIEW_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_SOURCE_VIEW_SRC))))
 SHEET_SOURCE_VIEW_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_SOURCE_VIEW_SRC))))
 build/tests/test_sheet_source_view: $(SHEET_SOURCE_VIEW_OBJECTS) build/web-tests/platform-model.o | build/tests
@@ -2544,7 +2545,8 @@ build/tests/test_sheet_source_view-debug: $(SHEET_SOURCE_VIEW_SAN_OBJECTS) build
 	$(call link_binary,-O1 -g $(SANFLAGS) $(SHEET_SOURCE_VIEW_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_SOURCE_VIEW_OBJECTS:.o=.d) $(SHEET_SOURCE_VIEW_SAN_OBJECTS:.o=.d)
 
-PRIMARY_SOURCE_TOPOLOGY_SRC = $(filter-out tests/test_primary_source_publish.c,$(PRIMARY_SOURCE_PUBLISH_SRC)) src/workbook/sheet_topology_event.c src/workbook/history_sheet_topology.c src/workbook/primary_source_topology.c tests/test_primary_source_topology.c
+PRIMARY_SOURCE_TOPOLOGY_SRC = $(sort $(filter-out tests/test_primary_source_publish.c,$(PRIMARY_SOURCE_PUBLISH_SRC)) src/workbook/sheet_topology_event.c src/workbook/history_sheet_topology.c src/workbook/primary_source_topology.c tests/test_primary_source_topology.c)
+
 PRIMARY_SOURCE_TOPOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_TOPOLOGY_SRC))))
 PRIMARY_SOURCE_TOPOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_TOPOLOGY_SRC))))
 build/tests/test_primary_source_topology: $(PRIMARY_SOURCE_TOPOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
@@ -2553,7 +2555,7 @@ build/tests/test_primary_source_topology-debug: $(PRIMARY_SOURCE_TOPOLOGY_SAN_OB
 	$(call link_binary,-O1 -g $(SANFLAGS) $(PRIMARY_SOURCE_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(PRIMARY_SOURCE_TOPOLOGY_OBJECTS:.o=.d) $(PRIMARY_SOURCE_TOPOLOGY_SAN_OBJECTS:.o=.d)
 
-PRIMARY_SOURCE_PENDING_SRC = $(filter-out tests/test_primary_source_topology.c,$(PRIMARY_SOURCE_TOPOLOGY_SRC)) src/workbook/primary_source_pending.c tests/test_primary_source_pending.c
+PRIMARY_SOURCE_PENDING_SRC = $(sort $(filter-out tests/test_primary_source_topology.c,$(PRIMARY_SOURCE_TOPOLOGY_SRC)) src/workbook/primary_source_pending.c tests/test_primary_source_pending.c)
 PRIMARY_SOURCE_PENDING_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_PENDING_SRC))))
 PRIMARY_SOURCE_PENDING_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_PENDING_SRC))))
 build/tests/test_primary_source_pending: $(PRIMARY_SOURCE_PENDING_OBJECTS) build/web-tests/platform-model.o | build/tests
