@@ -151,8 +151,8 @@ FEATURES = {
         ("python3 tools/test.py feature --feature source-move-app",),
         ("src/workbook/range_history_slot.c", "src/workbook/range_history_slot.h", "tests/test_range_history_slot.c", "tests/support/range_payload_fixture.h")),
 
-    "range-history-payload": Feature(("range_history_payload", "range_event", "history_range", "history_event_frame", "source_versions_admission"), "",
-        ("python3 tools/test.py feature --feature source-move-app",),
+    "range-history-payload": Feature(("range_history_payload", "range_event", "history_range", "source_versions_admission"), "",
+        ("python3 tools/test.py feature --feature source-move-app", "python3 tools/test.py feature --feature history-event-frame"),
         ("src/workbook/range_history_payload.c", "src/workbook/range_history_payload.h", "tests/test_range_history_payload.c")),
 
     "history-event-slot": Feature(("history_event_slot", "history_path"), "",
