@@ -1180,6 +1180,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_manual_value_wire build/tests/test_man
 PARALLEL_NATIVE_GOALS += build/tests/test_manual_range_wire build/tests/test_manual_range_wire-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_manual_cells_plan build/tests/test_manual_cells_plan-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_profile build/tests/test_history_profile-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_history_native_capture build/tests/test_history_native_capture-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2701,3 +2702,12 @@ build/tests/test_history_profile: $(HISTORY_PROFILE_OBJECTS) build/web-tests/pla
 build/tests/test_history_profile-debug: $(HISTORY_PROFILE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(HISTORY_PROFILE_OBJECTS:.o=.d) $(HISTORY_PROFILE_SAN_OBJECTS:.o=.d)
+
+HISTORY_NATIVE_CAPTURE_SRC = $(sort $(filter-out tests/%,$(VERSION_SAVE_SOURCES) $(HISTORY_PROFILE_SRC))) src/workbook/history_native_capture.c tests/test_history_native_capture.c
+HISTORY_NATIVE_CAPTURE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(HISTORY_NATIVE_CAPTURE_SRC))))
+HISTORY_NATIVE_CAPTURE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(HISTORY_NATIVE_CAPTURE_SRC))))
+build/tests/test_history_native_capture: $(HISTORY_NATIVE_CAPTURE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_history_native_capture-debug: $(HISTORY_NATIVE_CAPTURE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(HISTORY_NATIVE_CAPTURE_OBJECTS:.o=.d) $(HISTORY_NATIVE_CAPTURE_SAN_OBJECTS:.o=.d)

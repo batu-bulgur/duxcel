@@ -9,6 +9,7 @@
 struct WorkbookCorePayload {
     WorkbookCorePayloadInfo info;
     SourceDigest digest;
+    uint64_t revision;
     SourceFileIdentity lease_identity;
     char *directory,*path,*lease_path;
     DxFileLease *lease;
@@ -36,6 +37,9 @@ static bool identities(const WorkbookCorePayload *p,char **error) {
         fail(error,"Core payload artifacts changed after sealing; they were kept.");
 }
 const WorkbookCorePayloadInfo *workbook_core_payload_info(const WorkbookCorePayload *p) { return p && p->sealed && !p->retired ? &p->info : NULL; }
+bool workbook_core_payload_revision(const WorkbookCorePayload *p,uint64_t *out) {
+    if (!out || !workbook_core_payload_info(p)) return false; *out=p->revision; return true;
+}
 const char *workbook_core_payload_path(const WorkbookCorePayload *p) { return p && p->sealed && !p->retired ? p->path : NULL; }
 const char *workbook_core_payload_directory(const WorkbookCorePayload *p) { return p && !p->retired ? p->directory : NULL; }
 WorkbookCorePayloadResult workbook_core_payload_verify(const WorkbookCorePayload *p,SourceDigestCancel cancelled,void *context,char **error) {
@@ -105,11 +109,13 @@ WorkbookCorePayloadResult workbook_core_payload_capture(const Workbook *book,con
 #if !defined(__APPLE__) || defined(__EMSCRIPTEN__)
     (void)control; fail(error,"Core payload sealing requires the native macOS SDK."); return CORE_PAYLOAD_UNSUPPORTED;
 #endif
+    WorkbookId document=book->id; uint64_t revision=book->command_revision;
     WorkbookCorePayload *p=create(parent,error); if (!p) return CORE_PAYLOAD_FAILED;
     WorkbookSaveResult saved=workbook_save_core_payload(book,p->path,control.save,error);
     WorkbookCorePayloadResult result=saved==WORKBOOK_SAVE_COMPLETE ? seal(p,book->id,workbook_codec_min_write_version(book),control.cancelled,control.context,error) :
         saved==WORKBOOK_SAVE_CANCELLED ? CORE_PAYLOAD_CANCELLED : CORE_PAYLOAD_FAILED;
-    if (result==CORE_PAYLOAD_READY) { *out=p; return result; }
+    if (result==CORE_PAYLOAD_READY && (document.high!=book->id.high || document.low!=book->id.low || revision!=book->command_revision)) { fail(error,"The immutable captured head changed during sealing."); result=CORE_PAYLOAD_FAILED; }
+    if (result==CORE_PAYLOAD_READY) { p->revision=revision; *out=p; return result; }
     cleanup_capture(p); p->sealed=false; workbook_core_payload_free(p); return result;
 }
 typedef struct { WorkbookCorePayloadInput input; WorkbookCoreRestorePhase phase; bool stopped; } Restore;
@@ -150,6 +156,7 @@ WorkbookCorePayloadResult workbook_core_payload_restore(const WorkbookCorePayloa
     if (restore_cancel(&restore,0)) { fail(error,"Core admission was cancelled."); result=CORE_PAYLOAD_CANCELLED; goto done; }
     if (!workbook_load_core_payload(&staged,p->path,error)) goto done;
     if (staged.id.high!=expected->document.high || staged.id.low!=expected->document.low) { fail(error,"The restored core belongs to another document."); goto done; }
+    p->revision=staged.command_revision;
     restore.phase=CORE_RESTORE_RECHECK;
     result=workbook_core_payload_verify(p,restore_cancel,&restore,error);
     if (result==CORE_PAYLOAD_READY) { workbook_free(&staged); *out=p; return result; }

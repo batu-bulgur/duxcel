@@ -48,6 +48,10 @@ WorkbookCorePayloadResult workbook_core_payload_restore(const WorkbookCorePayloa
    use read-only access and verify immediately before consuming the file. The
    lease excludes cooperating owners, not arbitrary external file writers. */
 const WorkbookCorePayloadInfo *workbook_core_payload_info(const WorkbookCorePayload *payload);
+/* Actual persisted command revision recorded from capture input or the strict
+   restored model. No caller-supplied expected descriptor can assign it.
+   Failure leaves out unchanged; this scalar alone is not content equality. */
+bool workbook_core_payload_revision(const WorkbookCorePayload *payload,uint64_t *out);
 const char *workbook_core_payload_path(const WorkbookCorePayload *payload);
 const char *workbook_core_payload_directory(const WorkbookCorePayload *payload);
 WorkbookCorePayloadResult workbook_core_payload_verify(const WorkbookCorePayload *payload,
