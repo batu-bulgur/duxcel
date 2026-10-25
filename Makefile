@@ -2188,3 +2188,11 @@ build/tests/test_sheet_presence_asset: $(SHEET_PRESENCE_OBJECTS) build/web-tests
 build/tests/test_sheet_presence_asset-debug: $(SHEET_PRESENCE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_PRESENCE_OBJECTS:.o=.d) $(SHEET_PRESENCE_SAN_OBJECTS:.o=.d)
+
+MIXED_RANGE_PLAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_OBJECTS)) build/obj/release/cell-command/src/workbook/mixed_range_plan.o build/obj/release/cell-command/tests/test_mixed_range_plan.o
+MIXED_RANGE_PLAN_SAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_SAN_OBJECTS)) build/obj/sanitize/cell-command/src/workbook/mixed_range_plan.o build/obj/sanitize/cell-command/tests/test_mixed_range_plan.o
+build/tests/test_mixed_range_plan: $(MIXED_RANGE_PLAN_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $(MIXED_RANGE_PLAN_OBJECTS) build/web-tests/platform-model.o,$(THREAD_LIBS) -lm)
+build/tests/test_mixed_range_plan-debug: $(MIXED_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(MIXED_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(MIXED_RANGE_PLAN_OBJECTS:.o=.d) $(MIXED_RANGE_PLAN_SAN_OBJECTS:.o=.d)
