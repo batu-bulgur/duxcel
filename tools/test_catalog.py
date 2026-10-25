@@ -157,6 +157,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "manual-value": Feature(("manual_value",), "",
+        ("python3 tools/test.py feature --feature cell-command", "python3 tools/test.py feature --feature paste-cell-plan"),
+        ("src/workbook/manual_value.c", "src/workbook/manual_value.h", "tests/test_manual_value.c: typed presence, raw/canonical precision and admitted ownership; UI intent selection/CellStore/clipboard/wire remain queued")),
     "source-initial-view": Feature(("sheet_source_view", "primary_source_publish"), "",
         ("python3 tools/test.py feature --feature primary-source-publication", "python3 tools/test.py feature --feature primary-source-kinds"),
         ("src/workbook/sheet_source_view.c", "src/workbook/sheet_source_view.h", "tests/test_sheet_source_view.c")),

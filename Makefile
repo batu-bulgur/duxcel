@@ -1175,6 +1175,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_record_range_csv-gui build/test
 PARALLEL_NATIVE_GOALS += build/tests/test_source_manual_format-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_source_import_format-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_template_format-gui
+PARALLEL_NATIVE_GOALS += build/tests/test_manual_value build/tests/test_manual_value-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2648,3 +2649,13 @@ TEMPLATE_FORMAT_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o buil
 build/tests/test_template_format-gui: tests/test_template_format_gui.c $(TEMPLATE_FORMAT_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_template_format_gui.c $(TEMPLATE_FORMAT_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(TEMPLATE_FORMAT_GUI_OBJECT:.o=.d)
+
+# Pure typed manual-value owner; no CellStore, App, codec or engine linkage.
+MANUAL_VALUE_SRC = src/common.c src/workbook/manual_value.c tests/test_manual_value.c
+MANUAL_VALUE_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(MANUAL_VALUE_SRC))))
+MANUAL_VALUE_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(MANUAL_VALUE_SRC))))
+build/tests/test_manual_value: $(MANUAL_VALUE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_manual_value-debug: $(MANUAL_VALUE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(MANUAL_VALUE_OBJECTS:.o=.d) $(MANUAL_VALUE_SAN_OBJECTS:.o=.d)
