@@ -37,6 +37,22 @@ size_t workbook_lifecycle_duplicate_staging(const Workbook *book,size_t sheet);
    existing live arrays/graphs, prepared payloads and streams are outer charges.
    Invalid target/last-visible removal returns SIZE_MAX. No mutation/allocation. */
 size_t workbook_lifecycle_remove_staging(const Workbook *book,size_t sheet);
+/* Borrow only the globally selected genuine presence action. The worksheet is
+   live or owned by the lifecycle ring; no graph is cloned. Output is unchanged
+   for non-presence, malformed or unavailable selections. A selected exhausted
+   revision remains inspectable but is not replay admission. */
+typedef struct {
+    const void *owner;
+    const Worksheet *worksheet;
+    WorkbookSheetOperation operation;
+    uint64_t sheet,order,active;
+    size_t position;
+    bool detached;
+} WorkbookLifecyclePresence;
+bool workbook_lifecycle_presence(const Workbook *book,bool redo,WorkbookLifecyclePresence *out);
+/* Actual presence transfer allocation bound: replacement array + serial global
+   format-validation scratch for restoration, one wrapper for detachment. */
+size_t workbook_lifecycle_presence_staging(const Workbook *book,bool redo);
 /* Coordinator internals: session-only, never copied into a Save snapshot. */
 void workbook_lifecycle_free(Workbook *book);
 void workbook_lifecycle_clear_redo(Workbook *book);

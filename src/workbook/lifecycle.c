@@ -127,6 +127,24 @@ bool workbook_lifecycle_peek(const Workbook *b,bool redo,WorkbookHistoryResult *
     *out=(WorkbookHistoryResult){.status=WORKBOOK_HISTORY_READY,.sheet=locate(b,e->id),.sheet_id=e->id,.order=e->order,.lifecycle=true};
     return true;
 }
+bool workbook_lifecycle_presence(const Workbook *b,bool redo,WorkbookLifecyclePresence *out) {
+    if (!b || !out) return false;
+    WorkbookHistoryResult selected=workbook_history_peek(b,redo,NULL);
+    if ((selected.status!=WORKBOOK_HISTORY_READY && selected.status!=WORKBOOK_HISTORY_LIMIT) || !selected.lifecycle || !b->lifecycle) return false;
+    const struct WorkbookLifecycle *h=b->lifecycle;
+    size_t count=redo ? h->redo_count : h->undo_count; if (!count) return false;
+    const SheetEvent *e=(redo ? h->redo : h->undo)+count-1;
+    size_t index=locate(b,e->id);
+    if (e->operation>SHEET_DELETE || e->order!=selected.order ||
+        (!e->detached && (index==b->count || (!b->sheets[index].hidden && workbook_visible_count(b)<=1))) ||
+        (e->detached && (index!=b->count || b->count>=DX_MAX_SHEETS || e->position>b->count || e->detached->id!=e->id))) return false;
+    *out=(WorkbookLifecyclePresence){h,e->detached ? e->detached : b->sheets+index,e->operation,e->id,e->order,e->active,e->position,e->detached!=NULL}; return true;
+}
+size_t workbook_lifecycle_presence_staging(const Workbook *b,bool redo) {
+    WorkbookLifecyclePresence view;
+    if (!workbook_lifecycle_presence(b,redo,&view)) return SIZE_MAX;
+    return view.detached ? (b->count+1)*sizeof(Worksheet)+DX_FORMAT_VALIDATION_BYTES : sizeof(Worksheet);
+}
 static Worksheet *remove_sheet(Workbook *b,size_t index) {
     Worksheet *detached=dx_alloc(sizeof(*detached)); *detached=b->sheets[index];
     uint64_t active=b->sheets[b->active].id;

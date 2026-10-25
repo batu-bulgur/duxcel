@@ -38,6 +38,11 @@ SheetPresenceStatus sheet_presence_measure(SheetPresenceView view,SheetPresenceM
    excluded. Structural invalidity preserves matches; valid difference returns
    OK/false. Inputs and the independent scalar output must be disjoint. */
 SheetPresenceStatus sheet_presence_matches(const SheetPresenceAsset *asset,SheetPresenceView current,bool *matches);
+/* Authored replay comparison: validate current navigation, then exclude only
+   row/column selection, pan/fraction and zoom scalars. Physical column names and
+   exact committed widths remain authored and compare strictly. No allocation;
+   malformed view preserves matches. Strict stored-preference API stays above. */
+SheetPresenceStatus sheet_presence_matches_authored(const SheetPresenceAsset *asset,SheetPresenceView current,bool *matches);
 SheetPresenceStatus sheet_presence_capture(SheetPresenceView view,size_t reserved,SheetPresenceAsset **out,char **error);
 /* Borrowed immutable graph; the asset outlives every reader. */
 SheetPresenceView sheet_presence_view(const SheetPresenceAsset *asset);

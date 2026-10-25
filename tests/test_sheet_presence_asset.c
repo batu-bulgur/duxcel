@@ -46,6 +46,15 @@ static void capture(void) {
     CHECK(sheet_presence_capture(view,m.staging-1,&asset,NULL)==SHEET_PRESENCE_LIMIT && !asset && !s->analysis.schema);
     CHECK(sheet_presence_capture(view,m.staging,&asset,NULL)==SHEET_PRESENCE_OK && asset);
     bool matches=false; CHECK(sheet_presence_matches(asset,view,&matches)==SHEET_PRESENCE_OK && matches);
+    SheetView navigation=s->view;
+    s->view.row=321; s->view.col=19; s->view.anchor_row=300; s->view.anchor_col=18; s->view.end_row=400; s->view.end_col=20;
+    s->view.top=250; s->view.selection=1; s->view.horizontal=123.5f; s->view.fraction=.75; s->view.canvas_zoom=2;
+    CHECK(sheet_presence_matches(asset,view,&matches)==SHEET_PRESENCE_OK && !matches);
+    CHECK(sheet_presence_matches_authored(asset,view,&matches)==SHEET_PRESENCE_OK && matches);
+    s->view.widths[16383]=1199; CHECK(sheet_presence_matches_authored(asset,view,&matches)==SHEET_PRESENCE_OK && !matches); s->view.widths[16383]=1200;
+    char first=s->view.columns[0][0]; s->view.columns[0][0]='Z'; CHECK(sheet_presence_matches_authored(asset,view,&matches)==SHEET_PRESENCE_OK && !matches); s->view.columns[0][0]=first;
+    s->view.horizontal=NAN; matches=true; CHECK(sheet_presence_matches_authored(asset,view,&matches)==SHEET_PRESENCE_INVALID && matches);
+    s->view=navigation;
     SheetPresenceWireInfo model_wire,asset_wire; CHECK(sheet_presence_wire_view_measure(view,&model_wire)==SHEET_PRESENCE_OK && sheet_presence_wire_measure(asset,&asset_wire)==SHEET_PRESENCE_OK && model_wire.bytes==asset_wire.bytes && model_wire.owned==asset_wire.owned);
     s->cells.revision++; s->formats.revision++; s->width_revision++; s->objects.items[0].revision++;
     actual.filter_number=(NumberType){NUM_DECIMAL,38,4}; CHECK(sheet_presence_matches(asset,view,&matches)==SHEET_PRESENCE_OK && matches);

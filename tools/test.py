@@ -29,6 +29,7 @@ FAST_MODULES = (
     "source_dependency_admission",
     "source_versions_admission",
     "primary_source_draft",
+    "sheet_topology_replay",
     "sheet_topology_duplicate",
     "column_widths", "column_width_history",
     "mixed_range_plan",

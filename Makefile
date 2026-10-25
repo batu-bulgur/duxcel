@@ -2343,3 +2343,14 @@ build/tests/test_sheet_topology_duplicate: $(SHEET_TOPOLOGY_DUPLICATE_OBJECTS) b
 build/tests/test_sheet_topology_duplicate-debug: $(SHEET_TOPOLOGY_DUPLICATE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_TOPOLOGY_DUPLICATE_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_DUPLICATE_SAN_OBJECTS:.o=.d)
+
+# Genuine session topology replay with owned current presence proof; no stream append.
+SHEET_TOPOLOGY_REPLAY_SRC = $(filter-out tests/test_sheet_topology_duplicate.c,$(SHEET_TOPOLOGY_DUPLICATE_SRC)) src/workbook/sheet_topology_remove.c src/workbook/sheet_topology_replay.c tests/test_sheet_topology_replay.c
+SHEET_TOPOLOGY_REPLAY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REPLAY_SRC))))
+SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REPLAY_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_replay build/tests/test_sheet_topology_replay-debug
+build/tests/test_sheet_topology_replay: $(SHEET_TOPOLOGY_REPLAY_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_topology_replay-debug: $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_TOPOLOGY_REPLAY_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS:.o=.d)
