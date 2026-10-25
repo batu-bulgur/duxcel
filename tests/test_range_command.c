@@ -512,7 +512,7 @@ static bool result_reserve(void *context,const WorkbookHistoryRangeRecord *recor
     case 6: f->table_epoch++; break;
     case 7: f->table_failed=true; break;
     case 8: f->c.results=&f->other_results; break;
-    case 9: free(f->b.sheets[0].objects.items[0].source.path); f->b.sheets[0].objects.items[0].source.path=dx_strdup("/replacement.csv"); break;
+    case 9: { Analysis *a=&f->b.sheets[0].objects.items[0].source; char *next=dx_strdup("/replacement.csv"); free(a->path); a->path=next; break; }
     case 10: f->primary_page.count_pending=true; break;
     case 11: f->table_page.count_pending=true; break;
     case 12: f->proof_id++; break;
@@ -529,6 +529,10 @@ static bool result_reserve(void *context,const WorkbookHistoryRangeRecord *recor
     case 20: f->pivot_failed=true; break;
     case 21: f->pivot_page.count_pending=true; break;
     case 22: f->pivot_source_epoch++; break;
+    case 23: { Analysis *a=&f->b.sheets[0].objects.items[0].source; char *next=dx_strdup("SELECT * FROM input WHERE 1=0"); free(a->query); a->query=next; break; }
+    case 24: { Analysis *a=&f->b.sheets[0].objects.items[0].source; char *next=dx_strdup("replacement schema"); free(a->schema); a->schema=next; break; }
+    case 25: { Analysis *a=&f->b.sheets[0].objects.items[0].source; char *next=dx_strdup("replacement table"); free(a->table); a->table=next; break; }
+    case 26: { char *next=dx_strdup("SELECT * FROM input WHERE 1=0"); free(f->primary.query); f->primary.query=next; break; }
     }
     return true;
 }
@@ -620,4 +624,48 @@ static void source_axes_controller(void) {
     CHECK(workbook_apply_range_command_recorded(&f->c,t,(RangeCommand){.operation=RANGE_OPERATION_INSERT_ROWS,.row=10,.row_count=2},NULL,NULL).status==RANGE_COMMAND_PROTECTED && !f->b.command_revision && !memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&objects,&s->objects,sizeof(objects)) && !memcmp(&formats,&s->formats,sizeof(formats)));
     free(t); result_fixture_free(f); free(f);
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); source_axes_controller(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+static void source_definition_profiles(void) {
+    for (unsigned profile=0;profile<3;profile++) for (unsigned mode=0;mode<6;mode++) {
+        ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); Worksheet *s=f->b.sheets;
+        Analysis primary={.kind=profile ? SOURCE_PARQUET : SOURCE_DATABASE,.path=profile ? "/primary.parquet" : "/primary.duckdb",
+            .schema=profile ? NULL : "main",.table=profile ? NULL : "Primary orders",.query="SELECT * FROM input"};
+        Analysis table={.kind=primary.kind,.path=profile ? "/table.parquet" : "/table.duckdb",
+            .schema=profile ? NULL : "sales data",.table=profile ? NULL : "Order\"items",.query=profile==1 ? NULL : "SELECT * FROM input WHERE 9007199254740993 > 0"};
+        analysis_free(&f->primary); f->primary=analysis_copy(&primary); analysis_free(&s->objects.items[0].source); s->objects.items[0].source=analysis_copy(&table);
+        s->source_versions.high_water=17;
+        if (profile==2) {
+            SourceVersion row={.owner=s->objects.items[0].id,.version=18,.kind=SOURCE_PARQUET,.path=table.path}; SourceVersions next={0};
+            CHECK(source_versions_plan(&s->source_versions,&row,true,&next,NULL)); source_versions_free(&s->source_versions); s->source_versions=next; s->objects.items[0].source.source_version=18;
+        }
+        RangeCommand cmd={.operation=RANGE_OPERATION_MOVE,.range={12,321,4,10},.dr=400,.dc=10}; RangeCommandPlanInfo measured={0};
+        if (!profile) {
+            char *resolved=s->objects.items[0].source.table; s->objects.items[0].source.table=NULL; f->table_ready=false;
+            CHECK(!result_prepares(f) && workbook_range_command_measure(&f->c,0,cmd,&measured,NULL)==RANGE_COMMAND_PROTECTED && !f->b.command_revision);
+            s->objects.items[0].source.table=resolved; f->table_ready=true;
+        }
+        CHECK(workbook_range_command_measure(&f->c,0,cmd,&measured,NULL)==RANGE_COMMAND_READY);
+        RangeCommandTarget *t=target(&f->c); f->mode=mode==5 ? 9 : mode ? mode+22 : 0;
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={f->b.id.high,f->b.id.low,9,VERSION_WORKING_HEAD},.edit_session=f->b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){1,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); f->inner=workbook_history_stream_range_recorder(queue);
+        WorkbookHistoryRangeRecorder recorder={result_reserve,result_publish,result_cancel,f}; CellStore cells=s->cells; FormatStore formats=s->formats; uint64_t source_high=s->source_versions.high_water;
+        RangeCommandResult result=workbook_apply_range_command_recorded(&f->c,t,cmd,&recorder,NULL);
+        if (mode) {
+            CHECK(result.status==RANGE_COMMAND_STALE && f->cancelled==1 && !f->published && !f->b.command_revision && !f->b.dirty);
+            CHECK(!memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&formats,&s->formats,sizeof(formats)) && s->objects.items[0].row==20 && !workbook_history_stream_state(queue).owned_bytes);
+        } else {
+            CHECK(result.status==RANGE_COMMAND_APPLIED && result.effects==14 && f->published==1 && !f->cancelled && s->objects.items[0].row==420 && !strcmp(cells_get(&s->cells,412,14),"NULL"));
+            WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+            CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.unbound_sources==(profile==2 ? 0u : 2u));
+            const Analysis *owned=&event.definitions.after_objects.objects.items[0].source;
+            CHECK(owned->kind==table.kind && !strcmp(owned->path,table.path) && (table.query ? owned->query && !strcmp(owned->query,table.query) : !owned->query));
+            CHECK(profile ? !owned->schema && !owned->table : owned->schema && !strcmp(owned->schema,table.schema) && owned->table && !strcmp(owned->table,table.table));
+            CHECK(event.definitions.sources.versions.high_water==source_high && event.definitions.sources.versions.count==(profile==2 ? 1u : 0u));
+            if (profile==2) CHECK(!event.definitions.sources.versions.items[0].raw.bytes);
+            range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+            mixed_history_transfer(s,false); CHECK(s->objects.items[0].row==20 && !strcmp(cells_get(&s->cells,12,4),"NULL") && !strcmp(s->objects.items[0].source.path,table.path));
+        }
+        CHECK(s->source_versions.high_water==source_high && s->source_versions.count==(profile==2 ? 1u : 0u));
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); result_fixture_free(f); free(f);
+    }
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); source_axes_controller(); source_definition_profiles(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }

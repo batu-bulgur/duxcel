@@ -123,6 +123,53 @@ static void source_objects(void) {
         CHECK(!strcmp(event.definitions.after_objects.objects.items[0].source.path,"/owned.csv")); range_event_free(&event);
     }
 }
+/* Metadata preservation does not assert an actual result/default relation. */
+static bool nullable_equal(const char *a,const char *b) { return a && b ? !strcmp(a,b) : a==b; }
+static void source_profiles(void) {
+    const Analysis profiles[]={
+        {.kind=SOURCE_DATABASE,.path="/owned database.duckdb",.table="Orders"},
+        {.kind=SOURCE_DATABASE,.path="/owned database.duckdb",.schema="main",.table="Orders"},
+        {.kind=SOURCE_DATABASE,.path="/owned database.duckdb",.schema="sales data",.table="Order\"items",.query="SELECT * FROM input WHERE 9007199254740993 > 0"},
+        {.kind=SOURCE_DATABASE,.path="/owned database.duckdb"}, /* Unresolved, inactive metadata only. */
+        {.kind=SOURCE_PARQUET,.path="/owned parquet.parquet"},
+        {.kind=SOURCE_PARQUET,.path="/owned parquet.parquet",.schema="",.table="",.query="SELECT * FROM input",.source_version=1}
+    };
+    ObjectStore rejected={0}; Analysis empty_query={.kind=SOURCE_DATABASE,.path="/source.duckdb",.table="Orders",.query=""};
+    CHECK(objects_add_table(&rejected,2,4,"Invalid query",&empty_query,NULL)<0 && !rejected.count && !rejected.items);
+    for (size_t k=0;k<sizeof(profiles)/sizeof(*profiles);k++) {
+        const Analysis *profile=profiles+k; ObjectStore objects={0};
+        CHECK(objects_add_table(&objects,2,4,"Profile Table",profile,NULL)==0);
+        ObjectSnapshot before={objects.items,objects.count}; SheetObject moved=objects.items[0]; moved.row=20; ObjectSnapshot after={&moved,1};
+        SourceVersions sources={.high_water=17};
+        if (profile->source_version) {
+            SourceVersion row={.owner=objects.items[0].id,.version=18,.kind=SOURCE_PARQUET,.path=profile->path}; SourceVersions next={0};
+            CHECK(source_versions_plan(&sources,&row,true,&next,NULL)); sources=next;
+            objects.items[0].source.source_version=moved.source.source_version=18;
+        }
+        RangeEventView view={.sheet=8,.effects=4,.object_high_water=objects.next_id,.definitions={.sheet=8,.object_high_water=objects.next_id,.effects=4,.before={NULL,&before},.after={NULL,&after},.sources=&sources}};
+        RangeEventInfo info={0}; CHECK(range_event_measure(view,SIZE_MAX,&info)==RANGE_EVENT_OK);
+        unsigned char *data=dx_alloc(info.bytes),*copy=dx_alloc(info.bytes); size_t written=0;
+        CHECK(range_event_encode(view,SIZE_MAX,data,info.bytes,&written)==RANGE_EVENT_OK); memcpy(copy,data,written);
+        RangeEvent event={0}; CHECK(range_event_decode(data,written,info.owned+info.validation_scratch-1,&event)==RANGE_EVENT_LIMIT && !event.data);
+        CHECK(range_event_decode(data,written,SIZE_MAX,&event)==RANGE_EVENT_OK);
+        const Analysis *decoded=&event.definitions.after_objects.objects.items[0].source;
+        CHECK(decoded->kind==profile->kind && nullable_equal(decoded->path,profile->path) && nullable_equal(decoded->schema,profile->schema) && nullable_equal(decoded->table,profile->table) && nullable_equal(decoded->query,profile->query));
+        CHECK(decoded->path!=objects.items[0].source.path && event.unbound_sources==(profile->source_version ? 0u : 2u));
+        CHECK(event.definitions.sources.versions.high_water==(profile->source_version ? 18u : 17u) && event.definitions.sources.versions.count==(profile->source_version ? 1u : 0u));
+        if (profile->source_version) CHECK(!event.definitions.sources.versions.items[0].raw.bytes && event.definitions.sources.versions.items[0].kind==SOURCE_PARQUET);
+        RangeEvent held=event; data[40]^=1;
+        CHECK(range_event_decode(data,written,SIZE_MAX,&event)==RANGE_EVENT_INVALID && !memcmp(&held,&event,sizeof(event))); memcpy(data,copy,written);
+        if (profile->kind==SOURCE_DATABASE) {
+            objects.items[0].source.source_version=moved.source.source_version=17; RangeEventInfo untouched=info; size_t sentinel=91;
+            DefinitionEventInfo unsupported={0}; CHECK(definition_event_measure(view.definitions,SIZE_MAX,&unsupported)==DEFINITION_EVENT_UNSUPPORTED);
+            CHECK(range_event_measure(view,SIZE_MAX,&info)==RANGE_EVENT_INVALID && !memcmp(&untouched,&info,sizeof(info)));
+            CHECK(range_event_encode(view,SIZE_MAX,data,written,&sentinel)==RANGE_EVENT_INVALID && sentinel==91 && !memcmp(data,copy,written));
+        }
+        objects_free(&objects); source_versions_free(&sources); memset(data,0,written); free(data); free(copy);
+        CHECK(nullable_equal(decoded->path,profile->path) && nullable_equal(decoded->schema,profile->schema) && nullable_equal(decoded->table,profile->table) && nullable_equal(decoded->query,profile->query));
+        range_event_free(&event);
+    }
+}
 static SourceVersions format_sources(void) {
     Column column={.name="Id",.type=DUCKDB_TYPE_BIGINT,.type_name="BIGINT",.numeric=true,.number_type={NUM_I64,0,0}};
     Page schema={.columns=&column,.column_count=1}; Analysis source={.kind=SOURCE_CSV,.path="/source"}; SourceDigest digest={.bytes=42}; digest.identity.size=42; digest.sha256[0]=1;
@@ -190,5 +237,5 @@ int main(void) {
     CHECK(event.formats.after.items!=after.items); view.effects=8; view.cells=NULL; view.count=0;
     CHECK(range_event_measure(view,DX_FORMAT_VALIDATION_BYTES,&info)==RANGE_EVENT_OK); view.after_formats=view.before_formats; CHECK(range_event_measure(view,DX_FORMAT_VALIDATION_BYTES,&info)==RANGE_EVENT_INVALID);
     view.after_formats=format_delta_snapshot_view(&after); view.after_formats.source_aware=true; CHECK(range_event_measure(view,SIZE_MAX,&info)==RANGE_EVENT_OK);
-    compound(); objects_compound(); source_objects(); source_formats(); range_event_free(&event); free(data); format_snapshot_free(&after); format_free(&formats); printf("PASS: %u complete range event checks\n",checks); return 0;
+    compound(); objects_compound(); source_objects(); source_profiles(); source_formats(); range_event_free(&event); free(data); format_snapshot_free(&after); format_free(&formats); printf("PASS: %u complete range event checks\n",checks); return 0;
 }
