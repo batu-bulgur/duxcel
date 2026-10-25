@@ -2358,3 +2358,26 @@ retained replay. The independently verified column-width foundation/coordination
 stays private at7b302ec/0ae03cec (tags codex/wip-column-widths-foundation and
 codex/wip-column-width-coordination); App/Grid/compound-column adoption is queued
 for the next milestone, not included in this build.
+
+## Active dependency milestone — three implementation lanes
+
+The user-authorized team resumes from verified main `9543a52` with three
+GPT-6.1 medium implementation lanes plus the coordinator. Isolation remains
+stopped. Compilation, mutable engine work and desktop interaction remain serialized
+through the existing leases; each checkout owns its generated data and tagged
+hidden TEST binaries. A queued shared-resource gate does not prevent independent
+source work. The coordinator supplies the next dependency-ready task at each
+handoff instead of waiting for routine human approval.
+
+| Lane | Owned work | Integration boundary |
+| --- | --- | --- |
+| Source (`roadmap-source-format`) | W12c.3c.3a.2c.2 loaded-Table actual replies, then source-origin publication prerequisites | Narrow source/query adapters; exact reply fences and focused native acceptance |
+| History (`roadmap-history-save-as`) | W12c.4.3a width assets/journal, typed width controller and worksheet chronology | Own model/history constituent; no App/Grid or archive codec edits |
+| Object (`roadmap-object-create`) | W12c.4.4 compound range event width payload and current encoding | Own family4 codec/strict validation; depends on agreed pure width asset API |
+| Coordinator (main) | Shared interface review, App/Grid width writers and atomic manual column adoption | Integrate verified refs in dependency order; focused combined gates; full delivery at coherent milestones |
+
+Width authority remains committed `SheetView.widths`; Grid is a projection and
+visual drag draft. Pure foundation refs `7b302ec`/`0ae03cec` stay reachable until
+integrated. W12c.4.3b and W12c.4.4 ship together only after all physical width
+writers and compound column replay use the complete owner. No retained-history
+App activation or browser workbook Open/Save is inferred from these prerequisites.

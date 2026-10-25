@@ -33,12 +33,12 @@ objects/history. A worktree can use a detached HEAD, so another permanent branch
 is not required. Separate directories prevent simultaneous edits of the same
 working files; branches alone do not provide that isolation.
 
-Use at most two implementation lanes, only when actual simultaneous work needs
-separate files/builds. Agree on owned files, base commit, acceptance and the
+The current user-authorized team uses three implementation lanes and one
+coordinator. Keep each lane assigned dependency-ready roadmap work and redistribute
+independent remaining work when a lane finishes. Agree on owned files, base commit, acceptance and the
 integration owner first. App/shared interfaces/Makefile have one owner. A lane
 that needs the same interfaces queues its integration instead of racing them.
-An explicit user-requested larger team may override the two-lane default. Record
-its ownership/dependency map in ROADMAP before execution. For the current team,
+Record the ownership/dependency map in ROADMAP before execution. For the current team,
 the user's explicit test-isolation policy supersedes the blanket operation lock:
 serialize compilation, then release that lease before independent private test
 execution. Keep a same-checkout runner lease so no tested binary is overwritten.
