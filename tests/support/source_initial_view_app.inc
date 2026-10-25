@@ -15,20 +15,21 @@ static bool initial_view_current(const App *a) {
 }
 static void initial_view_hold_prepared_stages(App *a) {
     QueryReply *reply=a->primary_source_reply; PrimarySourceDraftContext c=app_primary_source_context(a);
-    INITIAL_VIEW_CHECK(reply && a->primary_source_draft && !a->primary_source_plan && !a->primary_source_topology);
+    PrimarySourcePending *owner=a->primary_source_pending_owner;
+    INITIAL_VIEW_CHECK(reply && primary_source_pending_stage(owner)==PRIMARY_PENDING_DRAFT);
     a->source_format.bytes=0;
-    INITIAL_VIEW_CHECK(primary_source_draft_resolve(c,a->primary_source_draft,(PrimarySourceDraftReply){reply->id,&reply->analysis,reply->error},SIZE_MAX,NULL)==PRIMARY_SOURCE_RESOLVED);
+    INITIAL_VIEW_CHECK(primary_source_pending_resolve(c,owner,(PrimarySourceDraftReply){reply->id,&reply->analysis,reply->error},SIZE_MAX,NULL)==PRIMARY_TOPOLOGY_READY);
     SheetSourceView *view=NULL; INITIAL_VIEW_CHECK(sheet_source_view_build((SheetSourceViewSpec){reply->page.columns,reply->page.column_count,a->primary_source_navigation},SIZE_MAX,&view)==SHEET_SOURCE_VIEW_OK);
-    PrimarySourceInitialSchema schema={reply->id,reply->revision,&reply->analysis,reply->page.columns,reply->page.column_count,NULL}; PrimarySourcePublishInfo source;
-    INITIAL_VIEW_CHECK(primary_source_publish_measure_initial(c,a->primary_source_draft,view,schema,&source,NULL)==PRIMARY_PUBLISH_READY && app_primary_source_admit(a,source.coexisting));
-    INITIAL_VIEW_CHECK(primary_source_publish_prepare_initial(c,&a->primary_source_draft,&view,schema,source.coexisting,&a->primary_source_plan,NULL)==PRIMARY_PUBLISH_READY);
-    PrimarySourcePublishPlan *held_source=a->primary_source_plan; a->source_format.bytes=SIZE_MAX; app_primary_source_publish(a);
-    INITIAL_VIEW_CHECK(a->primary_source_plan==held_source && a->primary_source_reply==reply && !a->primary_source_topology && a->book.command_revision==initial_view_revision);
-    a->source_format.bytes=0; PrimarySourceTopologyUsage topology;
-    INITIAL_VIEW_CHECK(primary_source_topology_measure(c,a->primary_source_plan,&topology,NULL)==PRIMARY_TOPOLOGY_READY && app_primary_source_admit(a,topology.total));
-    INITIAL_VIEW_CHECK(primary_source_topology_prepare(c,&a->primary_source_plan,topology.total,&a->primary_source_topology,NULL)==PRIMARY_TOPOLOGY_READY);
-    PrimarySourceTopologyPlan *held_topology=a->primary_source_topology; a->source_format.bytes=SIZE_MAX; app_primary_source_publish(a);
-    INITIAL_VIEW_CHECK(a->primary_source_topology==held_topology && a->primary_source_reply==reply && app_primary_source_pending(a) && a->book.command_revision==initial_view_revision);
+    PrimarySourceInitialSchema schema={reply->id,reply->revision,&reply->analysis,reply->page.columns,reply->page.column_count,NULL}; PrimarySourcePendingUsage usage;
+    INITIAL_VIEW_CHECK(primary_source_pending_initial_measure(c,owner,view,schema,&usage,NULL)==PRIMARY_TOPOLOGY_READY && app_primary_source_admit(a,usage.required));
+    INITIAL_VIEW_CHECK(primary_source_pending_prepare_initial(c,owner,&view,schema,usage.required,NULL)==PRIMARY_TOPOLOGY_READY);
+    a->source_format.bytes=SIZE_MAX; app_primary_source_publish(a);
+    INITIAL_VIEW_CHECK(a->primary_source_pending_owner==owner && a->primary_source_reply==reply && primary_source_pending_stage(owner)==PRIMARY_PENDING_SOURCE && a->book.command_revision==initial_view_revision);
+    a->source_format.bytes=0;
+    INITIAL_VIEW_CHECK(primary_source_pending_topology_measure(c,owner,&usage,NULL)==PRIMARY_TOPOLOGY_READY && app_primary_source_admit(a,usage.required));
+    INITIAL_VIEW_CHECK(primary_source_pending_prepare_topology(c,owner,usage.required,NULL)==PRIMARY_TOPOLOGY_READY);
+    a->source_format.bytes=SIZE_MAX; app_primary_source_publish(a);
+    INITIAL_VIEW_CHECK(a->primary_source_pending_owner==owner && a->primary_source_reply==reply && primary_source_pending_stage(owner)==PRIMARY_PENDING_TOPOLOGY && a->book.command_revision==initial_view_revision);
     a->source_format.bytes=0; ui_note_key_press(KEY_F5,0);
 }
 static void source_initial_view_test_frame(AppSession *session) {
@@ -48,14 +49,14 @@ static void source_initial_view_test_frame(AppSession *session) {
         initial_view_revision=a->book.command_revision; initial_view_order=worksheet_history_high_water(); initial_view_high=a->book.sheet_high_water;
         initial_view_count=a->book.count; initial_view_old_sheet=s->id; initial_view_old_cells=a->page.cells;
         open_source(a,"build/tests/generated/source-open-wide.parquet",false);
-        INITIAL_VIEW_CHECK(a->primary_source_draft && a->book.count==initial_view_count && a->book.command_revision==initial_view_revision && a->page.cells==initial_view_old_cells);
+        INITIAL_VIEW_CHECK(a->primary_source_pending_owner && a->book.count==initial_view_count && a->book.command_revision==initial_view_revision && a->page.cells==initial_view_old_cells);
         INITIAL_VIEW_CHECK(a->grid.width_count==initial_view_capacity && initial_view_capacity>=9001 && a->grid.widths[0]==333.5f && a->primary_source_navigation.canvas_zoom==1.5f);
         a->source_format.bytes=SIZE_MAX; break;
     case 1:
         INITIAL_VIEW_CHECK(a->primary_source_reply && a->book.count==initial_view_count && a->page.cells==initial_view_old_cells);
         initial_view_hold_prepared_stages(a); if (initial_view_result) return; break;
     case 2:
-        INITIAL_VIEW_CHECK(!a->primary_source_draft && initial_view_current(a));
+        INITIAL_VIEW_CHECK(!a->primary_source_pending_owner && initial_view_current(a));
         INITIAL_VIEW_CHECK(a->book.count==initial_view_count+1 && a->book.sheet_high_water==initial_view_high+1 && s->id!=initial_view_old_sheet);
         INITIAL_VIEW_CHECK(a->book.command_revision==initial_view_revision+1 && worksheet_history_high_water()==initial_view_order+1);
         INITIAL_VIEW_CHECK(!s->width_history && !s->width_revision && !s->undo_actions_count && !s->redo_actions_count);

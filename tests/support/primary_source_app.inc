@@ -21,22 +21,22 @@ static void primary_source_test_frame(AppSession *session) {
         primary_source_count=a->book.count; primary_source_index=a->book.active; primary_source_command=a->book.command_revision;
         primary_source_high=a->book.sheet_high_water; primary_source_sheet=active_sheet(a)->id; primary_source_cells=a->page.cells; primary_source_before=a->analysis;
         open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
-        PRIMARY_SOURCE_CHECK(a->primary_source_draft && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a));
         ui_note_key_press(KEY_ESCAPE,0); break;
     case 1:
-        PRIMARY_SOURCE_CHECK(!a->primary_source_draft && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && primary_source_unchanged(a));
         open_source(a,"build/tests/generated/missing-directory/source.duckdb",false);
-        PRIMARY_SOURCE_CHECK(!a->primary_source_draft && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && primary_source_unchanged(a));
         open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
-        PRIMARY_SOURCE_CHECK(a->primary_source_draft && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a));
         a->source_format.bytes=SIZE_MAX; break;
     case 2:
-        PRIMARY_SOURCE_CHECK(a->primary_source_draft && a->primary_source_reply && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && a->primary_source_reply && primary_source_unchanged(a));
         PRIMARY_SOURCE_CHECK(app_primary_source_owned(a)>sizeof(QueryReply));
-        app_primary_source_publish(a); PRIMARY_SOURCE_CHECK(a->primary_source_draft && primary_source_unchanged(a));
+        app_primary_source_publish(a); PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a));
         a->source_format.bytes=0; ui_note_key_press(KEY_F5,0); break;
     case 3:
-        PRIMARY_SOURCE_CHECK(!a->primary_source_draft && !a->primary_source_reply && a->book.count==primary_source_count+1);
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && a->book.count==primary_source_count+1);
         PRIMARY_SOURCE_CHECK(a->book.sheet_high_water==primary_source_high+1 && a->book.command_revision==primary_source_command+1);
         PRIMARY_SOURCE_CHECK(a->analysis.schema && !strcmp(a->analysis.schema,"main") && !strcmp(a->analysis.table,"alpha") && a->page.total==3);
         PRIMARY_SOURCE_CHECK(a->page.cells[1].text && !strcmp(a->page.cells[1].text,"100.00"));
@@ -48,15 +48,15 @@ static void primary_source_test_frame(AppSession *session) {
         primary_source_count=a->book.count; primary_source_command=a->book.command_revision; primary_source_high=a->book.sheet_high_water;
         primary_source_cells=a->page.cells; primary_source_before=a->analysis;
         open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
-        PRIMARY_SOURCE_CHECK(a->primary_source_draft); a->analysis_revision++; break;
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner); a->analysis_revision++; break;
     case 5:
-        PRIMARY_SOURCE_CHECK(!a->primary_source_draft && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && primary_source_unchanged(a));
         open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
-        PRIMARY_SOURCE_CHECK(a->primary_source_draft); a->source_format.bytes=SIZE_MAX; break;
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner); a->source_format.bytes=SIZE_MAX; break;
     case 6:
         PRIMARY_SOURCE_CHECK(a->primary_source_reply && primary_source_unchanged(a));
         cancel_active_query(a); a->source_format.bytes=0;
-        PRIMARY_SOURCE_CHECK(!a->primary_source_draft && !a->primary_source_reply && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && primary_source_unchanged(a));
         /* Real current OPEN pressure must be protected before CREATE can
            invalidate its document revision. No replacement preimage is made. */
         {
@@ -79,22 +79,22 @@ static void primary_source_test_frame(AppSession *session) {
             PRIMARY_SOURCE_CHECK(definition_origin_state(pending->owner).phase==DEFINITION_ORIGIN_OPEN);
             size_t count=a->book.count; uint64_t command=a->book.command_revision; const char *path=a->analysis.path;
             open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
-            PRIMARY_SOURCE_CHECK(!a->primary_source_draft && a->book.count==count && a->book.command_revision==command && a->analysis.path==path);
+            PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && a->book.count==count && a->book.command_revision==command && a->analysis.path==path);
             PRIMARY_SOURCE_CHECK(app_definition_origin_find(a)==pending && definition_origin_state(pending->owner).phase==DEFINITION_ORIGIN_OPEN);
             change_analysis(a,false);
         }
         break;
     case 8:
         PRIMARY_SOURCE_CHECK(a->analysis.table && definition_origin_state(app_definition_origin_find(a)->owner).phase==DEFINITION_ORIGIN_ADMITTED);
-        open_source(a,"build/tests/generated/source-connection-b.duckdb",false); PRIMARY_SOURCE_CHECK(a->primary_source_draft); break;
+        open_source(a,"build/tests/generated/source-connection-b.duckdb",false); PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner); break;
     case 9:
-        PRIMARY_SOURCE_CHECK(!a->primary_source_draft && a->analysis.table && strstr(a->analysis.path,"source-connection-b.duckdb") && a->page.total==3);
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && a->analysis.table && strstr(a->analysis.path,"source-connection-b.duckdb") && a->page.total==3);
         /* Complete document retirement cancels a held resolved reply. */
         open_source(a,"build/tests/generated/source-connection-a.duckdb",false); a->source_format.bytes=SIZE_MAX; break;
     case 10:
         PRIMARY_SOURCE_CHECK(a->primary_source_reply); a->source_format.bytes=0;
         a->document_action=DOCUMENT_NEW; a->book.dirty=false; finish_document_action(a);
-        PRIMARY_SOURCE_CHECK(!a->primary_source_draft && !a->primary_source_reply && a->book.count==1 && a->analysis.kind==SOURCE_NONE);
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && a->book.count==1 && a->analysis.kind==SOURCE_NONE);
         primary_source_result=1;
         printf("PASS: native pending primary workflow (11 stages, %u checks)\n",primary_source_checks); return;
     }

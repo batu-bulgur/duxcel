@@ -25,7 +25,7 @@
 #ifndef DUXCEL_BROWSER_HOST
 #include "../workbook/definition_origin.h"
 #include "../workbook/primary_source_publish.h"
-#include "../workbook/primary_source_topology.h"
+#include "../workbook/primary_source_pending.h"
 #include "../workbook/journal_session.h"
 #include "versionstate.h"
 #include "versionpreview.h"
@@ -161,9 +161,7 @@ typedef struct {
     ActiveReadout active_readout;
 #ifndef DUXCEL_BROWSER_HOST
     AppDefinitionOrigin *definition_origins;
-    PrimarySourceDraft *primary_source_draft;
-    PrimarySourcePublishPlan *primary_source_plan;
-    PrimarySourceTopologyPlan *primary_source_topology;
+    PrimarySourcePending *primary_source_pending_owner;
     QueryReply *primary_source_reply;
     uint64_t primary_source_request;
     SheetView primary_source_navigation; /* Scalar-only frozen new-sheet intent. */

@@ -28,57 +28,57 @@ static void primary_source_kinds_test_frame(AppSession *session) {
         {
             uint64_t request=a->request_id; a->request_id=UINT64_MAX-1;
             open_source(a,"build/tests/generated/source-open.csv",false);
-            SOURCE_KINDS_CHECK(!a->primary_source_draft && a->request_id==UINT64_MAX-1 && source_kinds_unchanged(a));
+            SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && a->request_id==UINT64_MAX-1 && source_kinds_unchanged(a));
             a->request_id=request;
             uint64_t revision=a->analysis_revision; a->analysis_revision=UINT64_MAX;
             open_source(a,"build/tests/generated/source-open.csv",false);
-            SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis_revision==UINT64_MAX && source_kinds_unchanged(a));
+            SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && a->analysis_revision==UINT64_MAX && source_kinds_unchanged(a));
             a->analysis_revision=revision;
         }
         open_source(a,"build/tests/generated/source-open.csv",false);
-        SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a));
+        SOURCE_KINDS_CHECK(a->primary_source_pending_owner && source_kinds_unchanged(a));
         a->source_format.bytes=SIZE_MAX; break;
     case 1:
         SOURCE_KINDS_CHECK(a->primary_source_reply && source_kinds_unchanged(a));
         a->source_format.bytes=0; ui_note_key_press(KEY_F5,0); break;
     case 2:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis.kind==SOURCE_CSV && a->page.total==3 && a->page.column_count==3);
+        SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && a->analysis.kind==SOURCE_CSV && a->page.total==3 && a->page.column_count==3);
         SOURCE_KINDS_CHECK(!a->analysis.schema && !a->analysis.table && a->book.count==source_kinds_count+1 && a->book.command_revision==source_kinds_command+1);
         SOURCE_KINDS_CHECK(a->page.cells[1].text && strtod(a->page.cells[1].text,NULL)==10);
         SOURCE_KINDS_CHECK(a->page.cells[2].is_null && !a->page.cells[5].is_null && a->page.cells[5].text && !*a->page.cells[5].text &&
             !a->page.cells[8].is_null && a->page.cells[8].text && !strcmp(a->page.cells[8].text,"NULL"));
         SOURCE_KINDS_CHECK(definition_origin_state(app_definition_origin_find(a)->owner).phase==DEFINITION_ORIGIN_ADMITTED);
         source_kinds_capture(a); open_source(a,"build/tests/generated/source-open-bad.csv.gz",false);
-        SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); break;
+        SOURCE_KINDS_CHECK(a->primary_source_pending_owner && source_kinds_unchanged(a)); break;
     case 3:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && !a->primary_source_reply && source_kinds_unchanged(a));
+        SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && source_kinds_unchanged(a));
         open_source(a,"build/tests/generated/source-open.parquet",false);
-        SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); break;
+        SOURCE_KINDS_CHECK(a->primary_source_pending_owner && source_kinds_unchanged(a)); break;
     case 4:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis.kind==SOURCE_PARQUET && a->page.total==3 && a->page.column_count==3);
+        SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && a->analysis.kind==SOURCE_PARQUET && a->page.total==3 && a->page.column_count==3);
         SOURCE_KINDS_CHECK(!a->analysis.schema && !a->analysis.table && a->book.count==source_kinds_count+1 && a->book.sheet_high_water==source_kinds_high+1);
         SOURCE_KINDS_CHECK(a->page.cells[1].text && !strcmp(a->page.cells[1].text,"10.00"));
         SOURCE_KINDS_CHECK(a->page.cells[2].is_null && !a->page.cells[5].is_null && a->page.cells[5].text && !*a->page.cells[5].text &&
             !a->page.cells[8].is_null && a->page.cells[8].text && !strcmp(a->page.cells[8].text,"NULL"));
         SOURCE_KINDS_CHECK(definition_origin_state(app_definition_origin_find(a)->owner).phase==DEFINITION_ORIGIN_ADMITTED);
         source_kinds_capture(a); open_source(a,"build/tests/generated/source-open-bad.parquet",false);
-        SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); break;
+        SOURCE_KINDS_CHECK(a->primary_source_pending_owner && source_kinds_unchanged(a)); break;
     case 5:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && !a->primary_source_reply && source_kinds_unchanged(a));
-        open_source(a,"",true); SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); break;
+        SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && source_kinds_unchanged(a));
+        open_source(a,"",true); SOURCE_KINDS_CHECK(a->primary_source_pending_owner && source_kinds_unchanged(a)); break;
     case 6:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis.kind==SOURCE_DEMO && a->analysis.path && !*a->analysis.path && a->page.total==1000000);
+        SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && a->analysis.kind==SOURCE_DEMO && a->analysis.path && !*a->analysis.path && a->page.total==1000000);
         SOURCE_KINDS_CHECK(a->book.count==source_kinds_count+1 && a->book.command_revision==source_kinds_command+1 && a->book.sheet_high_water==source_kinds_high+1);
         SOURCE_KINDS_CHECK(definition_origin_state(app_definition_origin_find(a)->owner).phase==DEFINITION_ORIGIN_ADMITTED);
         source_kinds_capture(a); open_source(a,"build/tests/generated/source-open.csv",false);
-        SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); ui_note_key_press(KEY_ESCAPE,0); break;
+        SOURCE_KINDS_CHECK(a->primary_source_pending_owner && source_kinds_unchanged(a)); ui_note_key_press(KEY_ESCAPE,0); break;
     case 7:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && !a->primary_source_reply && source_kinds_unchanged(a));
+        SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && source_kinds_unchanged(a));
         open_source(a,"build/tests/generated/source-open.parquet",false); a->source_format.bytes=SIZE_MAX; break;
     case 8:
         SOURCE_KINDS_CHECK(a->primary_source_reply && source_kinds_unchanged(a)); a->source_format.bytes=0;
         a->document_action=DOCUMENT_CLOSE; a->book.dirty=false; finish_document_action(a);
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && !a->primary_source_reply && a->book.count==1 && a->analysis.kind==SOURCE_NONE);
+        SOURCE_KINDS_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && a->book.count==1 && a->analysis.kind==SOURCE_NONE);
         source_kinds_result=1; printf("PASS: native source kind workflow (9 stages, %u checks)\n",source_kinds_checks); return;
     }
     source_kinds_stage++;

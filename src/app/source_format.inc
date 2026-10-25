@@ -266,15 +266,10 @@ static size_t source_format_page_bytes(const Page *page) {
 }
 /* An unpublished database open is a separately owned native probe. Retire it
    before document/cache destruction; published sheets are never rolled back. */
-static bool app_primary_source_pending(const App *a) { return a->primary_source_draft || a->primary_source_plan || a->primary_source_topology; }
-static size_t app_primary_source_plans_owned(const App *a) {
-    size_t bytes=primary_source_draft_owned(a->primary_source_draft);
-    if (!source_format_add(&bytes,primary_source_publish_owned(a->primary_source_plan)) || !source_format_add(&bytes,primary_source_topology_owned(a->primary_source_topology))) return SIZE_MAX;
-    return bytes;
-}
+static bool app_primary_source_pending(const App *a) { return a->primary_source_pending_owner!=NULL; }
+static size_t app_primary_source_plans_owned(const App *a) { return primary_source_pending_owned(a->primary_source_pending_owner); }
 static void app_primary_source_cancel(App *a) {
-    primary_source_topology_free(&a->primary_source_topology); primary_source_publish_cancel(&a->primary_source_plan);
-    primary_source_draft_free(&a->primary_source_draft);
+    primary_source_pending_free(&a->primary_source_pending_owner);
     reply_free(a->primary_source_reply); a->primary_source_reply=NULL; a->primary_source_request=0; a->primary_source_navigation=(SheetView){0};
 }
 static size_t app_primary_source_owned(const App *a) {
