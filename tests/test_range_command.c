@@ -124,4 +124,59 @@ static void rows(void) {
     CHECK(workbook_apply_range_command_recorded(&c,t,insert,NULL,NULL).status==RANGE_COMMAND_NOOP && !b.command_revision && !b.dirty && b.sheets[0].undo_actions_count==1);
     free(t); workbook_free(&b);
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+static void columns_compound(void) {
+    const unsigned effects[]={2,8,10,16,18,24,26};
+    for (size_t mode=0;mode<sizeof(effects)/sizeof(*effects);mode++) {
+        unsigned expected=effects[mode]; Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Columns",&(Analysis){0},NULL)); Worksheet *s=b.sheets;
+        s->view.column_count=16384; s->view.widths=dx_alloc(16384*sizeof(float)); s->view.columns=dx_alloc(16384*sizeof(char *));
+        for (size_t i=0;i<16384;i++) { s->view.widths[i]=96; s->view.columns[i]=dx_strdup(""); }
+        if (expected&16) { s->view.widths[1]=123; s->view.widths[16383]=333; }
+        if (expected&2) { CHECK(cells_set(&s->cells,1,1,"NULL",NULL)); worksheet_record(s,EDIT_CELLS); CHECK(cells_set(&s->cells,2,16382,"9007199254740993.0123456789",NULL)); worksheet_record(s,EDIT_CELLS); }
+        if (expected&8) { CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&s->formats,(FormatRange){1,2,1,1},FORMAT_BOLD,bold,NULL)); worksheet_record(s,EDIT_FORMAT); }
+        b.dirty=false; uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
+        RangeCommand command={.operation=RANGE_OPERATION_INSERT_COLUMNS,.column=0,.column_count=1}; RangeCommandPlanInfo planned={0};
+        CHECK(workbook_range_command_measure(&c,0,command,&planned,NULL)==RANGE_COMMAND_READY);
+        s->view.widths[0]=97;
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_STALE && !b.command_revision && !s->width_revision);
+        s->view.widths[0]=96;
+        c.command.plan_reserved=planned.owned+planned.validation_scratch-1;
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_LIMIT && !b.dirty && !b.command_revision && !s->width_revision);
+        c.command.plan_reserved=SIZE_MAX;
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){4,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK);
+        WorkbookHistoryRangeRecorder recorder=workbook_history_stream_range_recorder(queue);
+        RangeCommandResult result=workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL);
+        CHECK(result.status==RANGE_COMMAND_APPLIED && result.effects==expected && b.command_revision==1 && b.dirty && worksheet_edit_effects(s->undo_actions[s->undo_actions_count-1])==expected);
+        if (expected&16) CHECK(s->view.widths[1]==96 && s->view.widths[2]==123 && s->view.widths[16383]==96 && s->width_revision==1);
+        if (expected&2) CHECK(!*cells_get(&s->cells,1,1) && !strcmp(cells_get(&s->cells,1,2),"NULL") && !strcmp(cells_get(&s->cells,2,16383),"9007199254740993.0123456789"));
+        if (expected&8) CHECK(format_at(&s->formats,1,2).flags&FORMAT_BOLD);
+        WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); RangeEvent event={0};
+        const WorkbookHistoryEventInfo *info=workbook_history_event_info(held);
+        CHECK(info->encoding==2 && range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==expected);
+        if (expected&16) CHECK(event.widths.before.entries[1].column==16383 && event.widths.before.entries[1].bits==column_width_bits(333));
+        range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+        CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED);
+        if (expected&16) CHECK(s->view.widths[1]==123 && s->view.widths[16383]==333 && s->width_revision==2);
+        if (expected&2) CHECK(!strcmp(cells_get(&s->cells,1,1),"NULL") && !strcmp(cells_get(&s->cells,2,16382),"9007199254740993.0123456789"));
+        if (expected&8) CHECK(format_at(&s->formats,1,1).flags&FORMAT_BOLD);
+        CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED);
+        if (expected&16) CHECK(s->view.widths[2]==123 && s->view.widths[16383]==96 && s->width_revision==3);
+        free(t); t=target(&c); command.operation=RANGE_OPERATION_DELETE_COLUMNS; command.column=2;
+        uint64_t cell_revision=s->cells.revision,format_revision=s->formats.revision,width_revision=s->width_revision; size_t actions=s->undo_actions_count;
+        /* Recorder is still at revision1 while Undo/Redo advanced the model.
+           Rejection occurs before any constituent or chronology can adopt. */
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL).status==RANGE_COMMAND_LIMIT && b.command_revision==3 && s->cells.revision==cell_revision && s->formats.revision==format_revision && s->width_revision==width_revision && s->undo_actions_count==actions);
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_APPLIED);
+        if (expected&2) CHECK(!*cells_get(&s->cells,1,2));
+        CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED);
+        if (expected&16) CHECK(s->view.widths[2]==123);
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
+    }
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Empty",&(Analysis){0},NULL)); b.dirty=false; uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
+    RangeCommand command={.operation=RANGE_OPERATION_INSERT_COLUMNS,.column=0,.column_count=1}; c.command.plan_reserved=c.command.validation_reserved=0;
+    CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_NOOP && !b.dirty && !b.command_revision);
+    request++; CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_STALE); request--;
+    b.sheets[0].width_revision++; CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_STALE); b.sheets[0].width_revision--;
+    free(t); workbook_free(&b);
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }

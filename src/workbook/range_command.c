@@ -10,6 +10,31 @@ static bool eligible(const RangeCommandContext *c,const Worksheet *s) {
     return c->primary->kind==SOURCE_NONE && s->analysis.kind==SOURCE_NONE && !s->objects.count && !s->formats.source_aware && !s->formats.scope_count;
 }
 static bool format_shape(const FormatStore *f) { return f->count<=DX_FORMAT_PATCHES && (!f->count || f->items) && f->undo_count<=32 && f->redo_count<=32 && format_owned_bytes(f,false)<=DX_FORMAT_CURRENT_BYTES; }
+static bool columns(RangeCommand command) { return command.operation==RANGE_OPERATION_INSERT_COLUMNS || command.operation==RANGE_OPERATION_DELETE_COLUMNS; }
+static bool insert(RangeCommand command) { return command.operation==RANGE_OPERATION_INSERT_ROWS || command.operation==RANGE_OPERATION_INSERT_COLUMNS; }
+static ColumnWidthCommandContext width_context(Worksheet *s,size_t reserved) { return (ColumnWidthCommandContext){&s->view,&s->width_history,&s->width_revision,reserved}; }
+static WorkbookWidthContext width_fence_context(RangeCommandContext *c) { return (WorkbookWidthContext){.book=c->command.book,.request_epoch=c->command.request_epoch,.ready=c->command.ready,.read_only=c->command.read_only}; }
+static bool width_fence(const Worksheet *s,const RangeCommandTarget *t,const RangeCommandContext *c) {
+    const WorkbookWidthTarget *w=&t->widths;
+    return c->command.book->history_branch==w->branch && worksheet_history_high_water()==w->order &&
+        s->width_revision==w->width_revision && s->width_history==w->history && column_width_history_info(s->width_history).generation==w->generation &&
+        s->view.widths==w->widths && s->view.columns==w->columns && s->view.column_count==w->count &&
+        (!w->count || !memcmp(s->view.widths,w->values,w->count*sizeof(float)));
+}
+/* Build the canonical fixed-domain shifted view without allocation. The dense
+   bridge then measures all independently owned journal/array coexistence. */
+static ColumnWidthStatus width_axis(Worksheet *s,RangeCommand command,ColumnWidthEntry entries[DX_COLUMN_WIDTH_COLUMNS],ColumnWidthView *out,size_t *owned) {
+    size_t ignored=0; ColumnWidthStatus valid=column_width_command_measure(width_context(s,0),(ColumnWidthView){0},&ignored);
+    if (valid!=COLUMN_WIDTH_OK && valid!=COLUMN_WIDTH_NOOP && valid!=COLUMN_WIDTH_LIMIT) return valid;
+    size_t n=0;
+    for (size_t i=0;i<s->view.column_count;i++) {
+        uint32_t bits=column_width_bits(s->view.widths[i]); if (bits==DX_COLUMN_WIDTH_DEFAULT_BITS) continue;
+        if ((insert(command) && i==DX_COLUMN_WIDTH_COLUMNS-1 && i>=command.column) || (!insert(command) && i==command.column)) continue;
+        size_t column=i>=command.column ? insert(command) ? i+1 : i-1 : i;
+        entries[n++]=(ColumnWidthEntry){(uint16_t)column,bits};
+    }
+    *out=(ColumnWidthView){entries,n}; return column_width_command_measure(width_context(s,0),*out,owned);
+}
 bool workbook_prepare_range_command(RangeCommandContext *c,size_t sheet,RangeCommandTarget *out,char **error) {
     if (!context_valid(c) || !out || !c->command.book || sheet>=c->command.book->count) return fail(error,"Choose a valid manual range owner.");
     Worksheet *s=c->command.book->sheets+sheet;
@@ -21,6 +46,8 @@ bool workbook_prepare_range_command(RangeCommandContext *c,size_t sheet,RangeCom
     memcpy(&out->primary,c->primary,sizeof(out->primary)); out->primary_epoch=*c->primary_epoch;
     memcpy(&out->cells,&s->cells,sizeof(out->cells)); if (s->cells.count) memcpy(out->entries,s->cells.cells,s->cells.count*sizeof(*out->entries));
     memcpy(&out->formats,&s->formats,sizeof(out->formats)); if (s->formats.count) memcpy(out->patches,s->formats.items,s->formats.count*sizeof(*out->patches));
+    WorkbookWidthContext wc=width_fence_context(c);
+    if (!workbook_prepare_width_command(&wc,sheet,&out->widths,error)) return false;
     return true;
 }
 RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,size_t sheet,RangeCommand command,RangeCommandPlanInfo *out,char **error) {
@@ -29,31 +56,38 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,s
     if (!eligible(c,s)) { fail(error,"Source and analytical ranges require their complete composite owner."); return RANGE_COMMAND_PROTECTED; }
     if (!format_shape(&s->formats)) { fail(error,"Invalid bounded format state."); return RANGE_COMMAND_INVALID; }
     CellRangePlanInfo cells={0}; SheetRange r=command.range;
-    if ((unsigned)command.operation>RANGE_OPERATION_DELETE_ROWS || (command.operation==RANGE_OPERATION_MOVE && (command.row || command.row_count))) { fail(error,"Choose a valid manual range or row operation."); return RANGE_COMMAND_INVALID; }
+    if ((unsigned)command.operation>RANGE_OPERATION_DELETE_COLUMNS || (command.operation==RANGE_OPERATION_MOVE && (command.row || command.row_count || command.column || command.column_count)) || (columns(command) && (command.column_count!=1 || command.column>=16384 || command.row || command.row_count)) || (!columns(command) && command.operation!=RANGE_OPERATION_MOVE && (command.column || command.column_count))) { fail(error,"Choose a valid manual range or row operation."); return RANGE_COMMAND_INVALID; }
     CellRangeStatus status=command.operation==RANGE_OPERATION_MOVE ? cells_range_measure(&s->cells,r.r0,r.r1,r.c0,r.c1,command.dr,command.dc,command.replace,&cells,error) :
-        cells_rows_measure(&s->cells,command.row,command.row_count,command.operation==RANGE_OPERATION_INSERT_ROWS,&cells,error);
+        columns(command) ? cells_columns_measure(&s->cells,command.column,command.column_count,insert(command),&cells,error) : cells_rows_measure(&s->cells,command.row,command.row_count,insert(command),&cells,error);
     if (status!=CELL_RANGE_READY && status!=CELL_RANGE_NOOP) return status==CELL_RANGE_OCCUPIED ? RANGE_COMMAND_OCCUPIED : RANGE_COMMAND_INVALID;
     if (command.operation==RANGE_OPERATION_MOVE && !command.dr && !command.dc) return RANGE_COMMAND_NOOP;
+    size_t width_owned=0; ColumnWidthStatus width_status=COLUMN_WIDTH_NOOP;
+    if (columns(command)) {
+        ColumnWidthEntry entries[DX_COLUMN_WIDTH_COLUMNS]; ColumnWidthView shifted={0};
+        width_status=width_axis((Worksheet *)s,command,entries,&shifted,&width_owned);
+        if (width_status!=COLUMN_WIDTH_OK && width_status!=COLUMN_WIDTH_NOOP) return width_status==COLUMN_WIDTH_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID;
+    }
     if (status==CELL_RANGE_NOOP) {
         FormatRange from={r.r0,r.r1,r.c0,r.c1},to={(uint64_t)((int64_t)r.r0+command.dr),(uint64_t)((int64_t)r.r1+command.dr),(size_t)((int64_t)r.c0+command.dc),(size_t)((int64_t)r.c1+command.dc)};
         bool relevant=false;
         for (size_t i=0;i<s->formats.count;i++) {
             FormatRange p=s->formats.items[i].range;
             if (command.operation==RANGE_OPERATION_MOVE) relevant|=(p.r0<=from.r1 && from.r0<=p.r1 && p.c0<=from.c1 && from.c0<=p.c1) || (p.r0<=to.r1 && to.r0<=p.r1 && p.c0<=to.c1 && to.c0<=p.c1);
+            else if (columns(command)) relevant|=p.c1>=command.column && (p.c0 || p.c1!=16383 || p.r0 || p.r1!=DX_SHEET_ROWS-1);
             else relevant|=p.r1>=command.row && (p.r0 || p.r1!=DX_SHEET_ROWS-1);
         }
-        if (!relevant) return RANGE_COMMAND_NOOP;
+        if (!relevant && width_status==COLUMN_WIDTH_NOOP) return RANGE_COMMAND_NOOP;
     }
     /* Same two-MiB bounded format-planner coexistence as single-object moves.
        Union of before/after sparse coordinates contains at most2*current count. */
-    *out=(RangeCommandPlanInfo){cells.owned+2u*DX_FORMAT_CURRENT_BYTES+2u*s->cells.count*sizeof(CellDelta),DX_FORMAT_VALIDATION_BYTES}; return RANGE_COMMAND_READY;
+    *out=(RangeCommandPlanInfo){cells.owned+2u*DX_FORMAT_CURRENT_BYTES+2u*s->cells.count*sizeof(CellDelta)+width_owned,DX_FORMAT_VALIDATION_BYTES}; return RANGE_COMMAND_READY;
 }
 static RangeCommandResult check(RangeCommandContext *c,const RangeCommandTarget *t,char **error) {
     if (!context_valid(c) || !t) { fail(error,"Invalid range command context."); return (RangeCommandResult){.status=RANGE_COMMAND_INVALID}; }
     ObjectFenceResult fence=workbook_check_object_creation_fence(&c->command,&t->owner,error);
     RangeCommandResult r={.status=fence.status==OBJECT_FENCE_READY ? RANGE_COMMAND_READY : fence.status==OBJECT_FENCE_STALE ? RANGE_COMMAND_STALE : fence.status==OBJECT_FENCE_PROTECTED ? RANGE_COMMAND_PROTECTED : RANGE_COMMAND_INVALID,.before_revision=fence.revision,.after_revision=fence.revision};
     if (r.status!=RANGE_COMMAND_READY) return r; Worksheet *s=resolve(c->command.book,t->owner.owner.sheet_id);
-    if (c->primary!=(t->authority ? t->authority : &s->analysis) || *c->primary_epoch!=t->primary_epoch || memcmp(c->primary,&t->primary,sizeof(t->primary)) ||
+    if (!width_fence(s,t,c) || c->primary!=(t->authority ? t->authority : &s->analysis) || *c->primary_epoch!=t->primary_epoch || memcmp(c->primary,&t->primary,sizeof(t->primary)) ||
         memcmp(&s->cells,&t->cells,sizeof(t->cells)) || memcmp(&s->formats,&t->formats,sizeof(t->formats)) || s->cells.count>DX_MAX_EDIT_CELLS ||
         (s->cells.count && memcmp(s->cells.cells,t->entries,s->cells.count*sizeof(*t->entries))) || s->formats.count>DX_FORMAT_PATCHES ||
         (s->formats.count && memcmp(s->formats.items,t->patches,s->formats.count*sizeof(*t->patches)))) { r.status=RANGE_COMMAND_STALE; fail(error,"The manual range or its source/format owner changed; prepare again."); return r; }
@@ -83,14 +117,21 @@ RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,
         r.status=RANGE_COMMAND_INVALID; if (!error || !*error) fail(error,"The current manual range/history ownership is incomplete."); return r;
     }
     CellSnapshot after={0}; FormatSnapshot formats={0}; CellDelta *changes=NULL; void *ticket=NULL; SheetRange range=command.range;
+    ColumnWidthCommand *widths=NULL;
     CellRangeStatus planned=command.operation==RANGE_OPERATION_MOVE ? cells_range_plan(&s->cells,range.r0,range.r1,range.c0,range.c1,command.dr,command.dc,command.replace,info.owned,&after,error) :
-        cells_rows_plan(&s->cells,command.row,command.row_count,command.operation==RANGE_OPERATION_INSERT_ROWS,info.owned,&after,error);
+        columns(command) ? cells_columns_plan(&s->cells,command.column,command.column_count,insert(command),info.owned,&after,error) : cells_rows_plan(&s->cells,command.row,command.row_count,insert(command),info.owned,&after,error);
     if (planned!=CELL_RANGE_READY && planned!=CELL_RANGE_NOOP) { r.status=planned==CELL_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancelled; }
     bool format_planned=command.operation==RANGE_OPERATION_MOVE ? format_plan_move(&s->formats,(FormatRange){range.r0,range.r1,range.c0,range.c1},command.dr,command.dc,&formats,error) :
-        format_plan_axis(&s->formats,true,command.row,command.row_count,command.operation==RANGE_OPERATION_INSERT_ROWS,&formats,error);
+        format_plan_axis(&s->formats,!columns(command),columns(command) ? command.column : command.row,columns(command) ? command.column_count : command.row_count,insert(command),&formats,error);
     if (!format_planned) { r.status=RANGE_COMMAND_LIMIT; goto cancelled; }
     bool changed=planned==CELL_RANGE_READY,format_changed=!format_snapshot_matches(&s->formats,&formats);
-    r.effects=(changed ? 2u : 0u)|(format_changed ? 8u : 0u);
+    if (columns(command)) {
+        ColumnWidthEntry entries[DX_COLUMN_WIDTH_COLUMNS]; ColumnWidthView shifted={0}; size_t ignored=0;
+        ColumnWidthStatus status=width_axis(s,command,entries,&shifted,&ignored);
+        if (status==COLUMN_WIDTH_OK) status=column_width_command_prepare(width_context(s,info.owned),shifted,&widths);
+        if (status!=COLUMN_WIDTH_OK && status!=COLUMN_WIDTH_NOOP) { r.status=status==COLUMN_WIDTH_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancelled; }
+    }
+    r.effects=(changed ? 2u : 0u)|(format_changed ? 8u : 0u)|(widths ? 16u : 0u);
     if (!r.effects) { r.status=RANGE_COMMAND_NOOP; goto cancelled; }
     if (b->command_revision==UINT64_MAX || (changed && s->cells.revision==UINT64_MAX) || (format_changed && s->formats.revision==UINT64_MAX) || !worksheet_history_order_available()) {
         r.status=RANGE_COMMAND_LIMIT; fail(error,"Range revision space is exhausted."); goto cancelled;
@@ -106,6 +147,7 @@ RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,
     if (changed) { changes=dx_alloc((s->cells.count+after.count)*sizeof(*changes)); count=deltas(s->id,&s->cells,&after,changes); }
     RangeEventView view={.sheet=s->id,.effects=r.effects,.cells=changes,.count=count};
     if (format_changed) { view.before_formats=format_delta_store_view(&s->formats); view.after_formats=format_delta_snapshot_view(&formats); }
+    if (widths) view.widths=column_width_command_pair(widths);
     RangeEventInfo event={0}; RangeEventStatus encoded=range_event_measure(view,c->command.validation_reserved,&event);
     if (encoded!=RANGE_EVENT_OK) { r.status=encoded==RANGE_EVENT_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; fail(error,"The complete manual range effect set is invalid."); goto cancelled; }
     if (c->admit) {
@@ -119,10 +161,15 @@ RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,
         if (!reserved || !ticket) { r.status=reserved || ticket ? RANGE_COMMAND_INVALID : RANGE_COMMAND_LIMIT; if (!error || !*error) fail(error,"Range event recording is busy; no change was applied."); goto cancelled; }
         unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; if (r.status!=RANGE_COMMAND_READY) goto cancelled; s=resolve(b,t->owner.owner.sheet_id);
     }
+    EditKind kind=changed ? format_changed ? EDIT_CELLS_FORMAT : EDIT_CELLS : EDIT_FORMAT;
+    if (widths) {
+        if (!worksheet_width_edit_kind(r.effects,&kind) || column_width_command_check(width_context(s,info.owned),widths)!=COLUMN_WIDTH_OK) { r.status=RANGE_COMMAND_STALE; goto cancelled; }
+        if (column_width_command_adopt(width_context(s,info.owned),&widths)!=COLUMN_WIDTH_OK) { r.status=RANGE_COMMAND_STALE; goto cancelled; }
+    }
     if (changed) cells_adopt_range(&s->cells,&after); if (format_changed) format_commit(&s->formats,&formats);
-    worksheet_record(s,changed ? format_changed ? EDIT_CELLS_FORMAT : EDIT_CELLS : EDIT_FORMAT);
+    worksheet_record(s,kind);
     b->command_revision++; b->dirty=true; workbook_history_note_edit(b); r.status=RANGE_COMMAND_APPLIED; r.after_revision=b->command_revision;
-    if (recorder) recorder->publish(recorder->context,ticket); free(changes); cells_snapshot_free(&after); format_snapshot_free(&formats); return r;
+    if (recorder) recorder->publish(recorder->context,ticket); column_width_command_cancel(&widths); free(changes); cells_snapshot_free(&after); format_snapshot_free(&formats); return r;
 cancelled:
-    if (ticket) recorder->cancel(recorder->context,ticket); free(changes); cells_snapshot_free(&after); format_snapshot_free(&formats); return r;
+    if (ticket) recorder->cancel(recorder->context,ticket); column_width_command_cancel(&widths); free(changes); cells_snapshot_free(&after); format_snapshot_free(&formats); return r;
 }
