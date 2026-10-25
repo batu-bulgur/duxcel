@@ -2238,3 +2238,18 @@ On resume, inspect these exact references and current processes before starting
 work. Preserve completed acceptance; do not rerun the entire native metadata
 matrix without a changed boundary. Start with the remaining focused BP0 Worker
 acceptance and subsequent packaging, then continue the recorded roadmap slices.
+
+
+## Resumed — 25 October 2026
+
+The goal is active again. Main was clean at `ad80c4c`; all saved lane references
+and completed acceptance remain intact. The pause section above is a historical
+resume checkpoint, not the current execution state. Isolation stays stopped.
+
+Three feature lanes resume with separate worktrees and the existing build leases
+and tagged TEST identities: Object first closes BP0 actual Worker rewrite/export
+and native readback; History owns W12c.5.3b sheet metadata App actions; Source owns
+W12c.3c.3a.2c.1 default-reply/origin lifecycle. Root owns shared integration and
+packaging. Object has the first desktop slot; subsequent GUI gates require
+explicit handoff. The passed native metadata matrix is retained, not repeated.
+No new signed edge package is claimed until the remaining boundary closes.
