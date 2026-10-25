@@ -2369,7 +2369,7 @@ build/tests/test_sheet_topology_replay-debug: $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECT
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology-gui
 
 # Current family5 dispatch reuses the real stream and closed metadata/topology codecs.
-SHEET_HISTORY_PAYLOAD_SRC = $(filter-out tests/test_sheet_topology_replay.c,$(SHEET_TOPOLOGY_REPLAY_SRC)) src/workbook/history_sheet_lifecycle.c src/workbook/sheet_lifecycle_command.c src/workbook/sheet_history_payload.c tests/test_sheet_history_payload.c
+SHEET_HISTORY_PAYLOAD_SRC = src/workbook/history_event_frame.c $(filter-out tests/test_sheet_topology_replay.c,$(SHEET_TOPOLOGY_REPLAY_SRC)) src/workbook/history_sheet_lifecycle.c src/workbook/sheet_lifecycle_command.c src/workbook/sheet_history_payload.c tests/test_sheet_history_payload.c
 SHEET_HISTORY_PAYLOAD_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_PAYLOAD_SRC))))
 SHEET_HISTORY_PAYLOAD_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_PAYLOAD_SRC))))
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_payload build/tests/test_sheet_history_payload-debug

@@ -1,4 +1,5 @@
 #include "sheet_history_payload.h"
+#include "history_event_frame.h"
 #include <stdlib.h>
 #include <string.h>
 struct WorkbookSheetPayload {
@@ -40,9 +41,7 @@ WorkbookSheetPayloadStatus workbook_sheet_metadata_preflight(const SheetLifecycl
 static bool frame(WorkbookSheetPayloadView v) {
     const WorkbookHistoryEventInfo *e=v.event;
     return e && v.data && v.sheet && v.bytes==e->bytes && (unsigned)v.operation<=SHEET_SHOW &&
-        (e->owner.document_high || e->owner.document_low) && e->owner.session && e->owner.mode==VERSION_WORKING_HEAD && e->edit_session && e->revision && e->action && e->transition &&
-        e->previous_position<UINT64_MAX && e->position==e->previous_position+1 &&
-        (e->forked ? e->parent_lineage<e->lineage : e->parent_lineage==e->lineage) &&
+        workbook_history_event_frame_valid(e) &&
         !e->dependency_encoding && !e->dependency_bytes && !e->inactive_scopes;
 }
 WorkbookSheetPayloadStatus workbook_sheet_payload_preflight(WorkbookSheetPayloadView v,WorkbookSheetPayloadInfo *out) {
