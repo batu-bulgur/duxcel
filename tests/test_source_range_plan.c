@@ -116,4 +116,32 @@ static void rows_projection(void) {
         workbook_free(reference); free(reference); workbook_free(&b); CHECK(out.objects.items[0].name && out.cells.cells[0].text); mixed_range_plan_free(&out);
     }
 }
-int main(void) { paste(); clear(); move(); rows_projection(); printf("PASS: %u guarded source range projection checks\n",checks); return 0; }
+static void column_projection(void) {
+    for (unsigned deletion=0;deletion<2;deletion++) {
+        Workbook b=fixture(); Worksheet *s=b.sheets; Analysis primary={.kind=SOURCE_DEMO};
+        s->view.column_count=16384; s->view.columns=dx_alloc(16384*sizeof(char *)); s->view.widths=dx_alloc(16384*sizeof(float));
+        for (size_t i=0;i<16384;i++) { s->view.columns[i]=dx_strdup(i==4 ? "Fixed name" : ""); s->view.widths[i]=96; }
+        s->view.widths[4]=123; s->view.widths[16383]=333; Worksheet before=*s;
+        SourceTableExtent table={s->objects.items[0].id,3,2,true,false,false}; SourceMoveContext c={{s,&primary,10,3,false,false,true},&table,1};
+        MixedRangePlanInfo info={0}; MixedRangePlan out={0}; bool insert=!deletion;
+        CHECK(source_range_column_measure(c,3,insert,&info,NULL)==SOURCE_RANGE_READY);
+        CHECK(source_range_column_plan(c,3,insert,info.owned-1,info.validation_scratch,&out,NULL)==SOURCE_RANGE_LIMIT && !out.widths.entries);
+        CHECK(source_range_column_plan(c,3,insert,info.owned,info.validation_scratch,&out,NULL)==SOURCE_RANGE_READY && out.effects==30 && out.object_high_water==s->objects.next_id && !memcmp(&before,s,sizeof(before)));
+        Workbook *reference=workbook_snapshot(&b); CHECK(reference && worksheet_column(reference->sheets,3,insert,3,NULL)); Worksheet *expected=reference->sheets;
+        CHECK(out.cells.count==expected->cells.count && out.objects.items[0].col==expected->objects.items[0].col && out.objects.items[0].col==(deletion ? 7u : 9u) && format_snapshot_matches(&expected->formats,&out.formats));
+        for (size_t i=0;i<out.cells.count;i++) CHECK(out.cells.cells[i].row==expected->cells.cells[i].row && out.cells.cells[i].col==expected->cells.cells[i].col && !strcmp(out.cells.cells[i].text,expected->cells.cells[i].text));
+        ColumnWidthState expected_widths={0}; CHECK(column_width_capture(expected->view.widths,expected->view.column_count,SIZE_MAX,&expected_widths)==COLUMN_WIDTH_OK && column_width_equal(column_width_view(&expected_widths),column_width_view(&out.widths)));
+        CHECK(column_width_at(column_width_view(&out.widths),deletion ? 3 : 5)==column_width_bits(123) && column_width_at(column_width_view(&out.widths),16383)==DX_COLUMN_WIDTH_DEFAULT_BITS && s->view.widths[16383]==333 && !strcmp(s->view.columns[4],"Fixed name")); column_width_free(&expected_widths);
+        MixedRangePlan held=out;
+        CHECK(source_range_column_plan(c,2,insert,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED && !memcmp(&held,&out,sizeof(out)));
+        CHECK(source_range_column_plan(c,deletion ? 8 : 9,insert,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+        CHECK(source_range_column_plan(c,16384,insert,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+        s->view.widths[16383]=96; CHECK(source_range_column_plan(c,16000,insert,0,0,&out,NULL)==SOURCE_RANGE_NOOP && !memcmp(&held,&out,sizeof(out))); s->view.widths[16383]=333;
+        s->view.widths[0]=column_width_value(UINT32_C(0x7fc00000)); CHECK(source_range_column_plan(c,3,insert,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out))); s->view.widths[0]=96;
+        table.count_pending=true; CHECK(source_range_column_plan(c,3,insert,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); table.count_pending=false;
+        CHECK(source_range_column_plan(c,16383,insert,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_READY && out.effects==16 && out.objects.items[0].col==8 && column_width_at(column_width_view(&out.widths),16383)==DX_COLUMN_WIDTH_DEFAULT_BITS);
+        CHECK(!memcmp(&before,s,sizeof(before)) && s->view.widths[16383]==333 && s->source_versions.high_water==7);
+        workbook_free(reference); free(reference); workbook_free(&b); CHECK(out.objects.items[0].name && out.cells.cells[0].text && out.widths.entries); mixed_range_plan_free(&out);
+    }
+}
+int main(void) { paste(); clear(); move(); rows_projection(); column_projection(); printf("PASS: %u guarded source range projection checks\n",checks); return 0; }

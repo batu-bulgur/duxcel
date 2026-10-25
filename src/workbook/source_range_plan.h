@@ -42,4 +42,10 @@ SourceRangeStatus source_range_move_plan(SourceMoveContext c,SheetRange range,in
 SourceRangeStatus source_range_rows_measure(SourceMoveContext c,uint64_t row,uint64_t count,bool insert,MixedRangePlanInfo *info,char **error);
 SourceRangeStatus source_range_rows_plan(SourceMoveContext c,uint64_t row,uint64_t count,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
 
+/* Single-column counterpart, with an independently owned canonical target
+   width state. The later owner still must pair the exact current/after widths;
+   no scalar inverse, name shift or duplicate committed width owner is created. */
+SourceRangeStatus source_range_column_measure(SourceMoveContext c,size_t column,bool insert,MixedRangePlanInfo *info,char **error);
+SourceRangeStatus source_range_column_plan(SourceMoveContext c,size_t column,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
+
 #endif
