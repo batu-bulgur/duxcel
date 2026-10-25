@@ -1,6 +1,9 @@
 #ifndef DUXCEL_SHEET_PRESENCE_ASSET_H
 #define DUXCEL_SHEET_PRESENCE_ASSET_H
 #include "workbook.h"
+#define DX_SHEET_PRESENCE_ENCODING 1u
+#define DX_SHEET_PRESENCE_HEADER_BYTES 136u
+#define DX_SHEET_PRESENCE_WIRE_BYTES (33u*1024u*1024u)
 #define DX_SHEET_PRESENCE_OWNED_BYTES (32u*1024u*1024u)
 typedef struct {
     WorkbookId document;
@@ -10,8 +13,8 @@ typedef struct {
 } SheetPresenceView;
 typedef struct { size_t owned,validation_scratch,staging; } SheetPresenceMeasure;
 typedef struct SheetPresenceAsset SheetPresenceAsset;
-typedef enum { SHEET_PRESENCE_OK,SHEET_PRESENCE_INVALID,SHEET_PRESENCE_LIMIT } SheetPresenceStatus;
-/* Current authored single-sheet preimage, not a workbook archive/wire format.
+typedef enum { SHEET_PRESENCE_OK,SHEET_PRESENCE_INVALID,SHEET_PRESENCE_LIMIT,SHEET_PRESENCE_UNSUPPORTED } SheetPresenceStatus;
+/* Current authored single-sheet preimage; no workbook file adapter.
    Preserve stable IDs and allocator obligations, name/hidden, actual Analysis,
    ordered objects, sparse manual cells, full formats/selectors/ledger and stored
    SheetView preferences/names/exact binary32 physical widths (implicit tail96).
@@ -31,6 +34,30 @@ SheetPresenceStatus sheet_presence_measure(SheetPresenceView view,SheetPresenceM
    an independent previous asset; rejection leaves every input/old output owned.
    Allocation exhaustion follows the existing process-fatal allocator policy. */
 SheetPresenceStatus sheet_presence_capture(SheetPresenceView view,size_t reserved,SheetPresenceAsset **out,char **error);
+/* Borrowed immutable graph; the asset outlives every reader. */
 SheetPresenceView sheet_presence_view(const SheetPresenceAsset *asset);
 void sheet_presence_free(SheetPresenceAsset **asset);
+typedef struct { void *data; size_t bytes; } SheetPresencePacket;
+typedef struct {
+    WorkbookId document;
+    uint64_t sheet,sheet_high_water,object_high_water,source_high_water;
+    size_t bytes,owned,validation_scratch,cells,columns;
+} SheetPresenceWireInfo;
+/* Current DXSP retained-sheet component, not a .dxls archive. Encoding1 binds
+   document/sheet/counter metadata and exact stored view scalar bits, then the
+   name, ordered column name/width rows, sorted sparse current cell rows, and
+   existing DXAN/DXOB/DXFD-snapshot-body/DXSV components. Cells are complete
+   current values, not fabricated user edits; empty manual values stay absent.
+   No native layouts, query/NumberType caches, sessions, history or datasets.
+   Numeric schema metadata is re-established by future activation, not decoded.
+   Unknown encodings, reserved bits, partial components and trailing bytes reject.
+   Input bytes remain immutable throughout preflight/decode.
+   Capture reserve covers NEW packet+validation scratch; decode reserve covers
+   NEW complete model+validation scratch. Input/previous output remain separate
+   coexistence charges. Cancellation is freeing the unpublished owned result. */
+SheetPresenceStatus sheet_presence_wire_measure(const SheetPresenceAsset *asset,SheetPresenceWireInfo *out);
+SheetPresenceStatus sheet_presence_encode(const SheetPresenceAsset *asset,size_t reserved,SheetPresencePacket *out);
+SheetPresenceStatus sheet_presence_preflight(const void *data,size_t bytes,SheetPresenceWireInfo *out);
+SheetPresenceStatus sheet_presence_decode(const void *data,size_t bytes,size_t reserved,SheetPresenceAsset **out,char **error);
+void sheet_presence_packet_free(SheetPresencePacket *packet);
 #endif

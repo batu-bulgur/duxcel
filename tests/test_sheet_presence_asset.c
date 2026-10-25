@@ -29,7 +29,7 @@ static Workbook fixture(void) {
     source_packet_free(&raw); source_packet_free(&result);
     row=(SourceVersion){.version=2,.owner=88,.kind=SOURCE_PARQUET,.path="/retired.parquet"}; ledger=(SourceVersions){0};
     CHECK(source_versions_plan(&s->source_versions,&row,true,&ledger,&error)); source_versions_free(&s->source_versions); s->source_versions=ledger;
-    s->objects.next_id=99; s->source_versions.high_water=77; b.sheet_high_water=UINT64_MAX;
+    s->id=UINT64_C(9007199254740993); s->objects.next_id=99; s->source_versions.high_water=77; b.sheet_high_water=UINT64_MAX;
     CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
     CHECK(format_apply(&s->formats,(FormatRange){10,12,1,1},FORMAT_BOLD,bold,&error)); worksheet_record(s,EDIT_FORMAT);
     s->view=(SheetView){.row=10,.col=1,.anchor_row=12,.anchor_col=3,.end_row=10,.end_col=1,.top=7,.horizontal=91.125f,.fraction=.25,.selection=2,.canvas_zoom=1.75f,.column_count=16384};
@@ -90,4 +90,74 @@ static void capture(void) {
     CHECK(!strcmp(copy.primary->table,"alpha") && copy.sheet->view.widths[16383]==1200 && copy.sheet->source_versions.high_water==77);
     sheet_presence_free(&asset); CHECK(!asset); sheet_presence_free(&asset); sheet_presence_free(NULL);
 }
-int main(void) { capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }
+static uint64_t get(const unsigned char *data,unsigned bytes) { uint64_t value=0; for (unsigned i=0;i<bytes;i++) value|=(uint64_t)data[i]<<(8*i); return value; }
+static void put(unsigned char *data,uint64_t value,unsigned bytes) { for (unsigned i=0;i<bytes;i++) { data[i]=(unsigned char)value; value>>=8; } }
+static void wire(void) {
+    Workbook b=fixture(); Analysis actual=analysis_copy(&b.sheets[0].analysis); actual.schema=dx_strdup("main"); actual.table=dx_strdup("alpha");
+    SheetPresenceAsset *asset=NULL,*decoded=NULL; SheetPresenceView view={b.id,b.sheet_high_water,b.sheets,&actual}; SheetPresenceMeasure owned;
+    CHECK(sheet_presence_measure(view,&owned)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_capture(view,owned.staging,&asset,NULL)==SHEET_PRESENCE_OK);
+    SheetPresenceWireInfo info={0},preflight={0}; CHECK(sheet_presence_wire_measure(asset,&info)==SHEET_PRESENCE_OK && info.sheet==UINT64_C(9007199254740993) && info.sheet_high_water==UINT64_MAX && info.owned==owned.owned && info.source_high_water==77);
+    SheetPresencePacket packet={dx_alloc(4),4}; void *old=packet.data;
+    CHECK(sheet_presence_encode(asset,info.bytes+info.validation_scratch-1,&packet)==SHEET_PRESENCE_LIMIT && packet.data==old && packet.bytes==4);
+    CHECK(sheet_presence_encode(asset,info.bytes+info.validation_scratch,&packet)==SHEET_PRESENCE_OK && packet.bytes==info.bytes);
+    CHECK(sheet_presence_preflight(packet.data,packet.bytes,&preflight)==SHEET_PRESENCE_OK && preflight.owned==info.owned && preflight.validation_scratch==info.validation_scratch && preflight.object_high_water==99);
+    CHECK(sheet_presence_decode(packet.data,packet.bytes,info.owned+info.validation_scratch-1,&decoded,NULL)==SHEET_PRESENCE_LIMIT && !decoded);
+    CHECK(sheet_presence_decode(packet.data,packet.bytes,info.owned+info.validation_scratch,&decoded,NULL)==SHEET_PRESENCE_OK);
+    SheetPresenceView copy=sheet_presence_view(decoded),original=sheet_presence_view(asset); const Worksheet *s=copy.sheet;
+    CHECK(copy.document.high==view.document.high && copy.document.low==view.document.low && copy.sheet_high_water==UINT64_MAX && s->id==info.sheet && s->hidden);
+    CHECK(s->view.widths!=original.sheet->view.widths && !memcmp(s->view.widths,original.sheet->view.widths,16384*sizeof(float)) && s->view.canvas_zoom==1.75f && s->view.fraction==.25 && s->view.horizontal==91.125f);
+    CHECK(s->objects.next_id==99 && s->source_versions.high_water==77 && s->source_versions.count==2 && s->formats.scope_count==2 && s->formats.items[0].record_ids[1]==UINT64_C(9007199254740993));
+    CHECK(s->source_versions.items[0].raw.data!=original.sheet->source_versions.items[0].raw.data && s->formats.scopes[0].definition!=original.sheet->formats.scopes[0].definition);
+    CHECK(!strcmp(copy.primary->schema,"main") && !strcmp(copy.primary->table,"alpha") && !strcmp(cells_get(&s->cells,10,1),"NULL") && !strcmp(cells_get(&s->cells,12,1),"İstanbul\t東京\ntext") && !*cells_get(&s->cells,13,1));
+    CHECK(!s->edit_session_id && !s->undo_actions_count && !s->width_history && !s->cells.undo_count && !s->formats.undo_count);
+    SheetPresencePacket canonical={0}; SheetPresenceWireInfo decoded_info;
+    CHECK(sheet_presence_wire_measure(decoded,&decoded_info)==SHEET_PRESENCE_OK && decoded_info.bytes==packet.bytes);
+    CHECK(sheet_presence_encode(decoded,decoded_info.bytes+decoded_info.validation_scratch,&canonical)==SHEET_PRESENCE_OK && canonical.bytes==packet.bytes && !memcmp(canonical.data,packet.data,packet.bytes)); sheet_presence_packet_free(&canonical);
+    SheetPresenceAsset *prior=decoded; SheetPresenceWireInfo sentinel={0}; sentinel.bytes=777; preflight=sentinel;
+    for (size_t n=0;n<DX_SHEET_PRESENCE_HEADER_BYTES;n++) {
+        CHECK(sheet_presence_preflight(packet.data,n,&preflight)==SHEET_PRESENCE_INVALID && !memcmp(&preflight,&sentinel,sizeof(sentinel)));
+        CHECK(sheet_presence_decode(packet.data,n,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior);
+    }
+    CHECK(sheet_presence_decode(packet.data,packet.bytes-1,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior);
+    unsigned char *bytes=packet.data; bytes[4]=2;
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_UNSUPPORTED && decoded==prior); bytes[4]=1;
+    bytes[6]=1; CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); bytes[6]=0;
+    bytes[76]=2; CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); bytes[76]=1;
+    uint32_t horizontal=(uint32_t)get(bytes+120,4); put(bytes+120,UINT32_C(0x7fc00000),4);
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); put(bytes+120,horizontal,4);
+    size_t at=DX_SHEET_PRESENCE_HEADER_BYTES+(size_t)get(bytes+48,4),columns=(size_t)get(bytes+52,4),cells=(size_t)get(bytes+56,4);
+    size_t width_at=at+4; uint32_t width=(uint32_t)get(bytes+width_at,4); put(bytes+width_at,0,4);
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); put(bytes+width_at,width,4);
+    for (size_t i=0;i<columns;i++) at+=8+(size_t)get(bytes+at,4);
+    size_t first_cell=at,second_cell=at+16+(size_t)get(bytes+at+12,4); uint64_t row=get(bytes+second_cell,8); put(bytes+second_cell,get(bytes+first_cell,8),8);
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); put(bytes+second_cell,row,8);
+    for (size_t i=0;i<cells;i++) at+=16+(size_t)get(bytes+at+12,4);
+    size_t primary=at; uint64_t sheet=get(bytes+primary+8,8); put(bytes+primary+8,sheet-1,8);
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); put(bytes+primary+8,sheet,8);
+    /* Correct framing still needs full aggregate source-owner closure. */
+    put(bytes+primary+36,1,8); CHECK(sheet_presence_preflight(bytes,packet.bytes,&preflight)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); put(bytes+primary+36,0,8);
+    size_t ledger=at+(size_t)get(bytes+60,4)+(size_t)get(bytes+64,4)+(size_t)get(bytes+68,4); bytes[ledger+4]=0;
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_UNSUPPORTED && decoded==prior); bytes[ledger+4]=1;
+    uint64_t counter=get(bytes+ledger+16,8); put(bytes+ledger+16,0,8);
+    CHECK(sheet_presence_decode(bytes,packet.bytes,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); put(bytes+ledger+16,counter,8);
+    unsigned char *extended=dx_alloc(packet.bytes+1); memcpy(extended,bytes,packet.bytes); extended[packet.bytes]=0;
+    CHECK(sheet_presence_decode(extended,packet.bytes+1,SIZE_MAX,&decoded,NULL)==SHEET_PRESENCE_INVALID && decoded==prior); free(extended);
+    sheet_presence_free(&asset); workbook_free(&b); analysis_free(&actual); sheet_presence_packet_free(&packet);
+    copy=sheet_presence_view(decoded); CHECK(copy.sheet->view.widths[16383]==1200 && copy.sheet->source_versions.items[0].raw.bytes && !strcmp(copy.primary->table,"alpha"));
+    sheet_presence_free(&decoded); sheet_presence_packet_free(&packet);
+}
+static void empty_wire(void) {
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Blank",&(Analysis){0},NULL));
+    SheetPresenceAsset *asset=NULL,*decoded=NULL; SheetPresencePacket packet={0}; SheetPresenceWireInfo info;
+    CHECK(sheet_presence_capture((SheetPresenceView){b.id,b.sheet_high_water,b.sheets,&b.sheets[0].analysis},SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_wire_measure(asset,&info)==SHEET_PRESENCE_OK && !info.cells && !info.columns && !info.object_high_water && !info.source_high_water);
+    CHECK(sheet_presence_encode(asset,info.bytes+info.validation_scratch,&packet)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_decode(packet.data,packet.bytes,info.owned+info.validation_scratch,&decoded,NULL)==SHEET_PRESENCE_OK);
+    SheetPresenceView view=sheet_presence_view(decoded);
+    CHECK(view.primary->kind==SOURCE_NONE && !view.primary->path && !view.sheet->cells.count && !view.sheet->view.column_count && !view.sheet->view.canvas_zoom && !view.sheet->formats.count && !view.sheet->objects.count);
+    CHECK(view.sheet->id==b.sheets[0].id && !view.sheet->hidden && view.sheet_high_water==b.sheet_high_water);
+    sheet_presence_packet_free(&packet); sheet_presence_free(&decoded); sheet_presence_free(&asset); workbook_free(&b);
+}
+int main(void) { empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }
