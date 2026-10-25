@@ -13,6 +13,7 @@
 #include "../workbook/object_import_draft.h"
 #include "../workbook/object_move_command.h"
 #include "../workbook/range_command.h"
+#include "../workbook/cells_tsv_scan.h"
 #include "../workbook/workbook_width_command.h"
 #include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
@@ -5487,12 +5488,14 @@ static bool admit_manual_range(void *context,const FormatStore *formats,size_t a
     if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Range exceeds the current memory budget."); } return false;
 }
 #endif
-static bool move_manual_range(App *a,RangeCommand command,const RangeCommandTarget *captured,char **error) {
+static bool move_manual_range_result(App *a,RangeCommand command,const RangeCommandTarget *captured,RangeCommandResult *out,char **error) {
     RangeCommandContext context=manual_range_context(a); RangeCommandPlanInfo info={0};
     RangeCommandStatus measured=workbook_range_command_measure(&context,a->book.active,command,&info,error);
     if (measured==RANGE_COMMAND_NOOP) {
-        if (!captured) return true;
-        return workbook_apply_range_command_recorded(&context,captured,command,NULL,error).status==RANGE_COMMAND_NOOP;
+        RangeCommandResult result={.status=RANGE_COMMAND_NOOP};
+        if (captured) result=workbook_apply_range_command_recorded(&context,captured,command,NULL,error);
+        if (out) *out=result;
+        return result.status==RANGE_COMMAND_NOOP;
     }
     if (measured!=RANGE_COMMAND_READY) return false;
     if (info.owned>SIZE_MAX-info.validation_scratch) { if (error) *error=dx_strdup("Range planning reservation overflow."); return false; }
@@ -5507,7 +5510,11 @@ static bool move_manual_range(App *a,RangeCommand command,const RangeCommandTarg
     RangeCommandTarget target;
     if (!captured) { if (!workbook_prepare_range_command(&context,a->book.active,&target,error)) return false; captured=&target; }
     RangeCommandResult result=workbook_apply_range_command_recorded(&context,captured,command,NULL,error);
+    if (out) *out=result;
     return result.status==RANGE_COMMAND_APPLIED || result.status==RANGE_COMMAND_NOOP;
+}
+static bool move_manual_range(App *a,RangeCommand command,const RangeCommandTarget *captured,char **error) {
+    return move_manual_range_result(a,command,captured,NULL,error);
 }
 static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replace,const RangeCommandTarget *captured,char **error) {
     Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); SheetRange range;
@@ -7639,9 +7646,29 @@ static void draw_pipeline(App *a,Rectangle r) {
         REVIEW_FEEDBACK_SCROLL(a,"pipeline",table,"pane.transformations.scrollbar","pane.transformations.body",layout.outer_scrollbar,pipeline_scrollbar_thumb(layout.outer_scrollbar,content,viewport,layout.outer_offset,scale),r,REVIEW_WORKSPACE_AVAILABLE(a) && !a->left_drawer && !a->busy,a->pipeline_outer_bar.dragging);
     }
 }
+static bool paste_extent_field(void *context,uint64_t row,size_t column,const char *text,size_t bytes,char **error) {
+    (void)context; (void)row; (void)column; (void)text; (void)bytes; (void)error; return true;
+}
 static void paste_selection(App *a) {
     const char *text=GetClipboardText(); char *error=NULL; size_t rows=0,columns=0;
     Worksheet *sheet=active_sheet(a); uint64_t revision=sheet->cells.revision;
+    if (text && manual_range_owner(a,sheet)) {
+        RangeCommandResult result={0};
+        bool accepted=move_manual_range_result(a,(RangeCommand){.operation=RANGE_OPERATION_PASTE,
+            .row=a->grid.row,.column=a->grid.col,.text=text},NULL,&result,&error);
+        if (accepted) {
+            rows=result.rows; columns=result.columns;
+            /* Preserve ordinary paste selection even when values are identical;
+               use the same grammar without allocating a second cell snapshot. */
+            if (result.status==RANGE_COMMAND_NOOP && !cells_tsv_scan(a->grid.row,a->grid.col,text,paste_extent_field,NULL,&rows,&columns,&error)) {
+                if (error) status(a,error); free(error); a->consume_grid_input=true; return;
+            }
+            grid_ensure_columns(&a->grid,a->grid.col+columns); grid_select_cell(&a->grid,a->grid.row,a->grid.col,false);
+            a->grid.end_row=a->grid.row+rows-1; a->grid.end_col=a->grid.col+columns-1;
+            status(a,"Cells pasted.");
+        } else if (error) status(a,error);
+        free(error); a->consume_grid_input=true; return;
+    }
     if (text && cells_paste_checked(&sheet->cells,a->grid.row,a->grid.col,text,&rows,&columns,paste_guard,a,&error)) {
         if (revision!=sheet->cells.revision) worksheet_record(sheet,EDIT_CELLS);
         grid_ensure_columns(&a->grid,a->grid.col+columns); grid_select_cell(&a->grid,a->grid.row,a->grid.col,false);
@@ -15714,6 +15741,9 @@ static void range_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_COLUMN_WIDTH
 static void column_width_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_PASTE_COMMAND
+static void paste_command_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_ORIGIN
 static void table_origin_test_frame(AppSession *session);
 #endif
@@ -16622,6 +16652,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_COLUMN_WIDTH
     column_width_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_PASTE_COMMAND
+    paste_command_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_ORIGIN
     table_origin_test_frame(session);
 #endif
@@ -17002,4 +17035,7 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_COLUMN_WIDTH
 #include "../../tests/support/column_width_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_PASTE_COMMAND
+#include "../../tests/support/paste_command_app.inc"
 #endif

@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "paste-command": ("build/tests/test_paste_command-gui", "PASS: native manual paste workflow",
+                      r"^PASS: native manual paste workflow \(13 stages, [1-9]\d* checks\)$", 13),
     "column-width": ("build/tests/test_column_width-gui", "PASS: native column width workflow",
                      r"^PASS: native column width workflow \(30 stages, [1-9]\d* checks\)$", 30),
     "table-origin": ("build/tests/test_table_origin-gui", "PASS: native loaded Table origin workflow",
@@ -135,9 +137,9 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
-    "paste-range-command": Feature(("cell_tsv", "cell_paste_plan", "range_event", "range_command", "history_range"), "",
+    "paste-range-command": Feature(("cell_tsv", "cell_paste_plan", "range_event", "range_command", "history_range"), "paste-command",
         ("python3 tools/test.py feature --feature range-command",),
-        ("src/workbook/range_command.c: admitted manual text paste", "tests/test_range_command.c")),
+        ("src/workbook/range_command.c: admitted manual text paste", "tests/test_range_command.c", "src/app/app.c: manual paste adapter", "tests/support/paste_command_app.inc")),
     "column-range-command": Feature(("cell_range_plan", "range_event", "range_command", "history_range"), "column-width",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/range_command.c: complete manual columns", "tests/test_range_command.c")),

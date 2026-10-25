@@ -292,6 +292,13 @@ build/tests/test_object_create_command-gui: tests/test_object_create_command_gui
 -include $(OBJECT_CREATE_COMMAND_GUI_OBJECT:.o=.d)
 RANGE_COMMAND_GUI_OBJECT = build/obj/feature-range-command/app.o
 COLUMN_WIDTH_GUI_OBJECT = build/obj/feature-column-width/app.o
+PASTE_COMMAND_GUI_OBJECT = build/obj/feature-paste-command/app.o
+$(PASTE_COMMAND_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_PASTE_COMMAND)
+PASTE_COMMAND_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(PASTE_COMMAND_GUI_OBJECT)
+build/tests/test_paste_command-gui: tests/test_paste_command_gui.c $(PASTE_COMMAND_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_paste_command_gui.c $(PASTE_COMMAND_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(PASTE_COMMAND_GUI_OBJECT:.o=.d)
 $(COLUMN_WIDTH_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
 	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_COLUMN_WIDTH)
 COLUMN_WIDTH_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(COLUMN_WIDTH_GUI_OBJECT)
@@ -1004,6 +1011,7 @@ PARALLEL_NATIVE_GOALS = build/tests/test_column_widths build/tests/test_column_w
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
 	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/test_fixture build/tests/test_fixture-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_paste_command-gui
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif

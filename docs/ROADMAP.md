@@ -2443,3 +2443,20 @@ regression32.668s. Source proceeds to a pure pending-primary draft prerequisite;
 History independently captures complete authored single-sheet assets before
 future topology publication. Both exclude App adoption until their complete
 publication boundaries are implemented. Combined main Table acceptance follows.
+
+Combined main loaded-Table acceptance passes27.742s at `12beca5`, including12
+hidden real-App stages10.600s, current16 fixture generation and both origin
+model configurations (`20261025T201108-feature-90999`). Current pending-primary
+publication and retained replay are still separate.
+
+Manual text paste producer integrated as `a65eb33`; its App adapter now reserves
+and rechecks the complete prospective cell state before one chronological action.
+Identical paste preserves dirty state/Redo/revisions while retaining ordinary
+paste selection. Existing source/object guards and text-only clipboard semantics
+remain. The registered `paste-range-command` gate passes17.188s with both module
+configurations and13 hidden native clipboard/key/Undo/Save/Open stages (GUI7.023s),
+receipt `20261025T201939-feature-94665`. Malformed/boundary paste preserves state;
+styles, sparse clears, literal NULL, exact decimal text and quoted Unicode are
+covered. Broader source/object paste and mixed-range retained publication remain
+open. The Object lane now owns source-free mixed cell/object/format planning and
+a closed current range-event extension reusing existing definition assets.
