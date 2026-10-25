@@ -30,6 +30,8 @@ CORE += src/workbook/mixed_range_plan.c
 # Current topology owners are shared model code; native App activation stays session-only.
 CORE += src/workbook/sheet_presence_asset.c src/workbook/sheet_topology_event.c src/workbook/history_sheet_topology.c src/workbook/sheet_topology_remove.c src/workbook/sheet_topology_duplicate.c src/workbook/sheet_topology_replay.c
 CORE += src/workbook/source_versions_admission.c src/workbook/history_event_frame.c src/workbook/sheet_history_payload.c src/workbook/sheet_metadata_replay.c
+CORE += src/workbook/source_range_plan.c
+
 NATIVE_PERSISTENCE = src/app/versionpreview.c src/workbook/version_preview.c src/app/versionstate.c src/data/worker_archive.c src/workbook/version_save.c src/workbook/archive_write.c src/workbook/archive_read.c src/workbook/version_restore.c src/workbook/version_read.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/core_compare.c src/workbook/core_payload.c src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
 SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/versionview.c src/ui/versionpreviewview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
@@ -2432,8 +2434,8 @@ build/tests/test_sheet_history_applicability-debug: $(SHEET_HISTORY_APPLICABILIT
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_HISTORY_APPLICABILITY_OBJECTS:.o=.d) $(SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS:.o=.d)
 # Guarded source-range projection uses the existing complete model dependency set.
-SOURCE_RANGE_PLAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_OBJECTS)) build/obj/release/cell-command/src/workbook/source_range_plan.o build/obj/release/cell-command/tests/test_source_range_plan.o
-SOURCE_RANGE_PLAN_SAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_SAN_OBJECTS)) build/obj/sanitize/cell-command/src/workbook/source_range_plan.o build/obj/sanitize/cell-command/tests/test_source_range_plan.o
+SOURCE_RANGE_PLAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_OBJECTS)) build/obj/release/cell-command/tests/test_source_range_plan.o
+SOURCE_RANGE_PLAN_SAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_SAN_OBJECTS)) build/obj/sanitize/cell-command/tests/test_source_range_plan.o
 build/tests/test_source_range_plan: $(SOURCE_RANGE_PLAN_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $(SOURCE_RANGE_PLAN_OBJECTS) build/web-tests/platform-model.o,$(THREAD_LIBS) -lm)
 build/tests/test_source_range_plan-debug: $(SOURCE_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests

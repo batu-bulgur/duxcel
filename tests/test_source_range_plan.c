@@ -52,6 +52,9 @@ static void clear(void) {
     CHECK(source_range_clear_plan(c,(SheetRange){0,UINT64_MAX,0,10},SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID);
     c.ready=false; CHECK(source_range_clear_plan(c,r,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); c.ready=true; c.source_columns=0;
     CHECK(source_range_clear_plan(c,r,0,info.validation_scratch,&out,NULL)==SOURCE_RANGE_READY && !memcmp(&before,s,sizeof(before)));
+    CHECK(cells_set(&s->cells,1,1,"Manual overlap to clear",NULL)); worksheet_record(s,EDIT_CELLS); before=*s; c.source_columns=3;
+    CHECK(source_range_clear_plan(c,r,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_READY && !out.count && !memcmp(&before,s,sizeof(before)));
+    CHECK(source_range_paste_plan(c,100,4,"Outside protected rectangle",SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_READY && !memcmp(&before,s,sizeof(before)));
     workbook_free(&b); cells_snapshot_free(&out);
 }
 int main(void) { paste(); clear(); printf("PASS: %u guarded source range projection checks\n",checks); return 0; }

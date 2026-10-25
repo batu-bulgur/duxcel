@@ -358,6 +358,58 @@ static void template_paste_command(void) {
     cmd.row=100; cmd.column=2; cmd.text=""; CHECK(workbook_apply_range_command_recorded(&c,t,cmd,NULL,NULL).status==RANGE_COMMAND_PROTECTED);
     free(t); workbook_free(&b);
 }
+typedef struct { PasteProbe paste; unsigned mode; size_t other_columns; RangeSourcePolicy other_policy; } SourcePasteProbe;
+static bool source_paste_reserve(void *context,const WorkbookHistoryRangeRecord *record,void **ticket,char **error) {
+    SourcePasteProbe *p=context; bool ok=paste_reserve(&p->paste,record,ticket,error); RangeCommandContext *c=p->paste.context;
+    if (!ok) return false;
+    switch (p->mode) {
+    case 1: (*(uint64_t *)c->source->rows)++; break;
+    case 2: (*(size_t *)c->source->columns)++; break;
+    case 3: (*(bool *)c->source->count_pending)=true; break;
+    case 4: (*(bool *)c->source->fetch_failed)=true; break;
+    case 5: (*(bool *)c->source->ready)=false; break;
+    case 6: (*(uint64_t *)c->primary_epoch)++; break;
+    case 7: c->command.book->sheets[0].source_versions.high_water++; break;
+    case 8: c->command.book->sheets[0].analysis.source_version++; break;
+    case 9: c->command.book->sheets[0].formats.scopes[0].owner++; break;
+    case 10: p->other_columns=*c->source->columns; ((RangeSourcePolicy *)c->source)->columns=&p->other_columns; break;
+    case 11: c->source=NULL; break;
+    case 12: p->other_policy=*c->source; c->source=&p->other_policy; break;
+    }
+    return true;
+}
+static void source_cells_command(void) {
+    for (unsigned mode=0;mode<=12;mode++) {
+        Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Actual source",&(Analysis){0},NULL)); Worksheet *s=b.sheets;
+        Analysis primary={.kind=SOURCE_DEMO}; CHECK(objects_add_table(&s->objects,30,8,"Protected Table",&primary,NULL)==0); worksheet_record(s,EDIT_OBJECTS);
+        CHECK(cells_set(&s->cells,1,4,"NULL",NULL)); worksheet_record(s,EDIT_CELLS); s->formats.source_aware=true;
+        s->formats.scope_count=1; s->formats.scopes=dx_alloc(sizeof(*s->formats.scopes));
+        s->formats.scopes[0]=(FormatScope){0,dx_strdup("opaque-result"),13}; b.dirty=false;
+        uint64_t request=1,epoch=1,rows=10; size_t columns=3; bool pending=false,failed=false,ready=true;
+        RangeSourcePolicy policy={&rows,&columns,&pending,&failed,&ready}; RangeCommandContext c=context(&b,&request,&epoch); c.primary=&primary; c.source=&policy;
+        RangeCommandTarget *t=target(&c); char *text=dx_strdup("New\t\"\"\n\"two\tparts\"\t9007199254740993.0123456789");
+        RangeCommand cmd={.operation=RANGE_OPERATION_PASTE,.row=1,.column=4,.text=text}; RangeCommandPlanInfo info={0};
+        CHECK(workbook_range_command_measure(&c,0,cmd,&info,NULL)==RANGE_COMMAND_READY && info.rows==2 && info.columns==2 && info.validation_scratch);
+        CellStore cells=s->cells; ObjectStore objects=s->objects; FormatStore formats=s->formats;
+        c.command.plan_reserved=info.owned+info.validation_scratch-1; CHECK(workbook_apply_range_command_recorded(&c,t,cmd,NULL,NULL).status==RANGE_COMMAND_LIMIT && !b.command_revision); c.command.plan_reserved=SIZE_MAX;
+        SourcePasteProbe probe={.paste={&c,text,false,false,0,0},.mode=mode}; WorkbookHistoryRangeRecorder recorder={source_paste_reserve,paste_publish,paste_cancel,&probe};
+        RangeCommandResult result=workbook_apply_range_command_recorded(&c,t,cmd,&recorder,NULL);
+        CHECK(!memcmp(&objects,&s->objects,sizeof(objects)) && !memcmp(&formats,&s->formats,sizeof(formats)) && !s->width_revision);
+        if (mode) CHECK(result.status==RANGE_COMMAND_STALE && probe.paste.cancel==1 && !probe.paste.publish && !b.command_revision && !b.dirty && !memcmp(&cells,&s->cells,sizeof(cells)));
+        else {
+            CHECK(result.status==RANGE_COMMAND_APPLIED && result.effects==2 && probe.paste.publish==1 && !probe.paste.cancel && !strcmp(cells_get(&s->cells,1,4),"New") && !strcmp(cells_get(&s->cells,2,5),"9007199254740993.0123456789"));
+            CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && !strcmp(cells_get(&s->cells,1,4),"NULL")); free(t); t=target(&c);
+            cmd.text="NULL"; c.command.plan_reserved=c.command.validation_reserved=0;
+            CHECK(workbook_apply_range_command_recorded(&c,t,cmd,NULL,NULL).status==RANGE_COMMAND_NOOP && s->redo_actions_count==1 && b.command_revision==2);
+            rows++; CHECK(workbook_apply_range_command_recorded(&c,t,cmd,NULL,NULL).status==RANGE_COMMAND_STALE); rows--;
+            c.command.plan_reserved=c.command.validation_reserved=SIZE_MAX; cmd=(RangeCommand){.operation=RANGE_OPERATION_CLEAR,.range={0,100,0,20}};
+            CHECK(workbook_apply_range_command_recorded(&c,t,cmd,NULL,NULL).status==RANGE_COMMAND_APPLIED && !s->cells.count && b.command_revision==3 && !memcmp(&objects,&s->objects,sizeof(objects)));
+            free(t); t=target(&c); CHECK(workbook_apply_range_command_recorded(&c,t,(RangeCommand){.operation=RANGE_OPERATION_INSERT_COLUMNS,.column_count=1},NULL,NULL).status==RANGE_COMMAND_PROTECTED && b.command_revision==3);
+        }
+        if (mode==8) s->analysis.source_version=0;
+        free(text); free(t); workbook_free(&b);
+    }
+}
 static void mixed_history_transfer(Worksheet *s,bool redo) {
     EditKind kind=(redo ? s->redo_actions : s->undo_actions)[(redo ? s->redo_actions_count : s->undo_actions_count)-1]; unsigned effects=worksheet_edit_effects(kind);
     ColumnWidthCommandContext wc={&s->view,&s->width_history,&s->width_revision,SIZE_MAX}; ColumnWidthCommand *widths=NULL;
@@ -407,4 +459,4 @@ static void mixed_columns_command(void) {
         CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
     }
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }

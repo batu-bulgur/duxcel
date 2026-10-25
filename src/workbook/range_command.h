@@ -3,19 +3,32 @@
 #include "object_fence.h"
 #include "cell_range_plan.h"
 #include "cell_paste_plan.h"
+#include "source_range_plan.h"
 #include "history_range.h"
 #include "workbook_width_command.h"
 typedef bool (*RangeCommandAdmission)(void *context,const FormatStore *prospective,size_t adopted,size_t scratch,char **error);
+/* Optional actual result policy for manual PASTE/CLEAR only. All pointers are
+   borrowed live authorities and must remain readable through recorder callbacks.
+   No default identity, source completion or movement policy is inferred. */
+typedef struct {
+    const uint64_t *rows; const size_t *columns;
+    const bool *count_pending,*fetch_failed,*ready;
+} RangeSourcePolicy;
 typedef struct {
     ObjectCommandContext command;
     const Analysis *primary; const uint64_t *primary_epoch;
     RangeCommandAdmission admit; void *admission_context;
+    const RangeSourcePolicy *source;
 } RangeCommandContext;
 typedef struct {
     ObjectCommandTarget owner;
-    const Analysis *authority; Analysis primary; uint64_t primary_epoch;
+    const Analysis *authority; Analysis primary,cached; uint64_t primary_epoch;
     CellStore cells; SheetCell entries[DX_MAX_EDIT_CELLS];
     FormatStore formats; FormatPatch patches[DX_FORMAT_PATCHES];
+    FormatScope scopes[DX_FORMAT_PATCHES*DX_FORMAT_GUARDS];
+    const RangeSourcePolicy *source_authority;
+    RangeSourcePolicy source; uint64_t source_rows; size_t source_columns;
+    bool source_present,count_pending,fetch_failed,result_ready;
     WorkbookWidthTarget widths;
 } RangeCommandTarget;
 typedef enum { RANGE_OPERATION_MOVE,RANGE_OPERATION_INSERT_ROWS,RANGE_OPERATION_DELETE_ROWS,RANGE_OPERATION_INSERT_COLUMNS,RANGE_OPERATION_DELETE_COLUMNS,RANGE_OPERATION_PASTE,RANGE_OPERATION_CLEAR } RangeCommandOperation;
@@ -32,8 +45,8 @@ typedef enum { RANGE_COMMAND_APPLIED,RANGE_COMMAND_NOOP,RANGE_COMMAND_READY,RANG
 typedef struct { RangeCommandStatus status; unsigned effects; uint64_t before_revision,after_revision; size_t rows,columns; } RangeCommandResult;
 /* Immediate single-owner native descriptor fences; captured strings/packets
    remain immutable. Primary means actual App authority, separate from Save
-   cache. This first owner admits source/object-free spatial manual formats only;
-   source-bearing ranges retain their existing complete producer. Fully contained
+   cache. Without an explicit source policy it admits source-free manual formats;
+   an explicit policy admits only guarded manual paste/Clear on source sheets. Fully contained
    source-free Pivot/Chart templates may move with manual cells/formats or
    translate as complete row/column-axis constituents under existing protections.
    Text-only paste outside templates preserves the existing full rectangle guard
@@ -49,7 +62,7 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *con
    Format history even with no global admission callback. Reserve before either
    model journal can evict, recheck all owners and transfer independent graphs.
    App owns budget/readiness, input/confirmation, selection and rendering. No IO,
-   retained App writer, source activation or source-bearing mixed-range admission.
+   retained App writer, source activation or source-bearing mixed-movement admission.
    Manual row and single-column insertion/deletion use this complete effect owner.
    Physical widths use committed Worksheet.view; App projects the admitted view
    into Grid. Source/object column paths remain separately protected. Text-only

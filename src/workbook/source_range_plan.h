@@ -11,7 +11,7 @@ typedef struct {
     uint64_t source_rows; size_t source_columns;
     bool count_pending,fetch_failed,ready;
 } SourceRangeContext;
-typedef struct { size_t owned,validation_scratch,rows,columns; } SourceRangePlanInfo;
+typedef struct { size_t owned,validation_scratch,rows,columns,count; } SourceRangePlanInfo;
 typedef enum { SOURCE_RANGE_READY,SOURCE_RANGE_NOOP,SOURCE_RANGE_INVALID,SOURCE_RANGE_PROTECTED,SOURCE_RANGE_LIMIT } SourceRangeStatus;
 /* Paste protects its WHOLE parsed rectangle, including ragged holes/empty clears.
    Clear only removes sparse manual cells, even across painted results. Both own
