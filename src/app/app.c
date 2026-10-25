@@ -15864,6 +15864,9 @@ static void column_width_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 static void paste_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_IMPORT_FORMAT
+static void source_import_format_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_MANUAL_FORMAT
 static void source_manual_format_test_frame(AppSession *session);
 #endif
@@ -16814,6 +16817,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
     paste_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_IMPORT_FORMAT
+    source_import_format_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_MANUAL_FORMAT
     source_manual_format_test_frame(session);
 #endif
@@ -17259,4 +17265,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_SOURCE_MANUAL_FORMAT
 #include "../../tests/support/source_manual_format_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_SOURCE_IMPORT_FORMAT
+#include "../../tests/support/source_import_format_app.inc"
 #endif
