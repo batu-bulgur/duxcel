@@ -57,6 +57,13 @@ A feature's `deferred_interactions` are implemented tests, kept available withou
 running them after every revision. Run a named interaction when its shared
 boundary changes or a reproduction needs it. Run the broad gate at a major
 milestone/release; it retains mutable engine ordering and existing coverage.
+Major milestones require local native full regression and maintained Wasm/browser
+gates, not just successful compilation. Include browser adapter/orchestration
+contracts and real shared-C/official-Worker App smoke/package checks; retain the
+source-scoped component evidence and state any separate platform limitations.
+After the coherent milestone passes, push its commits to origin, follow the
+matching CI/CD run and verify the resulting deployment when applicable. A green
+local gate or successful push alone does not prove remote CI/CD success.
 
 ```sh
 make test-affected FEATURE=selection-ladder TEST_ARGS='--modules selection_ladder selection --config sanitize'

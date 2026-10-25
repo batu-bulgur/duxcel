@@ -24,6 +24,8 @@
 
 ## Verification
 
+- At major milestones, run full local native regression plus the maintained Wasm/browser gates. After the coherent milestone checks pass, push the verified commits to origin and follow the matching CI/CD run through its actual result. Keep feature iteration focused; do not run this broad delivery sequence after each small slice.
+
 - Mark ordinary roadmap slices complete after their scoped automated checks pass. Do not add a routine hands-on-pending flag or require manual approval between slices. The user reserves detailed hands-on review for major milestones; record actual automated evidence without claiming human testing.
 
 - Default to a registered `make test-feature FEATURE=<id>` plan in `tools/test_catalog.py`: selected module tests plus the smallest real GUI slice. Inspect `--plan`; update ownership and deferred interaction coverage with each feature. Do not run all fast modules, full-App sanitizer, browser suites or platform lifecycle/Open gates after every feature revision. Run named interactions only when their boundary changes; full regression belongs at explicit major milestones/releases. Keep those tests implemented and sanitizer coverage available.

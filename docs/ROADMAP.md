@@ -2253,3 +2253,28 @@ W12c.3c.3a.2c.1 default-reply/origin lifecycle. Root owns shared integration and
 packaging. Object has the first desktop slot; subsequent GUI gates require
 explicit handoff. The passed native metadata matrix is retained, not repeated.
 No new signed edge package is claimed until the remaining boundary closes.
+
+
+## Major milestone delivery policy — 25 October 2026
+
+The user explicitly requires full local native and Wasm/browser verification at
+major milestones, followed by an origin push and actual CI/CD followup. Feature
+loops remain scoped. Current format cutover plus the completed narrow adapters
+form the next coherent milestone: integrate their focused acceptance, freeze main,
+run the full native inventory and local browser/build/package gates, resolve
+failures, then push and inspect the matching Web CI/Pages run. Native hosted CI
+remains separately configured; local native full acceptance is mandatory.
+Origin/main was fetched and is an ancestor of local main (196 commits ahead at
+`43fcbc5`, zero divergent remote commits); no force push is needed or authorized.
+
+BP0 current-core acceptance is now complete on source `ad80c4c`: normal actual
+Worker rewrite/export passes9.958s (13browser checks/9Worker steps,118native
+checks each release/sanitizer); owner-sentinel profile passes10.145s
+(17browser checks/9Worker steps,59native checks each). All28 core15 tables and
+9007199254740994/UINT64_MAX/zero high-waters remain exact, with original/input
+hashes unchanged. Object lane receipts are
+`build/tests/results/runs/20261025T170247-browser-10223` and
+`build/tests/results/runs/20261025T170332-browser-12263`. Normal App Wasm artifact
+`4099c0ea3c8c2db790ee` builds102.856s on the same clean source. These close the
+component probe, not browser workbook Open/Save. Desktop passed to History for
+its final28-stage metadata adapter gate; Source follows for primary-origin GUI.

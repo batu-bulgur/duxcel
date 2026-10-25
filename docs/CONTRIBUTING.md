@@ -14,7 +14,9 @@ ownership/local/interaction map in `tools/test_catalog.py` with the slice. The
 normal edit loop runs selected logic and one focused GUI workflow. Broader
 cross-feature tests remain implemented but run only for a changed shared
 boundary or an explicit milestone. `make test-milestone` retains native full
-regression; browser and platform lifecycle/Open gates remain explicit. Do not
+regression. Major milestones also require local Wasm builds and browser gates,
+then pushing verified commits to origin and following the matching CI/CD result.
+Platform lifecycle/Open gates follow their changed boundaries. Do not
 repeat all broad gates for each review revision. See [TESTING.md](TESTING.md).
 
 Extract cohesive controllers incrementally: borrowed typed snapshots in,
