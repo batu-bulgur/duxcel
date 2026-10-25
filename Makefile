@@ -2332,3 +2332,14 @@ build/tests/test_sheet_topology_remove: $(SHEET_TOPOLOGY_REMOVE_OBJECTS) build/w
 build/tests/test_sheet_topology_remove-debug: $(SHEET_TOPOLOGY_REMOVE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_TOPOLOGY_REMOVE_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_REMOVE_SAN_OBJECTS:.o=.d)
+
+# Pure prospective duplicate owner: current presence/event components, no engine/UI.
+SHEET_TOPOLOGY_DUPLICATE_SRC = $(filter-out src/workbook/sheet_topology_remove.c tests/test_sheet_topology_remove.c,$(SHEET_TOPOLOGY_REMOVE_SRC)) src/workbook/sheet_topology_duplicate.c tests/test_sheet_topology_duplicate.c
+SHEET_TOPOLOGY_DUPLICATE_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_DUPLICATE_SRC))))
+SHEET_TOPOLOGY_DUPLICATE_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_DUPLICATE_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_duplicate build/tests/test_sheet_topology_duplicate-debug
+build/tests/test_sheet_topology_duplicate: $(SHEET_TOPOLOGY_DUPLICATE_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_topology_duplicate-debug: $(SHEET_TOPOLOGY_DUPLICATE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_TOPOLOGY_DUPLICATE_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_DUPLICATE_SAN_OBJECTS:.o=.d)
