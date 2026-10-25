@@ -28,6 +28,10 @@ size_t workbook_lifecycle_metadata_staging(const Workbook *book,WorkbookSheetOpe
    owner/readiness and complete after-sheet/event fences remain separate.
    SIZE_MAX means absent/exhausted owner or invalid/overflowing bounded inputs. */
 size_t workbook_lifecycle_create_staging(const Workbook *book,const char *name,const Analysis *analysis);
+/* Conservative real DUPLICATE peak: shared producer clone/array/name bound
+   plus the first lifecycle ring. Existing graph, plan and stream are separate.
+   Invalid bounds/capacity/identity returns SIZE_MAX; no allocation/mutation. */
+size_t workbook_lifecycle_duplicate_staging(const Workbook *book,size_t sheet);
 /* Exact additional DELETE allocation: one detached Worksheet wrapper and, if
    absent, the first lifecycle ring. All owned contents move without a clone;
    existing live arrays/graphs, prepared payloads and streams are outer charges.

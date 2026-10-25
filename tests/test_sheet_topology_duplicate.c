@@ -1,6 +1,7 @@
 #include "workbook/sheet_topology_duplicate.h"
 #include "workbook/cell_command.h"
 #include "workbook/history.h"
+#include "workbook/lifecycle.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +22,92 @@ static Workbook fixture(void) {
     s->view.top=3; s->view.row=100; s->view.col=8; s->view.fraction=.125; s->view.canvas_zoom=1.25f;
     CHECK(workbook_prepare_command_session(&b,0,&error) && !error); b.dirty=false; return b;
 }
+static void adopted(void) {
+    Workbook b=fixture(); uint64_t epoch=30,id=b.sheets[0].id; Analysis actual=analysis_copy(&b.sheets[0].analysis); actual.schema=dx_strdup("main"); actual.table=dx_strdup("alpha");
+    SheetTopologyDuplicateContext c={&b,&epoch,&actual,id,SIZE_MAX,true,false,SIZE_MAX}; SheetTopologyDuplicatePlan *p=NULL;
+    CHECK(sheet_topology_duplicate_prepare(c,id,&p,NULL)==SHEET_DUPLICATE_READY);
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,11,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id}; WorkbookHistoryStream *stream=NULL,*other=NULL;
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
+    CHECK(sheet_topology_duplicate_apply(c,&p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_PROTECTED && p && b.count==2 && !b.lifecycle && !workbook_history_stream_state(stream).owned_bytes);
+    /* Fixture-only cache materialization; product handoff remains typed. */
+    analysis_free(&b.sheets[0].analysis); b.sheets[0].analysis=analysis_copy(&actual);
+    size_t allocation=workbook_lifecycle_duplicate_staging(&b,0);
+    CHECK(allocation>workbook_duplicate_staging(&b,0) && allocation-workbook_duplicate_staging(&b,0)==workbook_lifecycle_metadata_staging(&b,SHEET_HIDE));
+    c.adoption_reserved=allocation-1;
+    CHECK(sheet_topology_duplicate_apply(c,&p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_LIMIT && p && b.count==2 && !b.dirty && !workbook_history_stream_state(stream).owned_bytes);
+    c.adoption_reserved=allocation;
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&other)==HISTORY_STREAM_OK);
+    CHECK(sheet_topology_duplicate_reserve(c,p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_READY);
+    CHECK(sheet_topology_duplicate_apply(c,&p,other,SIZE_MAX,NULL)==SHEET_DUPLICATE_INVALID && p && !sheet_topology_duplicate_reserved(p) && b.count==2 && !workbook_history_stream_state(stream).owned_bytes);
+    CHECK(workbook_history_stream_free(&other,false)==HISTORY_STREAM_OK);
+    CHECK(sheet_topology_duplicate_reserve(c,p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_READY); b.active=0; uint64_t active=b.sheets[0].id;
+    c.reserved=0; CHECK(sheet_topology_duplicate_apply(c,&p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_LIMIT && p && b.count==2 && !b.dirty && !workbook_history_stream_state(stream).owned_bytes);
+    c.reserved=SIZE_MAX; uint64_t revision=b.command_revision,order=worksheet_history_high_water(),high=b.sheet_high_water;
+    CHECK(sheet_topology_duplicate_apply(c,&p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_APPLIED && !p);
+    CHECK(b.count==3 && b.active==1 && b.sheets[1].id==high+1 && b.sheet_high_water==high+1 && !strcmp(b.sheets[1].name,"Copy (3)") && b.command_revision==revision+1 && worksheet_history_high_water()==order+1);
+    CHECK(b.sheets[1].cells.cells!=b.sheets[0].cells.cells && b.sheets[1].view.widths!=b.sheets[0].view.widths && b.sheets[1].source_versions.items!=b.sheets[0].source_versions.items && b.sheets[1].source_versions.high_water==77 && b.sheets[1].objects.next_id==99 && !b.sheets[1].edit_session_id && !b.sheets[1].undo_actions_count);
+    CHECK(workbook_lifecycle_duplicate_staging(&b,0)==workbook_duplicate_staging(&b,0));
+    WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(stream,&held)==HISTORY_STREAM_OK);
+    const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); SheetTopologyEvent event={0};
+    CHECK(info->family==5 && info->encoding==2 && sheet_topology_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==SHEET_TOPOLOGY_OK && event.operation==SHEET_TOPOLOGY_ADD && event.sheet==high+1 && event.before.active==active && event.after.active==high+1);
+    SheetPresenceAsset *asset=NULL; CHECK(sheet_presence_decode(event.presence.data,event.presence.bytes,SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK);
+    bool matches=false; CHECK(sheet_presence_matches(asset,(SheetPresenceView){b.id,b.sheet_high_water,b.sheets+1,&b.sheets[1].analysis},&matches)==SHEET_PRESENCE_OK && matches);
+    CHECK(workbook_history_stream_complete(stream,&held)==HISTORY_STREAM_OK);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && b.count==2 && b.sheet_high_water==high+1 && b.sheets[b.active].id==active);
+    CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED && b.count==3 && b.sheets[1].id==high+1 && b.sheets[1].view.widths[16383]==1199.75f && !strcmp(b.sheets[1].analysis.table,"alpha"));
+    CHECK(workbook_history_stream_state(stream).pending==0 && workbook_history_stream_state(stream).current.action_high_water==1);
+    sheet_presence_free(&asset); sheet_topology_free(&event); CHECK(workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK); analysis_free(&actual); workbook_free(&b);
+}
+static void ring_and_limits(void) {
+    Workbook b=fixture(); uint64_t epoch=60,id=b.sheets[0].id; Analysis actual=analysis_copy(&b.sheets[0].analysis); actual.schema=dx_strdup("main"); actual.table=dx_strdup("alpha");
+    analysis_free(&b.sheets[0].analysis); b.sheets[0].analysis=analysis_copy(&actual);
+    for (unsigned i=0;i<DX_HISTORY;i++) { char name[32]; snprintf(name,sizeof(name),"Other%u",i); bool changed=false; CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=1,.name=name},&changed,NULL) && changed); }
+    b.dirty=false; uint64_t revision=b.command_revision,order=worksheet_history_high_water(),floor=workbook_lifecycle_floor(&b);
+    SheetTopologyDuplicateContext c={&b,&epoch,&actual,id,SIZE_MAX,true,false,SIZE_MAX}; SheetTopologyDuplicatePlan *p=NULL;
+    CHECK(sheet_topology_duplicate_prepare(c,id,&p,NULL)==SHEET_DUPLICATE_READY);
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,12,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id,.command_revision=b.command_revision}; WorkbookHistoryStream *stream=NULL;
+    CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){1,1},&stream)==HISTORY_STREAM_OK);
+    CHECK(sheet_topology_duplicate_apply(c,&p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_LIMIT && p && b.count==2 && b.command_revision==revision && !b.dirty && worksheet_history_high_water()==order && workbook_lifecycle_floor(&b)==floor);
+    CHECK(workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK);
+    CHECK(sheet_topology_duplicate_apply(c,&p,NULL,0,NULL)==SHEET_DUPLICATE_APPLIED && !p && b.count==3 && b.command_revision==revision+1 && worksheet_history_high_water()==order+1 && workbook_lifecycle_floor(&b)>floor);
+    analysis_free(&actual); workbook_free(&b);
+    b=fixture(); b.command_revision=UINT64_MAX-1; b.sheet_high_water=UINT64_MAX-1; id=b.sheets[0].id; actual=analysis_copy(&b.sheets[0].analysis); actual.schema=dx_strdup("main"); actual.table=dx_strdup("alpha");
+    analysis_free(&b.sheets[0].analysis); b.sheets[0].analysis=analysis_copy(&actual); c=(SheetTopologyDuplicateContext){&b,&epoch,&actual,id,SIZE_MAX,true,false,SIZE_MAX};
+    CHECK(sheet_topology_duplicate_prepare(c,id,&p,NULL)==SHEET_DUPLICATE_READY && sheet_topology_duplicate_presence(p).sheet->id==UINT64_MAX);
+    CHECK(sheet_topology_duplicate_apply(c,&p,NULL,0,NULL)==SHEET_DUPLICATE_APPLIED && !p && b.sheet_high_water==UINT64_MAX && b.command_revision==UINT64_MAX && workbook_history_peek(&b,false,NULL).status==WORKBOOK_HISTORY_LIMIT);
+    CHECK(workbook_duplicate_staging(&b,0)==SIZE_MAX && workbook_lifecycle_duplicate_staging(&b,0)==SIZE_MAX);
+    analysis_free(&actual); workbook_free(&b);
+}
+static void hidden_and_redo(void) {
+    Workbook b=fixture(); uint64_t epoch=65,id=b.sheets[0].id; Analysis actual=analysis_copy(&b.sheets[0].analysis); actual.schema=dx_strdup("main"); actual.table=dx_strdup("alpha");
+    analysis_free(&b.sheets[0].analysis); b.sheets[0].analysis=analysis_copy(&actual); b.sheets[0].hidden=true;
+    bool changed=false; CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=1,.name="Renamed"},&changed,NULL) && changed);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED);
+    WorkbookHistoryResult redo=workbook_history_peek(&b,true,NULL); CHECK(redo.status==WORKBOOK_HISTORY_READY && redo.lifecycle);
+    b.dirty=false; uint64_t revision=b.command_revision,order=worksheet_history_high_water(),high=b.sheet_high_water;
+    SheetTopologyDuplicateContext c={&b,&epoch,&actual,id,SIZE_MAX,true,false,0}; SheetTopologyDuplicatePlan *p=NULL;
+    CHECK(sheet_topology_duplicate_prepare(c,id,&p,NULL)==SHEET_DUPLICATE_READY && !sheet_topology_duplicate_presence(p).sheet->hidden);
+    CHECK(sheet_topology_duplicate_apply(c,&p,NULL,0,NULL)==SHEET_DUPLICATE_LIMIT && p && b.count==2 && !b.dirty && b.command_revision==revision && worksheet_history_high_water()==order && workbook_history_peek(&b,true,NULL).order==redo.order);
+    c.adoption_reserved=workbook_lifecycle_duplicate_staging(&b,0);
+    CHECK(sheet_topology_duplicate_apply(c,&p,NULL,0,NULL)==SHEET_DUPLICATE_APPLIED && !p && b.count==3 && b.sheets[0].hidden && !b.sheets[1].hidden && b.sheets[1].id==high+1 && workbook_history_peek(&b,true,NULL).status==WORKBOOK_HISTORY_EMPTY);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && b.count==2 && b.sheets[0].hidden && !b.sheets[b.active].hidden);
+    analysis_free(&actual); workbook_free(&b);
+}
+static void names_and_capacity(void) {
+    Workbook b; workbook_init(&b); char name[4097]; memset(name,'a',4096); name[4096]=0;
+    CHECK(workbook_add(&b,name,&(Analysis){0},NULL)); CHECK(workbook_prepare_command_session(&b,0,NULL));
+    b.dirty=false; uint64_t epoch=70,id=b.sheets[0].id; Analysis actual={0};
+    SheetTopologyDuplicateContext c={&b,&epoch,&actual,id,SIZE_MAX,true,false,SIZE_MAX}; SheetTopologyDuplicatePlan *p=NULL;
+    CHECK(sheet_topology_duplicate_prepare(c,id,&p,NULL)==SHEET_DUPLICATE_READY);
+    const char *prepared=sheet_topology_duplicate_presence(p).sheet->name; CHECK(strlen(prepared)==4084 && !strcmp(prepared+4080," (2)"));
+    CHECK(sheet_topology_duplicate_apply(c,&p,NULL,0,NULL)==SHEET_DUPLICATE_APPLIED && !p && b.count==2 && !strcmp(b.sheets[1].name+4080," (2)"));
+    for (size_t i=b.count;i<DX_MAX_SHEETS;i++) { char label[32]; snprintf(label,sizeof(label),"Extra%zu",i); CHECK(workbook_add(&b,label,&actual,NULL)); }
+    size_t count=b.count; uint64_t high=b.sheet_high_water,revision=b.command_revision; SheetTopologyDuplicateMeasure usage;
+    CHECK(sheet_topology_duplicate_measure(c,id,&usage)==SHEET_DUPLICATE_LIMIT && workbook_duplicate_staging(&b,0)==SIZE_MAX && !workbook_duplicate(&b,0,NULL) && b.count==count && b.sheet_high_water==high && b.command_revision==revision);
+    workbook_free(&b);
+}
 int main(void) {
+    adopted(); ring_and_limits(); hidden_and_redo(); names_and_capacity();
     Workbook b=fixture(); uint64_t epoch=10,id=b.sheets[0].id; Analysis actual=analysis_copy(&b.sheets[0].analysis); actual.schema=dx_strdup("main"); actual.table=dx_strdup("alpha");
     SheetTopologyDuplicateContext c={&b,&epoch,&actual,id,0,true,false,0}; SheetTopologyDuplicateMeasure usage;
     CHECK(sheet_topology_duplicate_measure(c,id,&usage)==SHEET_DUPLICATE_READY && usage.owned && usage.staging>usage.owned && usage.reservation);

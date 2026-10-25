@@ -106,6 +106,56 @@ SheetTopologyDuplicateStatus sheet_topology_duplicate_reserve(SheetTopologyDupli
     if (!workbook_history_topology_reserve(stream,&record,reserved,&plan->ticket,error)) return SHEET_DUPLICATE_LIMIT;
     status=sheet_topology_duplicate_check(context,plan); if (status!=SHEET_DUPLICATE_READY) sheet_topology_duplicate_cancel(plan); return status;
 }
+static bool cache_coherent(const SheetTopologyDuplicatePlan *p) {
+    size_t index=locate(p->book,p->sheet); if (index==p->book->count) return false;
+    Worksheet projected=p->book->sheets[index]; projected.id=p->added; projected.name=p->name; projected.hidden=false; bool matches=false;
+    return sheet_presence_matches(p->presence,(SheetPresenceView){p->book->id,p->added,&projected,&projected.analysis},&matches)==SHEET_PRESENCE_OK && matches;
+}
+static SheetTopologyDuplicateStatus refresh_navigation(SheetTopologyDuplicateContext c,SheetTopologyDuplicatePlan *p) {
+    uint64_t active=c.book->sheets[c.book->active].id; if (active==p->before.active) return SHEET_DUPLICATE_READY;
+    if (c.reserved<p->usage.staging) return SHEET_DUPLICATE_LIMIT;
+    SheetTopologyInfo info; if (sheet_topology_preflight(p->packet.data,p->packet.bytes,&info)!=SHEET_TOPOLOGY_OK) return SHEET_DUPLICATE_INVALID;
+    SheetLifecycleState before=p->before; before.active=active;
+    SheetPresencePacket presence={(unsigned char *)p->packet.data+p->packet.bytes-info.presence_bytes,info.presence_bytes};
+    SheetTopologyView event={SHEET_TOPOLOGY_ADD,p->added,before,p->after,&presence};
+    sheet_topology_duplicate_cancel(p);
+    SheetTopologyStatus status=sheet_topology_capture(event,info.bytes+info.validation_scratch,&p->packet);
+    if (status!=SHEET_TOPOLOGY_OK) return status==SHEET_TOPOLOGY_LIMIT ? SHEET_DUPLICATE_LIMIT : SHEET_DUPLICATE_INVALID;
+    p->before.active=active; return SHEET_DUPLICATE_READY;
+}
+static bool after_matches(const SheetTopologyDuplicatePlan *p) {
+    const Workbook *b=p->book;
+    if (b->id.high!=p->before.document.high || b->id.low!=p->before.document.low || b->edit_session_id!=p->document_session || b->command_revision!=p->revision+1 ||
+        b->count!=p->after.count || b->sheet_high_water!=p->after.high_water || b->active>=b->count || b->sheets[b->active].id!=p->added ||
+        b->history_branch!=p->order+1 || workbook_lifecycle_latest(b)!=p->order+1 || worksheet_history_high_water()!=p->order+1) return false;
+    for (size_t i=0;i<b->count;i++) if (b->sheets[i].id!=p->after_rows[i].id || b->sheets[i].hidden!=p->after_rows[i].hidden || strcmp(b->sheets[i].name,p->after_rows[i].name)) return false;
+    const Worksheet *added=b->sheets+b->active; bool matches=false;
+    if (added->edit_session_id || added->undo_actions_count || added->redo_actions_count || added->undo_count || added->redo_count || added->width_history ||
+        added->cells.undo_count || added->cells.redo_count || added->objects.undo_count || added->objects.redo_count || added->formats.undo_count || added->formats.redo_count ||
+        sheet_presence_matches(p->presence,(SheetPresenceView){b->id,b->sheet_high_water,added,&added->analysis},&matches)!=SHEET_PRESENCE_OK || !matches) return false;
+    WorkbookHistoryResult history=workbook_history_peek(b,false,NULL);
+    return (history.status==WORKBOOK_HISTORY_READY || history.status==WORKBOOK_HISTORY_LIMIT) && history.lifecycle && history.sheet_id==p->added && history.order==p->order+1;
+}
+SheetTopologyDuplicateStatus sheet_topology_duplicate_apply(SheetTopologyDuplicateContext c,SheetTopologyDuplicatePlan **owned,WorkbookHistoryStream *stream,size_t reserved,char **error) {
+    if (!owned || !*owned) return SHEET_DUPLICATE_INVALID; SheetTopologyDuplicatePlan *p=*owned;
+    SheetTopologyDuplicateStatus status=sheet_topology_duplicate_check(c,p);
+    if (status!=SHEET_DUPLICATE_READY) { sheet_topology_duplicate_cancel(p); return status; }
+    if (!cache_coherent(p)) { sheet_topology_duplicate_cancel(p); fail(error,"Materialize the actual primary through its ownership handoff before duplicating the sheet."); return SHEET_DUPLICATE_PROTECTED; }
+    size_t index=locate(c.book,p->sheet),adoption=workbook_lifecycle_duplicate_staging(c.book,index);
+    if (adoption==SIZE_MAX || adoption>c.adoption_reserved) { sheet_topology_duplicate_cancel(p); fail(error,"The real worksheet duplicate allocation is not admitted."); return SHEET_DUPLICATE_LIMIT; }
+    if (p->ticket && !workbook_history_topology_belongs(p->ticket,stream)) { sheet_topology_duplicate_cancel(p); return SHEET_DUPLICATE_INVALID; }
+    status=refresh_navigation(c,p); if (status!=SHEET_DUPLICATE_READY) { sheet_topology_duplicate_cancel(p); return status; }
+    if (stream && !p->ticket) { status=sheet_topology_duplicate_reserve(c,p,stream,reserved,error); if (status!=SHEET_DUPLICATE_READY) return status; }
+    status=sheet_topology_duplicate_check(c,p);
+    if (status!=SHEET_DUPLICATE_READY || !cache_coherent(p)) { sheet_topology_duplicate_cancel(p); return status==SHEET_DUPLICATE_READY ? SHEET_DUPLICATE_PROTECTED : status; }
+    bool changed=false;
+    if (!workbook_sheet_command(c.book,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=index},&changed,error)) { sheet_topology_duplicate_cancel(p); return SHEET_DUPLICATE_INVALID; }
+    /* Closed synchronous producer: no callbacks, queries, OS calls, allocation
+       or fallible validation occur between successful adoption and this proof. */
+    if (!changed || !after_matches(p)) abort();
+    if (p->ticket) workbook_history_topology_publish_adopted(&p->ticket,c.book);
+    sheet_topology_duplicate_free(owned); return SHEET_DUPLICATE_APPLIED;
+}
 void sheet_topology_duplicate_cancel(SheetTopologyDuplicatePlan *plan) { if (plan) workbook_history_topology_cancel(&plan->ticket); }
 void sheet_topology_duplicate_free(SheetTopologyDuplicatePlan **owned) {
     if (!owned || !*owned) return; SheetTopologyDuplicatePlan *p=*owned; sheet_topology_duplicate_cancel(p);

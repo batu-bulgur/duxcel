@@ -587,7 +587,33 @@ bool workbook_reorder(Workbook *b,size_t from,size_t to,char **error) {
     else if (to<=b->active && b->active<from) b->active++;
     b->dirty=true; return true;
 }
+static bool duplicate_add(size_t *bytes,size_t more) {
+    if (more==SIZE_MAX || *bytes>SIZE_MAX-more) return false; *bytes+=more; return true;
+}
+size_t workbook_duplicate_staging(const Workbook *b,size_t index) {
+    if (!b || !workbook_identity_valid(b) || !b->sheets || index>=b->count || b->count>=DX_MAX_SHEETS || b->sheet_high_water==UINT64_MAX) return SIZE_MAX;
+    const Worksheet *s=b->sheets+index;
+    if (!s->name || strlen(s->name)>4096 || s->cells.count>DX_MAX_EDIT_CELLS || s->cells.count>s->cells.capacity || (s->cells.count && !s->cells.cells) || s->cells.bytes>DX_CELL_BYTES ||
+        s->view.column_count>16384 || (s->view.column_count && (!s->view.columns || !s->view.widths)) ||
+        s->source_versions.bytes>DX_SOURCE_VERSIONS_BYTES) return SIZE_MAX;
+    ObjectSnapshot objects={s->objects.items,s->objects.count};
+    /* Real producer peak: a replacement Worksheet array can coexist with the
+       caller's old array. Unique-name normalization and final add hold at most
+       two maximum names. Copies use current authored contents, never journals.
+       Object-array capacity and ledger capacity are conservative upper bounds.
+       Existing global format admission validates each state serially; its
+       maximum uniqueness scratch is included independently of clone size. */
+    size_t bytes=(b->count+1)*sizeof(Worksheet)+8194+DX_FORMAT_VALIDATION_BYTES;
+    if (!duplicate_add(&bytes,analysis_text_bytes(&s->analysis)) || !duplicate_add(&bytes,objects_snapshot_owned_bytes(&objects)) ||
+        !duplicate_add(&bytes,format_owned_bytes(&s->formats,false)) || !duplicate_add(&bytes,s->source_versions.bytes) ||
+        !duplicate_add(&bytes,s->cells.count*sizeof(SheetCell)) || !duplicate_add(&bytes,s->cells.bytes) ||
+        !duplicate_add(&bytes,s->view.column_count*(sizeof(char *)+sizeof(float)))) return SIZE_MAX;
+    for (size_t i=0;i<s->view.column_count;i++) if (!s->view.columns[i] || strlen(s->view.columns[i])>65536 ||
+        !duplicate_add(&bytes,strlen(s->view.columns[i])+1)) return SIZE_MAX;
+    return bytes;
+}
 bool workbook_duplicate(Workbook *b,size_t index,char **error) {
+    if (workbook_duplicate_staging(b,index)==SIZE_MAX) return range_fail(error,"Choose a bounded worksheet with available duplicate capacity and identity.");
     if (index>=b->count) return range_fail(error,"Choose a worksheet to duplicate.");
     if (b->count>=DX_MAX_SHEETS) return range_fail(error,"A workspace supports up to 64 worksheets.");
     SourceVersions versions={0};

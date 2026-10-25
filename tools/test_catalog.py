@@ -154,7 +154,7 @@ FEATURES = {
         ("python3 tools/test.py native --scenario table navigation --config sanitize", "python3 tools/test.py feature --feature history-preview"),
         ("src/app/column_widths.inc", "src/app/app.c: physical width authority, schema projection and all width inputs",
          "src/workbook/workbook_width_command.c", "src/workbook/history.c", "src/grid/grid.c", "tests/support/column_width_app.inc")),
-    "sheet-duplicate": Feature(("sheet_topology_duplicate",), "",
+    "sheet-duplicate": Feature(("sheet_topology_duplicate", "workbook_lifecycle", "sheet_topology_remove"), "",
         ("python3 tools/test.py feature --feature workbook-lifecycle",),
         ("src/workbook/sheet_topology_duplicate.c", "src/workbook/sheet_topology_duplicate.h", "tests/test_sheet_topology_duplicate.c")),
     "sheet-topology": Feature(("sheet_topology_event", "history_sheet_topology", "sheet_topology_remove", "history_stream"), "",

@@ -30,6 +30,16 @@ SheetTopologyDuplicateStatus sheet_topology_duplicate_prepare(SheetTopologyDupli
    relocation are independent. New owner borrows remain valid until free. */
 SheetTopologyDuplicateStatus sheet_topology_duplicate_check(SheetTopologyDuplicateContext context,const SheetTopologyDuplicatePlan *plan);
 SheetTopologyDuplicateStatus sheet_topology_duplicate_reserve(SheetTopologyDuplicateContext context,SheetTopologyDuplicatePlan *plan,WorkbookHistoryStream *stream,size_t reserved,char **error);
+/* Real model-only duplicate. Requires the current cached primary to match the
+   independently captured actual primary; it never repairs a lagging cache.
+   Admit the shared real producer staging BEFORE optional event reservation and
+   lifecycle eviction. Navigation refresh affects unpublished fallback only and
+   requires the full preparation grant. Genuine SHEET_DUPLICATE issues one new
+   ID/action, then allocation-free actual graph/catalog/session/clock proof
+   precedes internal publication. Success consumes plan; failure preserves the
+   book and plan and cancels its ticket. An impossible closed-producer invariant
+   aborts in release too. No App, retained replay or IO activation. */
+SheetTopologyDuplicateStatus sheet_topology_duplicate_apply(SheetTopologyDuplicateContext context,SheetTopologyDuplicatePlan **plan,WorkbookHistoryStream *stream,size_t reserved,char **error);
 void sheet_topology_duplicate_cancel(SheetTopologyDuplicatePlan *plan);
 void sheet_topology_duplicate_free(SheetTopologyDuplicatePlan **plan);
 const SheetTopologyPacket *sheet_topology_duplicate_packet(const SheetTopologyDuplicatePlan *plan);

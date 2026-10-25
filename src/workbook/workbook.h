@@ -87,6 +87,12 @@ char *workbook_prepare_sheet_name(const Workbook *book,size_t except,const char 
 char *workbook_unique_sheet_name(const Workbook *book,const char *base,char **error);
 bool workbook_rename(Workbook *book,size_t index,const char *name,char **error);
 bool workbook_reorder(Workbook *book,size_t from,size_t to,char **error);
+/* Conservative additional allocation peak used by the real duplicate producer:
+   current authored clone + replacement sheet array + bounded naming and
+   existing global format-validation scratch.
+   No allocation/mutation; existing graph/journals remain caller charges.
+   Invalid structural bounds/capacity/identity exhaustion returns SIZE_MAX. */
+size_t workbook_duplicate_staging(const Workbook *book,size_t index);
 bool workbook_duplicate(Workbook *book,size_t index,char **error);
 bool workbook_hide(Workbook *book,size_t index,bool hidden,char **error);
 size_t workbook_visible_count(const Workbook *book);

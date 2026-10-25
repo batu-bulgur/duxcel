@@ -24,6 +24,11 @@ size_t workbook_lifecycle_create_staging(const Workbook *b,const char *name,cons
     if (bytes==SIZE_MAX || naming>SIZE_MAX-bytes) return SIZE_MAX; bytes+=naming;
     if (ring>SIZE_MAX-bytes) return SIZE_MAX; return bytes+ring;
 }
+size_t workbook_lifecycle_duplicate_staging(const Workbook *b,size_t sheet) {
+    size_t bytes=workbook_duplicate_staging(b,sheet);
+    size_t ring=b && !b->lifecycle ? sizeof(struct WorkbookLifecycle) : 0;
+    return bytes==SIZE_MAX || bytes>SIZE_MAX-ring ? SIZE_MAX : bytes+ring;
+}
 size_t workbook_lifecycle_remove_staging(const Workbook *b,size_t sheet) {
     if (!b || !b->sheets || sheet>=b->count || b->count>DX_MAX_SHEETS ||
         (!b->sheets[sheet].hidden && workbook_visible_count(b)<=1)) return SIZE_MAX;
