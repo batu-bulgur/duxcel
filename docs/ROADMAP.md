@@ -2526,3 +2526,15 @@ The failed full report is preserved. Remaining engine/native acceptance uses a
 source-scoped coverage union; App/product source and its570-stage inputs remain
 unchanged. Document Open CLI inspection now parses arguments before any build,
 fixture output or hidden launch, with a no-side-effect contract.
+
+Remaining ordered engines pass628.647s with the four unchanged core/workbook
+binaries reused by verified hash (`milestone-0df3e34-engines-remaining`), completing
+the maintained116 engine checks across both reports. Native GPU110/background477
+checks pass. The broad native run reaches stage685 after all prefix assertions
+and terminal source-record-pages checks, then rejects an obsolete expectation
+that live source-preview autofit creates no history. The fixture now checks one
+width action only when the width changes, captures that new baseline, and still
+requires historical preview fit to preserve it. Its12-stage sanitizer interaction
+passes54.900s (`20261025T215654-affected-71163`). The original failed native report
+is preserved; prefix evidence and a fresh zoom/tail plus remaining native
+scenarios will be audited explicitly, without claiming one successful full run.

@@ -10329,6 +10329,7 @@ static void layout_smoke_step(App *a,int *step) {
     static Cell *author_cells; static uint64_t author_revision;
     static Cell *ribbon_cells; static uint64_t ribbon_row,ribbon_top; static size_t ribbon_col; static bool ribbon_dirty,previous_workbook;
     static Grid preview_live_grid; static size_t preview_live_history,preview_live_cells;
+    static float preview_fit_width;
     static char *preview_root_sum;
     static CellFormat flyout_format;
     static size_t field_detail_count,field_color_count,field_actions_count;
@@ -12835,9 +12836,13 @@ static void layout_smoke_step(App *a,int *step) {
     case 681:
         if (!smoke_grid_chrome(&a->source_preview,1) || fabsf(a->source_preview.zoom-1.6f)>.001f || a->source_preview.gutter!=preview_live_grid.gutter || a->source_preview.body.y!=preview_live_grid.body.y || a->request_id!=request || a->objects[0].page.cells!=author_cells) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/native-fixed-headers-source-preview.png");
+        preview_fit_width=a->grid.widths[0];
         a->source_preview.fit_requested=true; a->source_preview.fit_column=0; break;
     case 682:
         if (a->source_preview.fit_requested || a->source_preview.widths[0]!=a->grid.widths[0] || a->request_id!=request || !smoke_grid_chrome(&a->source_preview,1)) goto failed;
+        if (s->undo_actions_count!=draft_history+(a->grid.widths[0]!=preview_fit_width) ||
+            (a->grid.widths[0]!=preview_fit_width && s->undo_actions[s->undo_actions_count-1]!=EDIT_WIDTHS)) goto failed;
+        draft_history=s->undo_actions_count;
         a->selected_object=-1;
         if (!step_preview_start(&a->step_preview,&a->analysis,0,0,a->analysis_revision,&a->grid)) goto failed;
         step_preview_presentation(&a->step_preview,&a->page,&a->grid,&s->formats,0); schedule_step_preview(a); break;
