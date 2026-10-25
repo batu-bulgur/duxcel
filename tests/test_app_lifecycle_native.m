@@ -41,7 +41,10 @@ bool dx_test_session_native_input(void) {
         NSMenuItem *about=nil;
         for (NSMenuItem *item in [NSApp.mainMenu itemAtIndex:0].submenu.itemArray)
             if ([item.title isEqualToString:@"About Duxcel"]) about=item;
-        if (!about || ![NSApp.dockTile.badgeLabel isEqualToString:@"TEST"] ||
+        const char *lane=getenv("DUXCEL_LANE");
+        if (!lane || !*lane) lane=build_info()->lane;
+        NSString *badge=*lane ? [NSString stringWithFormat:@"TEST %s",lane] : @"TEST";
+        if (!about || ![NSApp.dockTile.badgeLabel isEqualToString:badge] ||
             ![NSApp sendAction:about.action to:about.target from:about]) return false;
         NSPanel *panel=nil;
         for (NSWindow *candidate in NSApp.windows)

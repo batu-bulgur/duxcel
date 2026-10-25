@@ -2458,3 +2458,15 @@ unchanged. `20261025T191326-native-62576` passes clipboard and all remaining nam
 failed; this is explicit complete coverage by source-scoped union, not a claimed
 single-run full success. GPU/current changed-boundary GUI, platform and final
 Wasm/browser packaging remain the delivery tail.
+
+The native delivery tail passes at clean `feba1ae`:150 changed-boundary GUI
+stages, GPU110, icons, current app_preview release/sanitizer, actual three-process
+recovery in both configurations and About (222.734s); receipt
+`20261025T191831-native-63087`. Platform lifecycle uses its own worktree/desktop
+locks and must run directly, not inside a second lane operation lock. Its native
+badge assertion now checks TEST plus the runtime/compiled lane identity instead
+of assuming bare TEST. Both38-check session/menu/Quit variants pass with the
+477-check hidden-window guard (`20261025T192638-lifecycle-66456`). Only the test
+expectation changes; product behavior is unchanged. The remaining standalone App
+workflows will also be refreshed against the changed general capture/navigation
+adapter before final artifact and browser delivery.
