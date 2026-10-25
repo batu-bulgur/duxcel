@@ -124,13 +124,12 @@ static bool membership_valid(const uint64_t *ids,size_t count,const size_t *fiel
     for (size_t i=0;i<field_count;i++) if (fields[i]>=DX_FORMAT_FIELDS || (i && fields[i-1]>=fields[i])) return false;
     return true;
 }
-bool format_valid(const FormatStore *s,char **error) {
+static bool state_shape_valid(const FormatStore *s,char **error) {
     if (s->count>DX_FORMAT_PATCHES || (s->count && !s->items) || s->scope_count>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS || (s->scope_count && !s->scopes)) return fail(error,"Cell formats exceed the workbook's bounded range limit.");
     for (size_t i=0;i<s->scope_count;i++) {
         const FormatScope *scope=&s->scopes[i];
         if (!scope->definition || !scope->bytes || scope->bytes>=DX_FORMAT_SCOPE_BYTES) return fail(error,"A cell format result definition exceeds its 256 KiB limit.");
     }
-    if (!scopes_unique(s->scopes,s->scope_count)) return fail(error,"Duplicate cell format result definition.");
     for (size_t i=0;i<s->count;i++) {
         const FormatPatch *p=&s->items[i];
         if (!range_valid(p->range) || !p->mask || (p->mask&~FORMAT_ALL) || !value_valid(p->value)) return fail(error,"Invalid cell format range.");
@@ -140,6 +139,11 @@ bool format_valid(const FormatStore *s,char **error) {
             p->record_ids!=NULL || p->record_count || p->fields!=NULL || p->field_count) return fail(error,"Invalid cell format record membership.");
         for (size_t g=0;g<p->guard_count;g++) if (p->guard_ids[g]>=s->scope_count || (g && p->guard_ids[g-1]>=p->guard_ids[g])) return fail(error,"Invalid cell format scope reference.");
     }
+    return true;
+}
+bool format_valid(const FormatStore *s,char **error) {
+    if (!state_shape_valid(s,error)) return false;
+    if (!scopes_unique(s->scopes,s->scope_count)) return fail(error,"Duplicate cell format result definition.");
     if (state_bytes(current(s))>DX_FORMAT_CURRENT_BYTES || format_owned_bytes(s,true)>DX_FORMAT_HISTORY_BYTES) return fail(error,"Cell format storage exceeds its bounded memory limit.");
     return true;
 }
@@ -346,14 +350,29 @@ static bool move_resets_records(const FormatStore *s,FormatRange from,FormatRang
     }
     return false;
 }
-bool format_plan_move(const FormatStore *s,FormatRange range,int64_t dr,int dc,FormatSnapshot *out,char **error) {
-    *out=(FormatSnapshot){0}; if (!range_valid(range) || dr<-(int64_t)DX_SHEET_ROWS || dr>(int64_t)DX_SHEET_ROWS || dc<-16384 || dc>16384 ||
-        (dr<0 && range.r0<(uint64_t)-dr) || (dc<0 && range.c0<(size_t)-dc) || (int64_t)range.r1+dr>=(int64_t)DX_SHEET_ROWS || (int64_t)range.c1+dc>=16384) return fail(error,"Formatting moves stay inside the worksheet.");
+FormatPlanStatus format_move_preflight(const FormatStore *s,FormatRange range,int64_t dr,int dc,char **error) {
+    if (!s || s->undo_count>DX_FORMAT_HISTORY || s->redo_count>DX_FORMAT_HISTORY) {
+        fail(error,"Invalid bounded formatting history."); return FORMAT_PLAN_INVALID;
+    }
+    if (!state_shape_valid(s,error)) return FORMAT_PLAN_INVALID;
+    if (!range_valid(range) || dr<-(int64_t)DX_SHEET_ROWS || dr>(int64_t)DX_SHEET_ROWS || dc<-16384 || dc>16384 ||
+        (dr<0 && range.r0<(uint64_t)-dr) || (dc<0 && range.c0<(size_t)-dc) || (int64_t)range.r1+dr>=(int64_t)DX_SHEET_ROWS || (int64_t)range.c1+dc>=16384) {
+        fail(error,"Formatting moves stay inside the worksheet."); return FORMAT_PLAN_INVALID;
+    }
     FormatRange destination={(uint64_t)((int64_t)range.r0+dr),(uint64_t)((int64_t)range.r1+dr),(size_t)((int64_t)range.c0+dc),(size_t)((int64_t)range.c1+dc)};
-    if ((dr || dc) && move_resets_records(s,range,destination)) return fail(error,"Moving this range would change record-format precedence through positional result resets. No formatting was changed.");
-    *out=snapshot(s); if (!dr && !dc) return true;
+    if ((dr || dc) && move_resets_records(s,range,destination)) {
+        fail(error,"Moving this range would change record-format precedence through positional result resets. No formatting was changed."); return FORMAT_PLAN_UNSUPPORTED;
+    }
+    return FORMAT_PLAN_OK;
+}
+FormatPlanStatus format_plan_move_checked(const FormatStore *s,FormatRange range,int64_t dr,int dc,FormatSnapshot *out,char **error) {
+    if (!out) { fail(error,"Formatting movement requires independent output ownership."); return FORMAT_PLAN_INVALID; }
+    *out=(FormatSnapshot){0}; FormatPlanStatus status=format_move_preflight(s,range,dr,dc,error); if (status!=FORMAT_PLAN_OK) return status;
+    if (!format_valid(s,error)) return FORMAT_PLAN_INVALID;
+    FormatRange destination={(uint64_t)((int64_t)range.r0+dr),(uint64_t)((int64_t)range.r1+dr),(size_t)((int64_t)range.c0+dc),(size_t)((int64_t)range.c1+dc)};
+    *out=snapshot(s); if (!dr && !dc) return FORMAT_PLAN_OK;
     bool relevant=false; for (size_t i=0;i<s->count;i++) if (s->items[i].selector!=FORMAT_RECORDS) relevant|=overlap(s->items[i].range,range) || overlap(s->items[i].range,destination);
-    if (!relevant) return true;
+    if (!relevant) return FORMAT_PLAN_OK;
     if (!append(out,(FormatPatch){.range=range,.mask=FORMAT_ALL,.value=format_default()},error) || !append(out,(FormatPatch){.range=destination,.mask=FORMAT_ALL,.value=format_default()},error)) goto failed;
     /* Clear the same imported eligibility as each original patch. A manual-only
        reset must not erase or expose an unrelated dormant result definition. */
@@ -369,8 +388,11 @@ bool format_plan_move(const FormatStore *s,FormatRange range,int64_t dr,int dc,F
         if (!append(out,patch,error)) goto failed;
     }
     if (!ready(s,out,error)) goto failed;
-    return true;
-failed: format_snapshot_free(out); return false;
+    return FORMAT_PLAN_OK;
+failed: format_snapshot_free(out); return FORMAT_PLAN_LIMIT;
+}
+bool format_plan_move(const FormatStore *s,FormatRange range,int64_t dr,int dc,FormatSnapshot *out,char **error) {
+    return format_plan_move_checked(s,range,dr,dc,out,error)==FORMAT_PLAN_OK;
 }
 bool format_plan_axis(const FormatStore *s,bool rows,uint64_t at,uint64_t count,bool insert,FormatSnapshot *out,char **error) {
     *out=(FormatSnapshot){0}; uint64_t limit=rows ? DX_SHEET_ROWS : 16384;

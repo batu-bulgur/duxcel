@@ -82,6 +82,8 @@ static void scoped_current_limits(void) {
     v.size=16; CHECK(format_apply(&s,(FormatRange){0,DX_SHEET_ROWS-1,0,0},FORMAT_SIZE,v,&error));
     CHECK(s.count==DX_FORMAT_PATCHES && s.scope_count==2 && format_resolve(&s,3,0,&scopes[0]).flags==FORMAT_BOLD && !format_resolve(&s,3,0,&changed).flags);
     uint64_t revision=s.revision;
+    CHECK(format_move_preflight(&s,(FormatRange){1,1,0,0},600,1,&error)==FORMAT_PLAN_OK);
+    CHECK(format_plan_move_checked(&s,(FormatRange){1,1,0,0},600,1,&plan,&error)==FORMAT_PLAN_LIMIT && !plan.items && !plan.scopes && s.revision==revision); clear_error(&error);
     CHECK(!format_plan_move(&s,(FormatRange){1,1,0,0},600,1,&plan,&error) && !plan.items && !plan.scopes && s.revision==revision && s.count==DX_FORMAT_PATCHES); clear_error(&error);
     CHECK(format_plan_axis(&s,true,0,DX_SHEET_ROWS-1,false,&plan,&error) && format_commit(&s,&plan) && !s.scope_count && s.source_aware && format_valid(&s,&error));
     CHECK(format_history(&s,false) && s.scope_count==2 && format_valid(&s,&error));
@@ -294,6 +296,8 @@ static void record_planners(void) {
     /* Full positional scoped resets could mask an existing raw-record patch,
        whose scope deliberately differs from the exact query result definition.
        Refuse the mixed operation before modifying any owned state/history. */
+    CHECK(format_move_preflight(&s,(FormatRange){0,2,0,1},10,4,&error)==FORMAT_PLAN_UNSUPPORTED); clear_error(&error);
+    CHECK(format_plan_move_checked(&s,(FormatRange){0,2,0,1},10,4,&plan,&error)==FORMAT_PLAN_UNSUPPORTED && !plan.items && !plan.scopes); clear_error(&error);
     CHECK(!format_plan_move(&s,(FormatRange){0,2,0,1},10,4,&plan,&error) && strstr(error,"record-format precedence") && !plan.items && !plan.scopes);
     CHECK(s.revision==revision && s.undo_count==undo && s.redo_count==redo && format_owned_bytes(&s,true)==bytes && s.count==3 && s.scope_count==2);
     CHECK(record_at(&s,0,0,&scope,8,1).flags==FORMAT_BOLD && record_at(&s,0,0,&scope,8,1).size==16 && record_at(&s,10,4,&scope,8,1).flags==FORMAT_BOLD); clear_error(&error);
@@ -682,6 +686,17 @@ static void cancellable_edit_plans(void) {
     CHECK(plan.items[0].record_ids[1]==UINT64_MAX && plan.items[0].fields[1]==16383 && !memcmp(plan.scopes[0].definition,definition,sizeof(definition)));
     format_snapshot_free(&plan);
 }
+static void typed_move_preflight(void) {
+    FormatStore s={0}; FormatSnapshot plan={0}; char *error=NULL; FormatStore before=s;
+    CHECK(format_move_preflight(&s,(FormatRange){0,0,0,0},-1,0,&error)==FORMAT_PLAN_INVALID); clear_error(&error);
+    CHECK(format_plan_move_checked(&s,(FormatRange){0,0,0,0},-1,0,&plan,&error)==FORMAT_PLAN_INVALID && !plan.items && !plan.scopes && !memcmp(&before,&s,sizeof(s))); clear_error(&error);
+    s.count=DX_FORMAT_PATCHES+1; CHECK(format_move_preflight(&s,(FormatRange){0,0,0,0},1,0,&error)==FORMAT_PLAN_INVALID); clear_error(&error);
+    CHECK(format_plan_move_checked(&s,(FormatRange){0,0,0,0},1,0,&plan,&error)==FORMAT_PLAN_INVALID && !plan.items && !plan.scopes); clear_error(&error); s.count=0;
+    s.undo_count=DX_FORMAT_HISTORY+1; CHECK(format_move_preflight(&s,(FormatRange){0,0,0,0},0,0,&error)==FORMAT_PLAN_INVALID); clear_error(&error); s.undo_count=0;
+    CHECK(format_move_preflight(&s,(FormatRange){0,0,0,0},0,0,&error)==FORMAT_PLAN_OK);
+    CHECK(format_plan_move_checked(&s,(FormatRange){0,0,0,0},0,0,&plan,&error)==FORMAT_PLAN_OK && !format_commit(&s,&plan) && !memcmp(&before,&s,sizeof(s)));
+    CHECK(format_plan_move_checked(&s,(FormatRange){0,0,0,0},0,0,NULL,&error)==FORMAT_PLAN_INVALID && !memcmp(&before,&s,sizeof(s))); clear_error(&error);
+}
 int main(void) {
     display("128450.00",2,true,"128,450.00"); display("-24860",2,true,"(24,860.00)"); display("-24860",0,false,"−24,860");
     display("9.995",2,true,"10.00"); display("-0.00005",4,true,"(0.0001)"); display("0.00000000001",4,false,"0.0000");
@@ -721,6 +736,7 @@ int main(void) {
     scoped_resolution(); scoped_current_limits(); scoped_budgets(); source_aware_lifetime(); scoped_precedence();
     record_resolution(); record_planners(); record_dual_scopes(); record_invalid(); record_edit_plan(); record_budgets(); record_precedence();
     scope_duplicate_validation();
+    typed_move_preflight();
     disjoint_property_noop();
     cancellable_edit_plans();
     printf("PASS: %u formatting checks (exact numeric display, bounded ranges, scoped record membership, precedence, ownership, moves, structural edits, history and whole-sheet selection)\n",checks); return 0;

@@ -739,7 +739,8 @@ static void maximum_result_inventory(void) {
     }
 }
 static void source_record_profiles(void) {
-    for (unsigned parquet=0;parquet<2;parquet++) for (unsigned table_owner=0;table_owner<2;table_owner++) for (unsigned operation=0;operation<3;operation++) for (unsigned mode=0;mode<4;mode++) {
+    for (unsigned parquet=0;parquet<2;parquet++) for (unsigned table_owner=0;table_owner<2;table_owner++) for (unsigned operation=0;operation<3;operation++) for (unsigned mode=0;mode<5;mode++) {
+        if (mode==4 && operation) continue;
         ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); Worksheet *s=f->b.sheets;
         Analysis *source=table_owner ? &s->objects.items[0].source : &f->primary; Page *schema=table_owner ? &f->table_page : &f->primary_page;
         source->kind=parquet ? SOURCE_PARQUET : SOURCE_CSV; uint64_t owner=table_owner ? s->objects.items[0].id : 0; source->source_version=1;
@@ -754,6 +755,14 @@ static void source_record_profiles(void) {
         CellFormat italic=format_default(); italic.flags=FORMAT_ITALIC; CHECK(format_apply_records(&s->formats,&scope,&record,1,&field,1,FORMAT_ITALIC,italic,NULL)); worksheet_record(s,EDIT_FORMAT); f->b.dirty=false;
         size_t token=format_scope_token(&s->formats,&scope); CHECK(token && (format_resolve_record_token(&s->formats,2,0,0,token,record,field).flags&FORMAT_ITALIC));
         RangeCommand cmd=operation==0 ? (RangeCommand){.operation=RANGE_OPERATION_MOVE,.range={12,321,4,10},.dr=400,.dc=10} : operation==1 ? (RangeCommand){.operation=RANGE_OPERATION_INSERT_ROWS,.row=10,.row_count=2} : (RangeCommand){.operation=RANGE_OPERATION_INSERT_COLUMNS,.column=3,.column_count=1};
+        if (mode==4) {
+            SourcePacket result={0}; CHECK(source_scope_result_build(immutable,source,&result,NULL)); FormatScopeView positional={owner,result.data,result.bytes};
+            CellFormat guarded=format_default(); guarded.color=3; CHECK(format_apply_scoped(&s->formats,(FormatRange){12,321,4,10},FORMAT_COLOR,guarded,&positional,1,false,NULL)); worksheet_record(s,EDIT_FORMAT); source_packet_free(&result); f->b.dirty=false;
+            RangeCommandPlanInfo sentinel={.owned=91},held=sentinel; RangeCommandTarget *targeted=target(&f->c); Worksheet before=*s; f->c.command.plan_reserved=f->c.command.validation_reserved=0;
+            CHECK(workbook_range_command_measure(&f->c,0,cmd,&sentinel,NULL)==RANGE_COMMAND_PROTECTED && !memcmp(&held,&sentinel,sizeof(held)));
+            CHECK(workbook_apply_range_command_recorded(&f->c,targeted,cmd,NULL,NULL).status==RANGE_COMMAND_PROTECTED && !memcmp(&before,s,sizeof(before)) && !f->b.command_revision && !f->b.dirty);
+            free(targeted); result_fixture_free(f); free(f); continue;
+        }
         RangeCommandPlanInfo measured={0}; CHECK(workbook_range_command_measure(&f->c,0,cmd,&measured,NULL)==RANGE_COMMAND_READY); RangeCommandTarget *t=target(&f->c); f->mode=mode ? mode+26 : 0;
         WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={f->b.id.high,f->b.id.low,9,VERSION_WORKING_HEAD},.edit_session=f->b.edit_session_id};
         CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){1,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); f->inner=workbook_history_stream_range_recorder(queue); WorkbookHistoryRangeRecorder recorder={result_reserve,result_publish,result_cancel,f};

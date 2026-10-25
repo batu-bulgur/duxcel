@@ -5,6 +5,7 @@
 #include "cells_tsv_scan.h"
 #include <stdlib.h>
 static bool fail(char **error,const char *text) { if (error) { free(*error); *error=dx_strdup(text); } return false; }
+static SourceRangeStatus format_mapped(FormatPlanStatus s) { return s==FORMAT_PLAN_OK ? SOURCE_RANGE_READY : s==FORMAT_PLAN_UNSUPPORTED ? SOURCE_RANGE_PROTECTED : s==FORMAT_PLAN_LIMIT ? SOURCE_RANGE_LIMIT : SOURCE_RANGE_INVALID; }
 static SourceRangeStatus mapped(CellRangeStatus s) { return s==CELL_RANGE_READY ? SOURCE_RANGE_READY : s==CELL_RANGE_NOOP ? SOURCE_RANGE_NOOP : s==CELL_RANGE_LIMIT ? SOURCE_RANGE_LIMIT : SOURCE_RANGE_INVALID; }
 static SourceRangeStatus shape(SourceRangeContext c,size_t *scratch,char **error) {
     if (!c.sheet || !c.primary || !scratch || !c.sheet->id) return SOURCE_RANGE_INVALID;
@@ -96,6 +97,8 @@ SourceRangeStatus source_range_move_measure(SourceMoveContext c,SheetRange r,int
     if (measured==CELL_RANGE_OCCUPIED) return SOURCE_RANGE_OCCUPIED;
     uint32_t mask=move_mask(s,r);
     if (replace && mask) { fail(error,"Replacement is available only for manual cell ranges."); return SOURCE_RANGE_PROTECTED; }
+    FormatPlanStatus format=format_move_preflight(&s->formats,(FormatRange){r.r0,r.r1,r.c0,r.c1},dr,dc,error);
+    if (format!=FORMAT_PLAN_OK) return format_mapped(format);
     if ((!dr && !dc) || (measured==CELL_RANGE_NOOP && !mask && !move_formats(&s->formats,r,dr,dc))) return SOURCE_RANGE_NOOP;
     ObjectSnapshot before={s->objects.items,s->objects.count}; size_t objects=objects_snapshot_owned_bytes(&before); if (objects==SIZE_MAX) return SOURCE_RANGE_INVALID;
     if (measured==CELL_RANGE_NOOP) cells.owned=s->cells.count*sizeof(SheetCell)+s->cells.bytes;
@@ -125,7 +128,8 @@ SourceRangeStatus source_range_move_plan(SourceMoveContext c,SheetRange r,int64_
     ObjectStore objects={0}; if (s->objects.count) { objects_copy(&objects,&s->objects); next.objects=(ObjectSnapshot){objects.items,objects.count}; objects.items=NULL; objects.count=0; objects_free(&objects); }
     uint32_t mask=move_mask(s,r);
     for (size_t i=0;i<next.objects.count;i++) if (mask&(UINT32_C(1)<<i)) { next.objects.items[i].row=(uint64_t)((int64_t)next.objects.items[i].row+dr); next.objects.items[i].col=(size_t)((int64_t)next.objects.items[i].col+dc); }
-    if (!format_plan_move(&s->formats,(FormatRange){r.r0,r.r1,r.c0,r.c1},dr,dc,&next.formats,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_LIMIT; }
+    FormatPlanStatus format=format_plan_move_checked(&s->formats,(FormatRange){r.r0,r.r1,r.c0,r.c1},dr,dc,&next.formats,error);
+    if (format!=FORMAT_PLAN_OK) { mixed_range_plan_free(&next); return format_mapped(format); }
     if (!projection_valid(c.range,&next,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_INVALID; }
     next.effects=(cells==CELL_RANGE_READY ? 2u : 0u)|(mask ? 4u : 0u)|(!format_snapshot_matches(&s->formats,&next.formats) ? 8u : 0u);
     if (!next.effects) { mixed_range_plan_free(&next); return SOURCE_RANGE_NOOP; }

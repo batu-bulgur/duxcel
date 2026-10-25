@@ -110,6 +110,14 @@ void format_trim_history(FormatStore *store,bool redo,size_t keep);
    Unchanged plans are freed without adding an independent history entry.
    Moves mixing record membership and affected same-owner positional guards are
    rejected until a planner can preserve their precedence without scoped resets. */
+typedef enum { FORMAT_PLAN_OK,FORMAT_PLAN_INVALID,FORMAT_PLAN_UNSUPPORTED,FORMAT_PLAN_LIMIT } FormatPlanStatus;
+/* Allocation-free apart from optional diagnostics. Validates bounded current
+   shape/ranges and existing record-reset precedence; it does not plan/copy.
+   Complete scope uniqueness/storage validation remains in the checked planner.
+   The checked planner requires a fresh output, zeroes it like the bool API,
+   and distinguishes policy rejection from candidate storage pressure. */
+FormatPlanStatus format_move_preflight(const FormatStore *store,FormatRange range,int64_t dr,int dc,char **error);
+FormatPlanStatus format_plan_move_checked(const FormatStore *store,FormatRange range,int64_t dr,int dc,FormatSnapshot *out,char **error);
 bool format_plan_move(const FormatStore *store,FormatRange range,int64_t dr,int dc,FormatSnapshot *out,char **error);
 bool format_plan_axis(const FormatStore *store,bool rows,uint64_t at,uint64_t count,bool insert,FormatSnapshot *out,char **error);
 bool format_commit(FormatStore *store,FormatSnapshot *owned);
