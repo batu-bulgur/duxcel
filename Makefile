@@ -1187,6 +1187,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_after_save build/tests/test_hi
 PARALLEL_NATIVE_GOALS += build/tests/test_version_publication build/tests/test_version_publication-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_sourceview build/tests/test_sourceview-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_source_details_csv-gui build/tests/test_source_details_parquet-gui
+PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview build/tests/test_browse_preview-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2772,3 +2773,12 @@ SOURCE_DETAILS_PARQUET_LINK = $(filter-out build/obj/release/app/src/app/app.o b
 build/tests/test_source_details_parquet-gui: tests/test_source_details_gui.c $(SOURCE_DETAILS_PARQUET_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_details_gui.c $(SOURCE_DETAILS_PARQUET_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(SOURCE_DETAILS_CSV_OBJECT:.o=.d) $(SOURCE_DETAILS_PARQUET_OBJECT:.o=.d)
+
+BROWSE_PREVIEW_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/workbook/source_scope.c src/workbook/definition_wire.c src/workbook/analysis_asset.c src/workbook/browse_preview.c tests/test_browse_preview.c
+BROWSE_PREVIEW_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(BROWSE_PREVIEW_SRC))))
+BROWSE_PREVIEW_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(BROWSE_PREVIEW_SRC))))
+build/tests/test_browse_preview: $(BROWSE_PREVIEW_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_browse_preview-debug: $(BROWSE_PREVIEW_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(BROWSE_PREVIEW_OBJECTS:.o=.d) $(BROWSE_PREVIEW_SAN_OBJECTS:.o=.d)

@@ -904,6 +904,9 @@ FEATURES = {
 }
 
 
+FEATURES["browse-preview-asset"] = Feature(("browse_preview", "analysis_asset", "source_scope"), "",
+    ("python3 tools/test.py feature --feature source-details-csv-app",),
+    ("src/workbook/browse_preview.c", "tests/test_browse_preview.c"))
 FEATURES["source-details-csv-app"] = Feature(("sourceview", "stepview", "preview"), "source-details-csv",
     ("python3 tools/test.py feature --feature source-details-parquet-app",),
     ("src/app/source_details.inc", "src/app/app.c: source-step details action", "tests/support/source_details_app.inc"), fixtures=("transactions",))
