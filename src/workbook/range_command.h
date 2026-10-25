@@ -33,18 +33,19 @@ typedef struct { RangeCommandStatus status; unsigned effects; uint64_t before_re
 /* Immediate single-owner native descriptor fences; captured strings/packets
    remain immutable. Primary means actual App authority, separate from Save
    cache. This first owner admits source/object-free spatial manual formats only;
-   mixed/source/object ranges retain their existing complete producer. */
+   source-bearing ranges retain their existing complete producer. Fully contained
+   source-free Pivot/Chart templates may move with manual cells/formats. */
 bool workbook_prepare_range_command(RangeCommandContext *context,size_t sheet,RangeCommandTarget *out,char **error);
 /* Conservative complete cell clone + changed-cell vector + bounded format-plan
    peak. No rectangle-area traversal; all constituent reservation precedes copy.
    Output preserved on failure. Zero displacement returns NOOP without allocation. */
 RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *context,size_t sheet,RangeCommand command,RangeCommandPlanInfo *info,char **error);
 /* One changed-cell/Format compound event and one matching worksheet action.
-   Exact effects2/8/10/16/18/24/26; no-op preserves Redo and all clocks. Validate projected
+   Exact Cells/Objects/Format/Width effects; no-op preserves Redo and all clocks. Validate projected
    Format history even with no global admission callback. Reserve before either
    model journal can evict, recheck all owners and transfer independent graphs.
    App owns budget/readiness, input/confirmation, selection and rendering. No IO,
-   retained App writer, source activation or mixed-range admission.
+   retained App writer, source activation or source-bearing mixed-range admission.
    Manual row and single-column insertion/deletion use this complete effect owner.
    Physical widths use committed Worksheet.view; App projects the admitted view
    into Grid. Source/object column paths remain separately protected. Text-only
