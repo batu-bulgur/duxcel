@@ -5495,6 +5495,9 @@ static bool move_single_object(App *a,uint64_t id,uint64_t row,size_t column,cha
     ObjectMoveResult result=workbook_apply_object_move_recorded(&context,&target,row,column,NULL,error);
     return result.status==OBJECT_MOVE_APPLIED || result.status==OBJECT_MOVE_NOOP;
 }
+#ifdef DUXCEL_FEATURE_SOURCE_RESULTS
+#include "source_range_results.inc"
+#endif
 static bool manual_range_owner(const App *a,const Worksheet *s) {
     return s && a->analysis.kind==SOURCE_NONE && s->analysis.kind==SOURCE_NONE && !s->objects.count && !s->formats.source_aware && !s->formats.scope_count;
 }
@@ -15778,6 +15781,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_RESULTS
+static void source_results_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_CELLS
 static void source_cells_test_frame(AppSession *session);
 #endif
@@ -16710,6 +16716,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_RESULTS
+    source_results_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_CELLS
     source_cells_test_frame(session);
 #endif
@@ -17115,6 +17124,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_create_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_SOURCE_RESULTS
+#include "../../tests/support/source_results_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_CELLS
 #include "../../tests/support/source_cells_app.inc"
 #endif

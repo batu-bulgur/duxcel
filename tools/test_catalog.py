@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "source-results": ("build/tests/test_source_results-gui", "PASS: native actual source result association workflow",
+                    r"^PASS: native actual source result association workflow \(13 stages, [1-9]\d* checks\)$", 13),
     "source-cells": ("build/tests/test_source_cells-gui", "PASS: native source manual cell workflow",
                     r"^PASS: native source manual cell workflow \(12 stages, [1-9]\d* checks\)$", 12),
     "template-cells": ("build/tests/test_template_cells-gui", "PASS: native template manual cell workflow",
@@ -220,6 +222,9 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
+    "source-results-app": Feature(("source_range_plan", "range_event", "range_command", "history_range"), "source-results",
+        ("python3 tools/test.py feature --feature source-cells-app",),
+        ("src/app/source_range_results.inc: read-only actual result association", "tests/support/source_results_app.inc"), fixtures=("transactions",)),
     "source-range-axis-command": Feature(("source_range_plan", "range_event", "range_command", "history_range"), "",
         ("python3 tools/test.py feature --feature source-cells-app",),
         ("src/workbook/range_command.c: complete source row/column admission", "tests/test_range_command.c")),
