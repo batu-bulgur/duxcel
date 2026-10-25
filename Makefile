@@ -32,6 +32,8 @@ CORE += src/workbook/sheet_presence_asset.c src/workbook/sheet_topology_event.c 
 CORE += src/workbook/source_versions_admission.c src/workbook/history_event_frame.c src/workbook/sheet_history_payload.c src/workbook/sheet_metadata_replay.c
 CORE += src/workbook/source_range_plan.c
 
+CORE += src/workbook/primary_source_draft.c src/workbook/primary_source_publish.c src/workbook/sheet_source_view.c src/workbook/primary_source_topology.c src/workbook/primary_source_pending.c
+
 NATIVE_PERSISTENCE = src/app/versionpreview.c src/workbook/version_preview.c src/app/versionstate.c src/data/worker_archive.c src/workbook/version_save.c src/workbook/archive_write.c src/workbook/archive_read.c src/workbook/version_restore.c src/workbook/version_read.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/core_compare.c src/workbook/core_payload.c src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
 SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/versionview.c src/ui/versionpreviewview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
@@ -1146,6 +1148,8 @@ PARALLEL_NATIVE_GOALS += build/tests/test_primary_source_pending build/tests/tes
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_source_view build/tests/test_sheet_source_view-debug
 
 PARALLEL_NATIVE_GOALS += build/tests/test_primary_source_topology build/tests/test_primary_source_topology-debug
+
+PARALLEL_NATIVE_GOALS += build/tests/test_primary_source-gui
 
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
@@ -2563,4 +2567,12 @@ build/tests/test_primary_source_pending: $(PRIMARY_SOURCE_PENDING_OBJECTS) build
 build/tests/test_primary_source_pending-debug: $(PRIMARY_SOURCE_PENDING_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(PRIMARY_SOURCE_PENDING_OBJECTS:.o=.d) $(PRIMARY_SOURCE_PENDING_SAN_OBJECTS:.o=.d)
+
+PRIMARY_SOURCE_GUI_OBJECT = build/obj/feature-primary-source/app.o
+$(PRIMARY_SOURCE_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_PRIMARY_SOURCE)
+PRIMARY_SOURCE_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(PRIMARY_SOURCE_GUI_OBJECT)
+build/tests/test_primary_source-gui: tests/test_primary_source_gui.c $(PRIMARY_SOURCE_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_primary_source_gui.c $(PRIMARY_SOURCE_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(PRIMARY_SOURCE_GUI_OBJECT:.o=.d)
 

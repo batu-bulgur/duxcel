@@ -24,6 +24,7 @@
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
 #include "../workbook/definition_origin.h"
+#include "../workbook/primary_source_publish.h"
 #include "../workbook/journal_session.h"
 #include "versionstate.h"
 #include "versionpreview.h"
@@ -159,6 +160,9 @@ typedef struct {
     ActiveReadout active_readout;
 #ifndef DUXCEL_BROWSER_HOST
     AppDefinitionOrigin *definition_origins;
+    PrimarySourceDraft *primary_source_draft;
+    QueryReply *primary_source_reply;
+    uint64_t primary_source_request;
     SourceFormatIntent source_format;
     SourceFormatProof source_format_proof;
     SourceFormatAttempt source_format_attempt;
@@ -825,7 +829,7 @@ static size_t source_format_token(App *a);
 static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_CANCEL(a,message) source_format_cancel(a,message)
 #define SOURCE_FORMAT_RESET(a) source_format_reset(a)
-#define DEFINITION_ORIGINS_RETIRE(a) app_definition_origins_retire(a)
+#define DEFINITION_ORIGINS_RETIRE(a) do { app_primary_source_cancel(a); app_definition_origins_retire(a); } while (0)
 #define SOURCE_FORMAT_PAGE(a) source_format_page(a)
 #define SOURCE_FORMAT_TICK(a) source_format_tick(a)
 #define SOURCE_FORMAT_SCHEDULE(a) source_format_schedule(a)
@@ -1527,6 +1531,9 @@ static bool relink_primary_path(App *a,const char *path) {
     return ok;
 }
 static void request_page(App *a,bool reset) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->primary_source_draft) return;
+#endif
     if (a->object_import.active) return;
     SOURCE_FORMAT_REQUEST(a);
     QueryJob *j=dx_alloc(sizeof(*j));
@@ -1704,6 +1711,10 @@ static void workspace_save_as(App *a,const char *path) {
 #ifndef DUXCEL_BROWSER_HOST
 #include "versions.inc"
 #endif
+#ifndef DUXCEL_BROWSER_HOST
+static void source_ready(App *a);
+#include "primary_source.inc"
+#endif
 static void open_source(App *a,const char *path,bool demo) {
 #ifndef DUXCEL_BROWSER_HOST
     if (!history_return(a)) return;
@@ -1726,6 +1737,10 @@ static void open_source(App *a,const char *path,bool demo) {
 #endif
     if (!capture_sheet(a)) { free(absolute); return; }
     Analysis source={.kind=kind,.path=absolute}; char *error=NULL;
+#ifndef DUXCEL_BROWSER_HOST
+    if (kind==SOURCE_DATABASE && a->book.count) { app_primary_source_begin(a,&source,dx_basename(path)); analysis_free(&source); return; }
+    app_primary_source_cancel(a);
+#endif
     char *name=workbook_unique_sheet_name(&a->book,demo ? "Million-row demo" : dx_basename(path),&error);
     if (!name) { status(a,error); free(error); free(absolute); return; }
     if (!(a->book.count ? workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name=name,.analysis=&source},NULL,&error) : workbook_add(&a->book,name,&source,&error))) {
@@ -1889,6 +1904,9 @@ static void export_panel(App *a) {
 #endif
 }
 static void schedule_count(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->primary_source_draft) return;
+#endif
     if (a->step_preview.active) return;
     Page *target=a->waiting_count_page ? &a->spare : &a->page;
     if (!target->count_pending || (a->page_stale && !a->waiting_count_page) || a->known_total>=0 || a->count_paused || a->count_deferred || a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed ||
@@ -1933,6 +1951,9 @@ static bool publish_object_extent(App *a,size_t index,uint64_t total,char **erro
     return true;
 }
 static void schedule_table_count(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->primary_source_draft) return;
+#endif
     if (a->step_preview.active) return;
     if (a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed || a->grid.dragging || a->grid.moving || a->grid.scrollbar ||
         (a->count_request_id && a->count_request_id==a->request_id)) return;
@@ -1999,6 +2020,9 @@ static void pause_count(App *a) {
     status(a,"Row counting paused. Data remains available; F5 retries.");
 }
 static void cancel_active_query(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->primary_source_draft) { worker_cancel(&a->worker); a->request_id++; a->busy=false; app_primary_source_cancel(a); a->consume_grid_input=true; status(a,"Database open cancelled. The current worksheet is unchanged."); return; }
+#endif
     if (a->object_import.active) {
         worker_cancel(&a->worker); a->request_id++; a->busy=false; object_import_draft_free(&a->object_import);
         a->consume_grid_input=true; status(a,"Table import cancelled. No object or history was changed."); return;
@@ -2255,6 +2279,12 @@ static void receive_source_validation(App *a,QueryReply *r) {
     a->modal=MODAL_NONE; a->consume_grid_input=true; status(a,"Source query applied. Undo restores the previous definition.");
 }
 static void poll_query(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->primary_source_draft && primary_source_draft_check(app_primary_source_context(a),a->primary_source_draft,NULL)!=PRIMARY_SOURCE_READY) {
+        if (a->request_id==a->primary_source_request) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
+        app_primary_source_cancel(a);
+    }
+#endif
     if (a->object_import.active && a->object_import.request!=a->request_id) object_import_draft_free(&a->object_import);
     QueryReply *r=worker_poll(&a->worker); if (!r) return;
     REVIEW_EVENT(a,"async.reply",r->id);
@@ -2263,6 +2293,9 @@ static void poll_query(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
     if (worker_archive_is_preview_reply(r)) { history_reply(a,r); reply_free(r); return; }
     if (source_format_reply(a,r)) { reply_free(r); return; }
+#endif
+#ifndef DUXCEL_BROWSER_HOST
+    if (app_primary_source_reply(a,r)) return; /* Adapter takes or frees the reply. */
 #endif
     if (object_import_reply(a,r)) { reply_free(r); return; }
     if (r->kind==JOB_STEP_PREVIEW) { step_preview_reply(&a->step_preview,r); reply_free(r); return; }
@@ -8090,6 +8123,7 @@ static DxCommand fallback_global_command(const App *a) {
 }
 static void shortcuts(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
+    if (a->primary_source_draft && !a->io_busy && ui_pressed(KEY_ESCAPE)) { cancel_active_query(a); return; }
     if (a->io_busy && a->pending_kind==JOB_SAVE && ui_pressed(KEY_ESCAPE)) {
         worker_save_cancel(&a->worker); a->consume_grid_input=true; return;
     }
@@ -8216,6 +8250,9 @@ static void shortcuts(App *a) {
     }
     if (command==DX_COMMAND_NONE) command=fallback_global_command(a);
     if (ui_pressed(KEY_F5)) {
+#ifndef DUXCEL_BROWSER_HOST
+        if (a->primary_source_reply) { app_primary_source_publish(a); a->consume_grid_input=true; return; }
+#endif
         SOURCE_FORMAT_REFRESH(a,0); clear_values_cache(a); clear_object_views(a); a->refresh_plans=true;
         if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false);
         a->consume_grid_input=true; return;
@@ -15809,6 +15846,9 @@ static void column_width_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 static void paste_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_SOURCE
+static void primary_source_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_ORIGIN
 static void table_origin_test_frame(AppSession *session);
 #endif
@@ -16744,6 +16784,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
     paste_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_SOURCE
+    primary_source_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_TABLE_ORIGIN
     table_origin_test_frame(session);
 #endif
@@ -16968,6 +17011,9 @@ int app_finish(AppSession *session) {
     dx_review_capture_destroy(a->review); a->review=NULL;
 #endif
     SOURCE_FORMAT_RESET(a); DEFINITION_ORIGINS_RETIRE(a);
+#ifndef DUXCEL_BROWSER_HOST
+    app_primary_source_cancel(a);
+#endif
     object_import_draft_free(&a->object_import);
     free(a->replace_manual_target); a->replace_manual_target=NULL;
     cancel_values(a);
@@ -17151,4 +17197,8 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 #include "../../tests/support/paste_command_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_PRIMARY_SOURCE
+#include "../../tests/support/primary_source_app.inc"
 #endif

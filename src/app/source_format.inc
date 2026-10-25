@@ -264,6 +264,27 @@ static size_t source_format_page_bytes(const Page *page) {
     if (page->records.source_key && !source_format_add(&bytes,strlen(page->records.source_key)+1)) return SIZE_MAX;
     return bytes;
 }
+/* An unpublished database open is a separately owned native probe. Retire it
+   before document/cache destruction; published sheets are never rolled back. */
+static void app_primary_source_cancel(App *a) {
+    primary_source_draft_free(&a->primary_source_draft);
+    reply_free(a->primary_source_reply); a->primary_source_reply=NULL; a->primary_source_request=0;
+}
+static size_t app_primary_source_owned(const App *a) {
+    size_t bytes=primary_source_draft_owned(a->primary_source_draft); const QueryReply *r=a->primary_source_reply;
+    if (r && (!source_format_add(&bytes,sizeof(*r)) || !source_format_add(&bytes,analysis_text_bytes(&r->analysis)) ||
+        !source_format_add(&bytes,r->page.bytes) || !source_format_add(&bytes,source_format_page_bytes(&r->page)))) return SIZE_MAX;
+    if (r) {
+        if (r->page.relation_count>SIZE_MAX/sizeof(Relation) || !source_format_add(&bytes,r->page.relation_count*sizeof(Relation))) return SIZE_MAX;
+        for (size_t i=0;i<r->page.relation_count;i++) {
+            const Relation *relation=r->page.relations+i; const char *texts[]={relation->schema,relation->name,relation->label};
+            for (size_t j=0;j<3;j++) if (texts[j] && !source_format_add(&bytes,strlen(texts[j])+1)) return SIZE_MAX;
+        }
+        if (r->page.sql && !source_format_add(&bytes,strlen(r->page.sql)+1)) return SIZE_MAX;
+        if (r->error && !source_format_add(&bytes,strlen(r->error)+1)) return SIZE_MAX;
+    }
+    return bytes;
+}
 /* Runtime origin arenas survive sheet/history switches. Only document-runtime
    retirement frees them; an admitted origin is never reset after model edits. */
 struct AppDefinitionOrigin {
@@ -271,6 +292,7 @@ struct AppDefinitionOrigin {
     WorkbookId document;
     uint64_t session,sheet;
     DefinitionOrigin *owner;
+    bool admission_pending; /* Published usable session; no retained origin readiness. */
     WorkerNativeRetirement retirement; /* Intrusive whole-list owner, used only on the head. */
 };
 static size_t app_definition_origin_bytes(const App *a) {
@@ -323,7 +345,7 @@ static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookForma
        These are explicit conservative reservations, not measured heap/RSS. */
     size_t jobs=(size_t)worker.active_count+worker.pending_count;
     if (!result && !source_format_add(&jobs,new_jobs)) result=FORMAT_BUDGET_OVERFLOW;
-    size_t extra[]={a->source_format.bytes,a->source_format.object_reserved,a->source_format.raw.bytes,a->source_format_proof.raw.bytes,a->source_format_proof.result.bytes,captured_extra,reply_owned};
+    size_t extra[]={app_primary_source_owned(a),a->source_format.bytes,a->source_format.object_reserved,a->source_format.raw.bytes,a->source_format_proof.raw.bytes,a->source_format_proof.result.bytes,captured_extra,reply_owned};
     for (size_t i=0;!result && i<sizeof(extra)/sizeof(*extra);i++)
         if (!source_format_add(&transient.other_staging,extra[i])) result=FORMAT_BUDGET_OVERFLOW;
     for (size_t i=0;!result && i<DX_MAX_OBJECTS;i++)
@@ -700,7 +722,7 @@ static bool app_analysis_budget(App *a,size_t charge,char **error) {
 static bool app_analysis_handoff_prepare(App *a,Worksheet *s,Analysis *authority,DefinitionOriginHandoffRequest request,
     size_t extra,AppAnalysisHandoff *out,char **error) {
     AppDefinitionOrigin *node=app_definition_origin_for_sheet(a,s);
-    if (!node || definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) return true;
+    if (!node || node->admission_pending || definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) return true;
     DefinitionOriginContext context=app_definition_origin_context(a); context.primary=authority;
     DefinitionOriginHandoffInfo info={0};
     DefinitionOriginHandoffStatus result=definition_origin_handoff_measure(&context,node->owner,request,&info,error);
@@ -789,6 +811,7 @@ static bool app_definition_activate_analysis(App *a,size_t index,bool capture) {
 static DefinitionOriginStatus app_definition_origin_open(App *a,size_t reply_owned,AppDefinitionOrigin **out,char **error) {
     DefinitionOriginContext context=app_definition_origin_context(a); AppDefinitionOrigin *node=app_definition_origin_find(a);
     if (node) {
+        if (node->admission_pending) return app_definition_origin_limit(a,error);
         if (definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) { *out=node; return DEFINITION_ORIGIN_READY; }
         size_t scratch=0; DefinitionOriginStatus result=definition_origin_scratch(&context,node->owner,&scratch,error);
         if (result==DEFINITION_ORIGIN_READY) { *out=node; return result; }
@@ -804,6 +827,7 @@ static DefinitionOriginStatus app_definition_origin_open(App *a,size_t reply_own
     a->definition_origins=node; *out=node; return DEFINITION_ORIGIN_READY;
 }
 static DefinitionOriginStatus app_definition_origin_seal(App *a,AppDefinitionOrigin *node,size_t reply_owned,char **error) {
+    if (node->admission_pending) return app_definition_origin_limit(a,error);
     if (definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) return DEFINITION_ORIGIN_READY;
     DefinitionOriginContext context=app_definition_origin_context(a); size_t scratch=0;
     DefinitionOriginStatus result=definition_origin_scratch(&context,node->owner,&scratch,error);
