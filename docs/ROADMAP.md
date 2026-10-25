@@ -227,7 +227,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.2c.3a · P1 · Complete | Owned format-event reservation; W12c.2c.2. | Reserve canonical format and exact source-metadata assets together in the bounded cell/format FIFO. Cancel preserves clocks/Redo; incomplete composite effects reject. Source/sheet/definition preflight and complete model adoption remain producer responsibilities. |
 | W12c.2c.3b · P1 · In progress | Fenced format producer and composite admission; W12c.2c.3a, W12c.3. | Recheck workbook/sheet/format/source state after reservation, then atomically adopt every constituent and publish once. Preserve prepared input on failure; cover analysis/object source-version changes before activating retained App history. |
 | W12c.2c.3b.1 · P1 · Complete | Fenced manual-format producer; W12c.2c.3a. | Source-free/object-free spatial formatting reserves before mutation, rechecks durable/session/cell/format/document fences, then publishes one complete worksheet action. Failure preserves the owned plan; no-op preserves Redo and clocks. Normal manual App formatting uses this controller with session-only history. |
-| W12c.2c.3b.2 · P1 · Queued | Source-bound composite format producer; W12c.2c.3b.1, W12c.3. | Admit source ledger plus primary/Table bindings and format assets together, preserving immutable baseline normalization and all source/readiness/revision fences. No partial constituent publication or early retained-history activation. |
+| W12c.2c.3b.2 · P1 · In progress | Source-bound composite format producer; W12c.2c.3b.1, W12c.3. | Admit source ledger plus primary/Table bindings and format assets together, preserving immutable baseline normalization and all source/readiness/revision fences. No partial constituent publication or early retained-history activation. |
+| W12c.2c.3b.2a · P1 · Complete | Already-source-aware spatial command/App fallback; source format fences and W12c.2c.3a. | Reserve/recheck a complete effect8 format delta and scratch before whole-column/manual-space adoption; preserve bindings, RAW/RESULT/GUARDED precedence, Pages, Redo and clocks on refusal/no-op. False-to-true manual-first transition remains separate. |
 | W12c.3 · P1 · In progress | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.3a · P1 · Complete | Closed primary/Table Analysis definition asset; W12c.1. | Preserve stable sheet/owner/source-version IDs, exact nullable texts, query/unique/group/aggregate, ordered filters/sorts and finite enum tags. Preflight owned memory and grammar scratch before copying; exclude derived schema caches and require verified rebinding before execution. |
 | W12c.3b · P1 · Complete | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
@@ -2674,3 +2675,10 @@ freed or altered selected packet bytes before mutation, without another wire
 copy. Focused owner/codec plans pass both modes8.121s/5.615s, and real topology
 25 stages18.272s (`232136-feature-56080`, `232144-feature-56609`,
 `232211-feature-57538`). Durable profile/writer/traversal remain open.
+
+Already-source-aware spatial fallback integrates `c78a1008`/`2a1e2a3c`. The
+registered two-module optimized/sanitizer plus6-stage actual UI gate passes
+16.005s (`20261025T232309-feature-58140`), covering mixed record/column/manual
+formats, real pressure refusal, Undo, no-op-preserved Redo and unchanged live
+Page/request/ledger. False-to-true manual-first mode admission is still open;
+retained App recording remains disabled.
