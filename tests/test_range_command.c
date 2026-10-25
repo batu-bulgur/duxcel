@@ -533,6 +533,9 @@ static bool result_reserve(void *context,const WorkbookHistoryRangeRecord *recor
     case 24: { Analysis *a=&f->b.sheets[0].objects.items[0].source; char *next=dx_strdup("replacement schema"); free(a->schema); a->schema=next; break; }
     case 25: { Analysis *a=&f->b.sheets[0].objects.items[0].source; char *next=dx_strdup("replacement table"); free(a->table); a->table=next; break; }
     case 26: { char *next=dx_strdup("SELECT * FROM input WHERE 1=0"); free(f->primary.query); f->primary.query=next; break; }
+    case 27: f->b.sheets[0].formats.scopes[0].owner++; break;
+    case 28: { FormatScope *scope=f->b.sheets[0].formats.scopes; void *next=dx_alloc(scope->bytes); memcpy(next,scope->definition,scope->bytes); free(scope->definition); scope->definition=next; break; }
+    case 29: { SourcePacket *raw=&f->b.sheets[0].source_versions.items[0].raw; void *next=dx_alloc(raw->bytes); memcpy(next,raw->data,raw->bytes); free(raw->data); raw->data=next; break; }
     }
     return true;
 }
@@ -735,4 +738,41 @@ static void maximum_result_inventory(void) {
         for (size_t i=0;i<DX_MAX_OBJECTS;i++) page_free(&f->views[i].page); workbook_free(&f->b); free(f);
     }
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); source_axes_controller(); source_definition_profiles(); maximum_result_inventory(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+static void source_record_profiles(void) {
+    for (unsigned parquet=0;parquet<2;parquet++) for (unsigned table_owner=0;table_owner<2;table_owner++) for (unsigned operation=0;operation<3;operation++) for (unsigned mode=0;mode<4;mode++) {
+        ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); Worksheet *s=f->b.sheets;
+        Analysis *source=table_owner ? &s->objects.items[0].source : &f->primary; Page *schema=table_owner ? &f->table_page : &f->primary_page;
+        source->kind=parquet ? SOURCE_PARQUET : SOURCE_CSV; uint64_t owner=table_owner ? s->objects.items[0].id : 0; source->source_version=1;
+        for (size_t n=0;n<schema->column_count;n++) {
+            char name[32]; snprintf(name,sizeof(name),"Field %zu",n); schema->columns[n]=(Column){.name=dx_strdup(name),.type=DUCKDB_TYPE_VARCHAR,.type_name=dx_strdup("VARCHAR")};
+        }
+        SourceDigest digest={.bytes=64}; digest.identity.size=64; digest.sha256[0]=1; SourcePacket raw={0};
+        CHECK(source_scope_raw_build(owner,1,source,schema,&digest,"fixture-engine",&raw,NULL));
+        SourceVersion entry={.owner=owner,.version=1,.kind=source->kind,.path=source->path,.raw=raw}; SourceVersions ledger={0};
+        CHECK(source_versions_plan(&s->source_versions,&entry,true,&ledger,NULL)); source_versions_free(&s->source_versions); s->source_versions=ledger; source_packet_free(&raw); s->source_versions.high_water=19;
+        const SourcePacket *immutable=&s->source_versions.items[0].raw; FormatScopeView scope={owner,immutable->data,immutable->bytes}; uint64_t record=2; size_t field=0;
+        CellFormat italic=format_default(); italic.flags=FORMAT_ITALIC; CHECK(format_apply_records(&s->formats,&scope,&record,1,&field,1,FORMAT_ITALIC,italic,NULL)); worksheet_record(s,EDIT_FORMAT); f->b.dirty=false;
+        size_t token=format_scope_token(&s->formats,&scope); CHECK(token && (format_resolve_record_token(&s->formats,2,0,0,token,record,field).flags&FORMAT_ITALIC));
+        RangeCommand cmd=operation==0 ? (RangeCommand){.operation=RANGE_OPERATION_MOVE,.range={12,321,4,10},.dr=400,.dc=10} : operation==1 ? (RangeCommand){.operation=RANGE_OPERATION_INSERT_ROWS,.row=10,.row_count=2} : (RangeCommand){.operation=RANGE_OPERATION_INSERT_COLUMNS,.column=3,.column_count=1};
+        RangeCommandPlanInfo measured={0}; CHECK(workbook_range_command_measure(&f->c,0,cmd,&measured,NULL)==RANGE_COMMAND_READY); RangeCommandTarget *t=target(&f->c); f->mode=mode ? mode+26 : 0;
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={f->b.id.high,f->b.id.low,9,VERSION_WORKING_HEAD},.edit_session=f->b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){1,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); f->inner=workbook_history_stream_range_recorder(queue); WorkbookHistoryRangeRecorder recorder={result_reserve,result_publish,result_cancel,f};
+        Worksheet before=*s; const void *ledger_rows=s->source_versions.items; RangeCommandResult applied=workbook_apply_range_command_recorded(&f->c,t,cmd,&recorder,NULL);
+        if (mode) CHECK(applied.status==RANGE_COMMAND_STALE && !f->b.command_revision && !f->b.dirty && f->cancelled==1 && !f->published && !workbook_history_stream_state(queue).owned_bytes && before.cells.cells==s->cells.cells && before.objects.items==s->objects.items && before.formats.items==s->formats.items);
+        else {
+            CHECK(applied.status==RANGE_COMMAND_APPLIED && applied.effects==14 && f->published==1 && !f->cancelled);
+            CHECK(s->source_versions.items==ledger_rows && s->source_versions.high_water==19 && s->source_versions.count==1 && source_versions_valid(&s->source_versions,s->objects.next_id,NULL));
+            token=format_scope_token(&s->formats,&scope); CHECK(token && (format_resolve_record_token(&s->formats,700,100,0,token,record,field).flags&FORMAT_ITALIC) && !(format_resolve_record_token(&s->formats,700,100,0,token,record+1,field).flags&FORMAT_ITALIC));
+            WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+            CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==14 && event.unbound_sources==(table_owner ? 0u : 2u));
+            const SourceVersion *retained=event.definitions.sources.versions.items; CHECK(event.definitions.sources.versions.count==1 && retained->owner==owner && retained->version==1 && retained->kind==source->kind && retained->raw.bytes==immutable->bytes && retained->raw.data!=immutable->data && !memcmp(retained->raw.data,immutable->data,immutable->bytes));
+            FormatStore decoded={.items=event.definitions.formats.after.items,.count=event.definitions.formats.after.count,.scopes=event.definitions.formats.after.scopes,.scope_count=event.definitions.formats.after.scope_count,.source_aware=true};
+            size_t decoded_token=format_scope_token(&decoded,&scope); CHECK(decoded_token && (format_resolve_record_token(&decoded,700,100,0,decoded_token,record,field).flags&FORMAT_ITALIC));
+            range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK); mixed_history_transfer(s,false);
+            token=format_scope_token(&s->formats,&scope); CHECK(s->objects.items[0].row==20 && s->objects.items[0].col==8 && !strcmp(cells_get(&s->cells,12,4),"NULL") && (format_at(&s->formats,12,4).flags&FORMAT_BOLD) && token && (format_resolve_record_token(&s->formats,2,0,0,token,record,field).flags&FORMAT_ITALIC));
+        }
+        CHECK(s->source_versions.items==ledger_rows && s->source_versions.high_water==19 && s->source_versions.count==1);
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); result_fixture_free(f); free(f);
+    }
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); source_axes_controller(); source_definition_profiles(); maximum_result_inventory(); source_record_profiles(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
