@@ -5,6 +5,20 @@ static PrimarySourceDraftContext app_primary_source_context(App *a) {
     return (PrimarySourceDraftContext){&a->book,&a->analysis,&a->request_id,&a->analysis_revision,
         !a->io_busy && !a->step_preview.active,history_locked(a)};
 }
+static bool app_primary_source_current(App *a,char **error) {
+    PrimarySourceDraftContext c=app_primary_source_context(a);
+    if (a->primary_source_topology) return primary_source_topology_check(c,a->primary_source_topology,error)==PRIMARY_TOPOLOGY_READY;
+    if (a->primary_source_plan) return primary_source_publish_check(c,a->primary_source_plan,error)==PRIMARY_PUBLISH_READY;
+    return a->primary_source_draft && primary_source_draft_check(c,a->primary_source_draft,error)==PRIMARY_SOURCE_READY;
+}
+static bool app_primary_source_admit(App *a,size_t total) {
+    size_t resident=app_primary_source_plans_owned(a);
+    if (resident==SIZE_MAX || resident>total) { status(a,"Source creation ownership accounting is unavailable."); return false; }
+    /* Resident stage owners are already charged by the common governor.
+       Admit only the remaining peak, with one pre-reserved registry node. */
+    size_t extra=total-resident;
+    return source_format_add(&extra,sizeof(AppDefinitionOrigin)) && source_format_budget(a,NULL,0,extra,0,0,0);
+}
 static bool app_primary_source_begin(App *a,const Analysis *source,const char *name) {
     char *error=NULL;
     AppDefinitionOrigin *old=app_definition_origin_find(a);
@@ -40,12 +54,12 @@ static bool app_primary_source_begin(App *a,const Analysis *source,const char *n
     status(a,"Loading the source before creating its worksheet… Escape cancels."); return true;
 }
 static void app_primary_source_publish(App *a) {
-    QueryReply *reply=a->primary_source_reply; if (!reply || !a->primary_source_draft) return;
+    QueryReply *reply=a->primary_source_reply; if (!reply || !app_primary_source_pending(a)) return;
     PrimarySourceDraftContext context=app_primary_source_context(a); char *error=NULL; SheetSourceView *initial=NULL;
     if (reply->error) { error=dx_strdup(reply->error); goto rejected; }
-    PrimarySourceDraftStatus checked=primary_source_draft_check(context,a->primary_source_draft,&error);
-    if (checked!=PRIMARY_SOURCE_READY) goto rejected;
-    if (!primary_source_draft_source(a->primary_source_draft)) {
+    if (!app_primary_source_current(a,&error)) goto rejected;
+    if (a->primary_source_draft && !primary_source_draft_source(a->primary_source_draft)) {
+        PrimarySourceDraftStatus checked;
         PrimarySourceDraftReply actual={reply->id,&reply->analysis,reply->error}; PrimarySourceDraftInfo info={0};
         checked=primary_source_draft_reply_measure(context,a->primary_source_draft,actual,&info,&error);
         if (checked!=PRIMARY_SOURCE_READY) goto rejected;
@@ -53,29 +67,38 @@ static void app_primary_source_publish(App *a) {
         if (!source_format_add(&reserve,info.validation_scratch) || !source_format_budget(a,NULL,0,reserve,0,0,0)) goto pending;
         if (primary_source_draft_resolve(context,a->primary_source_draft,actual,reserve,&error)!=PRIMARY_SOURCE_RESOLVED) goto rejected;
     }
-    SheetSourceViewSpec view_spec={reply->page.columns,reply->page.column_count,a->primary_source_navigation}; SheetSourceViewInfo view_info;
-    if (sheet_source_view_measure(view_spec,&view_info)!=SHEET_SOURCE_VIEW_OK) { error=dx_strdup("The source schema or initial navigation is invalid."); goto rejected; }
-    if (!source_format_budget(a,NULL,0,view_info.owned,0,0,0)) goto pending;
-    if (sheet_source_view_build(view_spec,view_info.owned,&initial)!=SHEET_SOURCE_VIEW_OK) goto rejected;
-    PrimarySourceInitialSchema schema={reply->id,reply->revision,&reply->analysis,reply->page.columns,reply->page.column_count,reply->error};
-    PrimarySourcePublishInfo info={0}; PrimarySourcePublishPlan *plan=NULL;
-    if (primary_source_publish_measure_initial(context,a->primary_source_draft,initial,schema,&info,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
-    size_t reserve=info.coexisting;
-    if (!source_format_add(&reserve,sizeof(AppDefinitionOrigin)) || !source_format_budget(a,NULL,0,reserve,0,0,0)) goto pending;
-    if (primary_source_publish_prepare_initial(context,&a->primary_source_draft,&initial,schema,info.coexisting,&plan,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
-    /* Only scalar view capture: preserve navigation made while the probe was
-       pending without rebinding the draft's exact Analysis/cache ownership. */
+    if (a->primary_source_draft) {
+        SheetSourceViewSpec view_spec={reply->page.columns,reply->page.column_count,a->primary_source_navigation}; SheetSourceViewInfo view_info;
+        if (sheet_source_view_measure(view_spec,&view_info)!=SHEET_SOURCE_VIEW_OK) { error=dx_strdup("The source schema or initial navigation is invalid."); goto rejected; }
+        if (!source_format_budget(a,NULL,0,view_info.owned,0,0,0)) goto pending;
+        if (sheet_source_view_build(view_spec,view_info.owned,&initial)!=SHEET_SOURCE_VIEW_OK) goto rejected;
+        PrimarySourceInitialSchema schema={reply->id,reply->revision,&reply->analysis,reply->page.columns,reply->page.column_count,reply->error};
+        PrimarySourcePublishInfo info={0};
+        if (primary_source_publish_measure_initial(context,a->primary_source_draft,initial,schema,&info,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
+        if (!app_primary_source_admit(a,info.coexisting)) goto pending;
+        if (primary_source_publish_prepare_initial(context,&a->primary_source_draft,&initial,schema,info.coexisting,&a->primary_source_plan,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
+    }
+    if (a->primary_source_plan) {
+        PrimarySourceTopologyUsage usage;
+        if (primary_source_topology_measure(context,a->primary_source_plan,&usage,&error)!=PRIMARY_TOPOLOGY_READY) goto rejected;
+        if (!app_primary_source_admit(a,usage.total)) goto pending;
+        if (primary_source_topology_prepare(context,&a->primary_source_plan,usage.total,&a->primary_source_topology,&error)!=PRIMARY_TOPOLOGY_READY) goto rejected;
+    }
+    PrimarySourceTopologyUsage usage=primary_source_topology_usage(a->primary_source_topology);
+    if (!app_primary_source_admit(a,usage.total)) goto pending;
+    /* Scalar capture preserves navigation made while the probe was pending,
+       without rebinding the exact Analysis/cache lease. */
     capture_sheet_view(a);
     PrimarySourcePublication published={0};
-    PrimarySourcePublishStatus result=primary_source_publish_apply(context,&plan,info.coexisting,&published,&error);
-    primary_source_publish_cancel(&plan);
-    if (result!=PRIMARY_PUBLISH_ADMITTED && result!=PRIMARY_PUBLISH_PENDING) goto rejected;
+    PrimarySourceTopologyStatus result=primary_source_topology_apply(context,&a->primary_source_topology,NULL,usage.total,&published,&error);
+    if (result==PRIMARY_TOPOLOGY_LIMIT) goto pending;
+    if (result!=PRIMARY_TOPOLOGY_APPLIED && result!=PRIMARY_TOPOLOGY_APPLIED_PENDING) goto rejected;
     /* Everything needed below was included in the prepublication reservation.
        No global governor check or source IO can reject this published session. */
     AppDefinitionOrigin *node=dx_alloc(sizeof(*node));
     *node=(AppDefinitionOrigin){.next=a->definition_origins,.document=a->book.id,.session=a->book.edit_session_id,.sheet=published.sheet,.owner=published.origin};
     published.origin=NULL;
-    if (result==PRIMARY_PUBLISH_PENDING) {
+    if (result==PRIMARY_TOPOLOGY_APPLIED_PENDING) {
         /* An incomplete postpublication owner cannot follow the independent App
            source without another typed handoff. Keep an explicit blocked slot,
            not stale borrowed authority or a fabricated replacement preimage. */
@@ -94,7 +117,7 @@ static void app_primary_source_publish(App *a) {
     grid_schema(&a->grid,&a->page,true);
     grid_project_widths(&a->grid,active_sheet(a)->view.widths,active_sheet(a)->view.column_count);
     a->relation_scroll=0; a->modal=MODAL_NONE; cache_pipeline(a); source_ready(a);
-    if (result==PRIMARY_PUBLISH_PENDING) status(a,"Source worksheet opened. Retained origin admission remains unavailable.");
+    if (result==PRIMARY_TOPOLOGY_APPLIED_PENDING) status(a,"Source worksheet opened. Retained origin admission remains unavailable.");
     primary_source_publication_free(&published); app_primary_source_cancel(a); free(error); return;
 pending:
     sheet_source_view_free(&initial);
@@ -105,7 +128,7 @@ rejected:
     free(error); app_primary_source_cancel(a);
 }
 static bool app_primary_source_reply(App *a,QueryReply *reply) {
-    if (!a->primary_source_draft || reply->kind!=JOB_PAGE || reply->object_id || reply->is_preview) return false;
+    if (!app_primary_source_pending(a) || reply->kind!=JOB_PAGE || reply->object_id || reply->is_preview) return false;
     if (reply->revision!=a->analysis_revision) { reply_free(reply); app_primary_source_cancel(a); status(a,"The source probe belongs to an earlier source request."); return true; }
     reply_free(a->primary_source_reply); a->primary_source_reply=reply;
     app_primary_source_publish(a); return true;

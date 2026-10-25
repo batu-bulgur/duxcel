@@ -25,6 +25,7 @@
 #ifndef DUXCEL_BROWSER_HOST
 #include "../workbook/definition_origin.h"
 #include "../workbook/primary_source_publish.h"
+#include "../workbook/primary_source_topology.h"
 #include "../workbook/journal_session.h"
 #include "versionstate.h"
 #include "versionpreview.h"
@@ -161,6 +162,8 @@ typedef struct {
 #ifndef DUXCEL_BROWSER_HOST
     AppDefinitionOrigin *definition_origins;
     PrimarySourceDraft *primary_source_draft;
+    PrimarySourcePublishPlan *primary_source_plan;
+    PrimarySourceTopologyPlan *primary_source_topology;
     QueryReply *primary_source_reply;
     uint64_t primary_source_request;
     SheetView primary_source_navigation; /* Scalar-only frozen new-sheet intent. */
@@ -1533,7 +1536,7 @@ static bool relink_primary_path(App *a,const char *path) {
 }
 static void request_page(App *a,bool reset) {
 #ifndef DUXCEL_BROWSER_HOST
-    if (a->primary_source_draft) return;
+    if (app_primary_source_pending(a)) return;
 #endif
     if (a->object_import.active) return;
     SOURCE_FORMAT_REQUEST(a);
@@ -1906,7 +1909,7 @@ static void export_panel(App *a) {
 }
 static void schedule_count(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
-    if (a->primary_source_draft) return;
+    if (app_primary_source_pending(a)) return;
 #endif
     if (a->step_preview.active) return;
     Page *target=a->waiting_count_page ? &a->spare : &a->page;
@@ -1953,7 +1956,7 @@ static bool publish_object_extent(App *a,size_t index,uint64_t total,char **erro
 }
 static void schedule_table_count(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
-    if (a->primary_source_draft) return;
+    if (app_primary_source_pending(a)) return;
 #endif
     if (a->step_preview.active) return;
     if (a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed || a->grid.dragging || a->grid.moving || a->grid.scrollbar ||
@@ -2022,7 +2025,7 @@ static void pause_count(App *a) {
 }
 static void cancel_active_query(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
-    if (a->primary_source_draft) { worker_cancel(&a->worker); a->request_id++; a->busy=false; app_primary_source_cancel(a); a->consume_grid_input=true; status(a,"Source open cancelled. The current worksheet is unchanged."); return; }
+    if (app_primary_source_pending(a)) { worker_cancel(&a->worker); a->request_id++; a->busy=false; app_primary_source_cancel(a); a->consume_grid_input=true; status(a,"Source open cancelled. The current worksheet is unchanged."); return; }
 #endif
     if (a->object_import.active) {
         worker_cancel(&a->worker); a->request_id++; a->busy=false; object_import_draft_free(&a->object_import);
@@ -2281,7 +2284,7 @@ static void receive_source_validation(App *a,QueryReply *r) {
 }
 static void poll_query(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
-    if (a->primary_source_draft && primary_source_draft_check(app_primary_source_context(a),a->primary_source_draft,NULL)!=PRIMARY_SOURCE_READY) {
+    if (app_primary_source_pending(a) && !app_primary_source_current(a,NULL)) {
         if (a->request_id==a->primary_source_request) { worker_cancel(&a->worker); a->request_id++; a->busy=false; }
         app_primary_source_cancel(a);
     }
@@ -8124,7 +8127,7 @@ static DxCommand fallback_global_command(const App *a) {
 }
 static void shortcuts(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
-    if (a->primary_source_draft && !a->io_busy && ui_pressed(KEY_ESCAPE)) { cancel_active_query(a); return; }
+    if (app_primary_source_pending(a) && !a->io_busy && ui_pressed(KEY_ESCAPE)) { cancel_active_query(a); return; }
     if (a->io_busy && a->pending_kind==JOB_SAVE && ui_pressed(KEY_ESCAPE)) {
         worker_save_cancel(&a->worker); a->consume_grid_input=true; return;
     }

@@ -32,7 +32,7 @@ STANDALONE_GUI = {
     "template-cells": ("build/tests/test_template_cells-gui", "PASS: native template manual cell workflow",
                     r"^PASS: native template manual cell workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "source-initial-view": ("build/tests/test_source_initial_view-gui", "PASS: native initial source view workflow",
-                            r"^PASS: native initial source view workflow \(5 stages, [1-9]\d* checks\)$", 5),
+                            r"^PASS: native initial source view workflow \(6 stages, [1-9]\d* checks\)$", 6),
     "primary-source-kinds": ("build/tests/test_primary_source_kinds-gui", "PASS: native source kind workflow",
                              r"^PASS: native source kind workflow \(9 stages, [1-9]\d* checks\)$", 9),
     "primary-source": ("build/tests/test_primary_source-gui", "PASS: native pending primary workflow",
