@@ -108,4 +108,19 @@ static void grammar_and_cancel(void) {
     source.source_version=1; CHECK(primary_source_draft_measure(c,&source,"New",&info,NULL)==PRIMARY_SOURCE_INVALID); source.source_version=0;
     primary_source_draft_free(NULL); primary_source_candidate_free(NULL); workbook_free(&b);
 }
-int main(void) { basics(); reply_failures(); fences(); grammar_and_cancel(); printf("PASS: %u pending primary source ownership checks\n",checks); return 0; }
+static void final_numeric_slot(void) {
+    Workbook b=book(); uint64_t request=7,epoch=9; PrimarySourceDraftContext c={&b,&b.sheets[0].analysis,&request,&epoch,true,false};
+    Analysis source={.kind=SOURCE_DATABASE,.path=dx_strdup("/new.duckdb")};
+    for (size_t i=0;i<DX_ANALYSIS_FILTERS;i++) { char name[24]; snprintf(name,sizeof(name),"Field %zu",i); CHECK(analysis_filter_set(&source,name,FILTER_GREATER,"1",NULL)); }
+    CHECK(source.filter_count==DX_ANALYSIS_FILTERS-1);
+    size_t last=sizeof(source.filters)/sizeof(*source.filters)-1; CHECK(last==DX_ANALYSIS_FILTERS-2);
+    source.filters[last].number=(NumberType){NUM_DECIMAL,39,0}; PrimarySourceDraftInfo info={0};
+    CHECK(primary_source_draft_measure(c,&source,"New",&info,NULL)==PRIMARY_SOURCE_INVALID);
+    source.filters[last].number=(NumberType){NUM_U64,0,0}; PrimarySourceDraft *draft=begin(c,&source);
+    Analysis reply=analysis_copy(&source); reply.schema=dx_strdup("main"); reply.table=dx_strdup("Sales"); reply.filters[last].number=(NumberType){NUM_FLOAT,1,0};
+    CHECK(primary_source_draft_reply_measure(c,draft,(PrimarySourceDraftReply){request,&reply,NULL},&info,NULL)==PRIMARY_SOURCE_INVALID);
+    reply.filters[last].number=(NumberType){NUM_U64,0,0};
+    CHECK(primary_source_draft_resolve(c,draft,(PrimarySourceDraftReply){request,&reply,NULL},SIZE_MAX,NULL)==PRIMARY_SOURCE_RESOLVED);
+    primary_source_draft_free(&draft); analysis_free(&source); analysis_free(&reply); workbook_free(&b);
+}
+int main(void) { basics(); reply_failures(); fences(); grammar_and_cancel(); final_numeric_slot(); printf("PASS: %u pending primary source ownership checks\n",checks); return 0; }
