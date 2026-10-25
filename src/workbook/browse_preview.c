@@ -2,7 +2,7 @@
 #include "analysis_asset.h"
 #include <stdlib.h>
 #include <string.h>
-struct BrowsePreview { BrowsePreviewInfo info; Page page; void *definition; };
+struct BrowsePreview { BrowsePreviewInfo info; Page page; void *definition,*sources; };
 static bool context_valid(const BrowsePreviewContext *c) {
     return c && c->document && c->document_session && c->sheet && c->sheet_session && c->object_high_water && c->metadata_clock &&
         c->request_epoch && c->query_epoch && c->source_epoch && c->definition && c->result_owner && c->sources && c->results && c->results->resolve &&
@@ -100,7 +100,11 @@ static BrowsePreviewStatus measure(const BrowsePreviewContext *c,const BrowsePre
     status=text_owned(page->records.source_key,&owned,NULL); if (status!=BROWSE_PREVIEW_OK) return status;
     AnalysisAssetMeasure definition={0}; AnalysisAssetStatus encoded=analysis_asset_measure(target->sheet,c->owner,c->definition,target->object_high_water,&definition);
     if (encoded!=ANALYSIS_ASSET_OK) return encoded==ANALYSIS_ASSET_LIMIT ? BROWSE_PREVIEW_LIMIT : encoded==ANALYSIS_ASSET_UNSUPPORTED ? BROWSE_PREVIEW_UNSUPPORTED : BROWSE_PREVIEW_INVALID;
-    if (!add(&owned,definition.bytes)) return BROWSE_PREVIEW_LIMIT;
+    bool selected[DX_SOURCE_VERSIONS]={0};
+    for (size_t i=0;i<c->sources->count;i++) selected[i]=c->definition->source_version && c->sources->items[i].version==c->definition->source_version;
+    SourceVersionsSelectionMeasure sources={0};
+    if (source_versions_selection_measure(target->sheet,c->sources,target->object_high_water,selected,c->sources->count,&sources)!=SOURCE_VERSIONS_CODEC_OK) return BROWSE_PREVIEW_INVALID;
+    if (!add(&owned,definition.bytes) || !add(&owned,sources.bytes)) return BROWSE_PREVIEW_LIMIT;
     /* Source ledger validation has a fixed bounded field-name stack. Charge
        it conservatively alongside admitted definition grammar scratch, even
        though their peaks do not overlap. No source packet is cloned here. */
@@ -111,7 +115,7 @@ static BrowsePreviewStatus measure(const BrowsePreviewContext *c,const BrowsePre
     *out=(BrowsePreviewInfo){.document=target->document,.sheet=target->sheet,.owner=c->owner,.object_high_water=target->object_high_water,
         .source_version=c->definition->source_version,.source_high_water=c->sources->high_water,
         .metadata_clock=target->metadata_clock,.request=target->request,.query_epoch=target->query_epoch,.source_epoch=target->source_epoch,.offset=page->offset,.total=page->total,
-        .rows=page->row_count,.columns=page->column_count,.records=page->records.count,.definition_bytes=definition.bytes,.owned=owned,
+        .rows=page->row_count,.columns=page->column_count,.records=page->records.count,.definition_bytes=definition.bytes,.source_bytes=sources.bytes,.owned=owned,
         .validation_scratch=scratch,.coexistence=coexistence,.count_pending=page->count_pending,
         .binding_pending=target->bound && !target->binding.raw.bytes};
     return BROWSE_PREVIEW_OK;
@@ -120,10 +124,11 @@ BrowsePreviewStatus browse_preview_measure(const BrowsePreviewContext *c,const B
     if (!out) return BROWSE_PREVIEW_INVALID;
     BrowsePreviewInfo info={0}; BrowsePreviewStatus status=measure(c,target,prior,&info); if (status==BROWSE_PREVIEW_OK) *out=info; return status;
 }
-void browse_preview_free(BrowsePreview *preview) { if (preview) { page_free(&preview->page); free(preview->definition); free(preview); } }
+void browse_preview_free(BrowsePreview *preview) { if (preview) { page_free(&preview->page); free(preview->definition); free(preview->sources); free(preview); } }
 BrowsePreviewInfo browse_preview_info(const BrowsePreview *preview) { return preview ? preview->info : (BrowsePreviewInfo){0}; }
 const Page *browse_preview_page(const BrowsePreview *preview) { return preview ? &preview->page : NULL; }
 const void *browse_preview_definition(const BrowsePreview *preview,size_t *bytes) { if (bytes) *bytes=preview ? preview->info.definition_bytes : 0; return preview ? preview->definition : NULL; }
+const void *browse_preview_sources(const BrowsePreview *preview,size_t *bytes) { if (bytes) *bytes=preview ? preview->info.source_bytes : 0; return preview ? preview->sources : NULL; }
 BrowsePreviewStatus browse_preview_capture(const BrowsePreviewContext *c,const BrowsePreviewTarget *target,size_t reserved,BrowsePreview **out) {
     if (!out) return BROWSE_PREVIEW_INVALID;
     BrowsePreviewInfo info={0}; BrowsePreviewStatus status=measure(c,target,*out,&info); if (status!=BROWSE_PREVIEW_OK) return status;
@@ -131,6 +136,10 @@ BrowsePreviewStatus browse_preview_capture(const BrowsePreviewContext *c,const B
     BrowsePreview *next=dx_alloc(sizeof(*next)); next->info=info; next->definition=dx_alloc(info.definition_bytes);
     size_t written=0; AnalysisAssetStatus encoded=analysis_asset_encode(target->sheet,c->owner,c->definition,target->object_high_water,info.validation_scratch,next->definition,info.definition_bytes,&written);
     if (encoded!=ANALYSIS_ASSET_OK || written!=info.definition_bytes) { browse_preview_free(next); return encoded==ANALYSIS_ASSET_LIMIT ? BROWSE_PREVIEW_LIMIT : BROWSE_PREVIEW_INVALID; }
+    bool selected[DX_SOURCE_VERSIONS]={0};
+    for (size_t i=0;i<c->sources->count;i++) selected[i]=c->definition->source_version && c->sources->items[i].version==c->definition->source_version;
+    next->sources=dx_alloc(info.source_bytes); written=0;
+    if (source_versions_selection_encode(target->sheet,c->sources,target->object_high_water,selected,c->sources->count,next->sources,info.source_bytes,&written)!=SOURCE_VERSIONS_CODEC_OK || written!=info.source_bytes) { browse_preview_free(next); return BROWSE_PREVIEW_INVALID; }
     RangeResultProof current={0}; status=check(c,target,&current);
     if (status!=BROWSE_PREVIEW_OK) { browse_preview_free(next); return status; }
     const Page *page=current.page; Page *copy=&next->page;
@@ -146,7 +155,7 @@ BrowsePreviewStatus browse_preview_capture(const BrowsePreviewContext *c,const B
     copy->records=page->records; copy->records.ids=copy->records.count ? dx_alloc(copy->records.count*sizeof(uint64_t)) : NULL;
     if (copy->records.count) memcpy(copy->records.ids,page->records.ids,copy->records.count*sizeof(uint64_t));
     copy->records.source_key=page->records.source_key ? dx_strdup(page->records.source_key) : NULL;
-    copy->bytes=info.owned-sizeof(*next)-info.definition_bytes;
+    copy->bytes=info.owned-sizeof(*next)-info.definition_bytes-info.source_bytes;
     RangeResultProof now={0}; status=check(c,target,&now);
     if (status!=BROWSE_PREVIEW_OK) { browse_preview_free(next); return status; }
     BrowsePreview *old=*out; *out=next; browse_preview_free(old); return BROWSE_PREVIEW_OK;

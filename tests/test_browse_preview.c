@@ -1,5 +1,6 @@
 #include "workbook/browse_preview.h"
 #include "workbook/analysis_asset.h"
+#include "workbook/browse_preview_admission.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -128,6 +129,44 @@ static void profiles(void) {
     f.context.other_owned=SIZE_MAX; CHECK(browse_preview_prepare(&f.context,&target)==BROWSE_PREVIEW_OK); preserved(&f,&target,&preview,BROWSE_PREVIEW_LIMIT);
     f.context.other_owned=0; browse_preview_free(preview); finish(&f);
 }
+static void association(void) {
+    Fixture f; start(&f); BrowsePreview *unbound=NULL,*pending=NULL,*complete=NULL; BrowsePreviewTarget target;
+    BrowsePreviewInfo info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&unbound)==BROWSE_PREVIEW_OK);
+    BrowsePreviewLive live={f.document,f.sheet,0,f.high_water,&f.definition,&f.sources,sizeof(f)};
+    SourceDependencyAdmission report={0}; size_t reserved=0;
+    CHECK(browse_preview_admission_measure(unbound,live,&reserved)==BROWSE_PREVIEW_OK);
+    CHECK(browse_preview_admit(unbound,live,reserved,&report)==SOURCE_DEPENDENCY_EXACT && report.unbound_sources==1);
+    SourceDependencyAdmission saved=report;
+    CHECK(browse_preview_admit(unbound,live,reserved-1,&report)==SOURCE_DEPENDENCY_LIMIT && !memcmp(&report,&saved,sizeof(report)));
+    f.sources.items=dx_alloc(sizeof(SourceVersion)); f.sources.items[0]=(SourceVersion){.owner=0,.version=1,.kind=SOURCE_CSV,.path=dx_strdup(f.definition.path)};
+    f.sources.count=f.sources.capacity=f.sources.high_water=1; f.sources.bytes=sizeof(SourceVersion)+strlen(f.definition.path)+1; f.definition.source_version=1;
+    CHECK(browse_preview_admit(unbound,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT && report.unbound_sources==1);
+    info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&pending)==BROWSE_PREVIEW_OK);
+    CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_EXACT && report.sources.captured_pending==1 && !report.unbound_sources);
+    size_t bytes=0; const void *data=browse_preview_sources(pending,&bytes); SourceVersionsAssetInfo framed={0}; SourceVersionsAsset decoded={0};
+    CHECK(source_versions_asset_preflight(data,bytes,0,&framed)==SOURCE_VERSIONS_CODEC_OK && framed.count==1 && framed.high_water==1);
+    CHECK(source_versions_asset_decode(data,bytes,0,framed.owned,&decoded)==SOURCE_VERSIONS_CODEC_OK);
+    CHECK(decoded.versions.items[0].path!=f.sources.items[0].path && !decoded.versions.items[0].raw.bytes); source_versions_asset_free(&decoded);
+    SourceDigest digest={.identity={.size=500},.bytes=500,.sha256={1}}; SourcePacket raw={0};
+    CHECK(source_scope_raw_build(0,1,&f.definition,&f.page,&digest,"test-engine",&raw,NULL)); f.sources.items[0].raw=raw; f.sources.bytes+=raw.bytes;
+    CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_REFINED && report.sources.captured_pending==1 && report.sources.refined==1);
+    CHECK(browse_preview_info(pending).binding_pending);
+    info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&complete)==BROWSE_PREVIEW_OK);
+    CHECK(browse_preview_admit(complete,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_EXACT && report.sources.exact==1 && !report.sources.captured_pending);
+    digest.sha256[0]=2; SourcePacket replacement={0}; CHECK(source_scope_raw_build(0,1,&f.definition,&f.page,&digest,"test-engine",&replacement,NULL));
+    CHECK(replacement.bytes==raw.bytes); source_packet_free(&f.sources.items[0].raw); f.sources.items[0].raw=replacement;
+    CHECK(browse_preview_admit(complete,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT && report.sources.conflicting==1);
+    f.sources.bytes-=replacement.bytes; source_packet_free(&f.sources.items[0].raw);
+    CHECK(browse_preview_admit(complete,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_UNAVAILABLE && report.sources.unavailable==1);
+    live.sources=NULL; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_UNAVAILABLE); live.sources=&f.sources;
+    live.document.low++; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT && report.sources.captured_pending==1); live.document=f.document;
+    live.sheet++; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); live.sheet=f.sheet;
+    live.owner=9; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); live.owner=0;
+    f.definition.source_version=0; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); f.definition.source_version=1;
+    saved=report; unsigned char *bad=(unsigned char *)browse_preview_sources(pending,&bytes); unsigned char old=bad[24]; bad[24]=2;
+    CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_INVALID && !memcmp(&report,&saved,sizeof(report))); bad[24]=old;
+    browse_preview_free(unbound); browse_preview_free(pending); browse_preview_free(complete); finish(&f);
+}
 static void maximum(void) {
     Fixture f; start(&f); page_free(&f.page);
     f.page=(Page){.column_count=256,.row_count=256,.offset=UINT64_MAX-256,.total=UINT64_MAX,.columns=dx_alloc(256*sizeof(Column)),.cells=dx_alloc(65536*sizeof(Cell))};
@@ -139,4 +178,4 @@ static void maximum(void) {
     CHECK(browse_preview_page(preview)->cells[65535].is_null && !browse_preview_page(preview)->cells[65535].text && browse_preview_page(preview)->offset==UINT64_MAX-256);
     browse_preview_free(preview); finish(&f);
 }
-int main(void) { ownership(); stale(); profiles(); maximum(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
+int main(void) { ownership(); stale(); profiles(); association(); maximum(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }

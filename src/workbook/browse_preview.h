@@ -1,5 +1,6 @@
 #ifndef DX_BROWSE_PREVIEW_H
 #define DX_BROWSE_PREVIEW_H
+#include "source_versions_codec.h"
 #include "range_command.h" /* Existing borrowed actual-result resolver types. */
 #define DX_BROWSE_PREVIEW_ROWS 256u
 #define DX_BROWSE_PREVIEW_COLUMNS 256u
@@ -32,7 +33,7 @@ typedef struct {
     uint64_t sheet,owner,object_high_water,source_version,source_high_water;
     uint64_t metadata_clock,request,query_epoch,source_epoch; /* Captured runtime observations, not reusable execution permission. */
     uint64_t offset,total;
-    size_t rows,columns,records,definition_bytes,owned,validation_scratch,coexistence;
+    size_t rows,columns,records,definition_bytes,source_bytes,owned,validation_scratch,coexistence;
     bool count_pending,binding_pending;
 } BrowsePreviewInfo;
 typedef enum { BROWSE_PREVIEW_OK,BROWSE_PREVIEW_UNAVAILABLE,BROWSE_PREVIEW_STALE,
@@ -63,4 +64,6 @@ BrowsePreviewInfo browse_preview_info(const BrowsePreview *preview);
    DXAN bytes are inert canonical provenance, not another executable Analysis. */
 const Page *browse_preview_page(const BrowsePreview *preview);
 const void *browse_preview_definition(const BrowsePreview *preview,size_t *bytes);
+/* Inert selected current DXSV metadata closure, including allocator observation. */
+const void *browse_preview_sources(const BrowsePreview *preview,size_t *bytes);
 #endif
