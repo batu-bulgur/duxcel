@@ -57,4 +57,38 @@ static void clear(void) {
     CHECK(source_range_paste_plan(c,100,4,"Outside protected rectangle",SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_READY && !memcmp(&before,s,sizeof(before)));
     workbook_free(&b); cells_snapshot_free(&out);
 }
-int main(void) { paste(); clear(); printf("PASS: %u guarded source range projection checks\n",checks); return 0; }
+static void move(void) {
+    Workbook b=fixture(); Worksheet *s=b.sheets; Analysis primary={.kind=SOURCE_DEMO};
+    SourceVersions ledger={0}; SourceVersion entry={.owner=s->objects.items[0].id,.version=8,.kind=SOURCE_CSV,.path="/owned.csv"};
+    CHECK(source_versions_plan(&s->source_versions,&entry,true,&ledger,NULL)); source_versions_free(&s->source_versions); s->source_versions=ledger;
+    s->objects.items[0].source.kind=SOURCE_CSV; s->objects.items[0].source.path=dx_strdup("/owned.csv"); s->objects.items[0].source.source_version=8; Worksheet before=*s;
+    SourceTableExtent table={s->objects.items[0].id,3,2,true,false,false}; SourceMoveContext c={{s,&primary,10,3,false,false,true},&table,1};
+    SheetRange r={20,32,4,9}; MixedRangePlanInfo info={0}; MixedRangePlan out={0};
+    CHECK(source_range_move_measure(c,r,20,10,false,&info,NULL)==SOURCE_RANGE_READY);
+    CHECK(source_range_move_plan(c,r,20,10,false,info.owned-1,info.validation_scratch,&out,NULL)==SOURCE_RANGE_LIMIT && !out.objects.items);
+    CHECK(source_range_move_plan(c,r,20,10,false,info.owned,info.validation_scratch-1,&out,NULL)==SOURCE_RANGE_LIMIT && !out.objects.items);
+    CHECK(source_range_move_plan(c,r,20,10,false,info.owned,info.validation_scratch,&out,NULL)==SOURCE_RANGE_READY && out.effects==14 && !out.widths.count && out.object_high_water==s->objects.next_id && !memcmp(&before,s,sizeof(before)));
+    Workbook *reference=workbook_snapshot(&b); CHECK(reference && worksheet_move_range(reference->sheets,r,20,10,10,3,NULL));
+    Worksheet *expected=reference->sheets; CHECK(out.cells.count==expected->cells.count && out.objects.count==expected->objects.count && format_snapshot_matches(&expected->formats,&out.formats));
+    for (size_t i=0;i<out.cells.count;i++) CHECK(out.cells.cells[i].row==expected->cells.cells[i].row && out.cells.cells[i].col==expected->cells.cells[i].col && !strcmp(out.cells.cells[i].text,expected->cells.cells[i].text));
+    CHECK(out.objects.items[0].row==50 && out.objects.items[0].col==18 && out.objects.items[0].name!=s->objects.items[0].name && out.objects.items[0].source.kind==SOURCE_CSV && out.objects.items[0].source.source_version==8 && out.objects.items[0].source.path!=s->objects.items[0].source.path);
+    MixedRangePlan held=out;
+    CHECK(source_range_move_plan(c,(SheetRange){30,30,8,8},20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+    CHECK(source_range_move_plan(c,r,20,10,true,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED && !memcmp(&held,&out,sizeof(out)));
+    CHECK(source_range_move_plan(c,(SheetRange){0,1,0,1},20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+    CHECK(source_range_move_plan(c,r,-20,-4,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+    CHECK(source_range_move_plan(c,r,0,0,false,0,0,&out,NULL)==SOURCE_RANGE_NOOP && !memcmp(&held,&out,sizeof(out)));
+    CHECK(source_range_move_plan(c,(SheetRange){100,101,100,101},1,1,false,0,0,&out,NULL)==SOURCE_RANGE_NOOP && !memcmp(&held,&out,sizeof(out)));
+    c.range.count_pending=true; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); c.range.count_pending=false;
+    c.range.fetch_failed=true; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); c.range.fetch_failed=false;
+    c.range.source_columns=0; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); c.range.source_columns=3;
+    table.count_pending=true; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); table.count_pending=false;
+    table.failed=true; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); table.failed=false;
+    table.ready=false; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); table.ready=true;
+    table.rows=2; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID); table.rows=3;
+    c.table_count=0; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); c.table_count=1;
+    s->source_versions.items[0].owner++; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out))); s->source_versions.items[0].owner--;
+    CHECK(!memcmp(&before,s,sizeof(before)) && s->source_versions.high_water==8 && s->source_versions.count==1 && !memcmp(&held,&out,sizeof(out)));
+    workbook_free(reference); free(reference); workbook_free(&b); CHECK(out.objects.items[0].name && out.cells.cells[0].text); mixed_range_plan_free(&out);
+}
+int main(void) { paste(); clear(); move(); printf("PASS: %u guarded source range projection checks\n",checks); return 0; }
