@@ -197,9 +197,9 @@ static void source_results_test_frame(AppSession *session) {
     case 18:
         SR_CHECK(s->objects.items[0].col==16 && s->view.widths[16383]==333); source_columns_menu(a,15,4); break;
     case 19:
-        SR_CHECK(s->objects.items[0].col==15 && !strcmp(cells_get(&s->cells,740,14),"9007199254740993.0123456789") && (format_at(&s->formats,740,14).flags&FORMAT_BOLD) && s->view.widths[15]==123 && s->view.widths[16382]==333); history(a,false); break;
+        SR_CHECK(s->objects.items[0].col==15 && !s->cells.count && !(format_at(&s->formats,740,15).flags&FORMAT_BOLD) && s->view.widths[15]==123 && s->view.widths[16382]==333); history(a,false); break;
     case 20:
-        SR_CHECK(s->objects.items[0].col==16 && s->view.widths[16383]==333); source_columns_revision=a->book.command_revision;
+        SR_CHECK(s->objects.items[0].col==16 && s->view.widths[16383]==333 && !strcmp(cells_get(&s->cells,740,15),"9007199254740993.0123456789") && (format_at(&s->formats,740,15).flags&FORMAT_BOLD)); source_columns_revision=a->book.command_revision;
         grid_select_cell(&a->grid,0,5,false); column_action(a,COLUMN_LEFT); break;
     case 21:
         SR_CHECK(a->book.command_revision==source_columns_revision && s->objects.items[0].col==16 && s->view.widths[16383]==333); source_columns_menu(a,17,2); break;
