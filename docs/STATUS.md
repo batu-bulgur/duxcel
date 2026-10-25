@@ -17,6 +17,8 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 | Review/feedback | Native and Wasm use the development-only C semantic registry and persistent external queue. Automatic triage is separate from implementing/verifying a report. All review code/commands/bridges are excluded from production. Services start only on explicit developer commands. |
 | Web publication | GitHub Pages builds the real shared-C Wasm app. Web tests run independently; publication requires build/package/browser smoke. Hosted native CI is manual/paused; no native Linux/Windows execution claim. |
 
+Session sheet deletion/duplication and metadata replay now retain their original typed payload under the genuine lifecycle owner. Proven source-ledger completion, allocator growth and navigation do not block valid Undo; same-active metadata replay preserves source Pages and query requests. These are session prerequisites, not durable retained traversal or source execution readiness.
+
 Valid pending native definition owners now survive Save capture, refused Save,
 sheet suspend/resume and Saved inspection/Working Head return through typed
 ownership transfers. Failed navigation cannot apply Undo to another sheet.

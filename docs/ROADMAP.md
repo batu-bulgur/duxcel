@@ -306,12 +306,17 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.4.8 · P1 · Complete | Source-free template row/column axes; W12c.4.6. | Adopt exact cells/objects/styles/width effects once, retain fixed physical labels and truncated edge widths, and prove integrated inverses without changing source editing policy. |
 | W12c.4.9 · P1 · Complete | Source-free template paste/Clear; W12c.4.7–W12c.4.8. | Paste protects the full rectangle including ragged holes; Clear removes sparse cells only. Both preserve object definitions, styles and physical widths through Undo/Redo/Save/Open. |
 | W12c.4.10 · P1 · In progress | Source-bearing result-fenced ranges and producer closure; W12c.4.9. | Prove actual primary/Table/active-Pivot result association and full extents; close MOVE/Replace/axes/keyboard Clear with complete effects. Private native acceptance is verified; linear main integration remains separate. |
-| W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
+| W12c.5 · P1 · In progress | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Session packet/adoption prerequisites are verified; persistent traversal and source CREATE publication remain separate. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
 | W12c.5.3 · P1 · Complete | Guarded sheet-metadata adoption/publication; W12c.5.2 and existing workbook lifecycle coordinator. | Reserve before lifecycle eviction, adopt through the genuine workbook action, then prove exact after-metadata/session/revision/chronology before publication. Native metadata controls are a narrow child; detached topology and parent lifecycle activation remain separate. |
 | W12c.5.3a · P1 · Complete | Genuine governed metadata adoption and family5 publication; W12c.5.2. | Prove all owner/model/chronology/budget checks before mutation; call actual metadata coordinator and validate after-state before nonfallible publication. Session-only and recorded paths share semantics; navigation stays independent of metadata replay. |
 | W12c.5.3b · P1 · Complete | Native sheet metadata command adapter; W12c.5.3a. | Route rename/reorder/hide/show through the shared prepared command with exact App ownership/adoption accounting; narrow real UI and stale/no-op checks. Detached topology and retained history IO remain separate. |
+| W12c.5.4 · P1 · Complete | Closed detached presence and topology packets; W12c.5.3. | Capture independent full authored DXSP and current DXTP with exact catalogs, target and counters; bounded decode preserves old outputs on corruption/pressure. |
+| W12c.5.5 · P1 · Complete | Governed DELETE/DUPLICATE adoption and one session payload owner; W12c.5.4. | Measure the real producer peak and packet residency before mutation/eviction; move original DXSL/DXTP into the genuine lifecycle event and free exactly once on branch/ring teardown. |
+| W12c.5.6 · P1 · Complete | Guarded session replay and native adapters; W12c.5.5. | Replay genuine selected actions with current owners, preserve Redo and counters, retain same-active Analysis/Grid/Page on metadata changes and keep unresolved-source session behavior. No new traversal event or retained writer. |
+| W12c.5.7 · P1 · Complete | Authored matching versus immutable enrichment; W12c.5.6. | Navigation/default tail capacity and proven ledger completion/allocator growth cannot block valid sheet Undo. Exact authored data remains checked; current counters/RAW are never rewound or promoted to readiness. |
+| W12c.5.8 · P1 · Complete | Read-only typed sheet slot/batch/applicability prerequisites; W12c.5.7. | Bind only supplied current frame/path slots, cap aggregate ownership before decode, preserve prior output on late failure and expose pending/unbound observations without activation. Full file profile/publication remains W12b.2c/W12d. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
@@ -2618,3 +2623,17 @@ source-dependency-admission6.459s and compound-preflight3.081s; catalog14 passes
 Receipts: `20261025T230134-feature-30619`, `230142-feature-31225`,
 `230147-feature-31490`, `230155-feature-31835`. These close leaf prerequisites
 only; W12b.2c remains open for complete profile/publication ownership.
+
+History group integrated as `d4d0eef` through `4d77cf04`, sharing Source's existing
+subset/frame/slot/single-state helpers rather than importing duplicate copies.
+Registry union retains all baseline modules once and parallel goal registration
+precedes Make admission; native CORE has90 unique sources. Main's detached branch
+stamp/history.c/h remain unchanged from the delivered fix. The extra native
+enrichment fixture integrates as `7d355638`/`af27c5fb`.
+Eight focused main plans pass both module configurations: topology-owner11.156s,
+metadata-replay6.246s, mixed-session chronology3.547s, batch15.445s,
+applicability4.868s, source observations2.283s, topology App25 stages19.222s and
+metadata App28 stages17.733s. Receipts are the `20261025T230732` through
+`20261025T230842` feature runs in `build/tests/results/next-history-gates.log`;
+catalog14 passes. W12c.5.4–5.8 are complete under scoped automation; cross-session
+history, native pending source CREATE and retained writer activation remain open.
