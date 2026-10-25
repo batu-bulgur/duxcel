@@ -268,7 +268,7 @@ static size_t source_format_page_bytes(const Page *page) {
    before document/cache destruction; published sheets are never rolled back. */
 static void app_primary_source_cancel(App *a) {
     primary_source_draft_free(&a->primary_source_draft);
-    reply_free(a->primary_source_reply); a->primary_source_reply=NULL; a->primary_source_request=0;
+    reply_free(a->primary_source_reply); a->primary_source_reply=NULL; a->primary_source_request=0; a->primary_source_navigation=(SheetView){0};
 }
 static size_t app_primary_source_owned(const App *a) {
     size_t bytes=primary_source_draft_owned(a->primary_source_draft); const QueryReply *r=a->primary_source_reply;

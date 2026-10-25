@@ -163,6 +163,7 @@ typedef struct {
     PrimarySourceDraft *primary_source_draft;
     QueryReply *primary_source_reply;
     uint64_t primary_source_request;
+    SheetView primary_source_navigation; /* Scalar-only frozen new-sheet intent. */
     SourceFormatIntent source_format;
     SourceFormatProof source_format_proof;
     SourceFormatAttempt source_format_attempt;
@@ -15855,6 +15856,9 @@ static void column_width_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 static void paste_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_INITIAL_VIEW
+static void source_initial_view_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_PRIMARY_SOURCE_KINDS
 static void primary_source_kinds_test_frame(AppSession *session);
 #endif
@@ -16796,6 +16800,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
     paste_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_INITIAL_VIEW
+    source_initial_view_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_PRIMARY_SOURCE_KINDS
     primary_source_kinds_test_frame(session);
 #endif
@@ -17220,4 +17227,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_PRIMARY_SOURCE_KINDS
 #include "../../tests/support/primary_source_kinds_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_SOURCE_INITIAL_VIEW
+#include "../../tests/support/source_initial_view_app.inc"
 #endif

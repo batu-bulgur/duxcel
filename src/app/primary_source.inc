@@ -32,6 +32,7 @@ static bool app_primary_source_begin(App *a,const Analysis *source,const char *n
     }
     SOURCE_FORMAT_CANCEL(a,NULL);
     worker_cancel(&a->worker); app_primary_source_cancel(a); a->primary_source_draft=draft; a->primary_source_request=a->request_id;
+    a->primary_source_navigation=(SheetView){.canvas_zoom=a->grid.zoom};
     QueryJob *job=dx_alloc(sizeof(*job)); job->kind=JOB_PAGE; job->id=a->request_id; job->revision=a->analysis_revision;
     job->analysis=analysis_copy(source); job->known_total=-1;
     a->busy=true; a->pending_kind=JOB_PAGE; a->pending_object_id=0; app_worker_submit(a,job);
@@ -40,7 +41,7 @@ static bool app_primary_source_begin(App *a,const Analysis *source,const char *n
 }
 static void app_primary_source_publish(App *a) {
     QueryReply *reply=a->primary_source_reply; if (!reply || !a->primary_source_draft) return;
-    PrimarySourceDraftContext context=app_primary_source_context(a); char *error=NULL;
+    PrimarySourceDraftContext context=app_primary_source_context(a); char *error=NULL; SheetSourceView *initial=NULL;
     if (reply->error) { error=dx_strdup(reply->error); goto rejected; }
     PrimarySourceDraftStatus checked=primary_source_draft_check(context,a->primary_source_draft,&error);
     if (checked!=PRIMARY_SOURCE_READY) goto rejected;
@@ -52,11 +53,19 @@ static void app_primary_source_publish(App *a) {
         if (!source_format_add(&reserve,info.validation_scratch) || !source_format_budget(a,NULL,0,reserve,0,0,0)) goto pending;
         if (primary_source_draft_resolve(context,a->primary_source_draft,actual,reserve,&error)!=PRIMARY_SOURCE_RESOLVED) goto rejected;
     }
+    SheetSourceViewSpec view_spec={reply->page.columns,reply->page.column_count,a->primary_source_navigation}; SheetSourceViewInfo view_info;
+    if (sheet_source_view_measure(view_spec,&view_info)!=SHEET_SOURCE_VIEW_OK) { error=dx_strdup("The source schema or initial navigation is invalid."); goto rejected; }
+    if (!source_format_budget(a,NULL,0,view_info.owned,0,0,0)) goto pending;
+    if (sheet_source_view_build(view_spec,view_info.owned,&initial)!=SHEET_SOURCE_VIEW_OK) goto rejected;
+    PrimarySourceInitialSchema schema={reply->id,reply->revision,&reply->analysis,reply->page.columns,reply->page.column_count,reply->error};
     PrimarySourcePublishInfo info={0}; PrimarySourcePublishPlan *plan=NULL;
-    if (primary_source_publish_measure(context,a->primary_source_draft,&info,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
+    if (primary_source_publish_measure_initial(context,a->primary_source_draft,initial,schema,&info,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
     size_t reserve=info.coexisting;
     if (!source_format_add(&reserve,sizeof(AppDefinitionOrigin)) || !source_format_budget(a,NULL,0,reserve,0,0,0)) goto pending;
-    if (primary_source_publish_prepare(context,&a->primary_source_draft,info.coexisting,&plan,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
+    if (primary_source_publish_prepare_initial(context,&a->primary_source_draft,&initial,schema,info.coexisting,&plan,&error)!=PRIMARY_PUBLISH_READY) goto rejected;
+    /* Only scalar view capture: preserve navigation made while the probe was
+       pending without rebinding the draft's exact Analysis/cache ownership. */
+    capture_sheet_view(a);
     PrimarySourcePublication published={0};
     PrimarySourcePublishStatus result=primary_source_publish_apply(context,&plan,info.coexisting,&published,&error);
     primary_source_publish_cancel(&plan);
@@ -76,17 +85,22 @@ static void app_primary_source_publish(App *a) {
     SOURCE_FORMAT_RESET(a); memset(a->source_locations,0,sizeof(a->source_locations)); clear_object_views(a);
     analysis_free(&a->analysis); a->analysis=published.candidate.source; published.candidate.source=(Analysis){0};
     page_free(&a->page); page_free(&a->spare); a->page=reply->page; reply->page=(Page){0};
-    a->restore_view=false; a->active_readout.value.valid=false; a->page_stale=a->waiting_count_page=false;
+    a->restore_view=true; a->active_readout.value.valid=false; a->page_stale=a->waiting_count_page=false;
     a->selected_object=a->filter_object=-1; a->pivot_focus=0; a->pivot_search_focus=false; a->reveal_tab=true;
     a->analysis_revision=published.primary_epoch; a->known_total=a->page.count_pending ? -1 : (int64_t)a->page.total; a->observed_rows=a->page.total;
     a->count_request_id=0; a->count_paused=a->count_deferred=false; a->fetch_failed=false; a->new_schema=true;
-    a->grid.elastic=a->grid.spring_velocity=(Vector2){0}; a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0; grid_select_cell(&a->grid,0,0,false);
+    /* A new owner never inherits a same-schema outgoing Grid's custom widths
+       or distant virtual allocation. Worksheet.view is already committed. */
+    grid_schema(&a->grid,&a->page,true);
+    grid_project_widths(&a->grid,active_sheet(a)->view.widths,active_sheet(a)->view.column_count);
     a->relation_scroll=0; a->modal=MODAL_NONE; cache_pipeline(a); source_ready(a);
     if (result==PRIMARY_PUBLISH_PENDING) status(a,"Source worksheet opened. Retained origin admission remains unavailable.");
     primary_source_publication_free(&published); app_primary_source_cancel(a); free(error); return;
 pending:
+    sheet_source_view_free(&initial);
     status(a,"Source loaded. Publication needs memory; F5 retries and Escape cancels. The current worksheet is unchanged."); free(error); return;
 rejected:
+    sheet_source_view_free(&initial);
     status(a,error ? error : "Source open was not admitted. The current worksheet is unchanged.");
     free(error); app_primary_source_cancel(a);
 }

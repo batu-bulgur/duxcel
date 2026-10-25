@@ -132,7 +132,7 @@ class SourceOpenTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="duxcel source opens '") as directory:
             output = pathlib.Path(directory)
             targets = fixture.create_source_opens(output)
-            self.assertEqual([path.name for path in targets], ["source-open.csv", "source-open.parquet", "source-open-bad.csv.gz", "source-open-bad.parquet"])
+            self.assertEqual([path.name for path in targets], ["source-open.csv", "source-open.parquet", "source-open-bad.csv.gz", "source-open-bad.parquet", "source-open-wide.parquet"])
             executable = shutil.which("duckdb")
             for path, reader in ((targets[0], "read_csv"), (targets[1], "read_parquet")):
                 options = ",allow_quoted_nulls=false" if reader == "read_csv" else ""
@@ -142,6 +142,10 @@ class SourceOpenTests(unittest.TestCase):
             for path, reader in ((targets[2], "read_csv"), (targets[3], "read_parquet")):
                 with self.assertRaises(RuntimeError):
                     fixture.execute(executable, ":memory:", f"SELECT * FROM {reader}({fixture.quote(path)});")
+            wide = fixture.execute(executable, ":memory:", f"DESCRIBE SELECT * FROM read_parquet({fixture.quote(targets[4])});")
+            self.assertEqual(len(wide), 40)
+            self.assertEqual(wide[0]["column_name"], "Moment")
+            self.assertEqual(wide[0]["column_type"], "TIMESTAMP")
             before = [path.read_bytes() for path in targets]
             original, calls = fixture.execute, 0
             def fail_export(*args, **kwargs):

@@ -252,6 +252,7 @@ PRIVATE_LAYOUT_RANGES = {
 }
 PRIVATE_NATIVE_SCENARIOS = {"base", "workspace", "filter", "export", "count", "navigation", "nyc", "document", "chart", "statistics", "icon", "query", "unique"}
 PRIVATE_STANDALONE_GUI = {
+    "source-initial-view",
     "primary-source-kinds",
     "primary-source",
     "table-origin",

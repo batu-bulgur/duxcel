@@ -136,10 +136,13 @@ def create_source_opens(output, *, duckdb=None):
         csv, parquet = stage / "source-open.csv", stage / "source-open.parquet"
         sql = (ROOT / "tests/fixtures/workbook/source-opens.sql").read_text()
         execute(executable, database, sql.replace("@CSV@", quote(csv)).replace("@PARQUET@", quote(parquet)))
+        wide = stage / "source-open-wide.parquet"
+        wide_sql = (ROOT / "tests/fixtures/workbook/source-opens-wide.sql").read_text()
+        execute(executable, database, wide_sql.replace("@WIDE@", quote(wide)))
         bad_csv, bad_parquet = stage / "source-open-bad.csv.gz", stage / "source-open-bad.parquet"
         bad_csv.write_bytes(b"not a gzip stream\n")
         bad_parquet.write_bytes(b"not a parquet file\n")
-        for candidate in (csv, parquet, bad_csv, bad_parquet):
+        for candidate in (csv, parquet, bad_csv, bad_parquet, wide):
             target = output / candidate.name
             os.replace(candidate, target)
             targets.append(target)
