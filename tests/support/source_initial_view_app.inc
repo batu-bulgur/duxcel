@@ -5,6 +5,8 @@ static int initial_view_result;
 static uint64_t initial_view_revision,initial_view_order,initial_view_high,initial_view_old_sheet,initial_view_new_sheet;
 static size_t initial_view_count,initial_view_capacity,initial_view_old_columns;
 static const Cell *initial_view_old_cells;
+static const void *initial_view_packet_owner,*initial_view_packet_data;
+static size_t initial_view_packet_bytes;
 static const char *initial_view_saved="build/tests/generated/source-initial-view.dxls";
 #define INITIAL_VIEW_CHECK(x) do { initial_view_checks++; if (!(x)) { fprintf(stderr,"FAIL source initial view stage %u:%d: %s (%s)\n",initial_view_stage,__LINE__,#x,a->message ? a->message : ""); initial_view_result=-1; return; } } while (0)
 static bool initial_view_current(const App *a) {
@@ -62,18 +64,39 @@ static void source_initial_view_test_frame(AppSession *session) {
         INITIAL_VIEW_CHECK(!s->width_history && !s->width_revision && !s->undo_actions_count && !s->redo_actions_count);
         size_t packet_bytes=0; INITIAL_VIEW_CHECK(workbook_lifecycle_format_usage(&a->book,&packet_bytes)==FORMAT_BUDGET_OK && packet_bytes>DX_SHEET_TOPOLOGY_HEADER_BYTES);
         INITIAL_VIEW_CHECK(a->book.sheets[0].id==initial_view_old_sheet && a->book.sheets[0].view.widths[0]==333.5f && a->book.sheets[0].view.col==9000 && a->book.sheets[0].view.column_count==initial_view_old_columns);
-        initial_view_new_sheet=s->id; break;
-    case 3:
-        INITIAL_VIEW_CHECK(initial_view_current(a) && a->book.command_revision==initial_view_revision+1 && worksheet_history_high_water()==initial_view_order+1);
-        workspace_job(a,JOB_SAVE,initial_view_saved); INITIAL_VIEW_CHECK(a->io_busy); break;
-    case 4:
-        INITIAL_VIEW_CHECK(!a->book.dirty && initial_view_current(a) && a->book.command_revision==initial_view_revision+1);
-        workspace_job(a,JOB_LOAD,initial_view_saved); INITIAL_VIEW_CHECK(a->io_busy); break;
+        initial_view_new_sheet=s->id;
+        WorkbookLifecyclePresence created={0};
+        INITIAL_VIEW_CHECK(workbook_lifecycle_presence(&a->book,false,&created) && created.operation==SHEET_CREATE && created.sheet==s->id && created.packet);
+        initial_view_packet_owner=created.owner; initial_view_packet_data=created.packet->data; initial_view_packet_bytes=created.packet->bytes;
+        a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 3: {
+        INITIAL_VIEW_CHECK(a->book.count==initial_view_count && s->id==initial_view_old_sheet && a->book.sheet_high_water==initial_view_high+1);
+        INITIAL_VIEW_CHECK(a->book.command_revision==initial_view_revision+2 && worksheet_history_high_water()==initial_view_order+1);
+        INITIAL_VIEW_CHECK(s->view.widths[0]==333.5f && s->view.col==9000 && s->view.column_count==initial_view_old_columns && a->grid.widths[0]==333.5f && a->grid.col==9000);
+        WorkbookLifecyclePresence detached={0};
+        INITIAL_VIEW_CHECK(workbook_lifecycle_presence(&a->book,true,&detached) && detached.operation==SHEET_CREATE && detached.detached && detached.sheet==initial_view_new_sheet);
+        INITIAL_VIEW_CHECK(detached.owner==initial_view_packet_owner && detached.packet && detached.packet->data==initial_view_packet_data && detached.packet->bytes==initial_view_packet_bytes);
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    }
+    case 4: {
+        INITIAL_VIEW_CHECK(a->book.count==initial_view_count+1 && s->id==initial_view_new_sheet && initial_view_current(a));
+        INITIAL_VIEW_CHECK(a->book.command_revision==initial_view_revision+3 && worksheet_history_high_water()==initial_view_order+1 && a->book.sheet_high_water==initial_view_high+1);
+        WorkbookLifecyclePresence restored={0};
+        INITIAL_VIEW_CHECK(workbook_lifecycle_presence(&a->book,false,&restored) && !restored.detached && restored.owner==initial_view_packet_owner && restored.packet && restored.packet->data==initial_view_packet_data && restored.packet->bytes==initial_view_packet_bytes);
+        INITIAL_VIEW_CHECK(!s->width_history && !s->width_revision && !s->undo_actions_count && !s->redo_actions_count);
+        break;
+    }
     case 5:
+        INITIAL_VIEW_CHECK(initial_view_current(a) && a->book.command_revision==initial_view_revision+3 && worksheet_history_high_water()==initial_view_order+1);
+        workspace_job(a,JOB_SAVE,initial_view_saved); INITIAL_VIEW_CHECK(a->io_busy); break;
+    case 6:
+        INITIAL_VIEW_CHECK(!a->book.dirty && initial_view_current(a) && a->book.command_revision==initial_view_revision+3);
+        workspace_job(a,JOB_LOAD,initial_view_saved); INITIAL_VIEW_CHECK(a->io_busy); break;
+    case 7:
         INITIAL_VIEW_CHECK(initial_view_current(a) && s->id==initial_view_new_sheet && a->book.sheets[0].id==initial_view_old_sheet);
         INITIAL_VIEW_CHECK(a->book.sheets[0].view.widths[0]==333.5f && a->book.sheets[0].view.col==9000 && a->book.sheets[0].view.column_count==initial_view_old_columns);
         INITIAL_VIEW_CHECK(s->view.widths[0]==190 && !strcmp(s->view.columns[0],"Moment") && !strcmp(s->view.columns[39],"Field39") && !*s->view.columns[55]);
-        initial_view_result=1; printf("PASS: native initial source view workflow (6 stages, %u checks)\n",initial_view_checks); return;
+        initial_view_result=1; printf("PASS: native initial source view workflow (8 stages, %u checks)\n",initial_view_checks); return;
     }
     initial_view_stage++;
 }
