@@ -101,6 +101,16 @@ SourceRangeStatus source_range_move_measure(SourceMoveContext c,SheetRange r,int
     if (measured==CELL_RANGE_NOOP) cells.owned=s->cells.count*sizeof(SheetCell)+s->cells.bytes;
     *out=(MixedRangePlanInfo){cells.owned+objects+2u*DX_FORMAT_CURRENT_BYTES,scratch}; return SOURCE_RANGE_READY;
 }
+static bool projection_valid(SourceRangeContext c,const MixedRangePlan *plan,char **error) {
+    Worksheet projected=*c.sheet; projected.objects.items=plan->objects.items; projected.objects.count=plan->objects.count;
+    projected.formats.items=plan->formats.items; projected.formats.count=plan->formats.count; projected.formats.scopes=plan->formats.scopes; projected.formats.scope_count=plan->formats.scope_count; projected.formats.source_aware=plan->formats.source_aware;
+    SourceRangeContext actual=c; actual.sheet=&projected;
+    CellStore cells={.cells=plan->cells.cells,.count=plan->cells.count,.capacity=plan->cells.count,.bytes=plan->cells.bytes};
+    for (size_t i=0;i<projected.objects.count;i++) { const SheetObject *o=projected.objects.items+i;
+        if (!objects_fits(&projected.objects,(int)i,o->row,o->col,o->rows,o->columns,&cells,c.source_rows,c.source_columns,error)) return false;
+    }
+    return valid(actual,error);
+}
 SourceRangeStatus source_range_move_plan(SourceMoveContext c,SheetRange r,int64_t dr,int dc,bool replace,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error) {
     if (!out) return SOURCE_RANGE_INVALID; MixedRangePlanInfo info={0}; SourceRangeStatus status=source_range_move_measure(c,r,dr,dc,replace,&info,error); if (status!=SOURCE_RANGE_READY) return status;
     if (info.owned>reserved || info.validation_scratch>validation_reserved) { fail(error,"Complete source range movement exceeds its admitted reservation."); return SOURCE_RANGE_LIMIT; }
@@ -116,12 +126,61 @@ SourceRangeStatus source_range_move_plan(SourceMoveContext c,SheetRange r,int64_
     uint32_t mask=move_mask(s,r);
     for (size_t i=0;i<next.objects.count;i++) if (mask&(UINT32_C(1)<<i)) { next.objects.items[i].row=(uint64_t)((int64_t)next.objects.items[i].row+dr); next.objects.items[i].col=(size_t)((int64_t)next.objects.items[i].col+dc); }
     if (!format_plan_move(&s->formats,(FormatRange){r.r0,r.r1,r.c0,r.c1},dr,dc,&next.formats,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_LIMIT; }
-    Worksheet projected=*s; projected.objects.items=next.objects.items; projected.objects.count=next.objects.count;
-    projected.formats.items=next.formats.items; projected.formats.count=next.formats.count; projected.formats.scopes=next.formats.scopes; projected.formats.scope_count=next.formats.scope_count; projected.formats.source_aware=next.formats.source_aware;
-    SourceRangeContext actual=c.range; actual.sheet=&projected;
-    CellStore projected_cells={.cells=next.cells.cells,.count=next.cells.count,.capacity=next.cells.count,.bytes=next.cells.bytes};
-    bool geometry=true; for (size_t i=0;i<projected.objects.count && geometry;i++) { const SheetObject *o=projected.objects.items+i; geometry=objects_fits(&projected.objects,(int)i,o->row,o->col,o->rows,o->columns,&projected_cells,c.range.source_rows,c.range.source_columns,error); }
-    if (!geometry || !valid(actual,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_INVALID; }
+    if (!projection_valid(c.range,&next,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_INVALID; }
+    next.effects=(cells==CELL_RANGE_READY ? 2u : 0u)|(mask ? 4u : 0u)|(!format_snapshot_matches(&s->formats,&next.formats) ? 8u : 0u);
+    if (!next.effects) { mixed_range_plan_free(&next); return SOURCE_RANGE_NOOP; }
+    mixed_range_plan_free(out); *out=next; return SOURCE_RANGE_READY;
+}
+
+static bool source_row_mask(const ObjectStore *objects,uint64_t row,uint64_t count,bool insert,uint32_t *mask,char **error) {
+    *mask=0;
+    for (size_t i=0;i<objects->count;i++) {
+        const SheetObject *o=objects->items+i;
+        if ((insert && row>o->row && row<o->row+o->rows) || (!insert && row<o->row+o->rows && o->row<row+count)) return fail(error,"These rows intersect a pivot or chart. Choose rows outside its boundary.");
+        if (insert && o->row>=row && o->row+o->rows>DX_SHEET_ROWS-count) return fail(error,"Insert would move a pivot or chart beyond the last row.");
+        if (insert ? o->row>=row : o->row>=row+count) *mask|=UINT32_C(1)<<i;
+    }
+    return true;
+}
+SourceRangeStatus source_range_rows_measure(SourceMoveContext c,uint64_t row,uint64_t count,bool insert,MixedRangePlanInfo *out,char **error) {
+    if (!out) return SOURCE_RANGE_INVALID; size_t source_scratch=0; SourceRangeStatus ready=move_policy(c,&source_scratch,error); if (ready!=SOURCE_RANGE_READY) return ready;
+    const Worksheet *s=c.range.sheet;
+    if (row<c.range.source_rows) { fail(error,"Imported rows are read-only. Choose worksheet rows below the source."); return SOURCE_RANGE_PROTECTED; }
+    if (row>=DX_SHEET_ROWS || !count || count>DX_SHEET_ROWS-row || !s->id || s->formats.count>DX_FORMAT_PATCHES || (s->formats.count && !s->formats.items)) return SOURCE_RANGE_INVALID;
+    ObjectSnapshot before={s->objects.items,s->objects.count}; ObjectsAssetInfo objects={0};
+    if (objects_asset_measure(s->id,&before,s->objects.next_id,&objects)!=OBJECTS_ASSET_OK) return SOURCE_RANGE_INVALID;
+    CellRangePlanInfo cells={0}; CellRangeStatus status=cells_rows_measure(&s->cells,row,count,insert,&cells,error);
+    if (status!=CELL_RANGE_READY && status!=CELL_RANGE_NOOP) return status==CELL_RANGE_LIMIT ? SOURCE_RANGE_LIMIT : SOURCE_RANGE_INVALID;
+    uint32_t mask=0;
+    if (!source_row_mask(&s->objects,row,count,insert,&mask,error)) return SOURCE_RANGE_INVALID;
+    bool relevant=false;
+    for (size_t i=0;i<s->formats.count;i++) { const FormatPatch *p=s->formats.items+i; FormatRange r=p->range; relevant|=p->selector!=FORMAT_RECORDS && r.r1>=row && !(p->selector==FORMAT_SPATIAL && !r.r0 && r.r1==DX_SHEET_ROWS-1); }
+    if (status==CELL_RANGE_NOOP && !mask && !relevant) return SOURCE_RANGE_NOOP;
+    size_t object_bytes=objects_snapshot_owned_bytes(&before); if (object_bytes==SIZE_MAX) return SOURCE_RANGE_INVALID;
+    if (status==CELL_RANGE_NOOP) cells.owned=s->cells.count*sizeof(SheetCell)+s->cells.bytes;
+    size_t scratch=objects.measure.validation_scratch>DX_FORMAT_VALIDATION_BYTES ? objects.measure.validation_scratch : DX_FORMAT_VALIDATION_BYTES;
+    if (scratch<source_scratch) scratch=source_scratch;
+    *out=(MixedRangePlanInfo){cells.owned+object_bytes+2u*DX_FORMAT_CURRENT_BYTES,scratch}; return SOURCE_RANGE_READY;
+}
+SourceRangeStatus source_range_rows_plan(SourceMoveContext c,uint64_t row,uint64_t count,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error) {
+    if (!out) return SOURCE_RANGE_INVALID; MixedRangePlanInfo info={0};
+    SourceRangeStatus status=source_range_rows_measure(c,row,count,insert,&info,error); if (status!=SOURCE_RANGE_READY) return status;
+    if (info.owned>reserved || info.validation_scratch>validation_reserved) { fail(error,"Row composite ownership or grammar exceeds its admitted reservation."); return SOURCE_RANGE_LIMIT; }
+    const Worksheet *s=c.range.sheet;
+    if (!valid(c.range,error)) return SOURCE_RANGE_INVALID;
+    MixedRangePlan next={.object_high_water=s->objects.next_id}; ObjectStore objects={0};
+    CellRangeStatus cells=cells_rows_plan(&s->cells,row,count,insert,info.owned,&next.cells,error);
+    if (cells!=CELL_RANGE_READY && cells!=CELL_RANGE_NOOP) return SOURCE_RANGE_INVALID;
+    if (cells==CELL_RANGE_NOOP && s->cells.count) {
+        next.cells=(CellSnapshot){.count=s->cells.count,.bytes=s->cells.bytes}; next.cells.cells=dx_alloc(s->cells.count*sizeof(SheetCell));
+        for (size_t i=0;i<s->cells.count;i++) { next.cells.cells[i]=s->cells.cells[i]; next.cells.cells[i].text=dx_strdup(s->cells.cells[i].text); }
+    }
+    if (s->objects.count) { objects_copy(&objects,&s->objects); next.objects=(ObjectSnapshot){objects.items,objects.count}; objects.items=NULL; objects.count=0; objects_free(&objects); }
+    uint32_t mask=0;
+    if (!source_row_mask(&s->objects,row,count,insert,&mask,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_INVALID; }
+    for (size_t i=0;i<next.objects.count;i++) if (mask&(UINT32_C(1)<<i)) next.objects.items[i].row=insert ? next.objects.items[i].row+count : next.objects.items[i].row-count;
+    if (!format_plan_axis(&s->formats,true,row,count,insert,&next.formats,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_LIMIT; }
+    if (!projection_valid(c.range,&next,error)) { mixed_range_plan_free(&next); return SOURCE_RANGE_INVALID; }
     next.effects=(cells==CELL_RANGE_READY ? 2u : 0u)|(mask ? 4u : 0u)|(!format_snapshot_matches(&s->formats,&next.formats) ? 8u : 0u);
     if (!next.effects) { mixed_range_plan_free(&next); return SOURCE_RANGE_NOOP; }
     mixed_range_plan_free(out); *out=next; return SOURCE_RANGE_READY;

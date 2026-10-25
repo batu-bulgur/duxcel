@@ -37,4 +37,9 @@ typedef struct { SourceRangeContext range; const SourceTableExtent *tables; size
 SourceRangeStatus source_range_move_measure(SourceMoveContext c,SheetRange range,int64_t dr,int dc,bool replace,MixedRangePlanInfo *info,char **error);
 SourceRangeStatus source_range_move_plan(SourceMoveContext c,SheetRange range,int64_t dr,int dc,bool replace,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
 
+/* Complete source-bearing row-axis projection. Imported primary rows and
+   intersected Tables/pivots/charts remain protected; no source/width changes. */
+SourceRangeStatus source_range_rows_measure(SourceMoveContext c,uint64_t row,uint64_t count,bool insert,MixedRangePlanInfo *info,char **error);
+SourceRangeStatus source_range_rows_plan(SourceMoveContext c,uint64_t row,uint64_t count,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
+
 #endif
