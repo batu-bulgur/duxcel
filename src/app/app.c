@@ -13,6 +13,7 @@
 #include "../workbook/object_import_draft.h"
 #include "../workbook/object_move_command.h"
 #include "../workbook/range_command.h"
+#include "../workbook/workbook_width_command.h"
 #include "../workbook/definition_baseline.h"
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
@@ -1375,14 +1376,32 @@ static uint64_t workbook_history_stamp(const Workbook *book) {
 #else
 #define close_journal(a,discard) ((void)0)
 #endif
+/* SheetView owns committed physical widths. Grid owns a disposable projection
+   (and a pointer-drag draft), never the saved width authority. Source-schema
+   changes refresh labels without rebinding widths to source field names. */
+static void app_grid_schema(App *a,bool reset) {
+    grid_schema(&a->grid,&a->page,reset);
+    Worksheet *sheet=active_sheet(a); if (!sheet) return;
+    SheetView *v=&sheet->view; Grid *g=&a->grid;
+    if (!v->column_count && a->analysis.kind!=SOURCE_NONE && !a->page.column_count) return;
+    size_t count=v->column_count>g->width_count ? v->column_count : g->width_count,old=v->column_count;
+    v->columns=dx_realloc(v->columns,count*sizeof(*v->columns));
+    v->widths=dx_realloc(v->widths,count*sizeof(*v->widths));
+    for (size_t c=0;c<count;c++) {
+        if (c>=old) v->widths[c]=old ? 96 : g->widths[c];
+        else free(v->columns[c]);
+        v->columns[c]=dx_strdup(c<g->width_count && g->column_names[c] ? g->column_names[c] : "");
+    }
+    v->column_count=count;
+    grid_project_widths(g,v->widths,v->column_count);
+}
 static void capture_sheet_view(App *a) {
     Worksheet *sheet=active_sheet(a); if (!sheet) return;
     if (!a->restore_view) {
-        SheetView *v=&sheet->view; view_free(v); Grid *g=&a->grid;
-        *v=(SheetView){.row=g->row,.col=g->col,.anchor_row=g->anchor_row,.anchor_col=g->anchor_col,
-            .end_row=g->end_row,.end_col=g->end_col,.top=g->top,.horizontal=g->horizontal,.fraction=g->fraction,.selection=g->selection,.canvas_zoom=g->zoom};
-        v->column_count=g->width_count; v->columns=dx_alloc(v->column_count*sizeof(char *)); v->widths=dx_alloc(v->column_count*sizeof(float));
-        for (size_t i=0;i<v->column_count;i++) { v->columns[i]=dx_strdup(g->column_names[i]); v->widths[i]=g->widths[i]; }
+        SheetView *v=&sheet->view; Grid *g=&a->grid;
+        v->row=g->row; v->col=g->col; v->anchor_row=g->anchor_row; v->anchor_col=g->anchor_col;
+        v->end_row=g->end_row; v->end_col=g->end_col; v->top=g->top; v->horizontal=g->horizontal;
+        v->fraction=g->fraction; v->selection=g->selection; v->canvas_zoom=g->zoom;
     }
     a->book.user_scale=a->ui.scale;
     a->book.reduced_motion=a->reduced_motion;
@@ -1422,6 +1441,7 @@ static void remember(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
 #include "source_format.inc"
 #endif
+#include "column_widths.inc"
 static bool table_transform_budget(App *a,const ObjectSourcePlanInfo *info,const Analysis *source,char **error) {
     if (info->owned>SIZE_MAX-info->validation_scratch) {
         if (error) { free(*error); *error=dx_strdup("Table planning reservation overflow."); } return false;
@@ -1545,13 +1565,11 @@ static void restore_sheet_view(App *a) {
     SheetView *v=&sheet->view; Grid *g=&a->grid;
     g->elastic=g->spring_velocity=(Vector2){0};
     grid_ensure_columns(g,v->column_count);
-    bool same=v->column_count>=g->data_columns && v->column_count<=g->width_count;
-    for (size_t i=0;same && i<v->column_count;i++) same=!strcmp(v->columns[i],g->column_names[i] ? g->column_names[i] : "");
-    if (same) for (size_t i=0;i<v->column_count;i++) grid_set_width(g,i,v->widths[i]);
+    grid_project_widths(g,v->widths,v->column_count);
     g->row=v->row; g->col=v->col; g->anchor_row=v->anchor_row; g->anchor_col=v->anchor_col;
     g->end_row=v->end_row; g->end_col=v->end_col; g->top=v->top; g->horizontal=v->horizontal; g->fraction=v->fraction;
     g->zoom=v->canvas_zoom>0 ? v->canvas_zoom : 1;
-    g->selection=(SelectionMode)v->selection; grid_schema(g,&a->page,false); a->restore_view=false;
+    g->selection=(SelectionMode)v->selection; app_grid_schema(a,false); a->restore_view=false;
     a->selected_object=objects_hit(&sheet->objects,g->row,g->col);
 }
 static bool activate_sheet(App *a,size_t index,bool capture) {
@@ -1588,7 +1606,7 @@ static bool activate_sheet(App *a,size_t index,bool capture) {
     cache_pipeline(a);
     if (a->analysis.kind==SOURCE_NONE) {
         worker_cancel(&a->worker); a->request_id++; a->busy=false; a->fetch_failed=false;
-        grid_schema(&a->grid,&a->page,true); restore_sheet_view(a); status(a,"Ready");
+        app_grid_schema(a,true); restore_sheet_view(a); status(a,"Ready");
     } else { request_page(a,false); status(a,"Loading worksheet…"); }
     return true;
 }
@@ -1921,7 +1939,7 @@ static void schedule_table_count(App *a) {
 }
 static void source_ready(App *a) {
     a->field_schema_generation++;
-    grid_schema(&a->grid,&a->page,false); if (a->restore_view) restore_sheet_view(a);
+    app_grid_schema(a,false); if (a->restore_view) restore_sheet_view(a);
     a->new_schema=false; a->page_stale=false; status(a,"Ready");
     SOURCE_FORMAT_PAGE(a);
     if (!a->first_rows_ms && a->page.row_count && grid_cached(&a->grid,&a->page)) {
@@ -2469,15 +2487,6 @@ static void poll_query(App *a) {
     }
     reply_free(r);
 }
-static void shift_column_widths(Grid *g,size_t col,bool insert,float width) {
-    if (col>=g->width_count) return;
-    if (insert) { memmove(g->widths+col+1,g->widths+col,(g->width_count-col-1)*sizeof(float)); g->widths[col]=width; }
-    else { memmove(g->widths+col,g->widths+col+1,(g->width_count-col-1)*sizeof(float)); g->widths[g->width_count-1]=96; }
-    g->offsets[0]=0; for (size_t c=0;c<g->width_count;c++) g->offsets[c+1]=g->offsets[c]+g->widths[c]; g->width_revision++;
-}
-static void restore_column_widths(App *a,ColumnEdit edit,bool redo) {
-    if (edit.active) shift_column_widths(&a->grid,edit.column,redo ? edit.insert : !edit.insert,!redo && !edit.insert ? edit.width : 96);
-}
 static void history_sheet(App *a,bool redo) {
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo.");
     Worksheet *s=active_sheet(a); if (!s) return;
@@ -2486,10 +2495,21 @@ static void history_sheet(App *a,bool redo) {
     end_step_preview(a);
     EditKind kind=(redo ? s->redo_actions : s->undo_actions)[count-1];
     unsigned effects=worksheet_edit_effects(kind);
-    ColumnEdit column=(redo ? s->redo_columns : s->undo_columns)[count-1];
     if (effects&8) { if (!(redo ? s->formats.redo_count : s->formats.undo_count)) return; }
     if (effects&4) {
         if ((effects&2) && !(redo ? s->cells.redo_count : s->cells.undo_count)) return;
+        if (!(redo ? s->objects.redo_count : s->objects.undo_count)) return;
+        ColumnWidthCommand *widths=NULL;
+        ColumnWidthCommandContext width_context={&s->view,&s->width_history,&s->width_revision,DX_COLUMN_WIDTH_HISTORY_BYTES};
+        if (effects&16) {
+#ifndef DUXCEL_BROWSER_HOST
+            if (source_format_budget_status(a,NULL,DX_COLUMN_WIDTH_HISTORY_BYTES,0,0,0,0)) return;
+#endif
+            if (column_width_command_replay(width_context,redo,&widths)!=COLUMN_WIDTH_OK ||
+                column_width_command_adopt(width_context,&widths)!=COLUMN_WIDTH_OK) {
+                column_width_command_cancel(&widths); status(a,"Physical column widths no longer match this history action."); return;
+            }
+        }
         SheetObject *selected=selected_object(a),*author=selected_pivot(a);
         uint64_t author_id=author ? author->id : 0,selected_id=0,active_row=0; size_t active_col=0;
         uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1);
@@ -2501,7 +2521,7 @@ static void history_sheet(App *a,bool redo) {
         if (objects_history(&s->objects,redo)) {
             if (effects&2) cells_history(&s->cells,redo);
             if (effects&8) format_history(&s->formats,redo);
-            worksheet_transfer_history(s,redo); restore_column_widths(a,column,redo); reconcile_object_views(a);
+            worksheet_transfer_history(s,redo); if (effects&16) project_sheet_widths(a); reconcile_object_views(a);
             for (size_t i=0;selected_id && i<s->objects.count;i++) if (s->objects.items[i].id==selected_id) {
                 SheetObject *o=&s->objects.items[i];
                 a->grid.anchor_row=o->row; a->grid.end_row=o->row+o->rows-1; a->grid.anchor_col=o->col; a->grid.end_col=o->col+o->columns-1;
@@ -2516,7 +2536,7 @@ static void history_sheet(App *a,bool redo) {
         }
         return;
     }
-    if (effects&2) { if (cells_history(&s->cells,redo)) { if (effects&8) format_history(&s->formats,redo); worksheet_transfer_history(s,redo); restore_column_widths(a,column,redo); a->book.dirty=true; validate_history_layout(a); } return; }
+    if (effects&2) { if (cells_history(&s->cells,redo)) { if (effects&8) format_history(&s->formats,redo); worksheet_transfer_history(s,redo); a->book.dirty=true; validate_history_layout(a); } return; }
     if (effects==8) { if (format_history(&s->formats,redo)) { worksheet_transfer_history(s,redo); a->book.dirty=true; } return; }
     if (kind==EDIT_ANALYSIS_FORMAT) {
         char *error=NULL;
@@ -2557,15 +2577,18 @@ static void history(App *a,bool redo) {
         WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
         if (applied.status==WORKBOOK_HISTORY_APPLIED) activate_sheet(a,a->book.active,false);
         else if (error) status(a,error);
-    } else if (target.kind==EDIT_CELLS || target.kind==EDIT_FORMAT || target.kind==EDIT_CELLS_FORMAT) {
+    } else if (!(worksheet_edit_effects(target.kind)&5)) {
         bool hidden=a->book.sheets[target.sheet].hidden;
         a->book.sheets[target.sheet].hidden=false;
         if (target.sheet!=a->book.active && !activate_sheet(a,target.sheet,true)) {
             a->book.sheets[target.sheet].hidden=hidden; free(error); return;
         }
+#ifndef DUXCEL_BROWSER_HOST
+        if ((worksheet_edit_effects(target.kind)&16) && source_format_budget_status(a,NULL,DX_COLUMN_WIDTH_HISTORY_BYTES,0,0,0,0)) { free(error); return; }
+#endif
         WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
         if (applied.status!=WORKBOOK_HISTORY_APPLIED) { if (error) status(a,error); free(error); return; }
-        restore_column_widths(a,target.column,redo);
+        if (worksheet_edit_effects(target.kind)&16) project_sheet_widths(a);
         if (worksheet_edit_effects(target.kind)&2) validate_history_layout(a);
     } else {
         bool hidden=a->book.sheets[target.sheet].hidden;
@@ -5019,7 +5042,6 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
         grid->format_record_token=source_format_owner_token(a,owner ? owner->id : 0);
         grid->format_result_token=source_format_owner_result_token(a,owner ? owner->id : 0);
 #endif
-        uint64_t widths=grid->width_revision;
         float scale=s*grid->zoom; grid_layout(grid,scale,&preview,layout.preview);
         Rectangle visible=GetCollisionRec(layout.preview,canvas); DxPointerGesture gesture;
         bool completed=enabled && ui_take_gesture_from(visible,&gesture),cell_click=false;
@@ -5032,9 +5054,11 @@ static void draw_authoring_workspace(App *a,Rectangle canvas,bool enabled) {
         grid->controls_enabled=enabled && !a->io_busy;
         grid_draw(grid,u,&preview,false); a->grid.freeze=grid->freeze; u->scale=s;
         if (grid->fit_requested) { grid->fit_requested=false; u->scale=scale; grid_fit_column(grid,u,&preview,grid->fit_column); u->scale=s; }
-        if (widths!=grid->width_revision) {
+        if (enabled && grid->resizing<0 && !historical(a)) {
             for (size_t c=0;c<source->column_count;c++) { size_t column=c+(owner ? owner->col : 0); if (column<a->grid.width_count) grid_set_width(&a->grid,column,grid->widths[c]); }
-            a->preview_width_revision=a->grid.width_revision; a->book.dirty=true;
+            commit_grid_widths(a);
+            for (size_t c=0;c<source->column_count;c++) { size_t column=c+(owner ? owner->col : 0); if (column<a->grid.width_count) grid_set_width(grid,c,a->grid.widths[column]); }
+            a->preview_width_revision=a->grid.width_revision;
         }
         if (grid->filter_requested) {
             grid->filter_requested=false; int selected=a->selected_object;
@@ -5365,7 +5389,7 @@ static void draw_inspector(App *a) {
 }
 static void fit_column(App *a,size_t col) {
     UIContext *u=&a->ui; Grid *g=&a->grid; if (col>=g->width_count) return;
-    float scale=u->scale,old=g->widths[col]; u->scale*=g->zoom; grid_fit_column(g,u,&a->page,col); float width=g->widths[col];
+    float scale=u->scale; u->scale*=g->zoom; grid_fit_column(g,u,&a->page,col); float width=g->widths[col];
     Worksheet *sheet=active_sheet(a);
     for (size_t i=0;i<sheet->cells.count;i++) if (sheet->cells.cells[i].col==col) width=fmaxf(width,ui_value_width(u,sheet->cells.cells[i].text,false,13,1180*u->scale)/u->scale+20);
     for (size_t i=0;i<sheet->objects.count;i++) {
@@ -5377,14 +5401,13 @@ static void fit_column(App *a,size_t col) {
         for (size_t r=0;r<page->row_count;r++) { Cell *cell=&page->cells[r*page->column_count+c]; width=fmaxf(width,ui_value_width(u,cell->text,cell->is_null,13,1180*u->scale)/u->scale+20); }
     }
     grid_set_width(g,col,width); u->scale=scale; grid_layout(g,scale*g->zoom,&a->page,g->rect);
-    if (old!=g->widths[col]) a->book.dirty=true;
-    status(a,"Column fitted using loaded data, pivot values and manual cells (up to 256 rows per result).");
+    if (commit_grid_widths(a)) status(a,"Column fitted using loaded data, pivot values and manual cells (up to 256 rows per result).");
 }
 static bool apply_column_width(App *a) {
     char *end=NULL; double width=strtod(a->input.text,&end); while (end && isspace((unsigned char)*end)) end++;
     if (end==a->input.text || !end || *end || !isfinite(width) || width<52 || width>1200) { a->width_invalid=true; return false; }
-    float old=a->grid.widths[a->grid.col]; grid_set_width(&a->grid,a->grid.col,(float)width);
-    if (old!=a->grid.widths[a->grid.col]) a->book.dirty=true;
+    grid_set_width(&a->grid,a->grid.col,(float)width);
+    if (!commit_grid_widths(a)) return false;
     a->modal=MODAL_NONE; a->consume_grid_input=true; return true;
 }
 static void selected_rows(const Grid *g,uint64_t *first,uint64_t *last) {
@@ -5648,8 +5671,11 @@ static void column_action(App *a,ColumnAction action) {
     } else {
         size_t col=g->col+(action==COLUMN_RIGHT); char *error=NULL;
         size_t source_columns=a->analysis.kind!=SOURCE_NONE && !a->page.column_count ? 16384 : a->page.column_count;
+#ifndef DUXCEL_BROWSER_HOST
+        if (source_format_budget_status(a,NULL,DX_COLUMN_WIDTH_HISTORY_BYTES,0,0,0,0)) return;
+#endif
         if (!worksheet_column(sheet,col,action!=COLUMN_DELETE,source_columns,&error)) { status(a,error); free(error); return; }
-        if (col<g->width_count) { sheet->undo_columns[sheet->undo_actions_count-1].width=g->widths[col]; shift_column_widths(g,col,action!=COLUMN_DELETE,96); }
+        project_sheet_widths(a);
         a->book.dirty=true;
     }
 }
@@ -9159,7 +9185,7 @@ static void draw_app(App *a) {
         }
         if (a->step_preview.active && a->step_preview.grid.fit_requested) { a->step_preview.grid.fit_requested=false; u->scale=s*a->step_preview.grid.zoom; grid_fit_column(&a->step_preview.grid,u,&a->step_preview.page,a->step_preview.grid.fit_column); u->scale=s; }
     } else {
-    if (!a->grid.width_count) grid_schema(&a->grid,&a->page,false);
+    if (!a->grid.width_count) app_grid_schema(a,false);
     a->grid.source_header=a->analysis.kind!=SOURCE_NONE; a->grid.hide_gridlines=!a->gridlines;
     a->grid.digit_width=u->digit_width;
     a->grid.elastic_enabled=!a->reduced_motion;
@@ -9207,7 +9233,6 @@ static void draw_app(App *a) {
         a->grid.block_pointer|=CheckCollisionPointRec(pointer,a->save_panel) || ui_gesture_starts_in(a->save_panel);
     }
 #endif
-    uint64_t width_revision=a->grid.width_revision; int resizing=a->grid.resizing;
     a->grid.formats=sheet ? &sheet->formats : NULL; a->grid.format_row=0; a->grid.format_col=0;
     a->grid.format_result_token=a->grid.format_record_token=imported_format_token(a);
 #ifndef DUXCEL_BROWSER_HOST
@@ -9219,7 +9244,10 @@ static void draw_app(App *a) {
     grid_update(&a->grid,u,&a->page,gr,canvas_input);
     replay_canvas_keys(a,canvas_input);
     if (!pivot_active) remember_source_location(a);
-    if (!ui_pressed(KEY_ESCAPE) && a->grid.resizing<0 && (width_revision!=a->grid.width_revision || (resizing>=0 && a->grid.widths[resizing]!=a->grid.width_start))) a->book.dirty=true;
+    if (a->grid.resizing<0) {
+        if (ui_pressed(KEY_ESCAPE)) project_sheet_widths(a);
+        else commit_grid_widths(a);
+    }
     if (!pivot_active && sheet && a->modal==MODAL_NONE && !a->pivot_focus && !a->consume_grid_input && !a->grid.dragging && !a->grid.moving &&
         (ui_key(KEY_UP)||ui_key(KEY_DOWN)||ui_key(KEY_LEFT)||ui_key(KEY_RIGHT)||ui_key(KEY_TAB)||ui_key(KEY_ENTER)||ui_key(KEY_HOME)||ui_key(KEY_END)||ui_key(KEY_PAGE_UP)||ui_key(KEY_PAGE_DOWN))) {
         keyboard_object(a);
@@ -15662,6 +15690,9 @@ static void object_move_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
 static void range_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_COLUMN_WIDTH
+static void column_width_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
 static void definition_origin_test_frame(AppSession *session);
 #endif
@@ -16564,6 +16595,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
     range_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_COLUMN_WIDTH
+    column_width_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
     definition_origin_test_frame(session);
 #endif
@@ -16935,4 +16969,7 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
 #include "../../tests/support/range_command_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_COLUMN_WIDTH
+#include "../../tests/support/column_width_app.inc"
 #endif

@@ -297,8 +297,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.4 · P1 · In progress | Structural and range composites; W12c.1–W12c.3. | Paste/move/replace/row/column actions retain their full effect set and exact inverse as one event. Preflight every constituent before adoption; failure cannot leave half an event or half a mutation. |
 | W12c.4.1 · P1 · Complete | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
 | W12c.4.2 · P1 · Complete | Manual-only row insertion/deletion; W12c.4.1. | Reuse complete sparse cell/format events and owner fences for bounded row actions. Keep column-width metadata, source/object axes and paste as explicit complete-effect prerequisites. |
-| W12c.4.3a · P1 · Queued | Complete manual column-width asset/journal; W12c.4.2. | Own canonical sparse nondefault width pairs over the bounded virtual grid and exact inverse, including a truncated edge width. Explicit presentation effect16; no synthetic cell change or incomplete scalar inverse. |
-| W12c.4.3b · P1 · Queued | Manual authored resize producers; W12c.4.3a. | Record source-free drag completion, width dialog and autofit in one chronological action. Visual drag drafts cancel safely; virtual default capacity growth is representation-only. Fence committed width authority and refuse divergent replay. |
+| W12c.4.3a · P1 · Complete | Complete manual column-width asset/journal; W12c.4.2. | Own canonical sparse nondefault width pairs over the bounded virtual grid and exact inverse, including a truncated edge width. Explicit presentation effect16; no synthetic cell change or incomplete scalar inverse. |
+| W12c.4.3b · P1 · In progress | Manual authored resize producers; W12c.4.3a. | Record source-free drag completion, width dialog and autofit in one chronological action. Visual drag drafts cancel safely; virtual default capacity growth is representation-only. Fence committed width authority and refuse divergent replay. |
 | W12c.4.4 · P1 · Queued | Manual column insertion/deletion; W12c.4.3b. | Reserve all cells/formats/width effects before eviction, adopt one action and replay exact widths without double App shifts. Keep source/object columns and paste explicit. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
@@ -2400,3 +2400,25 @@ projection, preserving exact text and rejecting populated right-edge loss. App
 resize/column adoption remains in progress. The Object lane takes the independent
 manual-paste cell projection prerequisite while the shared width controller ABI
 is prepared, then returns to compound column admission.
+
+W12c.4.3a integrated complete: `50fc712`/`5d33f00`/`b06e8ea` add the prepared
+SheetView width bridge, fenced effect16 command, five-constituent chronology,
+resident journal accounting and safe exhausted-generation retention cleanup.
+The App now treats Grid as a projection/draft: dialog, autofit, Alt arrows,
+released drag and live source-preview copyback use the same owner. Source-schema
+changes preserve physical widths; historical inspection does not copy them back.
+Existing mixed/source column paths preplan their complete width constituent;
+scalar Grid replay has been removed. The focused `column-width` optimized/
+ASan/UBSan module gate plus21 hidden real-App stages passes53.560s (GUI10.555s),
+receipt `20261025T200747-feature-86810`. The standalone fixture covers actual
+queued dialog/key/drag input, Escape cancellation, cross-sheet chronology,
+renamed query schema and native Save/Open. Full manual compound-column command
+adoption and its focused gate remain the immediate dependency before W12c.4.3b/
+W12c.4.4 are marked complete together. No broad regression is claimed here.
+
+Independent paste prerequisites integrated as `462d399`/`3bd22c6`: the ordinary
+paste producer and prospective planner share one bounded TSV grammar. Exact full
+sparse snapshots are measured before copying, with ragged holes/empty fields,
+quoted data, literal NULL and exact numeric text preserved. Combined release/
+sanitizer module acceptance passes1.948s, zero App stages
+(`20261025T200532-feature-83207`); App paste event adoption remains queued.

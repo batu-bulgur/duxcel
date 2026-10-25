@@ -284,6 +284,13 @@ build/tests/test_object_create_command-gui: tests/test_object_create_command_gui
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_object_create_command_gui.c $(OBJECT_CREATE_COMMAND_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(OBJECT_CREATE_COMMAND_GUI_OBJECT:.o=.d)
 RANGE_COMMAND_GUI_OBJECT = build/obj/feature-range-command/app.o
+COLUMN_WIDTH_GUI_OBJECT = build/obj/feature-column-width/app.o
+$(COLUMN_WIDTH_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_COLUMN_WIDTH)
+COLUMN_WIDTH_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(COLUMN_WIDTH_GUI_OBJECT)
+build/tests/test_column_width-gui: tests/test_column_width_gui.c $(COLUMN_WIDTH_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_column_width_gui.c $(COLUMN_WIDTH_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(COLUMN_WIDTH_GUI_OBJECT:.o=.d)
 $(RANGE_COMMAND_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
 	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_RANGE_COMMAND)
 RANGE_COMMAND_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(RANGE_COMMAND_GUI_OBJECT)

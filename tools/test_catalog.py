@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "column-width": ("build/tests/test_column_width-gui", "PASS: native column width workflow",
+                     r"^PASS: native column width workflow \(21 stages, [1-9]\d* checks\)$", 21),
     "definition-origin": ("build/tests/test_definition_origin-gui", "PASS: native primary origin workflow",
                           r"^PASS: native primary origin workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "range-command": ("build/tests/test_range_command-gui", "PASS: native manual range workflow",
@@ -108,6 +110,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "column-width": Feature(("column_widths", "column_width_history", "workbook_history", "grid"), "column-width",
+        ("python3 tools/test.py native --scenario table navigation --config sanitize", "python3 tools/test.py feature --feature history-preview"),
+        ("src/app/column_widths.inc", "src/app/app.c: physical width authority, schema projection and all width inputs",
+         "src/workbook/workbook_width_command.c", "src/workbook/history.c", "src/grid/grid.c", "tests/support/column_width_app.inc")),
     "current-archive": Feature((), "",
         ("python3 tools/test.py feature --feature save-ui", "python3 tools/test.py feature --feature history-save-as"),
         ("src/workbook/archive_read.c: current native discriminator only", "src/workbook/archive_write.c", "src/data/worker_archive.c", "tests/support/current_archive.h", "tests/test_archive_read.c", "tests/test_archive_write.c", "tests/test_worker_archive.c"),
