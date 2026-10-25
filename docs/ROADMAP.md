@@ -2389,3 +2389,14 @@ preserves the cache; renamed schemas, no-op revisions and virtual right-edge
 coverage pass the focused Grid optimized/ASan/UBSan module gate in14.658s,
 zero App stages (`20261025T195942-fast-75765`). App command adoption is not yet
 claimed; the three implementation lanes continue their owned prerequisites.
+
+W12c.4.3a pure prerequisites integrated as `e272359`/`50dab53`: canonical
+width pairs and bounded immutable journal with exact prepared prune accounting.
+W12c.4.4 packet prerequisite `5bc20f0` uses current family4 encoding2 for all
+truthful cell/format/width combinations; no older encoding reader remains.
+Combined optimized/sanitizer codec gate passes6.048s, zero App stages
+(`20261025T200050-feature-77603`). `47e118a` adds independent sparse column-cell
+projection, preserving exact text and rejecting populated right-edge loss. App
+resize/column adoption remains in progress. The Object lane takes the independent
+manual-paste cell projection prerequisite while the shared width controller ABI
+is prepared, then returns to compound column admission.
