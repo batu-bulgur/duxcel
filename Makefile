@@ -2103,23 +2103,23 @@ build/tests/test_sheet_lifecycle_command-debug: $(SHEET_LIFECYCLE_COMMAND_SAN_OB
 	$(call link_binary,-O1 -g $(SANFLAGS) $(SHEET_LIFECYCLE_COMMAND_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_LIFECYCLE_COMMAND_OBJECTS:.o=.d) $(SHEET_LIFECYCLE_COMMAND_SAN_OBJECTS:.o=.d)
 
-# Pure canonical column-width assets/journal: no renderer, Workbook or engine.
+# Pure canonical column-width assets/journal/SheetView bridge: no renderer or engine.
 COLUMN_WIDTH_SRC = src/common.c src/workbook/column_widths.c
-COLUMN_WIDTH_HISTORY_SRC = $(COLUMN_WIDTH_SRC) src/workbook/column_width_history.c
+COLUMN_WIDTH_HISTORY_SRC = $(COLUMN_WIDTH_SRC) src/workbook/column_width_history.c src/workbook/column_width_command.c
 COLUMN_WIDTH_OBJECTS = $(addprefix build/obj/release/column-widths/,$(addsuffix .o,$(basename $(COLUMN_WIDTH_SRC))))
 COLUMN_WIDTH_SAN_OBJECTS = $(addprefix build/obj/sanitize/column-widths/,$(addsuffix .o,$(basename $(COLUMN_WIDTH_SRC))))
 COLUMN_WIDTH_HISTORY_OBJECTS = $(addprefix build/obj/release/column-widths/,$(addsuffix .o,$(basename $(COLUMN_WIDTH_HISTORY_SRC))))
 COLUMN_WIDTH_HISTORY_SAN_OBJECTS = $(addprefix build/obj/sanitize/column-widths/,$(addsuffix .o,$(basename $(COLUMN_WIDTH_HISTORY_SRC))))
 build/obj/release/column-widths/compile.flags: force-build-signature
-	$(call build_signature,$(CC) -Isrc $(CFLAGS) $(WARN) -MMD -MP -c)
+	$(call build_signature,$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -MMD -MP -c)
 build/obj/sanitize/column-widths/compile.flags: force-build-signature
-	$(call build_signature,$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) -MMD -MP -c)
+	$(call build_signature,$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) -MMD -MP -c)
 $(COLUMN_WIDTH_HISTORY_OBJECTS) $(COLUMN_WIDTH_HISTORY_SAN_OBJECTS) build/obj/release/column-widths/tests/test_column_widths.o build/obj/sanitize/column-widths/tests/test_column_widths.o build/obj/release/column-widths/tests/test_column_width_history.o build/obj/sanitize/column-widths/tests/test_column_width_history.o: src/common.h src/workbook/column_widths.h
 build/obj/release/column-widths/src/workbook/column_width_history.o build/obj/sanitize/column-widths/src/workbook/column_width_history.o build/obj/release/column-widths/tests/test_column_width_history.o build/obj/sanitize/column-widths/tests/test_column_width_history.o: src/workbook/column_width_history.h
 build/obj/release/column-widths/%.o: %.c build/obj/release/column-widths/compile.flags
-	$(call compile_object,-Isrc $(CFLAGS) $(WARN))
+	$(call compile_object,-Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN))
 build/obj/sanitize/column-widths/%.o: %.c build/obj/sanitize/column-widths/compile.flags
-	$(call compile_object,-Isrc -O1 -g $(WARN) $(SANFLAGS))
+	$(call compile_object,-Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS))
 build/tests/test_column_widths: $(COLUMN_WIDTH_OBJECTS) build/obj/release/column-widths/tests/test_column_widths.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,-lm)
 build/tests/test_column_widths-debug: $(COLUMN_WIDTH_SAN_OBJECTS) build/obj/sanitize/column-widths/tests/test_column_widths.o | build/tests

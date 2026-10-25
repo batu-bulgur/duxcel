@@ -1,4 +1,4 @@
-#include "workbook/column_width_history.h"
+#include "workbook/column_width_command.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +16,41 @@ static void replay(ColumnWidthContext c,bool redo) {
     ColumnWidthPlan *p=NULL; uint64_t revision=*c.revision;
     CHECK(column_width_history_replay(c,redo,&p)==COLUMN_WIDTH_OK);
     CHECK(column_width_history_commit(c,&p)==COLUMN_WIDTH_OK && !p && *c.revision==revision+1);
+}
+static void authority(void) {
+    SheetView v={.row=17,.canvas_zoom=1.5f,.column_count=2};
+    v.widths=dx_alloc(2*sizeof(float)); v.widths[0]=96; v.widths[1]=120;
+    v.columns=dx_alloc(2*sizeof(char *)); v.columns[0]=dx_strdup("City"); v.columns[1]=dx_strdup("Amount");
+    char *city=v.columns[0],*amount=v.columns[1];
+    ColumnWidthHistory *h=NULL; uint64_t revision=9;
+    ColumnWidthCommandContext c={&v,&h,&revision,0}; ColumnWidthCommand *p=NULL,*q=NULL;
+    ColumnWidthEntry entries[]={{1,column_width_bits(120)},{16383,column_width_bits(1200)}};
+    ColumnWidthView after={entries,2}; size_t owned=123;
+    CHECK(column_width_command_measure(c,after,&owned)==COLUMN_WIDTH_OK && owned);
+    CHECK(column_width_command_prepare(c,after,&p)==COLUMN_WIDTH_LIMIT && !p && !h && revision==9 && v.column_count==2);
+    c.reserved=owned; CHECK(column_width_command_prepare(c,after,&p)==COLUMN_WIDTH_OK && !h && v.column_count==2);
+    CHECK(column_width_command_check(c,p)==COLUMN_WIDTH_OK && column_width_command_packet(p)->bytes==38);
+    ColumnWidthHistoryInfo projected; CHECK(column_width_command_history(p,&projected)==COLUMN_WIDTH_OK && projected.undo==1);
+    column_width_command_cancel(&p); CHECK(!p && !h && v.columns[0]==city && revision==9);
+    CHECK(column_width_command_prepare(c,after,&p)==COLUMN_WIDTH_OK);
+    CHECK(column_width_command_prepare(c,after,&q)==COLUMN_WIDTH_OK);
+    v.row=88; v.canvas_zoom=2;
+    CHECK(column_width_command_adopt(c,&p)==COLUMN_WIDTH_OK && !p && h && revision==10);
+    CHECK(v.row==88 && v.canvas_zoom==2 && v.column_count==16384 && v.widths[16383]==1200 && v.widths[100]==96);
+    CHECK(v.columns[0]==city && v.columns[1]==amount && v.columns[16383] && !*v.columns[16383]);
+    CHECK(column_width_command_check(c,q)==COLUMN_WIDTH_STALE); column_width_command_cancel(&q);
+    c.reserved=0; revision=UINT64_MAX;
+    CHECK(column_width_command_prepare(c,after,&p)==COLUMN_WIDTH_NOOP && !p && column_width_history_info(h).undo==1);
+    revision=10; c.reserved=SIZE_MAX;
+    CHECK(column_width_command_replay(c,false,&p)==COLUMN_WIDTH_OK);
+    v.widths[1]=121; CHECK(column_width_command_adopt(c,&p)==COLUMN_WIDTH_STALE && p && revision==10);
+    v.widths[1]=120; CHECK(column_width_command_adopt(c,&p)==COLUMN_WIDTH_OK && revision==11 && v.widths[16383]==96 && v.column_count==16384);
+    CHECK(v.columns[0]==city && v.columns[1]==amount && column_width_history_info(h).redo==1);
+    CHECK(column_width_command_replay(c,true,&p)==COLUMN_WIDTH_OK);
+    CHECK(column_width_command_adopt(c,&p)==COLUMN_WIDTH_OK && revision==12 && v.widths[16383]==1200);
+    CHECK(column_width_command_replay(c,false,&p)==COLUMN_WIDTH_OK); revision++;
+    CHECK(column_width_command_check(c,p)==COLUMN_WIDTH_STALE); column_width_command_cancel(&p);
+    for (size_t i=0;i<v.column_count;i++) free(v.columns[i]); free(v.columns); free(v.widths); column_width_history_free(&h);
 }
 static void retention(void) {
     ColumnWidthHistory *h=NULL,*other=NULL;
@@ -179,6 +214,6 @@ int main(void) {
     for (unsigned i=0;i<32;i++) replay(c,true);
     CHECK(column_width_at(column_width_view(&current),16383)==column_width_bits(91));
     column_width_free(&current); column_width_history_free(&h); column_width_plan_free(&p); column_width_plan_free(NULL); column_width_history_free(NULL);
-    retention();
+    retention(); authority();
     printf("PASS: %u bounded column width journal checks; exact inverse, monotonic revision and divergence guards\n",checks); return 0;
 }
