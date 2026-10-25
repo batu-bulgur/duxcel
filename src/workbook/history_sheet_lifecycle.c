@@ -17,7 +17,7 @@ static bool reserve(void *context,const WorkbookHistorySheetLifecycleRecord *r,v
     for (size_t i=0;i<info.count;i++) { found|=get(data+at,8)==r->sheet; at+=16+(size_t)get(data+at+12,4); }
     if (!found) return fail(error,"The sheet payload omits its command target.");
     WorkbookHistoryEditFence fence={r->workbook,r->edit_session,r->expected_revision,r->revision};
-    if (!workbook_history_stream_reserve(context,fence,DX_HISTORY_SHEET_LIFECYCLE_FAMILY,DX_SHEET_LIFECYCLE_ENCODING,info.bytes,0,0,0,ticket,error)) return false;
+    if (!workbook_history_stream_reserve(context,fence,DX_HISTORY_SHEET_LIFECYCLE_FAMILY,DX_HISTORY_SHEET_LIFECYCLE_PROFILE,info.bytes,0,0,0,ticket,error)) return false;
     memcpy(workbook_history_reservation_payload(*ticket),data,info.bytes); return true;
 }
 WorkbookHistorySheetLifecycleRecorder workbook_history_stream_sheet_lifecycle_recorder(WorkbookHistoryStream *stream) {

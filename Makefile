@@ -2366,3 +2366,14 @@ build/tests/test_sheet_topology_replay-debug: $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECT
 -include $(SHEET_TOPOLOGY_REPLAY_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS:.o=.d)
 
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology-gui
+
+# Current family5 dispatch reuses the real stream and closed metadata/topology codecs.
+SHEET_HISTORY_PAYLOAD_SRC = $(filter-out tests/test_sheet_topology_replay.c,$(SHEET_TOPOLOGY_REPLAY_SRC)) src/workbook/history_sheet_lifecycle.c src/workbook/sheet_lifecycle_command.c src/workbook/sheet_history_payload.c tests/test_sheet_history_payload.c
+SHEET_HISTORY_PAYLOAD_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_PAYLOAD_SRC))))
+SHEET_HISTORY_PAYLOAD_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_PAYLOAD_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_payload build/tests/test_sheet_history_payload-debug
+build/tests/test_sheet_history_payload: $(SHEET_HISTORY_PAYLOAD_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_history_payload-debug: $(SHEET_HISTORY_PAYLOAD_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_HISTORY_PAYLOAD_OBJECTS:.o=.d) $(SHEET_HISTORY_PAYLOAD_SAN_OBJECTS:.o=.d)

@@ -3,6 +3,7 @@
 #include "history_stream.h"
 #include "sheet_lifecycle.h"
 #define DX_HISTORY_SHEET_LIFECYCLE_FAMILY 5u
+#define DX_HISTORY_SHEET_LIFECYCLE_PROFILE 1u
 typedef struct {
     WorkbookId workbook;
     uint64_t edit_session,sheet_session,sheet,expected_revision,revision;
