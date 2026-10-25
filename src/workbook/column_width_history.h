@@ -33,9 +33,11 @@ void column_width_history_free(ColumnWidthHistory **history);
    preserving the immediate replay order. Preparation is allocation-free and
    measures exact release before any mutation; output is disjoint value storage.
    NOOP/failure preserves output and every prepared operation. A changed commit
-   invalidates all prior operation/prune plans by advancing generation once,
+   invalidates prior plans by advancing generation once (saturating at MAX),
    without changing current widths or their revision. Stale, wrong-owner and
-   tampered plans reject atomically. Owner must outlive borrowed prune values.
+   tampered plans reject atomically. Retention remains available at exhausted
+   generation; changed counts invalidate saturated prune tickets, while new
+   edits/replay remain blocked. Owner must outlive borrowed prune values.
    Future workbook coordination prepares ALL required prunes before adoption. */
 ColumnWidthStatus column_width_history_prune_prepare(const ColumnWidthHistory *history,size_t undo_keep,size_t redo_keep,ColumnWidthPrune *out);
 ColumnWidthStatus column_width_history_prune_commit(ColumnWidthHistory *history,const ColumnWidthPrune *plan);
@@ -67,4 +69,8 @@ void column_width_plan_free(ColumnWidthPlan **plan);
    A future producer reserves ALL compound effects/stream bytes before this
    commit; there is no worksheet action, Grid adapter or durable event here. */
 ColumnWidthStatus column_width_history_commit(ColumnWidthContext context,ColumnWidthPlan **plan);
+#ifdef DUXCEL_COLUMN_WIDTH_HISTORY_TEST
+/* Pure-test-only instance clock fault injection; absent from product builds. */
+bool column_width_history_test_generation(ColumnWidthHistory *history,uint64_t generation);
+#endif
 #endif

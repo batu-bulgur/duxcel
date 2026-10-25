@@ -34,7 +34,6 @@ void column_width_history_free(ColumnWidthHistory **owned) {
 static ColumnWidthStatus prune_measure(const ColumnWidthHistory *h,size_t undo,size_t redo,size_t *retained) {
     if (!h || undo>h->undo_count || redo>h->redo_count) return COLUMN_WIDTH_INVALID;
     if (undo==h->undo_count && redo==h->redo_count) return COLUMN_WIDTH_NOOP;
-    if (h->generation==UINT64_MAX) return COLUMN_WIDTH_LIMIT;
     size_t bytes=0;
     for (size_t i=h->undo_count-undo;i<h->undo_count;i++) bytes+=h->undo[i].bytes;
     for (size_t i=h->redo_count-redo;i<h->redo_count;i++) bytes+=h->redo[i].bytes;
@@ -57,7 +56,12 @@ ColumnWidthStatus column_width_history_prune_commit(ColumnWidthHistory *h,const 
     if (p->retained_bytes!=retained || p->released_bytes!=h->bytes-retained) return COLUMN_WIDTH_INVALID;
     /* All bounds, clocks and accounting are proved before any release. */
     prune_stack(h->undo,&h->undo_count,p->undo_keep); prune_stack(h->redo,&h->redo_count,p->redo_keep);
-    h->bytes=retained; ++h->generation; return COLUMN_WIDTH_OK;
+    /* Retention releases ownership even when edit generation is exhausted.
+       No edit/replay plan can be prepared at UINT64_MAX. Older plans mismatch
+       that clock; prune plans additionally fence exact counts/bytes, and every
+       changed prune strictly reduces at least one count. Saturation cannot
+       revive a ticket, wrap a clock or leave abandoned Redo owned. */
+    h->bytes=retained; if (h->generation<UINT64_MAX) ++h->generation; return COLUMN_WIDTH_OK;
 }
 ColumnWidthStatus column_width_history_trim(ColumnWidthHistory *h,size_t undo,size_t redo) {
     ColumnWidthPrune plan; ColumnWidthStatus status=column_width_history_prune_prepare(h,undo,redo,&plan);
@@ -149,3 +153,9 @@ ColumnWidthStatus column_width_history_commit(ColumnWidthContext c,ColumnWidthPl
     column_width_free(c.current); *c.current=p->target; p->target=(ColumnWidthState){0};
     ++*c.revision; ++h->generation; column_width_plan_free(owned); return COLUMN_WIDTH_OK;
 }
+
+#ifdef DUXCEL_COLUMN_WIDTH_HISTORY_TEST
+bool column_width_history_test_generation(ColumnWidthHistory *h,uint64_t generation) {
+    if (!h || generation<h->generation) return false; h->generation=generation; return true;
+}
+#endif

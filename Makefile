@@ -2111,15 +2111,15 @@ COLUMN_WIDTH_SAN_OBJECTS = $(addprefix build/obj/sanitize/column-widths/,$(addsu
 COLUMN_WIDTH_HISTORY_OBJECTS = $(addprefix build/obj/release/column-widths/,$(addsuffix .o,$(basename $(COLUMN_WIDTH_HISTORY_SRC))))
 COLUMN_WIDTH_HISTORY_SAN_OBJECTS = $(addprefix build/obj/sanitize/column-widths/,$(addsuffix .o,$(basename $(COLUMN_WIDTH_HISTORY_SRC))))
 build/obj/release/column-widths/compile.flags: force-build-signature
-	$(call build_signature,$(CC) -Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN) -MMD -MP -c)
+	$(call build_signature,$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_COLUMN_WIDTH_HISTORY_TEST $(CFLAGS) $(WARN) -MMD -MP -c)
 build/obj/sanitize/column-widths/compile.flags: force-build-signature
-	$(call build_signature,$(CC) -Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) -MMD -MP -c)
+	$(call build_signature,$(CC) -Isrc $(DUCKDB_CFLAGS) -DDUXCEL_COLUMN_WIDTH_HISTORY_TEST -O1 -g $(WARN) $(SANFLAGS) -MMD -MP -c)
 $(COLUMN_WIDTH_HISTORY_OBJECTS) $(COLUMN_WIDTH_HISTORY_SAN_OBJECTS) build/obj/release/column-widths/tests/test_column_widths.o build/obj/sanitize/column-widths/tests/test_column_widths.o build/obj/release/column-widths/tests/test_column_width_history.o build/obj/sanitize/column-widths/tests/test_column_width_history.o: src/common.h src/workbook/column_widths.h
 build/obj/release/column-widths/src/workbook/column_width_history.o build/obj/sanitize/column-widths/src/workbook/column_width_history.o build/obj/release/column-widths/tests/test_column_width_history.o build/obj/sanitize/column-widths/tests/test_column_width_history.o: src/workbook/column_width_history.h
 build/obj/release/column-widths/%.o: %.c build/obj/release/column-widths/compile.flags
-	$(call compile_object,-Isrc $(DUCKDB_CFLAGS) $(CFLAGS) $(WARN))
+	$(call compile_object,-Isrc $(DUCKDB_CFLAGS) -DDUXCEL_COLUMN_WIDTH_HISTORY_TEST $(CFLAGS) $(WARN))
 build/obj/sanitize/column-widths/%.o: %.c build/obj/sanitize/column-widths/compile.flags
-	$(call compile_object,-Isrc $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS))
+	$(call compile_object,-Isrc $(DUCKDB_CFLAGS) -DDUXCEL_COLUMN_WIDTH_HISTORY_TEST -O1 -g $(WARN) $(SANFLAGS))
 build/tests/test_column_widths: $(COLUMN_WIDTH_OBJECTS) build/obj/release/column-widths/tests/test_column_widths.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,-lm)
 build/tests/test_column_widths-debug: $(COLUMN_WIDTH_SAN_OBJECTS) build/obj/sanitize/column-widths/tests/test_column_widths.o | build/tests

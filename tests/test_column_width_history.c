@@ -17,6 +17,28 @@ static void replay(ColumnWidthContext c,bool redo) {
     CHECK(column_width_history_replay(c,redo,&p)==COLUMN_WIDTH_OK);
     CHECK(column_width_history_commit(c,&p)==COLUMN_WIDTH_OK && !p && *c.revision==revision+1);
 }
+static void exhausted_retention(void) {
+    ColumnWidthHistory *h=NULL; CHECK(column_width_history_new((ColumnWidthHistoryOptions){32,4096},column_width_history_allocation(),&h)==COLUMN_WIDTH_OK);
+    ColumnWidthState current={0},next={0}; uint64_t revision=10; ColumnWidthContext c={&current,&revision,h,SIZE_MAX};
+    edit(c,0,100); edit(c,0,101); replay(c,false);
+    ColumnWidthPlan *pending=NULL; CHECK(column_width_history_replay(c,true,&pending)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_test_generation(h,UINT64_MAX));
+    CHECK(column_width_history_commit(c,&pending)==COLUMN_WIDTH_STALE && pending); column_width_plan_free(&pending);
+    ColumnWidthHistoryInfo before=column_width_history_info(h); uint64_t old_revision=revision;
+    CHECK(column_width_history_prepare(c,column_width_view(&current),&pending)==COLUMN_WIDTH_NOOP && same(before,column_width_history_info(h)));
+    CHECK(column_width_resize(column_width_view(&current),0,102,SIZE_MAX,&next)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_prepare(c,column_width_view(&next),&pending)==COLUMN_WIDTH_LIMIT && !pending && same(before,column_width_history_info(h)));
+    CHECK(column_width_history_replay(c,true,&pending)==COLUMN_WIDTH_LIMIT && !pending);
+    ColumnWidthPrune clear;
+    CHECK(column_width_history_prune_prepare(h,1,0,&clear)==COLUMN_WIDTH_OK);
+    CHECK(column_width_history_prune_commit(h,&clear)==COLUMN_WIDTH_OK && revision==old_revision && current.entries[0].bits==column_width_bits(100));
+    CHECK(column_width_history_info(h).generation==UINT64_MAX && !column_width_history_info(h).redo && column_width_history_info(h).undo==1);
+    CHECK(column_width_history_prune_commit(h,&clear)==COLUMN_WIDTH_STALE);
+    CHECK(column_width_history_clear_redo(h)==COLUMN_WIDTH_NOOP);
+    CHECK(column_width_history_trim(h,0,0)==COLUMN_WIDTH_OK && !column_width_history_info(h).owned_bytes && revision==old_revision && column_width_history_info(h).generation==UINT64_MAX);
+    CHECK(!column_width_history_test_generation(h,0));
+    column_width_free(&next); column_width_free(&current); column_width_history_free(&h);
+}
 static void authority(void) {
     SheetView v={.row=17,.canvas_zoom=1.5f,.column_count=2};
     v.widths=dx_alloc(2*sizeof(float)); v.widths[0]=96; v.widths[1]=120;
@@ -214,6 +236,6 @@ int main(void) {
     for (unsigned i=0;i<32;i++) replay(c,true);
     CHECK(column_width_at(column_width_view(&current),16383)==column_width_bits(91));
     column_width_free(&current); column_width_history_free(&h); column_width_plan_free(&p); column_width_plan_free(NULL); column_width_history_free(NULL);
-    retention(); authority();
+    retention(); authority(); exhausted_retention();
     printf("PASS: %u bounded column width journal checks; exact inverse, monotonic revision and divergence guards\n",checks); return 0;
 }
