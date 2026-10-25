@@ -129,18 +129,19 @@ static void source_results_test_frame(AppSession *session) {
     case 16: {
         SR_CHECK(s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,1000,16),"9007199254740993.0123456789"));
         char *error=NULL; SR_CHECK(cells_set(&s->cells,2000,16,"Replace destination",&error)); worksheet_record(s,EDIT_CELLS);
-        source_move_select(a,1000,16); bool moved=request_range_move(a,1000,0,false,&error); if (moved || a->modal!=MODAL_REPLACE_RANGE || !a->replace_manual_target) fprintf(stderr,"Replace preparation: moved=%d modal=%d target=%p error=%s\n",moved,a->modal,(void *)a->replace_manual_target,error ? error : "none"); SR_CHECK(!moved && a->modal==MODAL_REPLACE_RANGE && a->replace_manual_target); free(error); break;
+        source_move_select(a,1000,16); SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->modal==MODAL_NONE && !a->replace_manual_target && s->objects.items[0].row==1001); free(error); error=NULL;
+        grid_select_cell(&a->grid,1000,16,false); bool moved=request_range_move(a,1000,0,false,&error); if (moved || a->modal!=MODAL_REPLACE_RANGE || !a->replace_manual_target) fprintf(stderr,"Replace preparation: moved=%d modal=%d target=%p error=%s\n",moved,a->modal,(void *)a->replace_manual_target,error ? error : "none"); SR_CHECK(!moved && a->modal==MODAL_REPLACE_RANGE && a->replace_manual_target); free(error); break;
     }
     case 17:
         cancel_range_replace(a); SR_CHECK(!a->replace_manual_target && s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,2000,16),"Replace destination"));
         { char *error=NULL; SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->modal==MODAL_REPLACE_RANGE && a->replace_manual_target); free(error); }
         source_move_revision=a->book.command_revision; SR_CHECK(confirm_range_replace(a)); break;
     case 18:
-        SR_CHECK(a->book.command_revision==source_move_revision+1 && s->objects.items[0].row==2001 && !strcmp(cells_get(&s->cells,2000,16),"9007199254740993.0123456789")); history(a,false); break;
+        SR_CHECK(a->book.command_revision==source_move_revision+1 && s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,2000,16),"9007199254740993.0123456789")); history(a,false); break;
     case 19: {
         SR_CHECK(s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,2000,16),"Replace destination") && !strcmp(cells_get(&s->cells,1000,16),"9007199254740993.0123456789"));
-        /* Undo changes the selection owner; explicitly select the restored full rectangle. */
-        source_move_select(a,1000,16); char *error=NULL; SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->replace_manual_target); free(error);
+        /* Replace remains manual-only while all real matrix owners stay fenced. */
+        grid_select_cell(&a->grid,1000,16,false); char *error=NULL; SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->replace_manual_target); free(error);
         source_move_revision=a->book.command_revision; run_action(a,ACTION_REFRESH); SR_CHECK(!confirm_range_replace(a) && !a->replace_manual_target); break;
     }
     case 20:
