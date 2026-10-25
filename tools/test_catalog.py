@@ -124,6 +124,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "source-history-payload": Feature(("source_history_payload", "source_dependency_admission", "format_delta_codec", "history_event_frame"), "",
+        ("python3 tools/test.py feature --feature history-definition", "python3 tools/test.py feature --feature history-format"),
+        ("src/workbook/source_history_payload.c", "src/workbook/source_history_payload.h", "tests/test_source_history_payload.c")),
+
     "history-event-frame": Feature(("history_event_frame",), "",
         ("python3 tools/test.py feature --feature history-stream",),
         ("src/workbook/history_event_frame.c", "src/workbook/history_event_frame.h", "tests/test_history_event_frame.c")),

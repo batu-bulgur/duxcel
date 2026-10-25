@@ -151,9 +151,9 @@ static DefinitionEventStatus wire_plan(const void *data,size_t bytes,WirePlan *o
             FormatDeltaStatus s=format_delta_preflight(p.parts[i],p.lengths[i],&p.formats);
             if (s!=FORMAT_DELTA_OK) return s==FORMAT_DELTA_UNSUPPORTED ? DEFINITION_EVENT_UNSUPPORTED : DEFINITION_EVENT_INVALID;
             if (p.formats.sheet!=p.info.sheet) return DEFINITION_EVENT_INVALID;
-            const unsigned char *a=p.parts[i]+DX_FORMAT_DELTA_HEADER_BYTES,*b=a+p.formats.before_bytes;
-            size_t scopes_a=(size_t)a[4]|((size_t)a[5]<<8),scopes_b=(size_t)b[4]|((size_t)b[5]<<8);
-            p.info.owned+=p.formats.owned; p.info.validation_scratch=maximum(p.info.validation_scratch,maximum(p.formats.validation_scratch,format_scratch(maximum(scopes_a,scopes_b))));
+            p.info.owned+=p.formats.owned;
+            p.info.validation_scratch=maximum(p.info.validation_scratch,maximum(p.formats.validation_scratch,
+                format_scratch(maximum(p.formats.before_scopes,p.formats.after_scopes))));
         } else {
             SourceVersionsCodecStatus s=source_versions_asset_preflight(p.parts[i],p.lengths[i],p.info.object_high_water,&p.sources);
             if (s!=SOURCE_VERSIONS_CODEC_OK) return s==SOURCE_VERSIONS_CODEC_UNSUPPORTED ? DEFINITION_EVENT_UNSUPPORTED : DEFINITION_EVENT_INVALID;

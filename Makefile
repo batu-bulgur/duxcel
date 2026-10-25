@@ -1051,6 +1051,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_paste_command-gui build/tests/test_mix
 PARALLEL_NATIVE_GOALS += build/tests/test_source_versions_admission build/tests/test_source_versions_admission-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_source_dependency_admission build/tests/test_source_dependency_admission-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_event_frame build/tests/test_history_event_frame-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_source_history_payload build/tests/test_source_history_payload-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2260,3 +2261,12 @@ build/tests/test_history_event_frame: $(HISTORY_EVENT_FRAME_OBJECTS) | build/tes
 build/tests/test_history_event_frame-debug: $(HISTORY_EVENT_FRAME_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(SANFLAGS))
 -include $(HISTORY_EVENT_FRAME_OBJECTS:.o=.d) $(HISTORY_EVENT_FRAME_SAN_OBJECTS:.o=.d)
+
+SOURCE_HISTORY_PAYLOAD_SRC = $(filter-out tests/test_source_dependency_admission.c,$(SOURCE_DEPENDENCY_ADMISSION_SRC)) src/workbook/definition_state.c src/workbook/definition_baseline.c src/workbook/definition_event.c src/workbook/history_stream.c src/workbook/cell_delta.c src/workbook/cell_delta_codec.c src/workbook/history_format.c src/workbook/history_definition.c src/workbook/history_event_frame.c src/workbook/source_history_payload.c tests/test_source_history_payload.c
+SOURCE_HISTORY_PAYLOAD_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(SOURCE_HISTORY_PAYLOAD_SRC))))
+SOURCE_HISTORY_PAYLOAD_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(SOURCE_HISTORY_PAYLOAD_SRC))))
+build/tests/test_source_history_payload: $(SOURCE_HISTORY_PAYLOAD_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_source_history_payload-debug: $(SOURCE_HISTORY_PAYLOAD_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(SOURCE_HISTORY_PAYLOAD_OBJECTS:.o=.d) $(SOURCE_HISTORY_PAYLOAD_SAN_OBJECTS:.o=.d)
