@@ -78,7 +78,7 @@ STANDALONE_GUI = {
     "workbook-lifecycle": ("build/tests/test_workbook_lifecycle-gui", "PASS: native workbook lifecycle workflow",
                            r"^PASS: native workbook lifecycle workflow \(28 stages, [1-9]\d* checks\)$", 28),
     "workbook-history": ("build/tests/test_workbook_history-gui", "PASS: native workbook chronology workflow",
-                         r"^PASS: native workbook chronology workflow \(21 stages, [1-9]\d* checks\)$", 21),
+                         r"^PASS: native workbook chronology workflow \(30 stages, [1-9]\d* checks\)$", 30),
     "workbook-identity": ("build/tests/test_workbook_identity-gui", "PASS: native workbook identity workflow",
                           r"^PASS: native workbook identity workflow \(9 stages, [1-9]\d* checks\)$", 9),
     "cell-command": ("build/tests/test_cell_command-native", "PASS: native cell command workflow",

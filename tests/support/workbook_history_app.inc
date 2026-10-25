@@ -3,6 +3,9 @@ static unsigned history_stage,history_wait,history_checks;
 static int history_result;
 static bool history_style_branch;
 static uint64_t history_a,history_b,history_saved_revision;
+static uint64_t history_duplicate,history_detached_high,history_detached_revision,history_detached_order;
+static size_t history_detached_count;
+static float history_detached_width;
 #define HIST_GUI_CHECK(x) do { history_checks++; if (!(x)) { fprintf(stderr,"FAIL: chronology GUI stage %u line %d: %s (%s)\n",history_stage,__LINE__,#x,a->message ? a->message : ""); history_result=-1; return; } } while (0)
 static void history_gui_edit(App *a,const char *value) {
     grid_select_cell(&a->grid,1,1,false); open_modal(a,MODAL_CELL); input_set(&a->input,value); ui_note_key_press(KEY_ENTER,0);
@@ -84,8 +87,61 @@ static void workbook_history_test_frame(AppSession *session) {
         HIST_GUI_CHECK(!strcmp(cells_get(&a->book.sheets[1].cells,1,1),"A1"));
         HIST_GUI_CHECK(!workbook_history_available(&a->book,false) && !workbook_history_available(&a->book,true));
         HIST_GUI_CHECK(!a->book.history_branch && !s->history_last && !s->history_floor);
+        smoke_snapshot("build/tests/results/workbook-history/reopened.png");
+        history_detached_count=a->book.count; history_detached_width=a->grid.widths[1];
+        {
+            CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+            grid_select_cell(&a->grid,1,1,false); HIST_GUI_CHECK(apply_format(a,FORMAT_BOLD,bold));
+            a->sheet_menu_index=a->book.active; a->sheet_action=SHEET_ACTION_DUPLICATE; process_sheet_action(a);
+            HIST_GUI_CHECK(a->book.count==history_detached_count+1);
+            history_duplicate=active_sheet(a)->id; history_detached_high=a->book.sheet_high_water;
+        }
+        break;
+    case 21:
+        HIST_GUI_CHECK(s->id==history_duplicate && s->id!=history_b && s->analysis.kind==SOURCE_NONE);
+        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Branch B") && format_at(&s->formats,1,1).flags==FORMAT_BOLD);
+        history_gui_edit(a,"Detached edit"); break;
+    case 22:
+        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Detached edit"));
+        column_action(a,COLUMN_WIDTH); input_set(&a->input,"321.5"); a->width_focus=1; ui_note_key_press(KEY_ENTER,0); break;
+    case 23:
+        HIST_GUI_CHECK(a->modal==MODAL_NONE && a->grid.widths[1]==321.5f && s->view.widths[1]==321.5f);
+        HIST_GUI_CHECK(workbook_history_peek(&a->book,false,NULL).kind==EDIT_WIDTHS);
+        history_detached_revision=a->book.command_revision; history_detached_order=worksheet_history_high_water();
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 24:
+        HIST_GUI_CHECK(a->grid.widths[1]==history_detached_width && s->view.widths[1]==history_detached_width && !strcmp(cells_get(&s->cells,1,1),"Detached edit"));
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 25:
+        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Branch B") && s->redo_actions_count==2);
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 26:
+        HIST_GUI_CHECK(a->book.count==history_detached_count && s->id==history_b && a->book.sheet_high_water==history_detached_high);
+        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Branch B") && format_at(&s->formats,1,1).flags==FORMAT_BOLD && a->grid.widths[1]==history_detached_width);
+        {
+            WorkbookHistoryResult next=workbook_history_peek(&a->book,true,NULL);
+            HIST_GUI_CHECK(next.status==WORKBOOK_HISTORY_READY && next.lifecycle && next.sheet_id==history_duplicate && command_popup_enabled(a,RIBBON_MORE_REDO));
+        }
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 27:
+        HIST_GUI_CHECK(a->book.count==history_detached_count+1 && s->id==history_duplicate && s->redo_actions_count==2);
+        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Branch B") && a->grid.widths[1]==history_detached_width && format_at(&s->formats,1,1).flags==FORMAT_BOLD);
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 28:
+        HIST_GUI_CHECK(!strcmp(cells_get(&s->cells,1,1),"Detached edit") && a->grid.widths[1]==history_detached_width);
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 29:
+        HIST_GUI_CHECK(s->id==history_duplicate && s->view.widths[1]==321.5f && a->grid.widths[1]==321.5f && !strcmp(cells_get(&s->cells,1,1),"Detached edit"));
+        HIST_GUI_CHECK(format_at(&s->formats,1,1).flags==FORMAT_BOLD && s->analysis.kind==SOURCE_NONE);
+        HIST_GUI_CHECK(a->book.sheet_high_water==history_detached_high && a->book.command_revision==history_detached_revision+6 && worksheet_history_high_water()==history_detached_order);
+        HIST_GUI_CHECK(!workbook_history_available(&a->book,true) && !s->redo_actions_count && !command_popup_enabled(a,RIBBON_MORE_REDO));
+        {
+            const Worksheet *original=NULL;
+            for (size_t i=0;i<a->book.count;i++) if (a->book.sheets[i].id==history_b) original=a->book.sheets+i;
+            HIST_GUI_CHECK(original && !strcmp(cells_get(&original->cells,1,1),"Branch B") && original->view.widths[1]==history_detached_width && format_at(&original->formats,1,1).flags==FORMAT_BOLD);
+        }
         smoke_snapshot("build/tests/results/workbook-history/final.png"); history_result=1;
-        printf("PASS: native workbook chronology workflow (21 stages, %u checks)\n",history_checks); break;
+        printf("PASS: native workbook chronology workflow (30 stages, %u checks)\n",history_checks); break;
     }
     history_stage++;
 }
