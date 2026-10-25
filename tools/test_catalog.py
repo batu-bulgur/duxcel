@@ -124,6 +124,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "history-event-frame": Feature(("history_event_frame",), "",
+        ("python3 tools/test.py feature --feature history-stream",),
+        ("src/workbook/history_event_frame.c", "src/workbook/history_event_frame.h", "tests/test_history_event_frame.c")),
+
     "source-dependency-admission": Feature(("source_dependency_admission", "source_versions_admission", "definition_dependencies", "format_dependencies"), "",
         ("python3 tools/test.py feature --feature history-definition",),
         ("src/workbook/source_dependency_admission.c", "src/workbook/source_dependency_admission.h", "tests/test_source_dependency_admission.c")),

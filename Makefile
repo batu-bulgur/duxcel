@@ -1050,6 +1050,7 @@ PARALLEL_NATIVE_GOALS = build/tests/test_column_widths build/tests/test_column_w
 PARALLEL_NATIVE_GOALS += build/tests/test_paste_command-gui build/tests/test_mixed_range-gui build/tests/test_clear_range-gui build/tests/test_mixed_rows-gui build/tests/test_mixed_columns-gui build/tests/test_template_cells-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_source_versions_admission build/tests/test_source_versions_admission-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_source_dependency_admission build/tests/test_source_dependency_admission-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_history_event_frame build/tests/test_history_event_frame-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2251,3 +2252,11 @@ build/tests/test_source_dependency_admission: $(SOURCE_DEPENDENCY_ADMISSION_OBJE
 build/tests/test_source_dependency_admission-debug: $(SOURCE_DEPENDENCY_ADMISSION_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(SOURCE_DEPENDENCY_ADMISSION_OBJECTS:.o=.d) $(SOURCE_DEPENDENCY_ADMISSION_SAN_OBJECTS:.o=.d)
+
+HISTORY_EVENT_FRAME_OBJECTS = build/obj/release/source-scope/src/workbook/history_event_frame.o build/obj/release/source-scope/tests/test_history_event_frame.o
+HISTORY_EVENT_FRAME_SAN_OBJECTS = build/obj/sanitize/source-scope/src/workbook/history_event_frame.o build/obj/sanitize/source-scope/tests/test_history_event_frame.o
+build/tests/test_history_event_frame: $(HISTORY_EVENT_FRAME_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,)
+build/tests/test_history_event_frame-debug: $(HISTORY_EVENT_FRAME_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(SANFLAGS))
+-include $(HISTORY_EVENT_FRAME_OBJECTS:.o=.d) $(HISTORY_EVENT_FRAME_SAN_OBJECTS:.o=.d)
