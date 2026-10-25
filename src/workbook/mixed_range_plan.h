@@ -47,5 +47,12 @@ typedef struct { CellPastePlanInfo cells; size_t validation_scratch; } MixedPast
    call; the later controller must own its packet before external callbacks. */
 MixedRangeStatus mixed_paste_measure(const Worksheet *sheet,const Analysis *primary,uint64_t row,size_t column,const char *text,MixedPastePlanInfo *info,char **error);
 MixedRangeStatus mixed_paste_plan(const Worksheet *sheet,const Analysis *primary,uint64_t row,size_t column,const char *text,size_t reserved,size_t validation_reserved,CellSnapshot *out,char **error);
+typedef struct { CellRangePlanInfo cells; size_t validation_scratch; } MixedClearPlanInfo;
+/* Existing sparse-only Clear: a range may span a template's painted rectangle,
+   but only CellStore entries are removed. Objects, styles and widths stay
+   unchanged. Finite bounds, independent output and admitted graph validation
+   follow the same pure ownership rules as template-sheet text paste. */
+MixedRangeStatus mixed_clear_measure(const Worksheet *sheet,const Analysis *primary,SheetRange range,MixedClearPlanInfo *info,char **error);
+MixedRangeStatus mixed_clear_plan(const Worksheet *sheet,const Analysis *primary,SheetRange range,size_t reserved,size_t validation_reserved,CellSnapshot *out,char **error);
 void mixed_range_plan_free(MixedRangePlan *plan);
 #endif

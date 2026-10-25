@@ -38,6 +38,20 @@ static void paste_projection(void) {
         workbook_free(reference); free(reference); workbook_free(&b); CHECK(plan.cells[0].text && *plan.cells[0].text); cells_snapshot_free(&plan);
     }
 }
+static void clear_projection(void) {
+    Workbook b=fixture(true,true); Worksheet *s=b.sheets; Worksheet before=*s; MixedClearPlanInfo info={0}; CellSnapshot out={0};
+    SheetRange range={0,10,0,10};
+    CHECK(mixed_clear_measure(s,&s->analysis,range,&info,NULL)==MIXED_RANGE_READY && info.cells.count==1);
+    CHECK(mixed_clear_plan(s,&s->analysis,range,info.cells.owned-1,info.validation_scratch,&out,NULL)==MIXED_RANGE_LIMIT && !out.cells);
+    CHECK(mixed_clear_plan(s,&s->analysis,range,info.cells.owned,info.validation_scratch,&out,NULL)==MIXED_RANGE_READY && out.count==1 && out.cells[0].row==20 && !strcmp(out.cells[0].text,"NULL") && out.cells[0].text!=s->cells.cells[1].text && !memcmp(&before,s,sizeof(before)));
+    CellSnapshot held=out;
+    CHECK(mixed_clear_plan(s,&s->analysis,(SheetRange){2,4,2,3},0,0,&out,NULL)==MIXED_RANGE_NOOP && !memcmp(&held,&out,sizeof(out)));
+    CHECK(mixed_clear_plan(s,&s->analysis,(SheetRange){0,UINT64_MAX,0,10},SIZE_MAX,SIZE_MAX,&out,NULL)==MIXED_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+    s->objects.items[0].source_id=1; CHECK(mixed_clear_plan(s,&s->analysis,range,SIZE_MAX,SIZE_MAX,&out,NULL)==MIXED_RANGE_PROTECTED && !memcmp(&held,&out,sizeof(out))); s->objects.items[0].source_id=0;
+    CHECK(!memcmp(&before,s,sizeof(before)) && s->objects.items[0].revision==77 && (format_at(&s->formats,1,1).flags&FORMAT_BOLD));
+    CHECK(mixed_clear_plan(s,&s->analysis,(SheetRange){0,DX_SHEET_ROWS-1,0,16383},SIZE_MAX,SIZE_MAX,&out,NULL)==MIXED_RANGE_READY && !out.count && !out.cells);
+    workbook_free(&b); cells_snapshot_free(&out);
+}
 static void rows(void) {
     for (unsigned mode=0;mode<4;mode++) for (unsigned deletion=0;deletion<2;deletion++) {
         Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets; Workbook *reference=workbook_snapshot(&b); CHECK(reference);
@@ -96,7 +110,7 @@ static void column_projection(void) {
     s->objects.items[1].col=20; CHECK(cells_set(&s->cells,100,16383,"Edge",NULL));
     CHECK(mixed_column_measure(s,&s->analysis,0,true,&info,NULL)==MIXED_RANGE_INVALID && info.owned==123); workbook_free(&b);
 }
-int main(void) { paste_projection();
+int main(void) { paste_projection(); clear_projection();
     column_projection(); rows();
     for (unsigned mode=0;mode<4;mode++) {
         Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets; Worksheet before=*s; MixedRangePlanInfo info={0}; MixedRangePlan out={0}; SheetRange r={1,5,1,4}; char *error=NULL;

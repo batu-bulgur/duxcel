@@ -218,3 +218,25 @@ MixedRangeStatus mixed_paste_plan(const Worksheet *s,const Analysis *primary,uin
     if (!geometry(&s->objects,&projected,error)) { cells_snapshot_free(&next); return MIXED_RANGE_INVALID; }
     cells_snapshot_free(out); *out=next; return MIXED_RANGE_READY;
 }
+
+MixedRangeStatus mixed_clear_measure(const Worksheet *s,const Analysis *primary,SheetRange r,MixedClearPlanInfo *out,char **error) {
+    if (!out || !s || !primary) return MIXED_RANGE_INVALID;
+    if (!eligible(s,primary)) { fail(error,"Clear requires source-free templates and manual formats."); return MIXED_RANGE_PROTECTED; }
+    ObjectSnapshot before={s->objects.items,s->objects.count}; ObjectsAssetInfo objects={0};
+    if (!s->id || objects_asset_measure(s->id,&before,s->objects.next_id,&objects)!=OBJECTS_ASSET_OK) return MIXED_RANGE_INVALID;
+    CellRangePlanInfo cells={0}; CellRangeStatus status=cells_clear_measure(&s->cells,r.r0,r.r1,r.c0,r.c1,&cells,error);
+    if (status!=CELL_RANGE_READY && status!=CELL_RANGE_NOOP) return status==CELL_RANGE_LIMIT ? MIXED_RANGE_LIMIT : MIXED_RANGE_INVALID;
+    if (!geometry(&s->objects,&s->cells,error)) return MIXED_RANGE_INVALID;
+    if (status==CELL_RANGE_NOOP) return MIXED_RANGE_NOOP;
+    *out=(MixedClearPlanInfo){cells,objects.measure.validation_scratch}; return MIXED_RANGE_READY;
+}
+MixedRangeStatus mixed_clear_plan(const Worksheet *s,const Analysis *primary,SheetRange r,size_t reserved,size_t validation_reserved,CellSnapshot *out,char **error) {
+    if (!out || (s && out->cells && out->cells==s->cells.cells)) { fail(error,"Choose independent clear cell ownership."); return MIXED_RANGE_INVALID; }
+    MixedClearPlanInfo info={0}; MixedRangeStatus status=mixed_clear_measure(s,primary,r,&info,error);
+    if (status!=MIXED_RANGE_READY) return status;
+    if (info.cells.owned>reserved || info.validation_scratch>validation_reserved) { fail(error,"Clear exceeds its complete cell/validation reservation."); return MIXED_RANGE_LIMIT; }
+    if (!objects_valid(&s->objects,error)) return MIXED_RANGE_INVALID;
+    CellSnapshot next={0}; CellRangeStatus cells=cells_clear_plan(&s->cells,r.r0,r.r1,r.c0,r.c1,reserved,&next,error);
+    if (cells!=CELL_RANGE_READY) return cells==CELL_RANGE_LIMIT ? MIXED_RANGE_LIMIT : MIXED_RANGE_INVALID;
+    cells_snapshot_free(out); *out=next; return MIXED_RANGE_READY;
+}
