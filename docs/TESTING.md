@@ -75,6 +75,16 @@ python3 tools/test_app_lifecycle.py
 python3 tools/test_open_documents.py
 ```
 
+The registered `engines` tier (`make test-engines TEST_ARGS='--config both'`)
+runs the entire ordered engine inventory, current fixtures and registered process
+fault/recovery gates through the same existing engine controller. It requires
+serial execution and does not replace the standalone App, GPU or named native
+scenario inventories. At a milestone, a failure confined to a test fixture can
+be followed by this complete engine chunk and the remaining native scenarios,
+retaining earlier passed App evidence only when product sources and those test
+inputs/binaries remain unchanged. Keep the original failed report; record the
+coverage union and source limits instead of claiming a failed raw run passed.
+
 The native `full` gate also includes standalone About checks. It does not imply
 that the separate browser/platform matrix passed. Do not schedule those gates
 implicitly from a feature run. Existing low-level helpers remain available:

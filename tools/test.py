@@ -525,6 +525,15 @@ class Runner:
             else:
                 self.record(self.command(name+"-fixture", [sys.executable, *arguments], marker))
 
+    def engines(self):
+        """Complete ordered storage/worker suites without replaying App workflows.
+
+        Registered process checks (including recovery) remain mandatory. This
+        is one milestone chunk, not a substitute for full App/GPU scenarios.
+        """
+        self.prepare_feature_fixtures(FEATURE_FIXTURES)
+        self.feature_engine_checks(ENGINE_MODULES)
+
     def feature(self):
         plan = feature_plan(self.args.feature)
         self.summary["feature_plan"] = plan
@@ -658,6 +667,8 @@ class Runner:
                     self.affected()
                 elif self.args.tier == "native":
                     self.native()
+                elif self.args.tier == "engines":
+                    self.engines()
                 elif self.args.tier == "records":
                     self.records()
                 elif self.args.tier == "formats":
@@ -687,7 +698,7 @@ class Runner:
 
 def parser():
     result = argparse.ArgumentParser(description=__doc__, epilog="Native windows and clipboard checks run serially under a cross-worktree lock. --jobs only overlaps already-built read-only headless tests. No packages are installed.")
-    result.add_argument("tier", nargs="?", choices=("feature", "fast", "records", "formats", "affected", "native", "full"), default="feature")
+    result.add_argument("tier", nargs="?", choices=("feature", "fast", "records", "formats", "engines", "affected", "native", "full"), default="feature")
     result.add_argument("--config", choices=("release", "sanitize", "both"), default="both", help="headless build configuration; native uses sanitizer when both (default: both)")
     result.add_argument("--edit", action="store_true", help="affected/native: use the isolated -O0 ASan/UBSan App; headless configurations stay unchanged")
     result.add_argument("--modules", nargs="+", choices=FAST_MODULES, help="read-only headless modules for fast/affected; full always runs all")
@@ -723,6 +734,7 @@ def main(argv=None):
     if args.list:
         print("Feature slices: " + ", ".join(FEATURES))
         print("Read-only modules: " + ", ".join(FAST_MODULES))
+        print("Engines: all registered ordered engine suites and process gates; App/GPU scenarios remain separate")
         print("Records: " + ", ".join(RECORD_MODULES) + "; sequential native engine checks without GUI or shared fixtures")
         print("Formats: workbook --formats-only; sequential format/save checks without GUI or core fixture regeneration")
         for name, (start, end, _) in LAYOUT_PROFILES.items():
@@ -737,9 +749,9 @@ def main(argv=None):
         return 0
     if args.tier == "affected" and not args.feature:
         argument_parser.error("affected requires --feature (see --list)")
-    if args.tier in ("full", "records", "formats") and args.modules:
+    if args.tier in ("full", "records", "formats", "engines") and args.modules:
         argument_parser.error(args.tier + " does not accept --modules")
-    if args.tier in ("records", "formats") and args.jobs != 1:
+    if args.tier in ("records", "formats", "engines") and args.jobs != 1:
         argument_parser.error(args.tier + " requires --jobs 1; engine checks run sequentially")
     if args.tier == "native" and (not args.scenario or args.modules):
         argument_parser.error("native requires --scenario and does not accept --modules")

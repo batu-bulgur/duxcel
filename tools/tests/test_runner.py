@@ -550,6 +550,36 @@ class RunnerTests(unittest.TestCase):
                     expected.append([runner.sys.executable,check.script,"--binary",process_binary,*check.arguments,*extra])
             self.assertEqual([call.args[1] for call in command.call_args_list[5:-1]],expected)
 
+    def test_engines_runs_complete_inventory_after_fixtures_without_app_scenarios(self):
+        args=runner.parser().parse_args(["engines", "--config", "both"])
+        with tempfile.TemporaryDirectory() as directory:
+            root=pathlib.Path(directory); (root / "Makefile").write_text("")
+            instance=runner.Runner(args,root); order=[]
+            with mock.patch.object(instance,"prepare_feature_fixtures",side_effect=lambda names: order.append(("fixtures",tuple(names)))) as fixtures, \
+                 mock.patch.object(instance,"feature_engine_checks",side_effect=lambda names: order.append(("engines",tuple(names)))) as engines, \
+                 mock.patch.object(instance,"headless") as headless, \
+                 mock.patch.object(instance,"standalone_gui_check") as gui, \
+                 mock.patch.object(instance,"native_scenarios") as scenarios:
+                instance.engines()
+            fixtures.assert_called_once_with(runner.FEATURE_FIXTURES)
+            engines.assert_called_once_with(runner.ENGINE_MODULES)
+            self.assertEqual([name for name,_ in order],["fixtures","engines"])
+            self.assertEqual(order[1][1][:2],("core","workbook"))
+            self.assertIn("recovery_process",order[1][1])
+            headless.assert_not_called(); gui.assert_not_called(); scenarios.assert_not_called()
+
+    def test_engines_rejects_unrelated_options_and_dispatches_serially(self):
+        extras=(["--modules","grid"],["--jobs","2"],["--feature","shelves"],
+                ["--scenario","icon"],["--visible"],["--edit"],["--require-data"])
+        with mock.patch.object(runner,"Runner") as constructor:
+            for extra in extras:
+                with self.subTest(extra=extra),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
+                    runner.main(["engines",*extra])
+            constructor.assert_not_called(); constructor.return_value.run.return_value=0
+            self.assertEqual(runner.main(["engines","--config","both","--no-build"]),0)
+            args=constructor.call_args.args[0]
+            self.assertEqual((args.tier,args.jobs,args.config),("engines",1,"both"))
+
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
         extras = (["--modules", "grid"], ["--scenario", "icon"], ["--feature", "shelves"],
                   ["--visible"], ["--require-data"], ["--jobs", "2"])

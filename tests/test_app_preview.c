@@ -3,6 +3,7 @@
 #include "app/versionpreview.h"
 #include "workbook/cell_command.h"
 #include "workbook/history.h"
+#include "data/source_digest.h"
 #include <duckdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,10 +79,14 @@ int main(void) {
     CHECK(!memcmp(app_preview_working(&state),&original,sizeof(original)) && !memcmp(app_preview_working_versions(&state),&original_versions,sizeof(original_versions)));
     WorkbookArchiveCandidate *export_candidate=NULL;
     CHECK(workbook_archive_read(export_path,parent,UINT64_C(128)*1024*1024,(WorkbookArchiveReadControl){0},&export_candidate,&error)==ARCHIVE_READ_READY);
+    CHECK(workbook_archive_file_version(export_candidate)==16);
     Workbook *export_model=workbook_archive_take_book(export_candidate); CHECK(export_model);
-    Workbook exported_book=*export_model; free(export_model); workbook_archive_candidate_free(export_candidate);
+    Workbook exported_book=*export_model; free(export_model); workbook_archive_candidate_free(export_candidate); export_candidate=NULL;
     CHECK(exported_book.origin.present && !memcmp(exported_book.origin.root,first.bytes,32));
-    char *resaved=dx_printf("%s/resaved.dxls",parent); CHECK(workbook_save(&exported_book,resaved,&error));
+    /* The core copy exercises optional provenance validation only. External
+       overwrite/cancellation must use the actual current container, never an
+       implicit upgrade from this unwrapped internal core. */
+    char *resaved=dx_printf("%s/resaved-core.dxls",parent); CHECK(workbook_save(&exported_book,resaved,&error));
     Workbook reloaded; workbook_init(&reloaded); CHECK(workbook_load(&reloaded,resaved,&error));
     CHECK(reloaded.origin.present && !memcmp(&reloaded.origin,&exported_book.origin,sizeof(reloaded.origin)));
     bool cancelled=false; WorkbookVersionReceipt *cancelled_receipt=NULL;
@@ -90,13 +95,18 @@ int main(void) {
     CHECK(workbook_version_save((WorkbookVersionSaveRequest){&exported_book,NULL,export_owner,VERSION_USER_SAVE,cancel_path,parent,UINT64_C(128)*1024*1024},
         (WorkbookVersionSaveControl){.archive={.core={cancel_publish,&cancelled}}},&cancelled_receipt,&error)==WORKBOOK_SAVE_CANCELLED);
     CHECK(cancelled && !cancelled_receipt && access(cancel_path,F_OK)!=0); clear(&error);
-    cancelled=false;
-    CHECK(workbook_version_save((WorkbookVersionSaveRequest){&exported_book,NULL,export_owner,VERSION_USER_SAVE,resaved,parent,UINT64_C(128)*1024*1024},
+    cancelled=false; SourceDigest before_cancel={0},after_digest={0};
+    CHECK(source_digest_file(export_path,NULL,NULL,&before_cancel,NULL)==SOURCE_DIGEST_OK);
+    CHECK(workbook_version_save((WorkbookVersionSaveRequest){&exported_book,worker_archive_versions(exported),export_owner,VERSION_USER_SAVE,export_path,parent,UINT64_C(128)*1024*1024},
         (WorkbookVersionSaveControl){.archive={.core={cancel_publish,&cancelled}}},&cancelled_receipt,&error)==WORKBOOK_SAVE_CANCELLED);
     CHECK(cancelled && !cancelled_receipt); clear(&error);
-    Workbook after_cancel; workbook_init(&after_cancel); CHECK(workbook_load(&after_cancel,resaved,&error));
-    CHECK(after_cancel.origin.present && !strcmp(cells_get(&after_cancel.sheets[0].cells,9000,30),"R1"));
-    workbook_free(&after_cancel); free(cancel_path);
+    CHECK(source_digest_file(export_path,NULL,NULL,&after_digest,NULL)==SOURCE_DIGEST_OK);
+    CHECK(before_cancel.bytes==after_digest.bytes && !memcmp(before_cancel.sha256,after_digest.sha256,DX_SOURCE_DIGEST_BYTES));
+    CHECK(workbook_archive_read(export_path,parent,UINT64_C(128)*1024*1024,(WorkbookArchiveReadControl){0},&export_candidate,&error)==ARCHIVE_READ_READY);
+    CHECK(workbook_archive_file_version(export_candidate)==16);
+    const Workbook *after_cancel=workbook_archive_book(export_candidate);
+    CHECK(after_cancel && after_cancel->origin.present && !strcmp(cells_get(&after_cancel->sheets[0].cells,9000,30),"R1"));
+    workbook_archive_candidate_free(export_candidate); export_candidate=NULL; free(cancel_path);
     sql_file(resaved,"DROP TABLE _duxcel_workspace.export_origin");
     CHECK(workbook_load(&reloaded,resaved,&error) && !reloaded.origin.present);
     Workbook compatible=reloaded;

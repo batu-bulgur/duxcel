@@ -2321,3 +2321,21 @@ Fixture generation now precedes every standalone GUI. The orchestration test
 starts without build inputs and requires every fixture before any GUI;57 runner/
 catalog contracts pass4.424s. Product C is unchanged. The coherent full run
 restarts after this fix, reusing completed incremental compiler outputs.
+
+The broad attempt at source `212092a` stopped at app_preview-release after
+999.977s and507 App stages. Its test still expected container Save cancellation
+when overwriting a standalone internal core (an obsolete upgrade assumption).
+Product correctly refuses that unsupported destination. The fixture now cancels
+overwrite of the actual exported container16, retains internal core provenance
+validation separately, and proves original container SHA-256/byte count unchanged.
+The registered app-preview release/sanitizer gate passes20.980s, zero GUI.
+Report `build/tests/results/runs/20261025T173242-feature-36769/summary.json`.
+
+No product source under src/web/packaging/assets changed from `212092a`. To avoid
+replaying507 unchanged App stages after this fixture-only repair, the milestone
+continues with the complete ordered `engines` tier (both configurations), then
+GPU and every named native scenario including required NYC data. Original failed
+full evidence remains explicit; completion requires the union of all full-tier
+checks, not only the repaired module. The new tier reuses existing engine/process
+controllers and fixture ordering;59 runner/catalog contracts pass4.594s.
+All local Wasm/browser checks and actual origin CI/CD delivery remain required.

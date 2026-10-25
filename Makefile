@@ -1002,9 +1002,11 @@ test-fast:
 	+python3 tools/test.py fast $(TEST_ARGS)
 test-feature:
 	+python3 tools/test.py feature --feature $(FEATURE) $(TEST_ARGS)
+test-engines:
+	+python3 tools/test.py engines $(TEST_ARGS)
 test-milestone:
 	+python3 tools/test.py full $(TEST_ARGS)
-.PHONY: test-feature test-milestone
+.PHONY: test-feature test-milestone test-engines
 test-affected:
 	+python3 tools/test.py affected --feature $(FEATURE) $(TEST_ARGS)
 test-native:
