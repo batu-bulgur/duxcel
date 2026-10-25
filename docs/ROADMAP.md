@@ -2460,3 +2460,21 @@ styles, sparse clears, literal NULL, exact decimal text and quoted Unicode are
 covered. Broader source/object paste and mixed-range retained publication remain
 open. The Object lane now owns source-free mixed cell/object/format planning and
 a closed current range-event extension reusing existing definition assets.
+
+Topology/source prerequisites integrated: `aea4cea` owns an unpublished default-
+resolution draft, `bb6372e` measures the real session CREATE allocation path,
+`b6931e9`/`3e121d0`/`5b12c16` own complete independent sheet capture/current DXSP
+wire and the reused format snapshot body. Combined main pure gates pass5.742s
+(capture/body),6.496s (draft/creation) and3.158s (mixed planner), followed by3.836s
+for the complete presence wire (`20261025T202528-feature-653`). These are payload/
+planning prerequisites, not retained topology or new-primary App publication.
+
+Source-free mixed prerequisites `40739ca`/`f74c9f1` own complete independent
+cell/object/format projections and current DXRE encoding3, using the existing DXDE
+child for object/source closure. The bounded30MiB packet stays below the32MiB
+stream ceiling; encoding2 is no longer a current reader. The combined codec gate
+passes4.803s (`20261025T202340-feature-98946`). Existing navigation/Table native
+interactions pass86 stages in62.524s including build, hidden-window checks and
+38.081s Table execution (`20261025T202346-native-99296`). No broad regression or
+Wasm acceptance is inferred. The three lanes continue topology event ownership,
+new-primary publication and mixed-range command adoption respectively.

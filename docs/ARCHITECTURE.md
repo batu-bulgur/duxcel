@@ -1216,7 +1216,9 @@ Save refusal and navigation denial preserve the old owners. Post-publication
 load/structural adoption retains its existing nonfallible model copy, because
 those operations already retire origins or advance the document action fence.
 Cross-sheet history stops before replay if navigation is refused. Native primary
-reply/capture/navigation integration is verified; loaded-Table/new-primary and
+and loaded-Table replies share the actual source owner, including bound analytical
+routes and distinct-job revision fences; pressure preserves ordinary result/cache
+publication and permits a current-owner retry. New-primary publication and
 retained-history activation remain separate. No sealed arena or Saved root is
 patched to follow runtime layout changes.
 
@@ -1228,17 +1230,35 @@ visible in the target, otherwise using the captured valid fallback. This is a
 payload prerequisite, not workbook action/history adoption or detached sheet data.
 
 
-`range_command.c` owns source/object-free manual range Move/Replace. Independent
-sparse cell and format plans produce truthful effects2/8/10; `range_event.c`
-encodes canonical changed-cell deltas plus optional full format pairs as DXRE.
-`history_range.c` reserves one family4 payload before either session journal can
-evict. Complete owner/request/primary/cell/format fences are rechecked before
-nonfallible transfers and one chronological action/document revision. Captured
-Replace confirmation also fences no-op paths. App owns readiness, budgets,
-selection and dialogs; mixed sources/objects, axes and paste remain separate.
+`range_command.c` owns source/object-free manual Move/Replace, row/column edits
+and text paste. Independent sparse cell, format and physical-width plans produce
+truthful effects before any journal eviction. The paste producer and prospective
+planner share the ordinary bounded TSV scanner; identical paste preserves Redo,
+dirty state and revisions while the App retains ordinary selection feedback.
+`history_range.c` reserves one complete family4 event before ownership transfer;
+all owner/request/primary/model fences are rechecked before one action/revision.
+Current DXRE encoding3 can also close source-free object pairs through the
+existing DXDE component; the mixed-range planner/packet does not yet establish
+mixed App command adoption. Sources/Tables remain outside that narrow owner.
+
+`column_widths.c`, `column_width_history.c` and `column_width_command.c` own
+canonical complete width pairs, bounded immutable packets and a prepared bridge
+to the committed dense `SheetView.widths`. Grid is a projection or drag draft;
+source field names do not own physical widths. The workbook width command admits
+presentation-only changes on manual/source/Table sheets, and worksheet chronology
+counts widths as a fifth constituent. Manual columns reserve cells/formats/widths
+together; existing mixed/source column session paths also preplan their complete
+width inverse. Exact virtual right-edge truncation survives Undo. All interactive
+width writers use the same App owner; historical inspection does not copy back.
 
 `sheet_lifecycle_command.c` prepares owned metadata pairs using the actual naming
 and chronology helpers. `history_sheet_lifecycle.c` reserves family5 bytes under
-existing FIFO ownership. Preparation/reservation/cancellation do not mutate the
-workbook or publish history; genuine workbook action and validated after-state
-publication remain the next adapter boundary.
+existing FIFO ownership. The App rename/reorder/hide/show adapter admits and
+publishes governed workbook metadata actions; active navigation is independent.
+Detached topology remains separate. `sheet_presence_asset.c` captures and encodes
+one complete current authored sheet with explicit actual-primary authority,
+independent ownership and aggregate budget/source closure. It excludes session
+history, Pages and retained datasets/results. `primary_source_draft.c` leases an
+unpublished DATABASE proposal through real default resolution without consuming
+a sheet ID/action; shared creation staging measures the actual session producer.
+Neither prerequisite activates retained topology or new-primary App publication.
