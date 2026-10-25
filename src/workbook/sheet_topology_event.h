@@ -48,6 +48,14 @@ SheetTopologyStatus sheet_topology_preflight(const void *data,size_t bytes,Sheet
 SheetTopologyStatus sheet_topology_validate(const void *data,size_t bytes,size_t reserved,SheetTopologyInfo *out);
 SheetTopologyStatus sheet_topology_decode(const void *data,size_t bytes,size_t reserved,SheetTopologyEvent *out);
 SheetTopologyView sheet_topology_view(const SheetTopologyEvent *event);
+/* Allocation-free exact canonical association with a trusted decoded view.
+   Reuse the SAME current header/catalog encoder as capture and compare the
+   original DXSP bytes, including stored navigation/counters. Validate packet
+   framing first; no decode/second serializer, heap scratch or wire copy.
+   Different valid content returns OK/false; malformed/unsupported inputs preserve
+   out. Complete view/source closure remains its prior decode owner's proof. */
+SheetTopologyStatus sheet_topology_packet_matches(SheetTopologyView view,const SheetTopologyPacket *packet,bool *out);
+
 void sheet_topology_packet_free(SheetTopologyPacket *packet);
 void sheet_topology_free(SheetTopologyEvent *event);
 /* Pure metadata projection for an already validated event. Match authored

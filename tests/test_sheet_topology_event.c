@@ -25,6 +25,18 @@ static void add_remove(void) {
     SheetTopologyEvent owned={0}; CHECK(sheet_topology_decode(packet.data,packet.bytes,info.owned+info.validation_scratch-1,&owned)==SHEET_TOPOLOGY_LIMIT && !owned.presence.data);
     CHECK(sheet_topology_decode(packet.data,packet.bytes,info.owned+info.validation_scratch,&owned)==SHEET_TOPOLOGY_OK && owned.before.sheets!=before && owned.before.sheets[0].name!=before[0].name && owned.presence.data!=asset.data);
     CHECK(!strcmp(owned.after.sheets[1].name,"Added İ") && owned.after.active==8 && !memcmp(owned.presence.data,asset.data,asset.bytes));
+    bool same=false; CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),&packet,&same)==SHEET_TOPOLOGY_OK && same);
+    SheetTopologyView navigation=sheet_topology_view(&owned); navigation.before.active=7;
+    CHECK(sheet_topology_packet_matches(navigation,&packet,&same)==SHEET_TOPOLOGY_OK && !same);
+    before[0].name=after[0].name="Longer Base"; SheetTopologyPacket different={0};
+    CHECK(sheet_topology_capture(view,SIZE_MAX,&different)==SHEET_TOPOLOGY_OK && different.bytes!=packet.bytes);
+    CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),&different,&same)==SHEET_TOPOLOGY_OK && !same);
+    sheet_topology_packet_free(&different); before[0].name=after[0].name="Base";
+    same=true; CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),NULL,&same)==SHEET_TOPOLOGY_INVALID && same);
+    CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),&packet,NULL)==SHEET_TOPOLOGY_INVALID);
+    ((unsigned char *)packet.data)[0]^=1; CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),&packet,&same)==SHEET_TOPOLOGY_INVALID && same); ((unsigned char *)packet.data)[0]^=1;
+    ((unsigned char *)packet.data)[4]=2; CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),&packet,&same)==SHEET_TOPOLOGY_UNSUPPORTED && same); ((unsigned char *)packet.data)[4]=1;
+
     SheetLifecycleState target={0},current=owned.before;
     current.high_water=100; current.active=7;
     CHECK(sheet_topology_admit(sheet_topology_view(&owned),current,true,&target)==SHEET_TOPOLOGY_OK && target.count==3 && target.high_water==100 && target.active==7);
@@ -46,6 +58,7 @@ static void add_remove(void) {
     unsigned char *extended=dx_alloc(packet.bytes+1); memcpy(extended,packet.data,packet.bytes); CHECK(sheet_topology_decode(extended,packet.bytes+1,SIZE_MAX,&owned)==SHEET_TOPOLOGY_INVALID); free(extended);
     size_t presence_at=packet.bytes-asset.bytes; unsigned char initial=bytes[presence_at+DX_SHEET_PRESENCE_HEADER_BYTES]; bytes[presence_at+DX_SHEET_PRESENCE_HEADER_BYTES]='X';
     CHECK(sheet_topology_preflight(bytes,packet.bytes,&inspected)==SHEET_TOPOLOGY_OK);
+    CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),&packet,&same)==SHEET_TOPOLOGY_OK && !same);
     CHECK(sheet_topology_validate(bytes,packet.bytes,SIZE_MAX,&inspected)==SHEET_TOPOLOGY_INVALID);
     CHECK(sheet_topology_decode(bytes,packet.bytes,SIZE_MAX,&owned)==SHEET_TOPOLOGY_INVALID && !memcmp(snapshot,&owned,sizeof(owned))); bytes[presence_at+DX_SHEET_PRESENCE_HEADER_BYTES]=initial;
     SheetTopologyInfo prior=info;
@@ -59,6 +72,8 @@ static void add_remove(void) {
     view.operation=SHEET_TOPOLOGY_REMOVE; view.before=(SheetLifecycleState){document,8,8,after,3}; view.after=(SheetLifecycleState){document,8,1,before,2};
     CHECK(sheet_topology_capture(view,SIZE_MAX,&canonical)==SHEET_TOPOLOGY_OK);
     SheetTopologyEvent removed={0}; CHECK(sheet_topology_decode(canonical.data,canonical.bytes,SIZE_MAX,&removed)==SHEET_TOPOLOGY_OK);
+    CHECK(sheet_topology_packet_matches(sheet_topology_view(&removed),&canonical,&same)==SHEET_TOPOLOGY_OK && same);
+    CHECK(sheet_topology_packet_matches(sheet_topology_view(&owned),&canonical,&same)==SHEET_TOPOLOGY_OK && !same);
     current=removed.before; CHECK(sheet_topology_admit(sheet_topology_view(&removed),current,true,&target)==SHEET_TOPOLOGY_OK && target.count==2 && target.active==1 && target.high_water==8);
     current=removed.after; current.active=7; current.high_water=200; CHECK(sheet_topology_admit(sheet_topology_view(&removed),current,false,&target)==SHEET_TOPOLOGY_OK && target.count==3 && target.active==7 && target.high_water==200);
     current=removed.after; current.high_water=7; CHECK(sheet_topology_admit(sheet_topology_view(&removed),current,false,&target)==SHEET_TOPOLOGY_STALE);
@@ -72,6 +87,7 @@ static void guards(void) {
     SheetPresencePacket packet=presence(doc,UINT64_MAX,UINT64_MAX,"Last",false);
     SheetTopologyView view={SHEET_TOPOLOGY_ADD,UINT64_MAX,{doc,UINT64_MAX-1,1,before,1},{doc,UINT64_MAX,UINT64_MAX,after,2},&packet};
     SheetTopologyPacket out={0}; SheetTopologyInfo info; CHECK(sheet_topology_capture(view,SIZE_MAX,&out)==SHEET_TOPOLOGY_OK);
+    bool same=false; CHECK(sheet_topology_packet_matches(view,&out,&same)==SHEET_TOPOLOGY_OK && same);
     view.before.high_water=UINT64_MAX; CHECK(sheet_topology_measure(view,&info)==SHEET_TOPOLOGY_LIMIT); view.before.high_water=UINT64_MAX-1;
     view.after.count=1; CHECK(sheet_topology_measure(view,&info)==SHEET_TOPOLOGY_INVALID); view.after.count=2;
     after[1].hidden=true; view.after.active=1; CHECK(sheet_topology_capture(view,SIZE_MAX,&out)==SHEET_TOPOLOGY_INVALID); after[1].hidden=false; view.after.active=UINT64_MAX;

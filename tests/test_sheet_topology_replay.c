@@ -195,8 +195,46 @@ static void object_allocator_undo(void) {
     CHECK(sheet->objects.count==1 && sheet->objects.items[0].id==issued && sheet->objects.next_id==issued);
     analysis_free(&actual); sheet_topology_packet_free(&packet); workbook_free(&b);
 }
+static void original_packet_fences(void) {
+    Workbook b=fixture(); uint64_t id,order,epoch=500; Analysis actual;
+    SheetTopologyPacket external=command(&b,SHEET_DUPLICATE,&id,&order,&actual,&epoch); WorkbookLifecyclePresence selected;
+    CHECK(workbook_lifecycle_presence(&b,false,&selected) && selected.packet);
+    SheetTopologyReplayContext c={&b,&epoch,&actual,id,SIZE_MAX,SIZE_MAX,true,false}; SheetTopologyReplayPlan *p=NULL;
+    unsigned char original_active=((unsigned char *)external.data)[48]; ((unsigned char *)external.data)[48]=1;
+    CHECK(sheet_topology_replay_prepare(c,&external,false,order,&p,NULL)==SHEET_REPLAY_STALE && !p);
+    ((unsigned char *)external.data)[48]=original_active;
+    CHECK(sheet_topology_replay_prepare(c,&external,false,order,&p,NULL)==SHEET_REPLAY_READY);
+    /* Controlled owned-model fault injection: restore every changed descriptor
+       before cleanup. The public selected-packet borrow remains immutable. */
+    SheetTopologyPacket *owned=(SheetTopologyPacket *)selected.packet,saved=*owned,replacement=copy(owned); Workbook before=b; uint64_t issued=worksheet_history_high_water();
+    owned->data=replacement.data;
+    CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE && !memcmp(&before,&b,sizeof(b)));
+    CHECK(sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_STALE && p && !memcmp(&before,&b,sizeof(b)));
+    *owned=saved; sheet_topology_packet_free(&replacement);
+    owned->bytes--; CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE && !memcmp(&before,&b,sizeof(b))); *owned=saved;
+    ((unsigned char *)owned->data)[0]^=1;
+    CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_INVALID && !memcmp(&before,&b,sizeof(b))); ((unsigned char *)owned->data)[0]^=1;
+    SheetTopologyInfo info; CHECK(sheet_topology_preflight(owned->data,owned->bytes,&info)==SHEET_TOPOLOGY_OK);
+    size_t name=owned->bytes-info.presence_bytes+DX_SHEET_PRESENCE_HEADER_BYTES; ((unsigned char *)owned->data)[name]^=1;
+    CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE && !memcmp(&before,&b,sizeof(b))); ((unsigned char *)owned->data)[name]^=1;
+    CHECK(worksheet_history_high_water()==issued);
+    CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_READY && sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_APPLIED && !p);
+    CHECK(workbook_lifecycle_presence(&b,true,&selected) && selected.packet->data==saved.data && selected.packet->bytes==saved.bytes);
+    analysis_free(&actual); sheet_topology_packet_free(&external); workbook_free(&b);
+    b=fixture(); external=command(&b,SHEET_DUPLICATE,&id,&order,&actual,&epoch);
+    CHECK(workbook_lifecycle_presence(&b,false,&selected) && selected.packet);
+    c=(SheetTopologyReplayContext){&b,&epoch,&actual,id,SIZE_MAX,SIZE_MAX,true,false};
+    CHECK(sheet_topology_replay_prepare(c,&external,false,order,&p,NULL)==SHEET_REPLAY_READY);
+    owned=(SheetTopologyPacket *)selected.packet; saved=*owned; replacement=copy(owned); *owned=replacement; free(saved.data);
+    before=b; issued=worksheet_history_high_water();
+    CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE && sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_STALE && p && !memcmp(&before,&b,sizeof(b)) && worksheet_history_high_water()==issued);
+    /* The stale original address is never dereferenced, and cancellation owns
+       only the independent decoded plan. The event owns the replacement. */
+    sheet_topology_replay_free(&p); replacement=(SheetTopologyPacket){0};
+    analysis_free(&actual); sheet_topology_packet_free(&external); workbook_free(&b);
+}
 int main(void) {
-    object_allocator_undo(); first_binding_undo(); packet_lifetime(); fences(); replay(SHEET_CREATE,false); replay(SHEET_DELETE,false); replay(SHEET_DUPLICATE,false); replay(SHEET_CREATE,true); replay(SHEET_DELETE,true); replay(SHEET_DUPLICATE,true);
+    original_packet_fences(); object_allocator_undo(); first_binding_undo(); packet_lifetime(); fences(); replay(SHEET_CREATE,false); replay(SHEET_DELETE,false); replay(SHEET_DUPLICATE,false); replay(SHEET_CREATE,true); replay(SHEET_DELETE,true); replay(SHEET_DUPLICATE,true);
     SheetTopologyReplayMeasure untouched={7,9}; CHECK(sheet_topology_replay_measure(&(SheetTopologyPacket){"bad",3},&untouched)==SHEET_REPLAY_INVALID && untouched.owned==7 && untouched.staging==9);
     sheet_topology_replay_free(NULL); printf("PASS: %u genuine topology session replay checks\n",checks); return 0;
 }

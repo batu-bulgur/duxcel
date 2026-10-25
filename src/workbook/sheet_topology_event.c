@@ -36,18 +36,26 @@ static bool presence_valid(SheetTopologyView view,size_t reserved) {
     size_t at=locate(full,view.sheet); bool matches=at<full.count && !strcmp(owned.sheet->name,full.sheets[at].name) && owned.sheet->hidden==full.sheets[at].hidden;
     sheet_presence_free(&asset); return matches;
 }
+static void write_row_prefix(DefinitionWireWriter *w,SheetLifecycleEntry row) {
+    definition_wire_put(w,row.id,8); definition_wire_put(w,row.hidden,4); definition_wire_put(w,strlen(row.name),4);
+}
 static void write_catalog(DefinitionWireWriter *w,SheetLifecycleState state) {
-    for (size_t i=0;i<state.count;i++) { definition_wire_put(w,state.sheets[i].id,8); definition_wire_put(w,state.sheets[i].hidden,4); definition_wire_text_write(w,state.sheets[i].name); }
+    for (size_t i=0;i<state.count;i++) {
+        write_row_prefix(w,state.sheets[i]); size_t n=strlen(state.sheets[i].name); memcpy(w->p,state.sheets[i].name,n); w->p+=n;
+    }
+}
+static void write_header(DefinitionWireWriter *w,SheetTopologyView view) {
+    memcpy(w->p,"DXTP",4); w->p+=4;
+    definition_wire_put(w,DX_SHEET_TOPOLOGY_ENCODING,2); definition_wire_put(w,view.operation,2); definition_wire_put(w,view.before.document.high,8); definition_wire_put(w,view.before.document.low,8);
+    definition_wire_put(w,view.sheet,8); definition_wire_put(w,view.before.high_water,8); definition_wire_put(w,view.after.high_water,8); definition_wire_put(w,view.before.active,8); definition_wire_put(w,view.after.active,8);
+    definition_wire_put(w,view.before.count,2); definition_wire_put(w,view.after.count,2); definition_wire_put(w,catalog_bytes(view.before),4); definition_wire_put(w,catalog_bytes(view.after),4); definition_wire_put(w,view.presence->bytes,4);
 }
 void sheet_topology_packet_free(SheetTopologyPacket *packet) { if (packet) { free(packet->data); *packet=(SheetTopologyPacket){0}; } }
 SheetTopologyStatus sheet_topology_capture(SheetTopologyView view,size_t reserved,SheetTopologyPacket *out) {
     if (!out) return SHEET_TOPOLOGY_INVALID; SheetTopologyInfo info; SheetPresenceWireInfo presence; SheetTopologyStatus status=model(view,&info,&presence); if (status) return status;
     if (info.bytes>reserved || info.validation_scratch>reserved-info.bytes) return SHEET_TOPOLOGY_LIMIT;
     if (!presence_valid(view,info.validation_scratch)) return SHEET_TOPOLOGY_INVALID;
-    SheetTopologyPacket next={dx_alloc(info.bytes),info.bytes}; DefinitionWireWriter w={next.data}; memcpy(w.p,"DXTP",4); w.p+=4;
-    definition_wire_put(&w,DX_SHEET_TOPOLOGY_ENCODING,2); definition_wire_put(&w,view.operation,2); definition_wire_put(&w,view.before.document.high,8); definition_wire_put(&w,view.before.document.low,8);
-    definition_wire_put(&w,view.sheet,8); definition_wire_put(&w,view.before.high_water,8); definition_wire_put(&w,view.after.high_water,8); definition_wire_put(&w,view.before.active,8); definition_wire_put(&w,view.after.active,8);
-    definition_wire_put(&w,view.before.count,2); definition_wire_put(&w,view.after.count,2); definition_wire_put(&w,catalog_bytes(view.before),4); definition_wire_put(&w,catalog_bytes(view.after),4); definition_wire_put(&w,view.presence->bytes,4);
+    SheetTopologyPacket next={dx_alloc(info.bytes),info.bytes}; DefinitionWireWriter w={next.data}; write_header(&w,view);
     write_catalog(&w,view.before); write_catalog(&w,view.after); memcpy(w.p,view.presence->data,view.presence->bytes); w.p+=view.presence->bytes;
     if ((size_t)(w.p-(unsigned char *)next.data)!=next.bytes) { sheet_topology_packet_free(&next); return SHEET_TOPOLOGY_INVALID; }
     sheet_topology_packet_free(out); *out=next; return SHEET_TOPOLOGY_OK;
@@ -102,6 +110,23 @@ SheetTopologyStatus sheet_topology_decode(const void *data,size_t bytes,size_t r
     memcpy(next.presence.data,presence.data,presence.bytes); sheet_topology_free(out); *out=next; return SHEET_TOPOLOGY_OK;
 }
 SheetTopologyView sheet_topology_view(const SheetTopologyEvent *event) { return event ? (SheetTopologyView){event->operation,event->sheet,event->before,event->after,&event->presence} : (SheetTopologyView){0}; }
+SheetTopologyStatus sheet_topology_packet_matches(SheetTopologyView view,const SheetTopologyPacket *packet,bool *out) {
+    if (!packet || !out) return SHEET_TOPOLOGY_INVALID; SheetTopologyInfo expected,actual; SheetPresenceWireInfo presence;
+    SheetTopologyStatus status=model(view,&expected,&presence); if (status) return status;
+    status=sheet_topology_preflight(packet->data,packet->bytes,&actual); if (status) return status;
+    if (packet->bytes!=expected.bytes) { *out=false; return SHEET_TOPOLOGY_OK; }
+    unsigned char header[DX_SHEET_TOPOLOGY_HEADER_BYTES]; DefinitionWireWriter writer={header}; write_header(&writer,view);
+    const unsigned char *data=packet->data; bool same=!memcmp(header,data,sizeof(header)); size_t at=sizeof(header);
+    SheetLifecycleState states[2]={view.before,view.after};
+    for (unsigned side=0;side<2;side++) for (size_t i=0;i<states[side].count;i++) {
+        SheetLifecycleEntry row=states[side].sheets[i]; unsigned char prefix[16]; DefinitionWireWriter field={prefix}; write_row_prefix(&field,row);
+        size_t n=strlen(row.name); same=(!memcmp(prefix,data+at,sizeof(prefix)) && !memcmp(row.name,data+at+sizeof(prefix),n)) && same; at+=sizeof(prefix)+n;
+    }
+    /* Model bounds and the equal complete size prove every comparison range.
+       Compare the original immutable DXSP bytes, not a refined live projection. */
+    same=(!memcmp(view.presence->data,data+at,view.presence->bytes)) && same;
+    *out=same; return SHEET_TOPOLOGY_OK;
+}
 static bool authored_equal(SheetLifecycleState a,SheetLifecycleState b) { if (!document_equal(a.document,b.document) || a.count!=b.count) return false; for (size_t i=0;i<a.count;i++) if (!entry_equal(a.sheets[i],b.sheets[i])) return false; return true; }
 SheetTopologyStatus sheet_topology_admit(SheetTopologyView view,SheetLifecycleState current,bool redo,SheetLifecycleState *out) {
     if (!out) return SHEET_TOPOLOGY_INVALID; SheetTopologyInfo info; SheetPresenceWireInfo presence; SheetTopologyStatus status=model(view,&info,&presence); if (status) return status;

@@ -7,6 +7,8 @@ struct SheetTopologyReplayPlan {
     const uint64_t *epoch_owner;
     uint64_t epoch,session,revision,branch,order,issued,high_water,sheet_session,cells_revision,format_revision,width_revision;
     WorkbookLifecyclePresence selection;
+    const void *packet_data;
+    size_t packet_bytes;
     SheetTopologyEvent event;
     SheetPresenceAsset *presence;
     bool redo;
@@ -54,6 +56,12 @@ SheetTopologyReplayStatus sheet_topology_replay_check(SheetTopologyReplayContext
         c.book->history_branch!=p->branch || worksheet_history_high_water()!=p->issued || c.book->sheet_high_water!=p->high_water || live.owner!=p->selection.owner ||
         live.packet!=p->selection.packet || live.order!=p->selection.order || live.position!=p->selection.position || live.active!=p->selection.active || live.detached!=p->selection.detached ||
         (live.detached && live.worksheet!=p->selection.worksheet)) return SHEET_REPLAY_STALE;
+    if (live.packet) {
+        if (live.packet->data!=p->packet_data || live.packet->bytes!=p->packet_bytes) return SHEET_REPLAY_STALE;
+        bool same=false; SheetTopologyStatus packet=sheet_topology_packet_matches(sheet_topology_view(&p->event),live.packet,&same);
+        if (packet!=SHEET_TOPOLOGY_OK) return SHEET_REPLAY_INVALID;
+        if (!same) return SHEET_REPLAY_STALE;
+    }
     const Worksheet *s=live.worksheet;
     if (s->edit_session_id!=p->sheet_session || s->cells.revision!=p->cells_revision || s->formats.revision!=p->format_revision || s->width_revision!=p->width_revision) return SHEET_REPLAY_STALE;
     if (!catalog(c.book,p->redo ? p->event.before : p->event.after,p->event.after.high_water)) return SHEET_REPLAY_STALE;
@@ -77,6 +85,7 @@ SheetTopologyReplayStatus sheet_topology_replay_prepare(SheetTopologyReplayConte
     WorkbookLifecyclePresence selected; status=selection(c,p,&selected);
     if (status!=SHEET_REPLAY_READY) { sheet_topology_replay_free(&p); return status; }
     p->book=c.book; p->epoch_owner=c.epoch; p->epoch=*c.epoch; p->session=c.book->edit_session_id; p->revision=c.book->command_revision; p->branch=c.book->history_branch; p->issued=worksheet_history_high_water(); p->high_water=c.book->sheet_high_water; p->selection=selected;
+    p->packet_data=selected.packet ? selected.packet->data : NULL; p->packet_bytes=selected.packet ? selected.packet->bytes : 0;
     p->sheet_session=selected.worksheet->edit_session_id; p->cells_revision=selected.worksheet->cells.revision; p->format_revision=selected.worksheet->formats.revision; p->width_revision=selected.worksheet->width_revision;
     status=sheet_topology_replay_check(c,p); if (status!=SHEET_REPLAY_READY) { sheet_topology_replay_free(&p); return status; }
     *out=p; return SHEET_REPLAY_READY;
@@ -108,6 +117,12 @@ SheetTopologyReplayStatus sheet_topology_replay_apply(SheetTopologyReplayContext
     if (!catalog(c.book,target,p->high_water) || c.book->sheet_high_water!=p->high_water || c.book->command_revision!=p->revision+1 || c.book->edit_session_id!=p->session ||
         c.book->history_branch!=p->branch || worksheet_history_high_water()!=p->issued || c.book->sheets[c.book->active].id!=active ||
         !workbook_lifecycle_presence(c.book,!p->redo,&inverse) || inverse.sheet!=p->event.sheet || inverse.order!=p->order || inverse.detached==p->selection.detached || !navigation_same(&navigation,&inverse.worksheet->view)) abort();
+    if (!!inverse.packet!=!!p->selection.packet) abort();
+    if (inverse.packet) {
+        bool packet_same=false;
+        if (inverse.packet->data!=p->packet_data || inverse.packet->bytes!=p->packet_bytes ||
+            sheet_topology_packet_matches(sheet_topology_view(&p->event),inverse.packet,&packet_same)!=SHEET_TOPOLOGY_OK || !packet_same) abort();
+    }
     SheetPresenceView expected=sheet_presence_view(p->presence); SheetPresenceRefinement refined={0};
     if (sheet_presence_matches_refined(p->presence,(SheetPresenceView){c.book->id,expected.sheet_high_water,inverse.worksheet,&inverse.worksheet->analysis},&refined)!=SHEET_PRESENCE_OK || !refined.matches) abort();
     sheet_topology_replay_free(owned); return SHEET_REPLAY_APPLIED;

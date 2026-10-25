@@ -26,6 +26,10 @@ typedef enum { SHEET_REPLAY_READY,SHEET_REPLAY_INVALID,SHEET_REPLAY_STALE,SHEET_
    block replay and are preserved through the transfer. Existing captured-active
    lifecycle fallback/reveal semantics remain unchanged. A lagging cache requires
    its owner's typed handoff first.
+   A selected current session packet is fenced by original data/size ownership
+   and exact canonical content before transfer; no extra resident wire copy is
+   retained. Packetless current session events keep the explicit caller packet
+   association contract and do not imply a historical file-format reader.
    No session journals are copied: real lifecycle transfers move those owners. */
 SheetTopologyReplayStatus sheet_topology_replay_measure(const SheetTopologyPacket *packet,SheetTopologyReplayMeasure *out);
 SheetTopologyReplayStatus sheet_topology_replay_prepare(SheetTopologyReplayContext context,const SheetTopologyPacket *packet,bool redo,uint64_t order,SheetTopologyReplayPlan **out,char **error);
