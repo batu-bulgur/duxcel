@@ -207,22 +207,22 @@ static RangeCommandResult apply_mixed(RangeCommandContext *c,const RangeCommandT
     size_t count=0;
     if (r.effects&2) { changes=dx_alloc((s->cells.count+plan.cells.count)*sizeof(*changes)); count=deltas(s->id,&s->cells,&plan.cells,changes); }
     ObjectSnapshot before={s->objects.items,s->objects.count};
-    RangeEventView view={.sheet=s->id,.effects=r.effects,.cells=changes,.count=count};
+    RangeEventView view={.sheet=s->id,.effects=r.effects,.cells=changes,.count=count,.object_high_water=s->objects.next_id};
     if (r.effects&4) {
         view.definitions=(DefinitionEventView){.sheet=s->id,.object_high_water=s->objects.next_id,.effects=r.effects&12u,.before={NULL,&before},.after={NULL,&plan.objects},.sources=&s->source_versions};
         if (r.effects&8) { view.definitions.before_formats=format_delta_store_view(&s->formats); view.definitions.after_formats=format_delta_snapshot_view(&plan.formats); }
-    } else if (r.effects&8) { view.before_formats=format_delta_store_view(&s->formats); view.after_formats=format_delta_snapshot_view(&plan.formats); }
+    } else if (r.effects&8) { view.sources=&s->source_versions; view.before_formats=format_delta_store_view(&s->formats); view.after_formats=format_delta_snapshot_view(&plan.formats); }
     if (widths) view.widths=column_width_command_pair(widths);
     RangeEventInfo event={0}; RangeEventStatus encoded=range_event_measure(view,c->command.validation_reserved,&event);
     if (encoded!=RANGE_EVENT_OK) { r.status=encoded==RANGE_EVENT_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancel; }
     if (c->admit && !c->admit(c->admission_context,&prospective,info.owned,info.validation_scratch,error)) { r.status=RANGE_COMMAND_LIMIT; goto cancel; }
-    unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; if (r.status!=RANGE_COMMAND_READY) goto cancel; s=resolve(b,t->owner.owner.sheet_id); view.definitions.sources=(r.effects&4) ? &s->source_versions : NULL;
+    unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; if (r.status!=RANGE_COMMAND_READY) goto cancel; s=resolve(b,t->owner.owner.sheet_id); view.definitions.sources=(r.effects&4) ? &s->source_versions : NULL; if (view.sources) view.sources=&s->source_versions;
     if (recorder) {
         if (!recorder->reserve || !recorder->publish || !recorder->cancel) { r.status=RANGE_COMMAND_INVALID; goto cancel; }
         WorkbookHistoryRangeRecord record={b->id,b->edit_session_id,s->edit_session_id,b->command_revision,b->command_revision+1,c->command.validation_reserved,view};
         bool reserved=recorder->reserve(recorder->context,&record,&ticket,error);
         if (!reserved || !ticket) { r.status=reserved || ticket ? RANGE_COMMAND_INVALID : RANGE_COMMAND_LIMIT; goto cancel; }
-        effects=r.effects; r=check(c,t,error); r.effects=effects; if (r.status!=RANGE_COMMAND_READY) goto cancel; s=resolve(b,t->owner.owner.sheet_id); view.definitions.sources=(r.effects&4) ? &s->source_versions : NULL;
+        effects=r.effects; r=check(c,t,error); r.effects=effects; if (r.status!=RANGE_COMMAND_READY) goto cancel; s=resolve(b,t->owner.owner.sheet_id); view.definitions.sources=(r.effects&4) ? &s->source_versions : NULL; if (view.sources) view.sources=&s->source_versions;
     }
     if (widths) {
         if (column_width_command_check(width_context(s,info.owned),widths)!=COLUMN_WIDTH_OK || column_width_command_adopt(width_context(s,info.owned),&widths)!=COLUMN_WIDTH_OK) { r.status=RANGE_COMMAND_STALE; goto cancel; }
@@ -293,21 +293,21 @@ RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,
     }
     size_t count=0;
     if (changed) { changes=dx_alloc((s->cells.count+after.count)*sizeof(*changes)); count=deltas(s->id,&s->cells,&after,changes); }
-    RangeEventView view={.sheet=s->id,.effects=r.effects,.cells=changes,.count=count};
-    if (format_changed) { view.before_formats=format_delta_store_view(&s->formats); view.after_formats=format_delta_snapshot_view(&formats); }
+    RangeEventView view={.sheet=s->id,.effects=r.effects,.cells=changes,.count=count,.object_high_water=s->objects.next_id};
+    if (format_changed) { view.sources=&s->source_versions; view.before_formats=format_delta_store_view(&s->formats); view.after_formats=format_delta_snapshot_view(&formats); }
     if (widths) view.widths=column_width_command_pair(widths);
     RangeEventInfo event={0}; RangeEventStatus encoded=range_event_measure(view,c->command.validation_reserved,&event);
     if (encoded!=RANGE_EVENT_OK) { r.status=encoded==RANGE_EVENT_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; fail(error,"The complete manual range effect set is invalid."); goto cancelled; }
     if (c->admit) {
         if (!c->admit(c->admission_context,&prospective,info.owned,info.validation_scratch,error)) { r.status=RANGE_COMMAND_LIMIT; if (!error || !*error) fail(error,"Range memory admission was rejected."); goto cancelled; }
-        unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; r.rows=info.rows; r.columns=info.columns; if (r.status!=RANGE_COMMAND_READY) goto cancelled; s=resolve(b,t->owner.owner.sheet_id);
+        unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; r.rows=info.rows; r.columns=info.columns; if (r.status!=RANGE_COMMAND_READY) goto cancelled; s=resolve(b,t->owner.owner.sheet_id); if (view.sources) view.sources=&s->source_versions;
     }
     if (recorder) {
         if (!recorder->reserve || !recorder->publish || !recorder->cancel) { r.status=RANGE_COMMAND_INVALID; fail(error,"Range event recording is incomplete."); goto cancelled; }
         WorkbookHistoryRangeRecord record={b->id,b->edit_session_id,s->edit_session_id,b->command_revision,b->command_revision+1,c->command.validation_reserved,view};
         bool reserved=recorder->reserve(recorder->context,&record,&ticket,error);
         if (!reserved || !ticket) { r.status=reserved || ticket ? RANGE_COMMAND_INVALID : RANGE_COMMAND_LIMIT; if (!error || !*error) fail(error,"Range event recording is busy; no change was applied."); goto cancelled; }
-        unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; r.rows=info.rows; r.columns=info.columns; if (r.status!=RANGE_COMMAND_READY) goto cancelled; s=resolve(b,t->owner.owner.sheet_id);
+        unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; r.rows=info.rows; r.columns=info.columns; if (r.status!=RANGE_COMMAND_READY) goto cancelled; s=resolve(b,t->owner.owner.sheet_id); if (view.sources) view.sources=&s->source_versions;
     }
     EditKind kind=changed ? format_changed ? EDIT_CELLS_FORMAT : EDIT_CELLS : EDIT_FORMAT;
     if (widths) {

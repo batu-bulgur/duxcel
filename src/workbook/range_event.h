@@ -4,8 +4,8 @@
 #include "format_delta_codec.h"
 #include "column_widths.h"
 #include "definition_event.h"
-#define DX_RANGE_EVENT_ENCODING 3u
-#define DX_RANGE_EVENT_HEADER_BYTES 40u
+#define DX_RANGE_EVENT_ENCODING 4u
+#define DX_RANGE_EVENT_HEADER_BYTES 56u
 #define DX_RANGE_EVENT_CELLS 40000u
 #define DX_RANGE_EVENT_MAX_BYTES (30u*1024u*1024u)
 typedef struct {
@@ -15,9 +15,11 @@ typedef struct {
     size_t count;
     FormatSnapshotView before_formats,after_formats;
     ColumnWidthPair widths;
-    DefinitionEventView definitions; /* Objects bit: exact DXDE4/12, source-free. */
+    DefinitionEventView definitions; /* Objects bit: exact closed DXDE4/12. */
+    uint64_t object_high_water;
+    const SourceVersions *sources; /* Format without Objects: unchanged ledger. */
 } RangeEventView;
-typedef struct { uint64_t sheet; unsigned effects; size_t count,bytes,owned,validation_scratch,format_bytes,width_bytes,width_owned,definition_bytes,definition_owned; } RangeEventInfo;
+typedef struct { uint64_t sheet; unsigned effects; size_t count,bytes,owned,validation_scratch,format_bytes,width_bytes,width_owned,definition_bytes,definition_owned,source_bytes,source_owned; uint64_t object_high_water; size_t unbound_sources; } RangeEventInfo;
 typedef struct {
     uint64_t sheet; unsigned effects;
     void *data; size_t bytes;
@@ -25,19 +27,20 @@ typedef struct {
     FormatDelta formats; /* Independent owned graphs; no packet/string aliases. */
     DefinitionEvent definitions; /* Owns Objects and optional formats when bit4. */
     ColumnWidthDelta widths; /* Complete independent sparse virtual states. */
+    uint64_t object_high_water; SourceVersionsAsset sources; size_t unbound_sources;
 } RangeEvent;
 typedef enum { RANGE_EVENT_OK,RANGE_EVENT_NOOP,RANGE_EVENT_INVALID,RANGE_EVENT_LIMIT,RANGE_EVENT_UNSUPPORTED } RangeEventStatus;
-/* Closed source-free range compound: DXRE/u16 encoding/u16 zero/u64
-   sheet/u32 effects/u32 changed-cell count/u32 format bytes/u32 width bytes/
-   u32 definition bytes/u32 zero;
-   repeated u32 byte length + canonical DXCD, then optional complete canonical
-   DXFD, DXCW and DXDE before/after pairs. Objects require DXDE4/12 and
-   prohibit a separate DXFD. Tables/source links/Analysis are outside this owner.
-   Only current encoding3 is admitted; older encodings are unsupported.
-   Sorted unique coordinates, same sheet, changed values and truthful effects
-   reject partial/duplicate/no-op constituents. Sparse clear is an empty span;
-   exact text bytes are retained. NULL/empty source values are outside this owner.
-   Canonical format validation requires caller-admitted bounded scratch first. */
+/* Current closed range compound. DXRE/u16 encoding4/u16 zero/u64 sheet,
+   u32 effects/count/format-bytes/width-bytes/definition-bytes/zero, u64 object
+   high-water, u32 source-bytes/zero. Canonical DXCD vector, then DXFD, DXCW,
+   DXDE, DXSV parts. Objects require DXDE4/12 and no separate DXFD/DXSV.
+   Format without Objects requires DXFD+selected DXSV. Exact source closure,
+   sheet/high-water/effect associations and truthful changed parts are mandatory.
+   Opaque/inactive format scopes are unsupported. Unbound definitions remain
+   explicit inactive metadata, never identity issuance or result/readiness proof.
+   Only current
+   encoding4 is admitted; no old reader/migration. Decode owns independent graphs
+   and keeps all outputs unchanged on failure. No source activation or data IO. */
 RangeEventStatus range_event_measure(RangeEventView view,size_t validation_reserved,RangeEventInfo *info);
 RangeEventStatus range_event_encode(RangeEventView view,size_t validation_reserved,void *arena,size_t capacity,size_t *written);
 /* Inspect all framing/owned requirements before copying or decoding any graph.
