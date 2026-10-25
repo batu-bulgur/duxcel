@@ -267,10 +267,12 @@ static void mixed_commands(void) {
         CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
     }
 }
-static void clear_command(void) {
-    Workbook b=book(); Worksheet *s=b.sheets; uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
+static void clear_command_case(bool templates) {
+    Workbook b=book(); Worksheet *s=b.sheets;
+    if (templates) { CHECK(objects_add(&s->objects,2,2,"Clear retains painted result",NULL)==0); s->objects.items[0].rows=s->objects.items[0].columns=1; worksheet_record(s,EDIT_OBJECTS); }
+    ObjectStore objects=s->objects; uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
     RangeCommand command={.operation=RANGE_OPERATION_CLEAR,.range={1,3,1,3}}; RangeCommandPlanInfo measured={0};
-    CHECK(workbook_range_command_measure(&c,0,command,&measured,NULL)==RANGE_COMMAND_READY && measured.owned && !measured.validation_scratch);
+    CHECK(workbook_range_command_measure(&c,0,command,&measured,NULL)==RANGE_COMMAND_READY && measured.owned);
     c.command.plan_reserved=measured.owned-1; FormatStore formats=s->formats; CellStore cells=s->cells;
     CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_LIMIT && !memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&formats,&s->formats,sizeof(formats)));
     c.command.plan_reserved=SIZE_MAX;
@@ -278,7 +280,7 @@ static void clear_command(void) {
     CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); WorkbookHistoryRangeRecorder recorder=workbook_history_stream_range_recorder(queue);
     RangeCommandResult result=workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL);
     CHECK(result.status==RANGE_COMMAND_APPLIED && result.effects==2 && !result.rows && !result.columns && b.command_revision==1 && s->cells.count==2 && !*cells_get(&s->cells,1,1) && !*cells_get(&s->cells,3,3));
-    CHECK(!memcmp(&formats,&s->formats,sizeof(formats)) && (format_at(&s->formats,1,1).flags&FORMAT_BOLD) && !s->width_revision);
+    CHECK(!memcmp(&formats,&s->formats,sizeof(formats)) && (format_at(&s->formats,1,1).flags&FORMAT_BOLD) && !s->width_revision && !memcmp(&objects,&s->objects,sizeof(objects)));
     WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
     CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==2 && event.count==2 && event.cells[0].before_bytes==4 && !memcmp(event.cells[0].before,"NULL",4) && !event.cells[0].after_bytes && !event.cells[1].after_bytes);
     range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
@@ -405,4 +407,4 @@ static void mixed_columns_command(void) {
         CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
     }
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command(); mixed_rows_command(); mixed_columns_command(); template_paste_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }

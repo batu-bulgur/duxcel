@@ -58,7 +58,7 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,s
     const Worksheet *s=c->command.book->sheets+sheet;
     if (!eligible(c,s)) { fail(error,"Source and analytical ranges require their complete composite owner."); return RANGE_COMMAND_PROTECTED; }
     if (!format_shape(&s->formats)) { fail(error,"Invalid bounded format state."); return RANGE_COMMAND_INVALID; }
-    if (s->objects.count && command.operation!=RANGE_OPERATION_PASTE) {
+    if (s->objects.count && command.operation!=RANGE_OPERATION_PASTE && command.operation!=RANGE_OPERATION_CLEAR) {
         bool move=command.operation==RANGE_OPERATION_MOVE,rows=command.operation==RANGE_OPERATION_INSERT_ROWS || command.operation==RANGE_OPERATION_DELETE_ROWS,cols=columns(command);
         if (!move && !rows && !cols) { fail(error,"Object-bearing paste/clear operations require a separate complete owner."); return RANGE_COMMAND_PROTECTED; }
         if (command.text || (move && (command.row || command.row_count || command.column || command.column_count)) || (rows && (command.column || command.column_count || command.dr || command.dc || command.replace || command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1)) || (cols && (command.column>=16384 || command.column_count!=1 || command.row || command.row_count || command.dr || command.dc || command.replace || command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1))) return RANGE_COMMAND_INVALID;
@@ -75,10 +75,16 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,s
     }
     if (command.operation==RANGE_OPERATION_CLEAR) {
         if (command.text || command.row || command.row_count || command.column || command.column_count || command.dr || command.dc || command.replace) { fail(error,"Choose one finite clear range."); return RANGE_COMMAND_INVALID; }
-        CellRangePlanInfo clear={0}; SheetRange r=command.range;
-        CellRangeStatus status=cells_clear_measure(&s->cells,r.r0,r.r1,r.c0,r.c1,&clear,error);
-        if (status!=CELL_RANGE_READY) return status==CELL_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==CELL_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID;
-        *out=(RangeCommandPlanInfo){.owned=clear.owned+(s->cells.count+clear.count)*sizeof(CellDelta)}; return RANGE_COMMAND_READY;
+        CellRangePlanInfo clear={0}; size_t scratch=0; SheetRange r=command.range;
+        if (s->objects.count) {
+            MixedClearPlanInfo mixed={0}; MixedRangeStatus status=mixed_clear_measure(s,c->primary,r,&mixed,error);
+            if (status!=MIXED_RANGE_READY) return status==MIXED_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==MIXED_RANGE_PROTECTED ? RANGE_COMMAND_PROTECTED : status==MIXED_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID;
+            clear=mixed.cells; scratch=mixed.validation_scratch;
+        } else {
+            CellRangeStatus status=cells_clear_measure(&s->cells,r.r0,r.r1,r.c0,r.c1,&clear,error);
+            if (status!=CELL_RANGE_READY) return status==CELL_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==CELL_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID;
+        }
+        *out=(RangeCommandPlanInfo){.owned=clear.owned+(s->cells.count+clear.count)*sizeof(CellDelta),.validation_scratch=scratch}; return RANGE_COMMAND_READY;
     }
     if (command.operation==RANGE_OPERATION_PASTE) {
         if (!command.text || command.row_count || command.column_count || command.dr || command.dc || command.replace || command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1) { fail(error,"Choose a complete text-only paste destination."); return RANGE_COMMAND_INVALID; }
@@ -212,6 +218,12 @@ static CellRangeStatus paste_plan(const RangeCommandContext *c,const Worksheet *
     MixedRangeStatus status=mixed_paste_plan(s,c->primary,command.row,command.column,command.text,info.owned,c->command.validation_reserved,out,error);
     return status==MIXED_RANGE_READY ? CELL_RANGE_READY : status==MIXED_RANGE_NOOP ? CELL_RANGE_NOOP : status==MIXED_RANGE_LIMIT ? CELL_RANGE_LIMIT : CELL_RANGE_INVALID;
 }
+static CellRangeStatus clear_plan(const RangeCommandContext *c,const Worksheet *s,RangeCommand command,RangeCommandPlanInfo info,CellSnapshot *out,char **error) {
+    SheetRange r=command.range;
+    if (!s->objects.count) return cells_clear_plan(&s->cells,r.r0,r.r1,r.c0,r.c1,info.owned,out,error);
+    MixedRangeStatus status=mixed_clear_plan(s,c->primary,r,info.owned,c->command.validation_reserved,out,error);
+    return status==MIXED_RANGE_READY ? CELL_RANGE_READY : status==MIXED_RANGE_NOOP ? CELL_RANGE_NOOP : status==MIXED_RANGE_LIMIT ? CELL_RANGE_LIMIT : CELL_RANGE_INVALID;
+}
 RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,const RangeCommandTarget *t,RangeCommand command,const WorkbookHistoryRangeRecorder *recorder,char **error) {
     RangeCommandResult r=check(c,t,error); if (r.status!=RANGE_COMMAND_READY) return r;
     Workbook *b=c->command.book; Worksheet *s=resolve(b,t->owner.owner.sheet_id); RangeCommandPlanInfo info={0};
@@ -223,10 +235,10 @@ RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,
     if (!format_valid(&s->formats,error) || !source_versions_valid(&s->source_versions,s->objects.next_id,error) || workbook_history_peek(b,false,NULL).status==WORKBOOK_HISTORY_INVALID) {
         r.status=RANGE_COMMAND_INVALID; if (!error || !*error) fail(error,"The current manual range/history ownership is incomplete."); return r;
     }
-    if (s->objects.count && command.operation!=RANGE_OPERATION_PASTE) return apply_mixed(c,t,command,info,r,recorder,error);
+    if (s->objects.count && command.operation!=RANGE_OPERATION_PASTE && command.operation!=RANGE_OPERATION_CLEAR) return apply_mixed(c,t,command,info,r,recorder,error);
     CellSnapshot after={0}; FormatSnapshot formats={0}; CellDelta *changes=NULL; void *ticket=NULL; SheetRange range=command.range;
     ColumnWidthCommand *widths=NULL;
-    CellRangeStatus planned=command.operation==RANGE_OPERATION_CLEAR ? cells_clear_plan(&s->cells,range.r0,range.r1,range.c0,range.c1,info.owned,&after,error) : command.operation==RANGE_OPERATION_PASTE ? paste_plan(c,s,command,info,&after,error) : command.operation==RANGE_OPERATION_MOVE ? cells_range_plan(&s->cells,range.r0,range.r1,range.c0,range.c1,command.dr,command.dc,command.replace,info.owned,&after,error) :
+    CellRangeStatus planned=command.operation==RANGE_OPERATION_CLEAR ? clear_plan(c,s,command,info,&after,error) : command.operation==RANGE_OPERATION_PASTE ? paste_plan(c,s,command,info,&after,error) : command.operation==RANGE_OPERATION_MOVE ? cells_range_plan(&s->cells,range.r0,range.r1,range.c0,range.c1,command.dr,command.dc,command.replace,info.owned,&after,error) :
         columns(command) ? cells_columns_plan(&s->cells,command.column,command.column_count,insert(command),info.owned,&after,error) : cells_rows_plan(&s->cells,command.row,command.row_count,insert(command),info.owned,&after,error);
     if (planned!=CELL_RANGE_READY && planned!=CELL_RANGE_NOOP) { r.status=planned==CELL_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancelled; }
     bool format_planned=(command.operation==RANGE_OPERATION_PASTE || command.operation==RANGE_OPERATION_CLEAR) ? true : command.operation==RANGE_OPERATION_MOVE ? format_plan_move(&s->formats,(FormatRange){range.r0,range.r1,range.c0,range.c1},command.dr,command.dc,&formats,error) :

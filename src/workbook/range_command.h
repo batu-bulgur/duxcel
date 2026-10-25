@@ -37,7 +37,8 @@ typedef struct { RangeCommandStatus status; unsigned effects; uint64_t before_re
    source-free Pivot/Chart templates may move with manual cells/formats or
    translate as complete row/column-axis constituents under existing protections.
    Text-only paste outside templates preserves the existing full rectangle guard
-   and changes cells only; it never modifies object definitions or formats. */
+   and changes cells only; it never modifies object definitions or formats.
+   Finite Clear may span templates and removes only sparse manual CellStore data. */
 bool workbook_prepare_range_command(RangeCommandContext *context,size_t sheet,RangeCommandTarget *out,char **error);
 /* Conservative complete cell clone + changed-cell vector + bounded format-plan
    peak. No rectangle-area traversal; all constituent reservation precedes copy.
