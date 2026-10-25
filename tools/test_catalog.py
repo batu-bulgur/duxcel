@@ -124,6 +124,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "cell-history-payload": Feature(("cell_history_payload", "cell_delta_codec", "history_event_slot", "history_event_frame"), "",
+        ("python3 tools/test.py feature --feature history-stream",),
+        ("src/workbook/cell_history_payload.c", "src/workbook/cell_history_payload.h", "tests/test_cell_history_payload.c")),
     "source-history-slot": Feature(("source_history_slot", "source_history_payload", "history_event_slot", "history_path"), "",
         ("python3 tools/test.py feature --feature history-definition", "python3 tools/test.py feature --feature history-format"),
         ("src/workbook/source_history_slot.c", "src/workbook/source_history_slot.h", "tests/test_source_history_slot.c")),
