@@ -18,9 +18,18 @@ typedef struct WorkbookHistoryTopologyTicket WorkbookHistoryTopologyTicket;
    session/revision fences the stream. The future command owner must prove all
    live/remove/prospective-sheet ownership before actual adoption/publication. */
 size_t workbook_history_topology_ticket_allocation(void);
+typedef struct { size_t owned,validation_scratch,staging; } WorkbookHistoryTopologyUsage;
+/* Complete NEW wrapper+actual stream event/payload bytes, before a packet is
+   allocated. SIZE_MAX means impossible/overflowing current stream framing.
+   This is sizing only, not topology or ownership admission. */
+size_t workbook_history_topology_owned_bytes(size_t packet_bytes);
+/* Allocation-free packet framing/cost measure. staging includes all NEW owned
+   bytes and full temporary validation; old packet/models/stream residents are
+   additional coexistence charges. Full grammar still precedes real reserve. */
+bool workbook_history_topology_measure(const SheetTopologyPacket *packet,WorkbookHistoryTopologyUsage *out);
 /* Full immutable closure validation BEFORE stream reservation/copy. reserved
-   admits this wrapper plus topology validation_scratch; stream independently
-   charges its bounded event allocation/payload. Packet/old models/tickets stay
+   admits the COMPLETE new wrapper+actual stream frame/payload+validation
+   staging measured above. Stream independently enforces its bounded capacity. Packet/old models/tickets stay
    separately charged. Success owns one reservation and advances NO path/action/
    revision clock. Failure preserves NULL out, input and stream. Source packet
    can be released after success. Stream outlives the ticket; free refuses it.

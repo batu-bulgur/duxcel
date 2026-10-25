@@ -17,6 +17,11 @@ struct WorkbookHistoryStream {
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
 }
+size_t workbook_history_stream_event_allocation(size_t bytes,size_t dependencies) {
+    if (!bytes || bytes>DX_HISTORY_STREAM_BYTES || dependencies>DX_HISTORY_STREAM_BYTES-bytes ||
+        bytes+dependencies>DX_HISTORY_STREAM_BYTES-sizeof(WorkbookHistoryEvent)) return SIZE_MAX;
+    return sizeof(WorkbookHistoryEvent)+bytes+dependencies;
+}
 WorkbookHistoryStreamStatus workbook_history_stream_new(WorkbookHistoryStreamOrigin o,WorkbookHistoryStreamOptions options,WorkbookHistoryStream **out) {
     if (!out || *out || !(o.owner.document_high|o.owner.document_low) || !o.owner.session || !o.edit_session ||
         o.origin>o.available || o.available>o.cursor || o.cursor>o.tail || o.lineage>o.lineage_high_water) return HISTORY_STREAM_INVALID;
@@ -38,9 +43,8 @@ bool workbook_history_stream_reserve(WorkbookHistoryStream *s,WorkbookHistoryEdi
     bool forked=o->cursor<o->tail;
     if (o->cursor==UINT64_MAX || o->action_high_water==UINT64_MAX || o->transition_high_water==UINT64_MAX ||
         (forked && o->lineage_high_water==UINT64_MAX)) return fail(error,"Retained history identity space is exhausted; your draft is kept.");
-    if (bytes>DX_HISTORY_STREAM_BYTES || dependency_bytes>DX_HISTORY_STREAM_BYTES-bytes ||
-        bytes+dependency_bytes>DX_HISTORY_STREAM_BYTES-sizeof(WorkbookHistoryEvent)) return fail(error,"The history payload exceeds the staging limit.");
-    size_t charge=sizeof(WorkbookHistoryEvent)+bytes+dependency_bytes;
+    size_t charge=workbook_history_stream_event_allocation(bytes,dependency_bytes);
+    if (charge==SIZE_MAX) return fail(error,"The history payload exceeds the staging limit.");
     if (s->reservation || s->state.pending+(s->flight!=NULL)>=s->options.entries || charge>s->options.bytes-s->state.owned_bytes)
         return fail(error,"Retained history is busy; your draft is kept.");
     WorkbookHistoryEvent *e=dx_alloc(charge); *e=(WorkbookHistoryEvent){.owner=s,.charge=charge,

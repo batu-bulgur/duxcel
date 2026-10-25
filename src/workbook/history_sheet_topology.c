@@ -5,6 +5,18 @@
 struct WorkbookHistoryTopologyTicket { WorkbookHistoryStream *stream; void *reservation; };
 static bool fail(char **error,const char *message) { if (error) { free(*error); *error=dx_strdup(message); } return false; }
 size_t workbook_history_topology_ticket_allocation(void) { return sizeof(WorkbookHistoryTopologyTicket); }
+size_t workbook_history_topology_owned_bytes(size_t bytes) {
+    size_t owned=workbook_history_stream_event_allocation(bytes,0);
+    return owned==SIZE_MAX || owned>SIZE_MAX-sizeof(WorkbookHistoryTopologyTicket) ? SIZE_MAX : owned+sizeof(WorkbookHistoryTopologyTicket);
+}
+bool workbook_history_topology_measure(const SheetTopologyPacket *packet,WorkbookHistoryTopologyUsage *out) {
+    if (!packet || !out) return false;
+    SheetTopologyInfo info;
+    if (sheet_topology_preflight(packet->data,packet->bytes,&info)!=SHEET_TOPOLOGY_OK) return false;
+    size_t owned=workbook_history_topology_owned_bytes(info.bytes);
+    if (owned==SIZE_MAX || owned>SIZE_MAX-info.validation_scratch) return false;
+    *out=(WorkbookHistoryTopologyUsage){owned,info.validation_scratch,owned+info.validation_scratch}; return true;
+}
 bool workbook_history_topology_reserve(WorkbookHistoryStream *stream,const WorkbookHistoryTopologyRecord *record,size_t reserved,WorkbookHistoryTopologyTicket **out,char **error) {
     if (!stream || !record || !record->packet || !out || *out) return fail(error,"Choose an empty owned topology reservation.");
     WorkbookHistoryStreamState state=workbook_history_stream_state(stream); const WorkbookHistoryStreamOrigin *owner=&state.current;
@@ -16,8 +28,9 @@ bool workbook_history_topology_reserve(WorkbookHistoryStream *stream,const Workb
     if (sheet_topology_preflight(record->packet->data,record->packet->bytes,&info)!=SHEET_TOPOLOGY_OK ||
         info.document.high!=record->workbook.high || info.document.low!=record->workbook.low)
         return fail(error,"Choose a current topology component for this document.");
-    if (reserved<sizeof(WorkbookHistoryTopologyTicket) || info.validation_scratch>reserved-sizeof(WorkbookHistoryTopologyTicket))
-        return fail(error,"The complete topology validation budget is unavailable.");
+    WorkbookHistoryTopologyUsage usage;
+    if (!workbook_history_topology_measure(record->packet,&usage) || reserved<usage.staging)
+        return fail(error,"The complete topology wrapper/event/payload/validation budget is unavailable.");
     if (sheet_topology_validate(record->packet->data,record->packet->bytes,info.validation_scratch,&info)!=SHEET_TOPOLOGY_OK)
         return fail(error,"The topology component has incomplete sheet ownership.");
     void *raw=NULL; WorkbookHistoryEditFence fence={record->workbook,record->edit_session,record->expected_revision,record->revision};

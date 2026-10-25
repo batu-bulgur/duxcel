@@ -18,6 +18,10 @@ typedef struct {
     uint64_t action_high_water,transition_high_water,lineage_high_water;
 } WorkbookHistoryStreamOrigin;
 typedef struct { size_t entries,bytes; } WorkbookHistoryStreamOptions;
+/* Exact NEW native event frame plus payload/dependency allocation used by the
+   real reservation path. No model/path clocks or allocation. SIZE_MAX rejects
+   zero payload, overflow or the hard current stream limit; not semantic proof. */
+size_t workbook_history_stream_event_allocation(size_t payload_bytes,size_t dependency_bytes);
 typedef struct {
     WorkbookHistoryStreamOrigin current;
     size_t pending,owned_bytes;

@@ -25,7 +25,17 @@ int main(void) {
     WorkbookHistoryStreamOrigin origin={.owner={1,2,9,VERSION_WORKING_HEAD},.edit_session=3,.command_revision=5,.cursor=1,.tail=2,.lineage=3,.lineage_high_water=3,.action_high_water=7,.transition_high_water=11};
     WorkbookHistoryStream *stream=NULL; CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
     WorkbookHistoryTopologyRecord record={document,3,5,6,&topology}; WorkbookHistoryTopologyTicket *ticket=NULL,*other=NULL;
-    size_t budget=workbook_history_topology_ticket_allocation()+topology_info.validation_scratch;
+    WorkbookHistoryTopologyUsage usage={0}; CHECK(workbook_history_topology_measure(&topology,&usage));
+    size_t budget=usage.staging;
+    CHECK(usage.owned==workbook_history_topology_owned_bytes(topology.bytes) && usage.validation_scratch==topology_info.validation_scratch);
+    CHECK(usage.owned==workbook_history_topology_ticket_allocation()+workbook_history_stream_event_allocation(topology.bytes,0));
+    CHECK(workbook_history_topology_owned_bytes(0)==SIZE_MAX && workbook_history_topology_owned_bytes(SIZE_MAX)==SIZE_MAX);
+    size_t overhead=workbook_history_stream_event_allocation(1,0)-1;
+    CHECK(workbook_history_stream_event_allocation(DX_HISTORY_STREAM_BYTES-overhead,0)==DX_HISTORY_STREAM_BYTES);
+    CHECK(workbook_history_stream_event_allocation(DX_HISTORY_STREAM_BYTES-overhead,1)==SIZE_MAX);
+    CHECK(workbook_history_stream_event_allocation(1,SIZE_MAX)==SIZE_MAX && workbook_history_stream_event_allocation(0,0)==SIZE_MAX);
+    WorkbookHistoryTopologyUsage untouched={1,2,3},same_usage=untouched; SheetTopologyPacket invalid={0};
+    CHECK(!workbook_history_topology_measure(&invalid,&untouched) && !memcmp(&untouched,&same_usage,sizeof(untouched)));
     WorkbookHistoryStreamState before=workbook_history_stream_state(stream);
     CHECK(!workbook_history_topology_reserve(stream,&record,budget-1,&ticket,NULL) && !ticket && same(before,workbook_history_stream_state(stream)));
     record.edit_session++; CHECK(!workbook_history_topology_reserve(stream,&record,budget,&ticket,NULL) && !ticket && same(before,workbook_history_stream_state(stream))); record.edit_session--;
@@ -58,6 +68,7 @@ int main(void) {
     CHECK(info->revision==6 && info->action==8 && info->transition==12 && info->forked && info->lineage==4 && info->parent_lineage==3 && info->position==2);
     WorkbookHistoryStreamState held=workbook_history_stream_state(stream);
     CHECK(held.reserved && held.owned_bytes>=info->bytes && !held.pending && same_origin(held.current,before.current));
+    CHECK(held.owned_bytes-before.owned_bytes==usage.owned-workbook_history_topology_ticket_allocation());
     CHECK(workbook_history_topology_payload(ticket)!=topology.data && !memcmp(workbook_history_topology_payload(ticket),topology.data,topology.bytes));
     CHECK(!workbook_history_topology_reserve(stream,&record,SIZE_MAX,&ticket,NULL) && same(held,workbook_history_stream_state(stream)));
     CHECK(!workbook_history_topology_reserve(stream,&record,SIZE_MAX,&other,NULL) && !other && same(held,workbook_history_stream_state(stream)));
