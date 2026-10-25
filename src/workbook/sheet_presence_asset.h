@@ -61,6 +61,22 @@ SheetPresenceStatus sheet_presence_matches_refined(const SheetPresenceAsset *ass
 SheetPresenceStatus sheet_presence_capture(SheetPresenceView view,size_t reserved,SheetPresenceAsset **out,char **error);
 /* Borrowed immutable graph; the asset outlives every reader. */
 SheetPresenceView sheet_presence_view(const SheetPresenceAsset *asset);
+typedef struct { size_t unbound_definitions,pending_rows,referenced_pending_rows,used_opaque_scopes; } SheetPresenceObservations;
+/* Scalar observations from one already decoded/captured immutable DXSP owner.
+   The full preserved ledger may contain retired/unreferenced pending rows;
+   referenced_pending_rows counts only the union selected by this ONE current
+   definition/format state. No selected-subset-equals-full-ledger requirement.
+   USED opaque scopes are separate inactive observations; current closed DXSP
+   admission rejects noncanonical scopes, so successful current assets report zero.
+   Reuse existing selectors/validation scratch, with no second source owner,
+   graph clone, IO, readiness promotion, merge/rebind or activation. Zero counts
+   never prove execution readiness, source observation freshness or availability.
+   Scratch measure allocates nothing. Admit the full existing conservative
+   validation bound before invoking selectors; live/input owner coexistence is
+   separate. Invalid/budget/corruption failures preserve the scalar output. */
+SheetPresenceStatus sheet_presence_observation_scratch(const SheetPresenceAsset *asset,size_t *out);
+SheetPresenceStatus sheet_presence_observe(const SheetPresenceAsset *asset,size_t reserved,SheetPresenceObservations *out);
+
 void sheet_presence_free(SheetPresenceAsset **asset);
 typedef struct { void *data; size_t bytes; } SheetPresencePacket;
 typedef struct {

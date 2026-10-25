@@ -248,4 +248,35 @@ static void object_allocator_refinement(void) {
     CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && !proof.matches && s->objects.next_id==8);
     sheet_presence_free(&asset); workbook_free(&b);
 }
-int main(void) { object_allocator_refinement(); ledger_refinement(); authored_capacity(); empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }
+static void observations(void) {
+    Workbook b=fixture(); Analysis actual=analysis_copy(&b.sheets[0].analysis); actual.schema=dx_strdup("main"); actual.table=dx_strdup("alpha");
+    SheetPresenceAsset *asset=NULL; CHECK(sheet_presence_capture((SheetPresenceView){b.id,b.sheet_high_water,b.sheets,&actual},SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK);
+    size_t scratch=0; CHECK(sheet_presence_observation_scratch(asset,&scratch)==SHEET_PRESENCE_OK && scratch);
+    SheetPresenceObservations out={.pending_rows=17},before=out;
+    CHECK(sheet_presence_observe(asset,scratch-1,&out)==SHEET_PRESENCE_LIMIT && !memcmp(&out,&before,sizeof(out)));
+    CHECK(sheet_presence_observe(asset,scratch,&out)==SHEET_PRESENCE_OK && out.unbound_definitions==1 && out.pending_rows==1 && !out.referenced_pending_rows && !out.used_opaque_scopes);
+    size_t unchanged=17; CHECK(sheet_presence_observation_scratch(NULL,&unchanged)==SHEET_PRESENCE_INVALID && unchanged==17);
+    CHECK(sheet_presence_observe(NULL,SIZE_MAX,&out)==SHEET_PRESENCE_INVALID && out.unbound_definitions==1);
+    CHECK(sheet_presence_observe(asset,SIZE_MAX,NULL)==SHEET_PRESENCE_INVALID);
+    SheetPresencePacket packet={0}; CHECK(sheet_presence_encode(asset,SIZE_MAX,&packet)==SHEET_PRESENCE_OK); SheetPresenceAsset *old=asset;
+    ((unsigned char *)packet.data)[0]^=1; CHECK(sheet_presence_decode(packet.data,packet.bytes,SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_INVALID && asset==old);
+    CHECK(sheet_presence_observe(asset,scratch,&out)==SHEET_PRESENCE_OK && out.pending_rows==1 && !out.referenced_pending_rows);
+    sheet_presence_packet_free(&packet); sheet_presence_free(&asset); analysis_free(&actual); workbook_free(&b);
+    workbook_init(&b); CHECK(workbook_add(&b,"Observations",&(Analysis){.kind=SOURCE_CSV,.path="/source",.source_version=1},NULL)); Worksheet *s=b.sheets;
+    CHECK(objects_add_table(&s->objects,20,2,"Unbound",&(Analysis){.kind=SOURCE_CSV,.path="/table"},NULL)==0); s->objects.next_id=9;
+    SourceVersions next={0}; SourceVersion row={.version=1,.kind=SOURCE_CSV,.path="/source"};
+    CHECK(source_versions_plan(&s->source_versions,&row,true,&next,NULL)); s->source_versions=next;
+    row=(SourceVersion){.version=2,.owner=9,.kind=SOURCE_PARQUET,.path="/retired"}; next=(SourceVersions){0};
+    CHECK(source_versions_plan(&s->source_versions,&row,true,&next,NULL)); source_versions_free(&s->source_versions); s->source_versions=next;
+    SheetPresenceView view={b.id,b.sheet_high_water,s,&s->analysis};
+    CHECK(sheet_presence_capture(view,SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK && sheet_presence_observation_scratch(asset,&scratch)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_observe(asset,scratch,&out)==SHEET_PRESENCE_OK && out.unbound_definitions==1 && out.pending_rows==2 && out.referenced_pending_rows==1 && !out.used_opaque_scopes);
+    /* Opaque non-record formats remain outside current closed DXSP admission.
+       Rejection keeps the old closed owner/report, without scope activation. */
+    FormatScopeView opaque={0,"opaque",6}; CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply_scoped(&s->formats,(FormatRange){0},FORMAT_BOLD,bold,&opaque,1,true,NULL)); old=asset;
+    CHECK(sheet_presence_capture(view,SIZE_MAX,&asset,NULL)!=SHEET_PRESENCE_OK && asset==old);
+    CHECK(sheet_presence_observe(asset,scratch,&out)==SHEET_PRESENCE_OK && out.pending_rows==2 && out.referenced_pending_rows==1 && !out.used_opaque_scopes);
+    sheet_presence_free(&asset); workbook_free(&b);
+}
+int main(void) { observations(); object_allocator_refinement(); ledger_refinement(); authored_capacity(); empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }

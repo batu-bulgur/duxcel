@@ -331,3 +331,25 @@ SheetPresenceStatus sheet_presence_matches_refined(const SheetPresenceAsset *ass
     }
     *out=result; return SHEET_PRESENCE_OK;
 }
+
+SheetPresenceStatus sheet_presence_observation_scratch(const SheetPresenceAsset *asset,size_t *out) {
+    if (!asset || !out) return SHEET_PRESENCE_INVALID;
+    SheetPresenceMeasure measured; SheetPresenceStatus status=sheet_presence_measure(sheet_presence_view(asset),&measured); if (status) return status;
+    *out=measured.validation_scratch; return SHEET_PRESENCE_OK;
+}
+SheetPresenceStatus sheet_presence_observe(const SheetPresenceAsset *asset,size_t reserved,SheetPresenceObservations *out) {
+    if (!out) return SHEET_PRESENCE_INVALID; size_t scratch;
+    SheetPresenceStatus status=sheet_presence_observation_scratch(asset,&scratch); if (status) return status;
+    if (reserved<scratch) return SHEET_PRESENCE_LIMIT;
+    SheetPresenceView view=sheet_presence_view(asset); const Worksheet *s=view.sheet; ObjectSnapshot objects={s->objects.items,s->objects.count};
+    DefinitionDependencySelection definitions={0}; FormatDependencySelection formats={0};
+    DefinitionDependenciesStatus ds=definition_dependencies_select_state(s->id,(DefinitionDependencyView){view.primary,&objects},&s->source_versions,s->objects.next_id,&definitions);
+    if (ds!=DEFINITION_DEPENDENCIES_OK) return ds==DEFINITION_DEPENDENCIES_UNSUPPORTED ? SHEET_PRESENCE_UNSUPPORTED : ds==DEFINITION_DEPENDENCIES_LIMIT ? SHEET_PRESENCE_LIMIT : SHEET_PRESENCE_INVALID;
+    FormatDependenciesStatus fs=format_dependencies_select_state(s->id,format_delta_store_view(&s->formats),&s->source_versions,s->objects.next_id,&formats);
+    if (fs!=FORMAT_DEPENDENCIES_OK) return fs==FORMAT_DEPENDENCIES_UNSUPPORTED ? SHEET_PRESENCE_UNSUPPORTED : fs==FORMAT_DEPENDENCIES_LIMIT ? SHEET_PRESENCE_LIMIT : SHEET_PRESENCE_INVALID;
+    SheetPresenceObservations result={.unbound_definitions=definitions.unbound_sources,.used_opaque_scopes=formats.legacy_scopes};
+    for (size_t i=0;i<s->source_versions.count;i++) if (!s->source_versions.items[i].raw.bytes) {
+        result.pending_rows++; if (definitions.rows[i] || formats.rows[i]) result.referenced_pending_rows++;
+    }
+    *out=result; return SHEET_PRESENCE_OK;
+}
