@@ -23,5 +23,10 @@ typedef enum { MIXED_RANGE_READY,MIXED_RANGE_NOOP,MIXED_RANGE_INVALID,MIXED_RANG
    validation_reserved is separate bounded grammar scratch. */
 MixedRangeStatus mixed_range_measure(const Worksheet *sheet,const Analysis *primary,SheetRange range,int64_t dr,int dc,bool replace,MixedRangePlanInfo *info,char **error);
 MixedRangeStatus mixed_range_plan(const Worksheet *sheet,const Analysis *primary,SheetRange range,int64_t dr,int dc,bool replace,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
+/* Existing row-axis semantics: insertion/deletion may translate whole templates
+   after the boundary, never split/delete an intersected object or lose data at
+   the worksheet edge. Complete cloned cells/objects/formats; widths unchanged. */
+MixedRangeStatus mixed_rows_measure(const Worksheet *sheet,const Analysis *primary,uint64_t row,uint64_t count,bool insert,MixedRangePlanInfo *info,char **error);
+MixedRangeStatus mixed_rows_plan(const Worksheet *sheet,const Analysis *primary,uint64_t row,uint64_t count,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
 void mixed_range_plan_free(MixedRangePlan *plan);
 #endif

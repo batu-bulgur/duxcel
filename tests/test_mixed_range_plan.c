@@ -13,7 +13,35 @@ static Workbook fixture(bool cells,bool formats) {
     if (formats) { CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&s->formats,(FormatRange){1,4,1,3},FORMAT_BOLD,bold,NULL)); worksheet_record(s,EDIT_FORMAT); }
     b.dirty=false; return b;
 }
+static void rows(void) {
+    for (unsigned mode=0;mode<4;mode++) for (unsigned deletion=0;deletion<2;deletion++) {
+        Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets; Workbook *reference=workbook_snapshot(&b); CHECK(reference);
+        uint64_t row=0,count=2; bool insert=!deletion;
+        if (deletion) { s->objects.items[0].row=5; reference->sheets[0].objects.items[0].row=5; }
+        Worksheet before=*s; MixedRangePlanInfo info={0}; MixedRangePlan plan={0}; char *error=NULL;
+        CHECK(mixed_rows_measure(s,&s->analysis,row,count,insert,&info,&error)==MIXED_RANGE_READY && !error);
+        CHECK(mixed_rows_plan(s,&s->analysis,row,count,insert,info.owned-1,info.validation_scratch,&plan,&error)==MIXED_RANGE_LIMIT && !plan.objects.items); free(error); error=NULL;
+        CHECK(mixed_rows_plan(s,&s->analysis,row,count,insert,info.owned,info.validation_scratch,&plan,&error)==MIXED_RANGE_READY && !error && plan.object_high_water==s->objects.next_id && !memcmp(&before,s,sizeof(before)));
+        CHECK(worksheet_rows(reference->sheets,row,count,insert,0,&error) && !error);
+        Worksheet *expected=reference->sheets; CHECK(plan.cells.count==expected->cells.count && plan.objects.count==expected->objects.count);
+        for (size_t i=0;i<plan.cells.count;i++) CHECK(plan.cells.cells[i].row==expected->cells.cells[i].row && plan.cells.cells[i].col==expected->cells.cells[i].col && !strcmp(plan.cells.cells[i].text,expected->cells.cells[i].text));
+        for (size_t i=0;i<plan.objects.count;i++) CHECK(plan.objects.items[i].row==expected->objects.items[i].row && plan.objects.items[i].col==expected->objects.items[i].col && plan.objects.items[i].id==expected->objects.items[i].id && plan.objects.items[i].name!=s->objects.items[i].name);
+        CHECK(format_snapshot_matches(&expected->formats,&plan.formats));
+        MixedRangePlan held=plan;
+        CHECK(mixed_rows_plan(s,&s->analysis,s->objects.items[0].row+1,1,insert,SIZE_MAX,SIZE_MAX,&plan,NULL)==MIXED_RANGE_INVALID && !memcmp(&held,&plan,sizeof(plan)));
+        CHECK(mixed_rows_plan(s,&s->analysis,DX_SHEET_ROWS-1,2,insert,SIZE_MAX,SIZE_MAX,&plan,NULL)==MIXED_RANGE_INVALID && !memcmp(&held,&plan,sizeof(plan)));
+        CHECK(mixed_rows_plan(s,&s->analysis,1000,1,insert,0,0,&plan,NULL)==MIXED_RANGE_NOOP && !memcmp(&held,&plan,sizeof(plan)));
+        workbook_free(reference); free(reference); workbook_free(&b); CHECK(plan.objects.items[0].revision==77); mixed_range_plan_free(&plan);
+    }
+    Workbook b=fixture(false,false); Worksheet *s=b.sheets; MixedRangePlanInfo info={.owned=123};
+    s->objects.items[1].row=DX_SHEET_ROWS-s->objects.items[1].rows;
+    CHECK(mixed_rows_measure(s,&s->analysis,0,1,true,&info,NULL)==MIXED_RANGE_INVALID && info.owned==123);
+    s->objects.items[1].row=40; CHECK(cells_set(&s->cells,DX_SHEET_ROWS-1,0,"Edge",NULL));
+    CHECK(mixed_rows_measure(s,&s->analysis,0,1,true,&info,NULL)==MIXED_RANGE_INVALID && info.owned==123);
+    workbook_free(&b);
+}
 int main(void) {
+    rows();
     for (unsigned mode=0;mode<4;mode++) {
         Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets; Worksheet before=*s; MixedRangePlanInfo info={0}; MixedRangePlan out={0}; SheetRange r={1,5,1,4}; char *error=NULL;
         CHECK(mixed_range_measure(s,&s->analysis,r,10,10,false,&info,&error)==MIXED_RANGE_READY && !error && info.owned);
