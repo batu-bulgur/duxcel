@@ -104,5 +104,18 @@ bool workbook_prepare_manual_source_format(SourceFormatCommandContext *context,s
 SourceFormatCommandResult workbook_apply_manual_source_format_recorded(SourceFormatCommandContext *context,
     const SourceFormatCommandTarget *target,FormatSnapshot *owned,
     const WorkbookHistoryFormatRecorder *recorder,char **error);
+/* Source-free unbound Pivot/Chart/template objects keep ordinary finite manual
+   styles in unchanged false mode. Actual AND cached primary must be SOURCE_NONE;
+   every object must have no Table/direct source/version or source_id link, and
+   current formats have no source scopes. Retired, unreferenced immutable ledger
+   rows remain validation-only metadata, never a source activation/eligibility.
+   Exact object/source/primary/cache fences apply with the same effect8 owner.
+   No broad-only restriction is needed because no mode is promoted or relabeled.
+   Sourced/unresolved object graphs return PROTECTED, never a fallback conversion. */
+bool workbook_prepare_template_format(SourceFormatCommandContext *context,size_t sheet,
+    SourceFormatCommandTarget *out,char **error);
+SourceFormatCommandResult workbook_apply_template_format_recorded(SourceFormatCommandContext *context,
+    const SourceFormatCommandTarget *target,FormatSnapshot *owned,
+    const WorkbookHistoryFormatRecorder *recorder,char **error);
 void source_format_command_plan_free(SourceFormatCommandPlan *plan);
 #endif

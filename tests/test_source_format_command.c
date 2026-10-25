@@ -500,7 +500,74 @@ static void imported_manual_history(void) {
     }
     source_format_command_plan_free(&first); workbook_free(&b);
 }
+static Workbook template_book(ObjectKind kind,bool finite) {
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Template",&(Analysis){0},NULL)); Worksheet *s=b.sheets;
+    if (finite) {
+        ManualFormatTarget target; FormatSnapshot p={0}; CellFormat style=format_default(); style.flags=FORMAT_BOLD;
+        CHECK(workbook_prepare_manual_format(&b,0,&target,NULL) && format_plan_spatial(&s->formats,(FormatRange){20,20,20,20},FORMAT_BOLD,style,&p,NULL));
+        CHECK(workbook_apply_manual_format_recorded(&b,&target,&p,NULL,NULL).status==MANUAL_FORMAT_APPLIED);
+    }
+    /* Current unbound templates are existing authored objects, not new
+       sourced CREATE commands (which correctly require a resolved source). */
+    int index=kind==OBJECT_CHART ? objects_add_chart(&s->objects,10,2,"Template",&(PivotDefinition){0},NULL) : objects_add(&s->objects,10,2,"Template",NULL);
+    CHECK(index==0); worksheet_record(s,EDIT_OBJECTS); b.command_revision++; workbook_history_note_edit(&b);
+    b.dirty=false; return b;
+}
+static void template_format(ObjectKind kind) {
+    Workbook b=template_book(kind,true); Worksheet *s=b.sheets; uint64_t epoch=1;
+    Analysis actual=analysis_copy(&s->analysis); SourceFormatCommandContext c={&b,&actual,&epoch,SIZE_MAX,true,false};
+    SourceFormatCommandTarget t; CHECK(workbook_prepare_template_format(&c,0,&t,NULL));
+    ObjectStore objects=s->objects; SourceVersions sources=s->source_versions;
+    FormatSnapshot retained[DX_FORMAT_HISTORY]; size_t count=s->formats.undo_count; memcpy(retained,s->formats.undo,count*sizeof(*retained));
+    FormatSnapshot p=spatial_plan(s,false); CHECK(!p.source_aware);
+    uint64_t revision=b.command_revision,order=worksheet_history_high_water();
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,99,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id,.command_revision=b.command_revision};
+    WorkbookHistoryStream *stream=NULL; CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
+    WorkbookHistoryFormatRecorder recorder=workbook_history_stream_format_recorder(stream);
+    CHECK(workbook_apply_template_format_recorded(&c,&t,&p,&recorder,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && !p.items && !s->formats.source_aware && b.command_revision==revision+1 && worksheet_history_high_water()==order+1);
+    CHECK(!memcmp(&objects,&s->objects,sizeof(objects)) && !memcmp(&sources,&s->source_versions,sizeof(sources)) && !memcmp(retained,s->formats.undo,count*sizeof(*retained)) && format_at(&s->formats,20,20).flags==(FORMAT_BOLD|FORMAT_ITALIC));
+    WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK); FormatDelta delta={0};
+    SourceVersionsAssetInfo dependencies={0};
+    CHECK(source_versions_asset_preflight(workbook_history_event_dependencies(event),workbook_history_event_info(event)->dependency_bytes,s->objects.next_id,&dependencies)==SOURCE_VERSIONS_CODEC_OK && dependencies.sheet==s->id && !dependencies.count && !dependencies.high_water);
+    CHECK(format_delta_decode(workbook_history_event_payload(event),workbook_history_event_info(event)->bytes,SIZE_MAX,&delta)==FORMAT_DELTA_OK && !delta.before.source_aware && !delta.after.source_aware);
+    format_delta_free(&delta); CHECK(workbook_history_stream_complete(stream,&event)==HISTORY_STREAM_OK && workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && format_at(&s->formats,20,20).flags==FORMAT_BOLD && s->formats.redo_count==1);
+    p=bound_plan(&c,false,false); CHECK(workbook_prepare_template_format(&c,0,&t,NULL)); b.dirty=false; revision=b.command_revision;
+    CHECK(workbook_apply_template_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_NOOP && !p.items && s->formats.redo_count==1 && !b.dirty && b.command_revision==revision);
+    CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED && format_at(&s->formats,20,20).flags==(FORMAT_BOLD|FORMAT_ITALIC));
+    b.command_revision=UINT64_MAX; s->formats.revision=UINT64_MAX;
+    p=bound_plan(&c,false,false); CHECK(workbook_prepare_template_format(&c,0,&t,NULL));
+    CHECK(workbook_apply_template_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_NOOP && !p.items && !s->formats.source_aware);
+    analysis_free(&actual); workbook_free(&b);
+}
+static void template_rejections(void) {
+    for (unsigned mode=0;mode<7;mode++) {
+        Workbook b=template_book(OBJECT_PIVOT,false); Worksheet *s=b.sheets; uint64_t epoch=1;
+        Analysis actual={0}; SourceFormatCommandContext c={&b,&actual,&epoch,SIZE_MAX,true,false};
+        if (mode==0) actual=(Analysis){.kind=SOURCE_CSV,.path="/actual.csv"};
+        if (mode==1) s->analysis=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("/cache.csv")};
+        if (mode==2) s->objects.items[0].source_id=1;
+        if (mode==3) s->objects.items[0].source=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("/direct.duckdb")};
+        if (mode==4) { s->objects.items[0].kind=OBJECT_TABLE; s->objects.items[0].source=(Analysis){.kind=SOURCE_DATABASE,.path=dx_strdup("/pending.duckdb")}; }
+        if (mode==5) s->formats.source_aware=true;
+        if (mode==6) c.read_only=true;
+        SourceFormatCommandTarget t={0},unchanged=t; CHECK(!workbook_prepare_template_format(&c,0,&t,NULL) && !memcmp(&t,&unchanged,sizeof(t)));
+        workbook_free(&b);
+    }
+    for (unsigned mode=0;mode<=6;mode++) {
+        Workbook b=template_book(OBJECT_PIVOT,false); uint64_t epoch=1;
+        SourceFormatCommandContext c={&b,&b.sheets[0].analysis,&epoch,SIZE_MAX,true,false}; SourceFormatCommandTarget t;
+        CHECK(workbook_prepare_template_format(&c,0,&t,NULL)); FormatSnapshot p=spatial_plan(b.sheets,false);
+        BoundProbe probe={&c,mode,0,0,0}; WorkbookHistoryFormatRecorder recorder={bound_reserve,bound_publish,bound_cancel,&probe};
+        SourceFormatCommandResult result=workbook_apply_template_format_recorded(&c,&t,&p,&recorder,NULL);
+        CHECK(probe.reserves==1);
+        if (!mode) CHECK(result.status==SOURCE_FORMAT_COMMAND_APPLIED && probe.publishes==1 && !probe.cancels && !p.items && !b.sheets[0].formats.source_aware);
+        else CHECK(result.status==(mode==1 ? SOURCE_FORMAT_COMMAND_LIMIT : mode==2 || mode==6 ? SOURCE_FORMAT_COMMAND_INVALID : mode==4 ? SOURCE_FORMAT_COMMAND_PROTECTED : SOURCE_FORMAT_COMMAND_STALE) && !probe.publishes && p.items && !p.source_aware && b.command_revision==1 && !b.dirty);
+        format_snapshot_free(&p); workbook_free(&b);
+    }
+}
 int main(void) {
+    template_format(OBJECT_PIVOT); template_format(OBJECT_CHART); template_rejections();
     imported_manual_history();
     manual_first(); manual_first_rejection();
     spatial(false); spatial(true); spatial_scoped(); spatial_rejections(); spatial_callbacks();
