@@ -129,7 +129,7 @@ static void source_results_test_frame(AppSession *session) {
     case 16: {
         SR_CHECK(s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,1000,16),"9007199254740993.0123456789"));
         char *error=NULL; SR_CHECK(cells_set(&s->cells,2000,16,"Replace destination",&error)); worksheet_record(s,EDIT_CELLS);
-        source_move_select(a,1000,16); SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->modal==MODAL_REPLACE_RANGE && a->replace_manual_target); free(error); break;
+        source_move_select(a,1000,16); bool moved=request_range_move(a,1000,0,false,&error); if (moved || a->modal!=MODAL_REPLACE_RANGE || !a->replace_manual_target) fprintf(stderr,"Replace preparation: moved=%d modal=%d target=%p error=%s\n",moved,a->modal,(void *)a->replace_manual_target,error ? error : "none"); SR_CHECK(!moved && a->modal==MODAL_REPLACE_RANGE && a->replace_manual_target); free(error); break;
     }
     case 17:
         cancel_range_replace(a); SR_CHECK(!a->replace_manual_target && s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,2000,16),"Replace destination"));
