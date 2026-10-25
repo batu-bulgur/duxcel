@@ -1,4 +1,4 @@
-#include "lifecycle.h"
+#include "lifecycle_topology_internal.h"
 #include <stdlib.h>
 #include <string.h>
 typedef struct {
@@ -8,6 +8,7 @@ typedef struct {
     bool hidden;
     char *name;
     Worksheet *detached;
+    SheetTopologyPacket packet;
 } SheetEvent;
 struct WorkbookLifecycle {
     SheetEvent undo[DX_HISTORY],redo[DX_HISTORY];
@@ -42,7 +43,7 @@ static size_t locate(const Workbook *b,uint64_t id) {
     return b->count;
 }
 static void event_free(SheetEvent *e) {
-    free(e->name);
+    free(e->name); free(e->packet.data);
     if (e->detached) { worksheet_free(e->detached); free(e->detached); }
     memset(e,0,sizeof(*e));
 }
@@ -75,7 +76,10 @@ FormatBudgetStatus workbook_lifecycle_format_usage(const Workbook *b,size_t *ret
     if (h) for (unsigned side=0;side<2;side++) {
         const SheetEvent *events=side ? h->redo : h->undo; size_t count=side ? h->redo_count : h->undo_count;
         if (count>DX_HISTORY) return FORMAT_BUDGET_MODEL;
-        for (size_t i=0;i<count;i++) if (events[i].detached) {
+        for (size_t i=0;i<count;i++) {
+            if (bytes>SIZE_MAX-events[i].packet.bytes) return FORMAT_BUDGET_OVERFLOW;
+            bytes+=events[i].packet.bytes;
+            if (!events[i].detached) continue;
             /* Borrowed one-sheet accounting view, never freed or snapshotted.
                Its null lifecycle prevents recursive retained-owner traversal. */
             Workbook view={.sheets=events[i].detached,.count=1}; WorkbookFormatUsage usage;
@@ -138,12 +142,33 @@ bool workbook_lifecycle_presence(const Workbook *b,bool redo,WorkbookLifecyclePr
     if (e->operation>SHEET_DELETE || e->order!=selected.order ||
         (!e->detached && (index==b->count || (!b->sheets[index].hidden && workbook_visible_count(b)<=1))) ||
         (e->detached && (index!=b->count || b->count>=DX_MAX_SHEETS || e->position>b->count || e->detached->id!=e->id))) return false;
-    *out=(WorkbookLifecyclePresence){h,e->detached ? e->detached : b->sheets+index,e->operation,e->id,e->order,e->active,e->position,e->detached!=NULL}; return true;
+    *out=(WorkbookLifecyclePresence){h,e->detached ? e->detached : b->sheets+index,e->operation,e->id,e->order,e->active,e->position,e->detached!=NULL,e->packet.data ? &e->packet : NULL}; return true;
 }
 size_t workbook_lifecycle_presence_staging(const Workbook *b,bool redo) {
     WorkbookLifecyclePresence view;
     if (!workbook_lifecycle_presence(b,redo,&view)) return SIZE_MAX;
     return view.detached ? (b->count+1)*sizeof(Worksheet)+DX_FORMAT_VALIDATION_BYTES : sizeof(Worksheet);
+}
+FormatBudgetStatus workbook_lifecycle_topology_preflight(const Workbook *b,size_t packet_bytes,size_t staging) {
+    if (!packet_bytes || packet_bytes>DX_SHEET_TOPOLOGY_MAX_BYTES) return FORMAT_BUDGET_INPUT;
+    WorkbookFormatUsage live,next; FormatBudget budget;
+    FormatBudgetStatus status=workbook_format_usage(b,NULL,0,&live); if (status!=FORMAT_BUDGET_OK) return status;
+    next=live; if (next.retained>SIZE_MAX-packet_bytes) return FORMAT_BUDGET_OVERFLOW;
+    next.retained+=packet_bytes;
+    return workbook_format_preflight(&live,&next,&(FormatTransientUsage){.adopted_staging=staging},&budget);
+}
+static uint64_t topology_number(const unsigned char *p,unsigned n) {
+    uint64_t value=0; for (unsigned i=0;i<n;i++) value|=(uint64_t)p[i]<<(8*i); return value;
+}
+void workbook_lifecycle_topology_adopt(Workbook *b,uint64_t order,uint64_t revision,uint64_t sheet,WorkbookSheetOperation operation,SheetTopologyPacket *packet) {
+    if (!b || !b->lifecycle || !b->edit_session_id || !b->lifecycle->undo_count || !packet || !packet->data || packet->bytes<DX_SHEET_TOPOLOGY_HEADER_BYTES || operation>SHEET_DELETE ||
+        b->command_revision!=revision || b->lifecycle->latest!=order || worksheet_history_high_water()!=order) abort();
+    SheetEvent *e=b->lifecycle->undo+b->lifecycle->undo_count-1; const unsigned char *data=packet->data;
+    if (e->operation!=operation || e->id!=sheet || e->order!=order || e->packet.data || e->packet.bytes ||
+        memcmp(data,"DXTP",4) || topology_number(data+4,2)!=DX_SHEET_TOPOLOGY_ENCODING ||
+        topology_number(data+6,2)!=(operation==SHEET_DELETE ? SHEET_TOPOLOGY_REMOVE : SHEET_TOPOLOGY_ADD) ||
+        topology_number(data+8,8)!=b->id.high || topology_number(data+16,8)!=b->id.low || topology_number(data+24,8)!=sheet) abort();
+    e->packet=*packet; *packet=(SheetTopologyPacket){0};
 }
 static Worksheet *remove_sheet(Workbook *b,size_t index) {
     Worksheet *detached=dx_alloc(sizeof(*detached)); *detached=b->sheets[index];

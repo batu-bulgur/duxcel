@@ -41,6 +41,7 @@ size_t workbook_lifecycle_remove_staging(const Workbook *book,size_t sheet);
    live or owned by the lifecycle ring; no graph is cloned. Output is unchanged
    for non-presence, malformed or unavailable selections. A selected exhausted
    revision remains inspectable but is not replay admission. */
+struct SheetTopologyPacket;
 typedef struct {
     const void *owner;
     const Worksheet *worksheet;
@@ -48,6 +49,7 @@ typedef struct {
     uint64_t sheet,order,active;
     size_t position;
     bool detached;
+    const struct SheetTopologyPacket *packet; /* Borrowed original; NULL for plain session events. */
 } WorkbookLifecyclePresence;
 bool workbook_lifecycle_presence(const Workbook *book,bool redo,WorkbookLifecyclePresence *out);
 /* Actual presence transfer allocation bound: replacement array + serial global

@@ -53,7 +53,7 @@ SheetTopologyReplayStatus sheet_topology_replay_check(SheetTopologyReplayContext
     SheetTopologyReplayStatus status=selection(c,p,&live); if (status!=SHEET_REPLAY_READY) return status;
     if (c.book!=p->book || c.epoch!=p->epoch_owner || *c.epoch!=p->epoch || c.book->edit_session_id!=p->session || c.book->command_revision!=p->revision ||
         c.book->history_branch!=p->branch || worksheet_history_high_water()!=p->issued || c.book->sheet_high_water!=p->high_water || live.owner!=p->selection.owner ||
-        live.order!=p->selection.order || live.position!=p->selection.position || live.active!=p->selection.active || live.detached!=p->selection.detached ||
+        live.packet!=p->selection.packet || live.order!=p->selection.order || live.position!=p->selection.position || live.active!=p->selection.active || live.detached!=p->selection.detached ||
         (live.detached && live.worksheet!=p->selection.worksheet)) return SHEET_REPLAY_STALE;
     const Worksheet *s=live.worksheet;
     if (s->edit_session_id!=p->sheet_session || s->cells.revision!=p->cells_revision || s->formats.revision!=p->format_revision || s->width_revision!=p->width_revision) return SHEET_REPLAY_STALE;

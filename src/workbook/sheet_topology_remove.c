@@ -1,7 +1,7 @@
 #include "sheet_topology_remove.h"
 #include "definition_baseline.h"
 #include "history.h"
-#include "lifecycle.h"
+#include "lifecycle_topology_internal.h"
 #include "history_sheet_topology_internal.h"
 #include <stdlib.h>
 #include <string.h>
@@ -131,6 +131,8 @@ SheetTopologyRemoveStatus sheet_topology_remove_apply(SheetTopologyRemoveContext
     if (!cache_coherent(p)) { sheet_topology_remove_cancel(p); fail(error,"Materialize the actual primary through its ownership handoff before removing the sheet."); return SHEET_REMOVE_PROTECTED; }
     size_t index=locate(context.book,p->sheet),adoption=workbook_lifecycle_remove_staging(context.book,index);
     if (adoption==SIZE_MAX || adoption>context.adoption_reserved) { sheet_topology_remove_cancel(p); fail(error,"The real worksheet removal allocation is not admitted."); return SHEET_REMOVE_LIMIT; }
+    size_t staging=p->usage.staging;
+    if (context.reserved<p->usage.staging || !add(&staging,adoption) || workbook_lifecycle_topology_preflight(context.book,p->packet.bytes,staging)!=FORMAT_BUDGET_OK) { sheet_topology_remove_cancel(p); return SHEET_REMOVE_LIMIT; }
     if (p->ticket && !workbook_history_topology_belongs(p->ticket,stream)) { sheet_topology_remove_cancel(p); return SHEET_REMOVE_INVALID; }
     status=refresh_navigation(context,p); if (status!=SHEET_REMOVE_READY) { sheet_topology_remove_cancel(p); return status; }
     if (stream && !p->ticket) { status=sheet_topology_remove_reserve(context,p,stream,reserved,error); if (status!=SHEET_REMOVE_READY) return status; }
@@ -142,6 +144,7 @@ SheetTopologyRemoveStatus sheet_topology_remove_apply(SheetTopologyRemoveContext
        intervene between closed producer adoption and this release-build proof. */
     if (!changed || !after_matches(p)) abort();
     if (p->ticket) workbook_history_topology_publish_adopted(&p->ticket,context.book);
+    workbook_lifecycle_topology_adopt(context.book,p->order+1,p->revision+1,p->sheet,SHEET_DELETE,&p->packet);
     sheet_topology_remove_free(owned); return SHEET_REMOVE_APPLIED;
 }
 void sheet_topology_remove_cancel(SheetTopologyRemovePlan *plan) { if (plan) workbook_history_topology_cancel(&plan->ticket); }

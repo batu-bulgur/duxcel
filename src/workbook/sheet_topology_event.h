@@ -12,7 +12,7 @@ typedef struct {
     SheetLifecycleState before,after;
     const SheetPresencePacket *presence;
 } SheetTopologyView;
-typedef struct { void *data; size_t bytes; } SheetTopologyPacket;
+typedef struct SheetTopologyPacket { void *data; size_t bytes; } SheetTopologyPacket;
 typedef struct {
     WorkbookId document;
     SheetTopologyOperation operation;

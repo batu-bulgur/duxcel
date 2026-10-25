@@ -3,6 +3,7 @@
 #include "workbook/sheet_topology_remove.h"
 #include "workbook/cell_command.h"
 #include "workbook/history.h"
+#include "workbook/lifecycle_topology_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -108,8 +109,35 @@ static void fences(void) {
     CHECK(sheet_topology_replay_prepare(c,&packet,false,order,&p,NULL)==SHEET_REPLAY_STALE && !p);
     sheet_topology_packet_free(&packet); analysis_free(&actual); workbook_free(&b);
 }
+static void packet_lifetime(void) {
+    Workbook b=fixture(); uint64_t epoch=80,id,order; Analysis actual={0}; SheetTopologyPacket external=command(&b,SHEET_DUPLICATE,&id,&order,&actual,&epoch);
+    WorkbookLifecyclePresence selected; CHECK(workbook_lifecycle_presence(&b,false,&selected) && selected.packet && selected.packet->data && selected.packet->bytes==external.bytes);
+    const void *data=selected.packet->data; size_t bytes=selected.packet->bytes,retained=0;
+    CHECK(memcmp(data,external.data,bytes)==0 && workbook_lifecycle_format_usage(&b,&retained)==FORMAT_BUDGET_OK && retained==bytes);
+    WorkbookFormatUsage all,without; Workbook plain=b; plain.lifecycle=NULL;
+    CHECK(workbook_format_usage(&b,NULL,0,&all)==FORMAT_BUDGET_OK && workbook_format_usage(&plain,NULL,0,&without)==FORMAT_BUDGET_OK && all.retained-without.retained==bytes);
+    Workbook before=b;
+    CHECK(workbook_lifecycle_topology_preflight(&b,DX_WORKBOOK_FORMAT_RETAINED_BYTES,0)==FORMAT_BUDGET_RETAINED && !memcmp(&before,&b,sizeof(b)));
+    CHECK(workbook_lifecycle_topology_preflight(&b,bytes,SIZE_MAX)==FORMAT_BUDGET_OVERFLOW && !memcmp(&before,&b,sizeof(b)));
+    Workbook *snapshot=workbook_snapshot(&b); CHECK(snapshot && !snapshot->lifecycle && snapshot->count==b.count); workbook_free(snapshot); free(snapshot);
+    SheetTopologyReplayContext c={&b,&epoch,&actual,id,SIZE_MAX,SIZE_MAX,true,false}; SheetTopologyReplayPlan *p=NULL;
+    CHECK(sheet_topology_replay_prepare(c,selected.packet,false,order,&p,NULL)==SHEET_REPLAY_READY); sheet_topology_packet_free(&external);
+    CHECK(sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_APPLIED && workbook_lifecycle_presence(&b,true,&selected) && selected.packet && selected.packet->data==data && selected.packet->bytes==bytes);
+    CHECK(workbook_lifecycle_format_usage(&b,&retained)==FORMAT_BUDGET_OK && retained>bytes);
+    CHECK(sheet_topology_replay_prepare(c,selected.packet,true,order,&p,NULL)==SHEET_REPLAY_READY);
+    CHECK(sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_APPLIED && workbook_lifecycle_presence(&b,false,&selected) && selected.packet->data==data);
+    CHECK(sheet_topology_replay_prepare(c,selected.packet,false,order,&p,NULL)==SHEET_REPLAY_READY && sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_APPLIED);
+    bool changed=false; CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=0,.name="New branch"},&changed,NULL) && changed);
+    CHECK(workbook_lifecycle_format_usage(&b,&retained)==FORMAT_BUDGET_OK && retained==0 && workbook_history_peek(&b,true,NULL).status==WORKBOOK_HISTORY_EMPTY);
+    analysis_free(&actual); workbook_free(&b);
+    b=fixture(); external=command(&b,SHEET_DELETE,&id,&order,&actual,&epoch); sheet_topology_packet_free(&external);
+    CHECK(workbook_lifecycle_format_usage(&b,&retained)==FORMAT_BUDGET_OK && retained>0);
+    for (unsigned i=0;i<DX_HISTORY;i++) { char name[32]; snprintf(name,sizeof(name),"Evict%u",i); CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=0,.name=name},&changed,NULL) && changed); }
+    CHECK(workbook_lifecycle_format_usage(&b,&retained)==FORMAT_BUDGET_OK && retained==0 && b.count==1);
+    analysis_free(&actual); workbook_free(&b);
+}
 int main(void) {
-    fences(); replay(SHEET_CREATE,false); replay(SHEET_DELETE,false); replay(SHEET_DUPLICATE,false); replay(SHEET_CREATE,true); replay(SHEET_DELETE,true); replay(SHEET_DUPLICATE,true);
+    packet_lifetime(); fences(); replay(SHEET_CREATE,false); replay(SHEET_DELETE,false); replay(SHEET_DUPLICATE,false); replay(SHEET_CREATE,true); replay(SHEET_DELETE,true); replay(SHEET_DUPLICATE,true);
     SheetTopologyReplayMeasure untouched={7,9}; CHECK(sheet_topology_replay_measure(&(SheetTopologyPacket){"bad",3},&untouched)==SHEET_REPLAY_INVALID && untouched.owned==7 && untouched.staging==9);
     sheet_topology_replay_free(NULL); printf("PASS: %u genuine topology session replay checks\n",checks); return 0;
 }

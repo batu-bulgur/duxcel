@@ -1,7 +1,7 @@
 #include "sheet_topology_duplicate.h"
 #include "definition_baseline.h"
 #include "history.h"
-#include "lifecycle.h"
+#include "lifecycle_topology_internal.h"
 #include "history_sheet_topology_internal.h"
 #include <stdlib.h>
 #include <string.h>
@@ -143,6 +143,8 @@ SheetTopologyDuplicateStatus sheet_topology_duplicate_apply(SheetTopologyDuplica
     if (!cache_coherent(p)) { sheet_topology_duplicate_cancel(p); fail(error,"Materialize the actual primary through its ownership handoff before duplicating the sheet."); return SHEET_DUPLICATE_PROTECTED; }
     size_t index=locate(c.book,p->sheet),adoption=workbook_lifecycle_duplicate_staging(c.book,index);
     if (adoption==SIZE_MAX || adoption>c.adoption_reserved) { sheet_topology_duplicate_cancel(p); fail(error,"The real worksheet duplicate allocation is not admitted."); return SHEET_DUPLICATE_LIMIT; }
+    size_t staging=p->usage.staging;
+    if (c.reserved<p->usage.staging || !add(&staging,adoption) || workbook_lifecycle_topology_preflight(c.book,p->packet.bytes,staging)!=FORMAT_BUDGET_OK) { sheet_topology_duplicate_cancel(p); return SHEET_DUPLICATE_LIMIT; }
     if (p->ticket && !workbook_history_topology_belongs(p->ticket,stream)) { sheet_topology_duplicate_cancel(p); return SHEET_DUPLICATE_INVALID; }
     status=refresh_navigation(c,p); if (status!=SHEET_DUPLICATE_READY) { sheet_topology_duplicate_cancel(p); return status; }
     if (stream && !p->ticket) { status=sheet_topology_duplicate_reserve(c,p,stream,reserved,error); if (status!=SHEET_DUPLICATE_READY) return status; }
@@ -154,6 +156,7 @@ SheetTopologyDuplicateStatus sheet_topology_duplicate_apply(SheetTopologyDuplica
        or fallible validation occur between successful adoption and this proof. */
     if (!changed || !after_matches(p)) abort();
     if (p->ticket) workbook_history_topology_publish_adopted(&p->ticket,c.book);
+    workbook_lifecycle_topology_adopt(c.book,p->order+1,p->revision+1,p->added,SHEET_DUPLICATE,&p->packet);
     sheet_topology_duplicate_free(owned); return SHEET_DUPLICATE_APPLIED;
 }
 void sheet_topology_duplicate_cancel(SheetTopologyDuplicatePlan *plan) { if (plan) workbook_history_topology_cancel(&plan->ticket); }
