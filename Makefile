@@ -2322,3 +2322,13 @@ build/tests/test_history_sheet_topology: $(HISTORY_TOPOLOGY_OBJECTS) build/web-t
 build/tests/test_history_sheet_topology-debug: $(HISTORY_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(HISTORY_TOPOLOGY_OBJECTS:.o=.d) $(HISTORY_TOPOLOGY_SAN_OBJECTS:.o=.d)
+
+SHEET_TOPOLOGY_REMOVE_SRC = $(filter-out src/workbook/history_sheet_lifecycle.c tests/test_history_sheet_topology.c,$(HISTORY_TOPOLOGY_SRC)) src/workbook/cell_command.c src/workbook/definition_baseline.c src/workbook/sheet_topology_remove.c tests/test_sheet_topology_remove.c
+SHEET_TOPOLOGY_REMOVE_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REMOVE_SRC))))
+SHEET_TOPOLOGY_REMOVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REMOVE_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_remove build/tests/test_sheet_topology_remove-debug
+build/tests/test_sheet_topology_remove: $(SHEET_TOPOLOGY_REMOVE_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_topology_remove-debug: $(SHEET_TOPOLOGY_REMOVE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_TOPOLOGY_REMOVE_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_REMOVE_SAN_OBJECTS:.o=.d)

@@ -102,6 +102,7 @@ FAST_MODULES = (
     "chartencoding",
     "sheet_topology_event",
     "history_sheet_topology",
+    "sheet_topology_remove",
     "inspector", "shadowview", "stepview", "preview", "preview_input", "preview_input_browser", "textview", "textview_review", "statsview", "statsview_input", "statsview_input_review",
     "ui_update_input", "ui_update_input_browser", "ui_update_input_control", "guideview", "guideview_input", "guideview_input_review", "sortview_input", "sortview_input_review", "fontmetrics", "ui_font_fallback",
     "motion", "keytips", "choiceview", "paintlayer", "popup", "marksview", "page",
