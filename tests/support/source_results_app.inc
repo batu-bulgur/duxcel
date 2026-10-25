@@ -119,7 +119,7 @@ static void source_results_test_frame(AppSession *session) {
         char *error=NULL; SR_CHECK(cells_set(&s->cells,329,15,"9007199254740993.0123456789",&error)); worksheet_record(s,EDIT_CELLS);
         grid_select_cell(&a->grid,329,15,false); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; SR_CHECK(apply_format(a,FORMAT_BOLD,bold));
         source_move_revision=a->book.command_revision; source_move_high=s->objects.next_id; source_move_ledger=s->source_versions.high_water;
-        source_move_select(a,329,15); begin_move_range(a,false); SR_CHECK(a->modal==MODAL_MOVE_RANGE); input_set(&a->input,"Q1001"); a->range_move_focus=1; ui_note_key_press(KEY_ENTER,0); free(error); break;
+        source_move_select(a,329,15); begin_move_range(a,false); SR_CHECK(a->modal==MODAL_MOVE_RANGE); char destination[48]; grid_format_address(1000,16,true,destination); input_set(&a->input,destination); a->range_move_focus=1; ui_note_key_press(KEY_ENTER,0); free(error); break;
     }
     case 14:
         SR_CHECK(a->modal==MODAL_NONE && a->book.command_revision==source_move_revision+1 && s->objects.items[0].row==1001 && s->objects.items[0].col==17 && s->undo_actions[s->undo_actions_count-1]==EDIT_RANGE_FORMAT);
