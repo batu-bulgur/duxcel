@@ -6756,7 +6756,7 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
 #endif
     SOURCE_FORMAT_CANCEL(a,NULL);
     Worksheet *sheet=active_sheet(a); if (!sheet) return false;
-    FormatRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1); char *error=NULL; uint64_t revision=sheet->formats.revision;
+    FormatRange range; grid_bounds(&a->grid,&range.r0,&range.r1,&range.c0,&range.c1); char *error=NULL;
     if (range.r1>=DX_SHEET_ROWS) range.r1=DX_SHEET_ROWS-1;
     if (range.c1>=16384) range.c1=16383;
 #ifndef DUXCEL_BROWSER_HOST
@@ -6773,14 +6773,14 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
         if (imported) { status(a,"Source-bound cell formatting needs verified record collection. Whole-column defaults remain available."); return false; }
     }
 #ifndef DUXCEL_BROWSER_HOST
-    if (sheet->formats.source_aware) return source_format_spatial_apply(a,range,mask,value,false);
+    if (sheet->formats.source_aware) return source_format_spatial_apply(a,range,mask,value,APP_SPATIAL_SOURCE_AWARE);
     bool imported_owner=a->analysis.kind!=SOURCE_NONE;
     for (size_t i=0;!imported_owner && i<sheet->objects.count;i++) imported_owner=sheet->objects.items[i].kind==OBJECT_TABLE;
     if (imported_owner) {
         if (!source_format_first_safe(&sheet->formats)) {
             status(a,"The existing finite formats need source ownership before more manual formatting."); return false;
         }
-        return source_format_spatial_apply(a,range,mask,value,true);
+        return source_format_spatial_apply(a,range,mask,value,APP_SPATIAL_MANUAL_FIRST);
     }
 #endif
     if (a->analysis.kind==SOURCE_NONE && sheet->analysis.kind==SOURCE_NONE && !sheet->objects.count &&
@@ -6794,11 +6794,16 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
         bool ok=prepared && (result.status==MANUAL_FORMAT_APPLIED || result.status==MANUAL_FORMAT_NOOP);
         if (!ok) status(a,error); free(error); return ok;
     }
+#ifndef DUXCEL_BROWSER_HOST
+    return source_format_spatial_apply(a,range,mask,value,APP_SPATIAL_TEMPLATE);
+#else
+    uint64_t revision=sheet->formats.revision;
     bool ok=format_apply(&sheet->formats,range,mask,value,&error);
     if (ok && revision!=sheet->formats.revision) {
         worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true;
     }
     if (!ok) status(a,error); free(error); return ok;
+#endif
 }
 static void close_format_menu(App *a) {
     a->modal=MODAL_NONE; a->consume_grid_input=true;
@@ -15864,6 +15869,9 @@ static void column_width_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 static void paste_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_TEMPLATE_FORMAT
+static void template_format_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_IMPORT_FORMAT
 static void source_import_format_test_frame(AppSession *session);
 #endif
@@ -16817,6 +16825,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
     paste_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_TEMPLATE_FORMAT
+    template_format_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_IMPORT_FORMAT
     source_import_format_test_frame(session);
 #endif
@@ -17269,4 +17280,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_SOURCE_IMPORT_FORMAT
 #include "../../tests/support/source_import_format_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_TEMPLATE_FORMAT
+#include "../../tests/support/template_format_app.inc"
 #endif

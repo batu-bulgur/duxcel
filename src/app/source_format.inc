@@ -556,13 +556,17 @@ static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat 
 }
 /* Spatial fallback after result/record eligibility has been resolved by App.
    Manual-first projects only the new current mode; historical flags are immutable. */
-static bool source_format_spatial_apply(App *a,FormatRange range,unsigned mask,CellFormat value,bool manual_first) {
+typedef enum { APP_SPATIAL_SOURCE_AWARE,APP_SPATIAL_MANUAL_FIRST,APP_SPATIAL_TEMPLATE } AppSpatialFormatMode;
+static bool source_format_spatial_apply(App *a,FormatRange range,unsigned mask,CellFormat value,AppSpatialFormatMode mode) {
+    bool manual_first=mode==APP_SPATIAL_MANUAL_FIRST;
     Worksheet *sheet=active_sheet(a); char *error=NULL; FormatSnapshot plan={0};
     SourceFormatCommandContext context={.book=&a->book,.primary=&a->analysis,.request_epoch=&a->request_id,
         .ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)};
     SourceFormatCommandTarget target;
-    if (!(manual_first ? workbook_prepare_manual_source_format(&context,a->book.active,&target,&error) :
-        workbook_prepare_source_aware_spatial_format(&context,a->book.active,&target,&error))) goto rejected;
+    bool prepared=mode==APP_SPATIAL_TEMPLATE ? workbook_prepare_template_format(&context,a->book.active,&target,&error) :
+        manual_first ? workbook_prepare_manual_source_format(&context,a->book.active,&target,&error) :
+        workbook_prepare_source_aware_spatial_format(&context,a->book.active,&target,&error);
+    if (!prepared) goto rejected;
     SourceFormatCommandPlan candidate={.formats={.scope_count=sheet->formats.scope_count}};
     size_t validation=0,staging=format_owned_bytes(&sheet->formats,false);
     /* Shared current-owner sizing plus explicit realloc/compaction peaks of
@@ -587,7 +591,8 @@ static bool source_format_spatial_apply(App *a,FormatRange range,unsigned mask,C
     size_t adopted=format_owned_bytes(&next,false);
     if (adopted==SIZE_MAX || !source_format_budget(a,&replacement,adopted,validation,0,0,0)) { format_snapshot_free(&plan); return false; }
     context.validation_reserved=validation;
-    SourceFormatCommandStatus result=manual_first ? workbook_apply_manual_source_format_recorded(&context,&target,&plan,NULL,&error).status :
+    SourceFormatCommandStatus result=mode==APP_SPATIAL_TEMPLATE ? workbook_apply_template_format_recorded(&context,&target,&plan,NULL,&error).status :
+        manual_first ? workbook_apply_manual_source_format_recorded(&context,&target,&plan,NULL,&error).status :
         workbook_apply_source_aware_spatial_format_recorded(&context,&target,&plan,NULL,&error).status;
     if (result!=SOURCE_FORMAT_COMMAND_APPLIED && result!=SOURCE_FORMAT_COMMAND_NOOP) goto rejected;
     free(error); return true;
