@@ -142,7 +142,7 @@ static bool after_matches(SheetLifecycleCommandContext c,const SheetLifecycleCom
     SheetLifecycleEntry entries[DX_MAX_SHEETS]; SheetLifecycleState current,target;
     if (sheet_lifecycle_from_workbook(b,entries,&current)!=SHEET_LIFECYCLE_OK || sheet_lifecycle_admit(p->view,current,false,&target)!=SHEET_LIFECYCLE_OK) return false;
     WorkbookHistoryResult latest=workbook_history_peek(b,false,NULL),redo=workbook_history_peek(b,true,NULL);
-    if (latest.status!=WORKBOOK_HISTORY_READY || !latest.lifecycle || latest.sheet_id!=p->target || latest.order<=p->undo.order || latest.order<=p->redo.order ||
+    if ((latest.status!=WORKBOOK_HISTORY_READY && latest.status!=WORKBOOK_HISTORY_LIMIT) || !latest.lifecycle || latest.sheet_id!=p->target || latest.order<=p->undo.order || latest.order<=p->redo.order ||
         latest.order<=p->branch || b->history_branch!=latest.order || redo.status!=WORKBOOK_HISTORY_EMPTY) return false;
     for (size_t i=0;i<b->count;i++) {
         size_t old=0; while (old<p->view.before.count && p->fences[old].id!=b->sheets[i].id) old++;

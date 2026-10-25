@@ -121,6 +121,30 @@ static void test_apply(void) {
     CHECK(workbook_history_peek(&book,false,NULL).order>oldest.order && !book.sheets[0].undo_actions_count);
     sheet_lifecycle_command_free(&p); drain(s,&book); CHECK(workbook_history_stream_free(&s,false)==HISTORY_STREAM_OK); workbook_free(&book); free(error);
 }
+static void test_last_valid_revision(void) {
+    for (unsigned operation=0;operation<4;operation++) for (unsigned recorded=0;recorded<2;recorded++) {
+        Workbook b; workbook_init(&b);
+        CHECK(workbook_add(&b,"First",&(Analysis){0},NULL) && workbook_add(&b,"Second",&(Analysis){0},NULL));
+        b.edit_session_id=900; b.sheets[0].edit_session_id=901; b.sheets[1].edit_session_id=902;
+        if (operation==SHEET_METADATA_SHOW) b.sheets[0].hidden=true;
+        b.command_revision=UINT64_MAX-1; b.sheet_high_water=UINT64_MAX;
+        uint64_t epoch=80,id=b.sheets[0].id,order=worksheet_history_high_water();
+        SheetLifecycleCommandContext c={&b,&epoch,SIZE_MAX,true,false,SIZE_MAX}; SheetLifecycleCommandPlan *plan=NULL;
+        SheetMetadataCommand command={(SheetMetadataOperation)operation,id,operation==SHEET_METADATA_REORDER ? b.sheets[1].id : 0,operation==SHEET_METADATA_RENAME ? "Last rename" : NULL};
+        CHECK(sheet_lifecycle_command_prepare(c,command,&plan,NULL)==SHEET_METADATA_READY);
+        WorkbookHistoryStream *s=recorded ? stream(&b,DX_HISTORY_STREAM_DEFAULT_BYTES) : NULL;
+        WorkbookHistorySheetLifecycleRecorder recorder=workbook_history_stream_sheet_lifecycle_recorder(s);
+        CHECK(sheet_lifecycle_command_apply(c,plan,recorded ? &recorder : NULL,NULL)==SHEET_METADATA_APPLIED);
+        CHECK(b.command_revision==UINT64_MAX && b.sheet_high_water==UINT64_MAX && b.count==2 && b.dirty && worksheet_history_high_water()==order+1);
+        WorkbookHistoryResult selected=workbook_history_peek(&b,false,NULL);
+        CHECK(selected.status==WORKBOOK_HISTORY_LIMIT && selected.lifecycle && selected.sheet_id==id && selected.order==order+1 && b.history_branch==selected.order);
+        CHECK(!b.sheets[0].undo_actions_count && !b.sheets[1].undo_actions_count && !b.sheets[0].cells.undo_count && !b.sheets[1].cells.undo_count);
+        Workbook before=b; CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_LIMIT && !memcmp(&b,&before,sizeof(b)));
+        sheet_lifecycle_command_free(&plan);
+        if (recorded) { drain(s,&b); CHECK(workbook_history_stream_free(&s,false)==HISTORY_STREAM_OK); }
+        workbook_free(&b);
+    }
+}
 int main(void) {
     Workbook book; workbook_init(&book); char *error=NULL;
     CHECK(workbook_add(&book,"First",&(Analysis){0},&error)); CHECK(workbook_add(&book,"Second",&(Analysis){0},&error));
@@ -226,6 +250,6 @@ int main(void) {
     CHECK(sheet_lifecycle_command_prepare(context,rename,&plan,&error)==SHEET_METADATA_INVALID && !plan); clear(&error); book.sheets[0].history_last=0;
     CHECK(!memcmp(&book,&original,sizeof(book)) && !memcmp(book.sheets,originals,sizeof(originals)));
     workbook_free(&book); sheet_lifecycle_command_free(&plan); sheet_lifecycle_command_free(NULL);
-    test_apply();
+    test_last_valid_revision(); test_apply();
     printf("PASS: %u workbook metadata command checks; actual session adoption and family5 publication\n",checks); return 0;
 }
