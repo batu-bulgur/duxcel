@@ -10,15 +10,15 @@ typedef struct { uint64_t id; const unsigned char *name; size_t bytes; bool hidd
 static uint64_t number(const unsigned char *p,unsigned n) { uint64_t v=0; for (unsigned i=0;i<n;i++) v|=(uint64_t)p[i]<<(8*i); return v; }
 static bool same(Row a,Row b) { return a.id==b.id && a.hidden==b.hidden && a.bytes==b.bytes && !memcmp(a.name,b.name,a.bytes); }
 /* Called only after the existing strict DXSL preflight proves every bound. */
-static bool metadata_effect(WorkbookSheetPayloadView v,size_t count) {
-    Row sides[2][DX_MAX_SHEETS]; const unsigned char *p=(const unsigned char *)v.data+DX_SHEET_LIFECYCLE_HEADER_BYTES;
+static bool metadata_effect(const void *data,uint64_t sheet,WorkbookSheetOperation operation,size_t count) {
+    Row sides[2][DX_MAX_SHEETS]; const unsigned char *p=(const unsigned char *)data+DX_SHEET_LIFECYCLE_HEADER_BYTES;
     for (unsigned side=0;side<2;side++) for (size_t i=0;i<count;i++) {
         sides[side][i]=(Row){number(p,8),p+16,(size_t)number(p+12,4),number(p+8,4)!=0}; p+=16+sides[side][i].bytes;
     }
     size_t before=count,after=count;
-    for (size_t i=0;i<count;i++) { if (sides[0][i].id==v.sheet) before=i; if (sides[1][i].id==v.sheet) after=i; }
+    for (size_t i=0;i<count;i++) { if (sides[0][i].id==sheet) before=i; if (sides[1][i].id==sheet) after=i; }
     if (before==count || after==count) return false;
-    if (v.operation==SHEET_REORDER) {
+    if (operation==SHEET_REORDER) {
         if (before==after || !same(sides[0][before],sides[1][after])) return false;
         for (size_t i=0,j=0;i<count;i++) if (i!=before) { if (j==after) j++; if (!same(sides[0][i],sides[1][j++])) return false; }
         return true;
@@ -26,9 +26,16 @@ static bool metadata_effect(WorkbookSheetPayloadView v,size_t count) {
     if (before!=after) return false;
     for (size_t i=0;i<count;i++) if (i!=before && !same(sides[0][i],sides[1][i])) return false;
     Row a=sides[0][before],b=sides[1][after];
-    if (v.operation==SHEET_RENAME) return a.hidden==b.hidden && (a.bytes!=b.bytes || memcmp(a.name,b.name,a.bytes));
-    if (v.operation!=SHEET_HIDE && v.operation!=SHEET_SHOW) return false;
-    return a.bytes==b.bytes && !memcmp(a.name,b.name,a.bytes) && a.hidden==(v.operation==SHEET_SHOW) && b.hidden==(v.operation==SHEET_HIDE);
+    if (operation==SHEET_RENAME) return a.hidden==b.hidden && (a.bytes!=b.bytes || memcmp(a.name,b.name,a.bytes));
+    if (operation!=SHEET_HIDE && operation!=SHEET_SHOW) return false;
+    return a.bytes==b.bytes && !memcmp(a.name,b.name,a.bytes) && a.hidden==(operation==SHEET_SHOW) && b.hidden==(operation==SHEET_HIDE);
+}
+WorkbookSheetPayloadStatus workbook_sheet_metadata_preflight(const SheetLifecyclePacket *packet,uint64_t sheet,WorkbookSheetOperation operation,SheetLifecycleInfo *out) {
+    if (!packet || !out || !sheet || operation<SHEET_RENAME || operation>SHEET_SHOW) return SHEET_PAYLOAD_INVALID;
+    SheetLifecycleInfo info; SheetLifecycleStatus status=sheet_lifecycle_preflight(packet->data,packet->bytes,&info);
+    if (status!=SHEET_LIFECYCLE_OK) return status==SHEET_LIFECYCLE_UNSUPPORTED ? SHEET_PAYLOAD_UNSUPPORTED : SHEET_PAYLOAD_INVALID;
+    if (!metadata_effect(packet->data,sheet,operation,info.count)) return SHEET_PAYLOAD_INVALID;
+    *out=info; return SHEET_PAYLOAD_OK;
 }
 static bool frame(WorkbookSheetPayloadView v) {
     const WorkbookHistoryEventInfo *e=v.event;
@@ -45,8 +52,8 @@ WorkbookSheetPayloadStatus workbook_sheet_payload_preflight(WorkbookSheetPayload
     if (!frame(v)) return SHEET_PAYLOAD_INVALID;
     WorkbookSheetPayloadInfo info={.document={v.event->owner.document_high,v.event->owner.document_low},.sheet=v.sheet,.operation=v.operation,.bytes=v.bytes}; size_t owned;
     if (v.event->encoding==DX_HISTORY_SHEET_LIFECYCLE_PROFILE) {
-        SheetLifecycleInfo metadata; SheetLifecycleStatus status=sheet_lifecycle_preflight(v.data,v.bytes,&metadata);
-        if (status!=SHEET_LIFECYCLE_OK || v.operation<SHEET_RENAME || !metadata_effect(v,metadata.count)) return status==SHEET_LIFECYCLE_UNSUPPORTED ? SHEET_PAYLOAD_UNSUPPORTED : SHEET_PAYLOAD_INVALID;
+        SheetLifecycleInfo metadata; SheetLifecyclePacket packet={(void *)v.data,v.bytes};
+        WorkbookSheetPayloadStatus status=workbook_sheet_metadata_preflight(&packet,v.sheet,v.operation,&metadata); if (status) return status;
         const unsigned char *p=v.data;
         if (number(p+8,8)!=info.document.high || number(p+16,8)!=info.document.low) return SHEET_PAYLOAD_INVALID;
         info.kind=SHEET_PAYLOAD_METADATA; owned=metadata.owned;

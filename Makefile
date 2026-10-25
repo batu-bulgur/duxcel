@@ -2377,3 +2377,14 @@ build/tests/test_sheet_history_payload: $(SHEET_HISTORY_PAYLOAD_OBJECTS) build/w
 build/tests/test_sheet_history_payload-debug: $(SHEET_HISTORY_PAYLOAD_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_HISTORY_PAYLOAD_OBJECTS:.o=.d) $(SHEET_HISTORY_PAYLOAD_SAN_OBJECTS:.o=.d)
+
+# Current model-owned metadata replay shares the exact family5 effect classifier.
+SHEET_METADATA_REPLAY_SRC = $(filter-out tests/test_sheet_history_payload.c,$(SHEET_HISTORY_PAYLOAD_SRC)) src/workbook/sheet_metadata_replay.c tests/test_sheet_metadata_replay.c
+SHEET_METADATA_REPLAY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_METADATA_REPLAY_SRC))))
+SHEET_METADATA_REPLAY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_METADATA_REPLAY_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_metadata_replay build/tests/test_sheet_metadata_replay-debug
+build/tests/test_sheet_metadata_replay: $(SHEET_METADATA_REPLAY_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_metadata_replay-debug: $(SHEET_METADATA_REPLAY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_METADATA_REPLAY_OBJECTS:.o=.d) $(SHEET_METADATA_REPLAY_SAN_OBJECTS:.o=.d)

@@ -36,6 +36,9 @@ typedef enum { SHEET_PAYLOAD_OK,SHEET_PAYLOAD_INVALID,SHEET_PAYLOAD_UNSUPPORTED,
    allocation and atomically replaces old output only on success. Existing input,
    prior output and live graphs remain separate coexistence charges.
    No new envelope wire, schema fallback, writer, replay or App activation. */
+/* Shared current metadata effect proof for genuine session owners that have no
+   stream frame. Never manufacture an envelope merely to reuse dispatch. */
+WorkbookSheetPayloadStatus workbook_sheet_metadata_preflight(const SheetLifecyclePacket *packet,uint64_t sheet,WorkbookSheetOperation operation,SheetLifecycleInfo *out);
 WorkbookSheetPayloadStatus workbook_sheet_payload_preflight(WorkbookSheetPayloadView view,WorkbookSheetPayloadInfo *out);
 WorkbookSheetPayloadStatus workbook_sheet_payload_validate(WorkbookSheetPayloadView view,size_t reserved,WorkbookSheetPayloadInfo *out);
 WorkbookSheetPayloadStatus workbook_sheet_payload_decode(WorkbookSheetPayloadView view,size_t reserved,WorkbookSheetPayload **out);

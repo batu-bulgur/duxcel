@@ -29,6 +29,7 @@ FAST_MODULES = (
     "source_dependency_admission",
     "source_versions_admission",
     "primary_source_draft",
+    "sheet_metadata_replay",
     "sheet_history_payload",
     "sheet_topology_replay",
     "sheet_topology_duplicate",
