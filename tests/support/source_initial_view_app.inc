@@ -5,6 +5,7 @@ static int initial_view_result;
 static uint64_t initial_view_revision,initial_view_order,initial_view_high,initial_view_old_sheet,initial_view_new_sheet;
 static size_t initial_view_count,initial_view_capacity,initial_view_old_columns;
 static const Cell *initial_view_old_cells;
+static float initial_view_old_widths[56];
 static const void *initial_view_packet_owner,*initial_view_packet_data;
 static size_t initial_view_packet_bytes;
 static const char *initial_view_saved="build/tests/generated/source-initial-view.dxls";
@@ -14,6 +15,16 @@ static bool initial_view_current(const App *a) {
     return a->page.column_count==40 && a->page.total==3 && s->view.column_count==56 && a->grid.width_count==56 &&
         s->view.widths[0]==190 && s->view.widths[39]==128 && s->view.widths[55]==96 && a->grid.widths[0]==190 && a->grid.widths[55]==96 &&
         s->view.canvas_zoom==1.5f && a->grid.zoom==1.5f && !s->view.col && !a->grid.col && !s->view.horizontal && !a->grid.horizontal;
+}
+/* Far navigation may add unnamed default-width cache columns. Preserve the
+   complete authored prefix; representation growth is not a width action. */
+static bool initial_view_old_preserved(const Worksheet *sheet) {
+    const SheetView *view=&sheet->view;
+    if (!view->widths || view->column_count<initial_view_old_columns || view->col!=9000) return false;
+    for (size_t i=0;i<initial_view_old_columns;i++) if (view->widths[i]!=initial_view_old_widths[i]) return false;
+    for (size_t i=initial_view_old_columns;i<view->column_count;i++)
+        if (view->widths[i]!=96 || (view->columns && view->columns[i] && *view->columns[i])) return false;
+    return true;
 }
 static void initial_view_hold_prepared_stages(App *a) {
     QueryReply *reply=a->primary_source_reply; PrimarySourceDraftContext c=app_primary_source_context(a);
@@ -47,6 +58,8 @@ static void source_initial_view_test_frame(AppSession *session) {
         /* Reproject the committed model after the synthetic drag proposal. */
         a->grid.widths[0]=prior_width; project_sheet_widths(a);
         initial_view_capacity=a->grid.width_count; initial_view_old_columns=s->view.column_count;
+        INITIAL_VIEW_CHECK(initial_view_old_columns==56);
+        memcpy(initial_view_old_widths,s->view.widths,sizeof(initial_view_old_widths));
         a->grid.zoom=1.5f; grid_select_cell(&a->grid,0,9000,false); a->grid.horizontal=a->grid.offsets[8998];
         initial_view_revision=a->book.command_revision; initial_view_order=worksheet_history_high_water(); initial_view_high=a->book.sheet_high_water;
         initial_view_count=a->book.count; initial_view_old_sheet=s->id; initial_view_old_cells=a->page.cells;
@@ -63,7 +76,7 @@ static void source_initial_view_test_frame(AppSession *session) {
         INITIAL_VIEW_CHECK(a->book.command_revision==initial_view_revision+1 && worksheet_history_high_water()==initial_view_order+1);
         INITIAL_VIEW_CHECK(!s->width_history && !s->width_revision && !s->undo_actions_count && !s->redo_actions_count);
         size_t packet_bytes=0; INITIAL_VIEW_CHECK(workbook_lifecycle_format_usage(&a->book,&packet_bytes)==FORMAT_BUDGET_OK && packet_bytes>DX_SHEET_TOPOLOGY_HEADER_BYTES);
-        INITIAL_VIEW_CHECK(a->book.sheets[0].id==initial_view_old_sheet && a->book.sheets[0].view.widths[0]==333.5f && a->book.sheets[0].view.col==9000 && a->book.sheets[0].view.column_count==initial_view_old_columns);
+        INITIAL_VIEW_CHECK(a->book.sheets[0].id==initial_view_old_sheet && initial_view_old_preserved(&a->book.sheets[0]));
         initial_view_new_sheet=s->id;
         WorkbookLifecyclePresence created={0};
         INITIAL_VIEW_CHECK(workbook_lifecycle_presence(&a->book,false,&created) && created.operation==SHEET_CREATE && created.sheet==s->id && created.packet);
@@ -72,7 +85,7 @@ static void source_initial_view_test_frame(AppSession *session) {
     case 3: {
         INITIAL_VIEW_CHECK(a->book.count==initial_view_count && s->id==initial_view_old_sheet && a->book.sheet_high_water==initial_view_high+1);
         INITIAL_VIEW_CHECK(a->book.command_revision==initial_view_revision+2 && worksheet_history_high_water()==initial_view_order+1);
-        INITIAL_VIEW_CHECK(s->view.widths[0]==333.5f && s->view.col==9000 && s->view.column_count==initial_view_old_columns && a->grid.widths[0]==333.5f && a->grid.col==9000);
+        INITIAL_VIEW_CHECK(initial_view_old_preserved(s) && a->grid.widths[0]==333.5f && a->grid.col==9000);
         WorkbookLifecyclePresence detached={0};
         INITIAL_VIEW_CHECK(workbook_lifecycle_presence(&a->book,true,&detached) && detached.operation==SHEET_CREATE && detached.detached && detached.sheet==initial_view_new_sheet);
         INITIAL_VIEW_CHECK(detached.owner==initial_view_packet_owner && detached.packet && detached.packet->data==initial_view_packet_data && detached.packet->bytes==initial_view_packet_bytes);
@@ -94,7 +107,7 @@ static void source_initial_view_test_frame(AppSession *session) {
         workspace_job(a,JOB_LOAD,initial_view_saved); INITIAL_VIEW_CHECK(a->io_busy); break;
     case 7:
         INITIAL_VIEW_CHECK(initial_view_current(a) && s->id==initial_view_new_sheet && a->book.sheets[0].id==initial_view_old_sheet);
-        INITIAL_VIEW_CHECK(a->book.sheets[0].view.widths[0]==333.5f && a->book.sheets[0].view.col==9000 && a->book.sheets[0].view.column_count==initial_view_old_columns);
+        INITIAL_VIEW_CHECK(initial_view_old_preserved(&a->book.sheets[0]));
         INITIAL_VIEW_CHECK(s->view.widths[0]==190 && !strcmp(s->view.columns[0],"Moment") && !strcmp(s->view.columns[39],"Field39") && !*s->view.columns[55]);
         initial_view_result=1; printf("PASS: native initial source view workflow (8 stages, %u checks)\n",initial_view_checks); return;
     }
