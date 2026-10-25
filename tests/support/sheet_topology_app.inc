@@ -21,7 +21,7 @@ static void sheet_topology_test_frame(AppSession *session) {
     case 1:
         TOPOLOGY_GUI_CHECK(!strcmp(cells_get(&s->cells,20,200),"Topology note") && s->view.widths[200]==1199.75f);
         grid_ensure_columns(&a->grid,a->grid.width_count+52); /* Representation-only outgoing capacity. */
-        if (!topology_menu(a,topology_source,0)) return; break;
+        if (!topology_menu(a,topology_source,1)) return; break;
     case 2: {
         TOPOLOGY_GUI_CHECK(a->book.count==2 && s->id!=topology_source && !strcmp(cells_get(&s->cells,20,200),"Topology note") && a->grid.widths[200]==1199.75f);
         topology_copy=s->id; WorkbookLifecyclePresence selected;
@@ -61,7 +61,7 @@ static void sheet_topology_test_frame(AppSession *session) {
     }
     case 10:
         TOPOLOGY_GUI_CHECK(a->book.count==2 && s->id==topology_offline && a->fetch_failed && !a->analysis.table);
-        if (!topology_menu(a,topology_offline,0)) return; break;
+        if (!topology_menu(a,topology_offline,1)) return; break;
     case 11: {
         WorkbookLifecyclePresence selected;
         TOPOLOGY_GUI_CHECK(a->book.count==3 && s->id!=topology_offline && a->fetch_failed && !a->analysis.table);
