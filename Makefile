@@ -1066,6 +1066,18 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_history_payload build/tests/tes
 PARALLEL_NATIVE_GOALS += build/tests/test_history_event_slot build/tests/test_history_event_slot-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_source_history_slot build/tests/test_source_history_slot-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_cell_history_payload build/tests/test_cell_history_payload-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_event build/tests/test_sheet_topology_event-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_history_sheet_topology build/tests/test_history_sheet_topology-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_remove build/tests/test_sheet_topology_remove-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_duplicate build/tests/test_sheet_topology_duplicate-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_replay build/tests/test_sheet_topology_replay-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology-gui
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_payload build/tests/test_sheet_history_payload-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_metadata_replay build/tests/test_sheet_metadata_replay-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_session_chronology build/tests/test_sheet_session_chronology-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_slot build/tests/test_sheet_history_slot-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_batch build/tests/test_sheet_history_batch-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_applicability build/tests/test_sheet_history_applicability-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2317,7 +2329,6 @@ build/tests/test_cell_history_payload-debug: $(CELL_HISTORY_PAYLOAD_SAN_OBJECTS)
 SHEET_TOPOLOGY_SRC = $(filter-out tests/test_sheet_presence_asset.c,$(SHEET_PRESENCE_SRC)) src/workbook/sheet_lifecycle.c src/workbook/sheet_topology_event.c tests/test_sheet_topology_event.c
 SHEET_TOPOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_SRC))))
 SHEET_TOPOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_event build/tests/test_sheet_topology_event-debug
 build/tests/test_sheet_topology_event: $(SHEET_TOPOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_topology_event-debug: $(SHEET_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2327,7 +2338,6 @@ build/tests/test_sheet_topology_event-debug: $(SHEET_TOPOLOGY_SAN_OBJECTS) build
 HISTORY_TOPOLOGY_SRC = $(filter-out tests/test_sheet_topology_event.c,$(SHEET_TOPOLOGY_SRC)) src/workbook/history_stream.c src/workbook/cell_delta.c src/workbook/cell_delta_codec.c src/workbook/history_sheet_lifecycle.c src/workbook/history_sheet_topology.c tests/test_history_sheet_topology.c
 HISTORY_TOPOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(HISTORY_TOPOLOGY_SRC))))
 HISTORY_TOPOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(HISTORY_TOPOLOGY_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_history_sheet_topology build/tests/test_history_sheet_topology-debug
 build/tests/test_history_sheet_topology: $(HISTORY_TOPOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_history_sheet_topology-debug: $(HISTORY_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2337,7 +2347,6 @@ build/tests/test_history_sheet_topology-debug: $(HISTORY_TOPOLOGY_SAN_OBJECTS) b
 SHEET_TOPOLOGY_REMOVE_SRC = $(filter-out src/workbook/history_sheet_lifecycle.c tests/test_history_sheet_topology.c,$(HISTORY_TOPOLOGY_SRC)) src/workbook/cell_command.c src/workbook/definition_baseline.c src/workbook/sheet_topology_remove.c tests/test_sheet_topology_remove.c
 SHEET_TOPOLOGY_REMOVE_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REMOVE_SRC))))
 SHEET_TOPOLOGY_REMOVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REMOVE_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_remove build/tests/test_sheet_topology_remove-debug
 build/tests/test_sheet_topology_remove: $(SHEET_TOPOLOGY_REMOVE_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_topology_remove-debug: $(SHEET_TOPOLOGY_REMOVE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2348,7 +2357,6 @@ build/tests/test_sheet_topology_remove-debug: $(SHEET_TOPOLOGY_REMOVE_SAN_OBJECT
 SHEET_TOPOLOGY_DUPLICATE_SRC = $(filter-out src/workbook/sheet_topology_remove.c tests/test_sheet_topology_remove.c,$(SHEET_TOPOLOGY_REMOVE_SRC)) src/workbook/sheet_topology_duplicate.c tests/test_sheet_topology_duplicate.c
 SHEET_TOPOLOGY_DUPLICATE_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_DUPLICATE_SRC))))
 SHEET_TOPOLOGY_DUPLICATE_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_DUPLICATE_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_duplicate build/tests/test_sheet_topology_duplicate-debug
 build/tests/test_sheet_topology_duplicate: $(SHEET_TOPOLOGY_DUPLICATE_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_topology_duplicate-debug: $(SHEET_TOPOLOGY_DUPLICATE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2359,20 +2367,17 @@ build/tests/test_sheet_topology_duplicate-debug: $(SHEET_TOPOLOGY_DUPLICATE_SAN_
 SHEET_TOPOLOGY_REPLAY_SRC = src/workbook/source_format_command.c src/workbook/definition_event.c $(filter-out tests/test_sheet_topology_duplicate.c,$(SHEET_TOPOLOGY_DUPLICATE_SRC)) src/workbook/sheet_topology_remove.c src/workbook/sheet_topology_replay.c tests/test_sheet_topology_replay.c
 SHEET_TOPOLOGY_REPLAY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REPLAY_SRC))))
 SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_REPLAY_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_replay build/tests/test_sheet_topology_replay-debug
 build/tests/test_sheet_topology_replay: $(SHEET_TOPOLOGY_REPLAY_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_topology_replay-debug: $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_TOPOLOGY_REPLAY_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS:.o=.d)
 
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology-gui
 
 # Current family5 dispatch reuses the real stream and closed metadata/topology codecs.
 SHEET_HISTORY_PAYLOAD_SRC = src/workbook/history_event_frame.c $(filter-out tests/test_sheet_topology_replay.c,$(SHEET_TOPOLOGY_REPLAY_SRC)) src/workbook/history_sheet_lifecycle.c src/workbook/sheet_lifecycle_command.c src/workbook/sheet_history_payload.c tests/test_sheet_history_payload.c
 SHEET_HISTORY_PAYLOAD_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_PAYLOAD_SRC))))
 SHEET_HISTORY_PAYLOAD_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_PAYLOAD_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_payload build/tests/test_sheet_history_payload-debug
 build/tests/test_sheet_history_payload: $(SHEET_HISTORY_PAYLOAD_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_history_payload-debug: $(SHEET_HISTORY_PAYLOAD_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2383,7 +2388,6 @@ build/tests/test_sheet_history_payload-debug: $(SHEET_HISTORY_PAYLOAD_SAN_OBJECT
 SHEET_METADATA_REPLAY_SRC = $(filter-out tests/test_sheet_history_payload.c,$(SHEET_HISTORY_PAYLOAD_SRC)) src/workbook/sheet_metadata_replay.c tests/test_sheet_metadata_replay.c
 SHEET_METADATA_REPLAY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_METADATA_REPLAY_SRC))))
 SHEET_METADATA_REPLAY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_METADATA_REPLAY_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_metadata_replay build/tests/test_sheet_metadata_replay-debug
 build/tests/test_sheet_metadata_replay: $(SHEET_METADATA_REPLAY_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_metadata_replay-debug: $(SHEET_METADATA_REPLAY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2394,7 +2398,6 @@ build/tests/test_sheet_metadata_replay-debug: $(SHEET_METADATA_REPLAY_SAN_OBJECT
 SHEET_SESSION_CHRONOLOGY_SRC = $(filter-out tests/test_sheet_metadata_replay.c,$(SHEET_METADATA_REPLAY_SRC)) src/workbook/workbook_width_command.c src/workbook/range_event.c src/workbook/history_range.c src/workbook/definition_event.c tests/test_sheet_session_chronology.c
 SHEET_SESSION_CHRONOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_SESSION_CHRONOLOGY_SRC))))
 SHEET_SESSION_CHRONOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_SESSION_CHRONOLOGY_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_session_chronology build/tests/test_sheet_session_chronology-debug
 build/tests/test_sheet_session_chronology: $(SHEET_SESSION_CHRONOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_session_chronology-debug: $(SHEET_SESSION_CHRONOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2405,7 +2408,6 @@ build/tests/test_sheet_session_chronology-debug: $(SHEET_SESSION_CHRONOLOGY_SAN_
 SHEET_HISTORY_SLOT_SRC = src/workbook/history_event_slot.c $(filter-out tests/test_sheet_history_payload.c,$(SHEET_HISTORY_PAYLOAD_SRC)) src/workbook/history_path.c src/workbook/history_anchors.c src/workbook/history_window.c src/workbook/version_index.c src/workbook/sheet_history_slot.c tests/test_sheet_history_slot.c
 SHEET_HISTORY_SLOT_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_SLOT_SRC))))
 SHEET_HISTORY_SLOT_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_SLOT_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_slot build/tests/test_sheet_history_slot-debug
 build/tests/test_sheet_history_slot: $(SHEET_HISTORY_SLOT_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_history_slot-debug: $(SHEET_HISTORY_SLOT_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2415,7 +2417,6 @@ build/tests/test_sheet_history_slot-debug: $(SHEET_HISTORY_SLOT_SAN_OBJECTS) bui
 SHEET_HISTORY_BATCH_SRC = $(filter-out tests/test_sheet_history_slot.c,$(SHEET_HISTORY_SLOT_SRC)) src/workbook/sheet_history_batch.c tests/test_sheet_history_batch.c
 SHEET_HISTORY_BATCH_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_BATCH_SRC))))
 SHEET_HISTORY_BATCH_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_BATCH_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_batch build/tests/test_sheet_history_batch-debug
 build/tests/test_sheet_history_batch: $(SHEET_HISTORY_BATCH_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_history_batch-debug: $(SHEET_HISTORY_BATCH_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
@@ -2424,7 +2425,6 @@ build/tests/test_sheet_history_batch-debug: $(SHEET_HISTORY_BATCH_SAN_OBJECTS) b
 SHEET_HISTORY_APPLICABILITY_SRC = $(filter-out tests/test_sheet_history_payload.c,$(SHEET_HISTORY_PAYLOAD_SRC)) src/workbook/sheet_history_applicability.c tests/test_sheet_history_applicability.c
 SHEET_HISTORY_APPLICABILITY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_APPLICABILITY_SRC))))
 SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_APPLICABILITY_SRC))))
-PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_applicability build/tests/test_sheet_history_applicability-debug
 build/tests/test_sheet_history_applicability: $(SHEET_HISTORY_APPLICABILITY_OBJECTS) build/web-tests/platform-model.o | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
 build/tests/test_sheet_history_applicability-debug: $(SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
