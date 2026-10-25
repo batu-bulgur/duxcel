@@ -72,7 +72,7 @@ static void fences(bool table) {
         if (mode==0) r.request++;
         if (mode==1) r.revision++;
         if (mode==2) request++;
-        if (mode==3) epoch++;
+        if (mode==3) { epoch++; if (table) r.revision++; } /* Actual route epoch, not captured primary epoch. */
         if (mode==4) b.command_revision++;
         if (mode==5) c.ready=false;
         if (mode==6) c.read_only=true;
@@ -107,7 +107,103 @@ static void explicit_schema(void) {
     CHECK(definition_origin_complete(&c,p,&r,info.owned,NULL)==DEFINITION_ORIGIN_APPLIED && !strcmp(b.sheets[0].analysis.schema,"chosen"));
     definition_origin_free(&p); analysis_free(&resolved); workbook_free(&b);
 }
+static void derived_growth(void) {
+    Workbook b=book(true,true,true); Worksheet *s=b.sheets;
+    CHECK(pivot_assign(&s->objects.items[1].pivot,PIVOT_FILTERS,"Id",AGG_SUM,NULL));
+    PivotField *field=&s->objects.items[1].pivot.fields[PIVOT_FILTERS][0]; field->filter=FILTER_GREATER; field->value=dx_strdup("1");
+    s->objects.items[1].col=12;
+    Analysis second={.kind=SOURCE_DATABASE,.path="/second.duckdb"}; CHECK(objects_add_table(&s->objects,100,2,"Second",&second,NULL)==2);
+    field=&s->objects.items[1].pivot.fields[PIVOT_FILTERS][0];
+    uint64_t request=10,epoch=20; DefinitionOriginContext c={&b,&s->analysis,&request,&epoch,SIZE_MAX,true,false}; DefinitionOrigin *p=begin(&c);
+    uint64_t command=b.command_revision,branch=b.history_branch,high=s->objects.next_id; size_t undo=s->undo_actions_count,redo=s->redo_actions_count;
+    s->objects.items[0].rows=60; s->objects.items[0].columns=7; s->objects.items[0].revision++;
+    s->objects.items[1].rows=20; s->objects.items[1].columns=8; s->objects.items[1].revision++;
+    s->objects.items[0].source.filter_number=(NumberType){NUM_DECIMAL,38,2}; field->number=(NumberType){NUM_U64,0,0}; request++; epoch++;
+    size_t scratch=0; CHECK(definition_origin_scratch(&c,p,&scratch,NULL)==DEFINITION_ORIGIN_READY);
+    Analysis resolved={0}; DefinitionOriginReply r=reply(&c,true,true,&resolved); DefinitionOriginCompletionInfo info={0};
+    CHECK(definition_origin_completion_measure(&c,p,&r,&info,NULL)==DEFINITION_ORIGIN_READY);
+    CHECK(definition_origin_complete(&c,p,&r,info.owned-1,NULL)==DEFINITION_ORIGIN_LIMIT && !s->objects.items[0].source.table && s->objects.items[0].rows==60);
+    CHECK(definition_origin_complete(&c,p,&r,info.owned,NULL)==DEFINITION_ORIGIN_APPLIED);
+    analysis_free(&resolved); s->objects.items[0].rows=80; s->objects.items[1].rows=30;
+    s->objects.items[0].source.filter_number=(NumberType){NUM_DECIMAL,20,4}; field->number=(NumberType){NUM_DECIMAL,20,2};
+    s->objects.items[2].rows=12; s->objects.items[2].revision++; request++; epoch++;
+    resolved=analysis_copy(&s->objects.items[2].source); resolved.schema=dx_strdup("main"); resolved.table=dx_strdup("beta");
+    r=(DefinitionOriginReply){request,s->objects.items[2].id,s->objects.items[2].id,s->objects.items[2].revision,&resolved};
+    CHECK(definition_origin_completion_measure(&c,p,&r,&info,NULL)==DEFINITION_ORIGIN_READY);
+    CHECK(definition_origin_complete(&c,p,&r,info.owned,NULL)==DEFINITION_ORIGIN_APPLIED);
+    CHECK(definition_origin_seal(&c,p,0,NULL)==DEFINITION_ORIGIN_LIMIT && !definition_origin_assets(p).objects);
+    s->objects.items[1].columns=10; request++; epoch++;
+    CHECK(definition_origin_seal(&c,p,SIZE_MAX,NULL)==DEFINITION_ORIGIN_APPLIED);
+    DefinitionOriginAssets assets=definition_origin_assets(p); ObjectsAsset decoded={0};
+    CHECK(objects_asset_decode(assets.objects,assets.object_bytes,SIZE_MAX,&decoded)==OBJECTS_ASSET_OK && decoded.objects.items[0].rows==80 && decoded.objects.items[1].rows==30 && decoded.objects.items[1].columns==10 && decoded.objects.items[2].rows==12);
+    unsigned char *frozen=dx_alloc(assets.object_bytes); memcpy(frozen,assets.objects,assets.object_bytes);
+    s->objects.items[0].rows=90; s->objects.items[1].columns=11; field->number=(NumberType){NUM_I128,0,0};
+    CHECK(!memcmp(frozen,assets.objects,assets.object_bytes)); free(frozen);
+    ObjectSnapshot current={s->objects.items,s->objects.count};
+    CHECK(definition_objects_equal(&decoded.objects,&current));
+    /* Existing codecs retain exact snapshot geometry although authored equality
+       ignores non-Chart result growth. No production DXDE replay consumes this
+       pair today: future retained replay cannot require byte-identical layout. */
+    SheetObject after_items[DX_MAX_OBJECTS]; memcpy(after_items,current.items,current.count*sizeof(*after_items)); after_items[0].name="Renamed after growth";
+    ObjectSnapshot after={after_items,current.count};
+    DefinitionEventView view={.sheet=s->id,.object_high_water=s->objects.next_id,.effects=4,.before={NULL,&current},.after={NULL,&after},.sources=&s->source_versions};
+    DefinitionEventPacket packet={0}; DefinitionEvent event={0};
+    CHECK(definition_event_capture(view,SIZE_MAX,&packet)==DEFINITION_EVENT_OK);
+    CHECK(definition_event_decode(packet.data,packet.bytes,SIZE_MAX,&event)==DEFINITION_EVENT_OK && event.before_objects.objects.items[0].rows==90 && decoded.objects.items[0].rows==80);
+    CHECK(definition_objects_equal(&decoded.objects,&event.before_objects.objects));
+    definition_event_free(&event); definition_event_packet_free(&packet); objects_asset_free(&decoded);
+    CHECK(b.command_revision==command && b.history_branch==branch && s->objects.next_id==high && s->undo_actions_count==undo && s->redo_actions_count==redo);
+    analysis_free(&resolved); definition_origin_free(&p); workbook_free(&b);
+}
+static void authored_and_shape(void) {
+    for (unsigned mode=0;mode<15;mode++) {
+        Workbook b=book(true,true,true); Worksheet *s=b.sheets; CHECK(objects_add_chart(&s->objects,80,8,"Chart",&(PivotDefinition){0},NULL)==2);
+        uint64_t request=3,epoch=4; DefinitionOriginContext c={&b,&s->analysis,&request,&epoch,SIZE_MAX,true,false}; DefinitionOrigin *p=begin(&c);
+        if (mode==0) s->objects.items[0].row++;
+        if (mode==1) s->objects.items[0].col++;
+        if (mode==2) s->objects.items[0].id++;
+        if (mode==3) s->objects.items[2].rows++;
+        if (mode==4) s->objects.items[2].columns++;
+        if (mode==5) s->objects.items[1].source_id=0;
+        if (mode==6) s->objects.items[0].source.unique_rows=true;
+        if (mode==7) s->objects.items[0].source.filter_op=FILTER_NOT_IN;
+        if (mode==8) s->objects.items[0].source.source_version++;
+        if (mode==9) s->objects.items[0].rows=0;
+        if (mode==10) s->objects.items[1].columns=16385;
+        if (mode==11) s->objects.items[0].source.filter_number=(NumberType){NUM_DECIMAL,39,0};
+        if (mode==12) s->objects.items[1].pivot.fields[0][0].number=(NumberType){NUM_FLOAT,1,0};
+        if (mode==13) s->analysis.filter_number=(NumberType){NUM_DECIMAL,2,3};
+        if (mode==14) s->objects.items[0].rows=40;
+        size_t scratch=123; DefinitionOriginStatus expected=mode>=9 ? DEFINITION_ORIGIN_INVALID : DEFINITION_ORIGIN_STALE;
+        CHECK(definition_origin_scratch(&c,p,&scratch,NULL)==expected && scratch==123);
+        CHECK(definition_origin_seal(&c,p,SIZE_MAX,NULL)==expected && !definition_origin_assets(p).primary && definition_origin_state(p).epoch==1);
+        definition_origin_free(&p); workbook_free(&b);
+    }
+}
+static void borrowed_lifetimes(void) {
+    for (unsigned mode=0;mode<4;mode++) {
+        Workbook b=book(true,true,false); Worksheet *s=b.sheets; uint64_t request=3,epoch=4;
+        DefinitionOriginContext c={&b,&s->analysis,&request,&epoch,SIZE_MAX,true,false}; DefinitionOrigin *p=begin(&c);
+        if (mode==0) { char *old=s->objects.items[0].name; s->objects.items[0].name=dx_strdup(old); free(old); }
+        if (mode==1) { char *old=s->objects.items[0].source.path; s->objects.items[0].source.path=dx_strdup(old); free(old); }
+        if (mode==2) { SheetObject *old=s->objects.items; s->objects.items=dx_alloc(s->objects.count*sizeof(*old)); memcpy(s->objects.items,old,s->objects.count*sizeof(*old)); free(old); }
+        Analysis other={0};
+        if (mode==3) { other=analysis_copy(c.primary); c.primary=&other; }
+        size_t scratch=0; CHECK(definition_origin_scratch(&c,p,&scratch,NULL)==DEFINITION_ORIGIN_STALE);
+        definition_origin_free(&p); analysis_free(&other); workbook_free(&b);
+    }
+}
+static void current_reply_epochs(void) {
+    Workbook b=book(false,false,false); uint64_t request=1,epoch=2; DefinitionOriginContext c={&b,&b.sheets[0].analysis,&request,&epoch,SIZE_MAX,true,false}; DefinitionOrigin *p=begin(&c);
+    Analysis resolved={0}; DefinitionOriginReply r=reply(&c,false,false,&resolved); request++; epoch++;
+    reject(&c,p,&r,DEFINITION_ORIGIN_STALE);
+    r.request=request; reject(&c,p,&r,DEFINITION_ORIGIN_STALE);
+    r.revision=epoch; DefinitionOriginCompletionInfo info={0}; CHECK(definition_origin_completion_measure(&c,p,&r,&info,NULL)==DEFINITION_ORIGIN_READY);
+    resolved.filter_number=(NumberType){NUM_DECIMAL,0,0}; reject(&c,p,&r,DEFINITION_ORIGIN_INVALID); resolved.filter_number=(NumberType){0};
+    CHECK(definition_origin_complete(&c,p,&r,info.owned,NULL)==DEFINITION_ORIGIN_APPLIED);
+    analysis_free(&resolved); definition_origin_free(&p); workbook_free(&b);
+}
 int main(void) {
-    basics(false,false,false); basics(false,false,true); basics(true,false,false); basics(true,true,false); fences(false); fences(true); validation_and_formats(); explicit_schema();
+    basics(false,false,false); basics(false,false,true); basics(true,false,false); basics(true,true,false); fences(false); fences(true); validation_and_formats(); explicit_schema(); derived_growth(); authored_and_shape(); borrowed_lifetimes(); current_reply_epochs();
     definition_origin_free(NULL); printf("PASS: %u immutable working definition origin checks\n",checks); return 0;
 }

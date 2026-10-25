@@ -31,7 +31,12 @@ typedef struct {
 } DefinitionOriginState;
 /* Runtime-only working definition origin; not Saved, recovery, a user edit,
    retention policy or durable Undo. The owner freezes exact current primary,
-   cached sheet, object/format/ledger descriptors and document/sheet/request epochs.
+   cached sheet, object/format/ledger descriptors and document/sheet action state.
+   Authored equality follows definition_state: non-Chart result extents, valid
+   numeric inference and runtime query epochs may vary; borrowed pointers,
+   placement, Chart size, source/filter/IDs/format/ledger/history stay exact.
+   Current materialized shape remains bounded and valid. Actual completion
+   matches the current request and current route/primary query epoch.
    Text/packets remain trusted immutable model ownership. Begin may assign the
    same transient session IDs as other commands; authored state stays untouched.
    reserved covers the new native owner, not inputs or later assets/scratch. */
@@ -63,7 +68,13 @@ DefinitionOriginStatus definition_origin_complete(DefinitionOriginContext *conte
    (absent exactly for empty manual format state). This is not a DXDE user action.
    reserved covers the NEW final arena only; owner/live/parser budgets coexist.
    Failure preserves OPEN/no assets; success ADMITTED owns immutable bytes even
-   after the live model is edited or freed. No IO or retained writer activation. */
+   after the live model is edited or freed. Non-Chart dimensions are the exact
+   frozen materialized restoration footprint, NOT final source-count proof.
+   Later result/cache growth never patches this arena, Saved roots or events.
+   A later DXDE preimage can have different layout bytes but equal authored
+   definitions. No origin-to-event byte-continuity/replay contract is supplied
+   here; retained replay must admit that semantic/render-layout boundary.
+   No IO or retained writer activation. */
 /* Shape-only current grammar peak, with no parsing or allocation; then measure
    semantic closure under that admitted scratch before reserving exact arena bytes.
    Outputs are unchanged on failure. No assets/model/state are published. */

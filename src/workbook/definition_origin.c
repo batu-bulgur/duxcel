@@ -5,7 +5,7 @@
 struct DefinitionOrigin {
     SourceFormatCommandTarget before; /* Native fence storage only, never encoded. */
     FormatStore formats;
-    uint64_t primary_epoch,branch,epoch;
+    uint64_t branch,epoch;
     DefinitionOriginPhase phase;
     void *arena;
     size_t arena_bytes;
@@ -27,7 +27,46 @@ static void capture(DefinitionOrigin *p,DefinitionOriginContext *c,Worksheet *s)
     memset(t->items,0,sizeof(t->items)); memset(t->versions,0,sizeof(t->versions));
     if (s->objects.count) memcpy(t->items,s->objects.items,s->objects.count*sizeof(*t->items));
     if (s->source_versions.count) memcpy(t->versions,s->source_versions.items,s->source_versions.count*sizeof(*t->versions));
-    memcpy(&p->formats,&s->formats,sizeof(p->formats)); p->primary_epoch=*c->primary_epoch; p->branch=c->book->history_branch;
+    memcpy(&p->formats,&s->formats,sizeof(p->formats)); p->branch=c->book->history_branch;
+}
+/* Origins borrow immutable authored text. Check pointer ownership BEFORE any
+   semantic comparison can read a captured string that a replaced owner freed.
+   Numeric inference is runtime metadata, already excluded by definition_state. */
+static bool analysis_pointers(const Analysis *a,const Analysis *b) {
+    if (a->path!=b->path || a->schema!=b->schema || a->table!=b->table || a->query!=b->query || a->filter_column!=b->filter_column ||
+        a->filter_value!=b->filter_value || a->group_column!=b->group_column || a->measure_column!=b->measure_column || a->sort_column!=b->sort_column) return false;
+    for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) if (a->filters[i].column!=b->filters[i].column || a->filters[i].value!=b->filters[i].value) return false;
+    for (size_t i=0;i<DX_ANALYSIS_SORTS-1;i++) if (a->sorts[i].column!=b->sorts[i].column) return false;
+    return true;
+}
+static bool object_pointers(const SheetObject *a,const SheetObject *b) {
+    if (a->name!=b->name || !analysis_pointers(&a->source,&b->source)) return false;
+    for (size_t role=0;role<4;role++) for (size_t i=0;i<DX_PIVOT_FIELDS;i++)
+        if (a->pivot.fields[role][i].name!=b->pivot.fields[role][i].name || a->pivot.fields[role][i].value!=b->pivot.fields[role][i].value) return false;
+    for (size_t role=0;role<DX_MARK_ROLES;role++) for (size_t i=0;i<DX_MARK_FIELDS;i++)
+        if (a->marks.fields[role][i].name!=b->marks.fields[role][i].name) return false;
+    return true;
+}
+static bool number_shape(NumberType n) {
+    return (unsigned)n.kind<=NUM_FLOAT && (n.kind==NUM_DECIMAL ? n.precision && n.precision<=38 && n.scale<=n.precision : !n.precision && !n.scale);
+}
+static bool analysis_numbers(const Analysis *a) {
+    if (!number_shape(a->filter_number)) return false;
+    for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) if (!number_shape(a->filters[i].number)) return false;
+    return true;
+}
+static bool current_shape(const DefinitionOriginContext *c,const Worksheet *s) {
+    AnalysisAssetMeasure a={0},b={0}; ObjectsAssetInfo objects={0}; ObjectSnapshot snapshot={s->objects.items,s->objects.count};
+    if (!analysis_numbers(c->primary) || !analysis_numbers(&s->analysis) ||
+        analysis_asset_measure(s->id,0,c->primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK ||
+        analysis_asset_measure(s->id,0,&s->analysis,s->objects.next_id,&b)!=ANALYSIS_ASSET_OK ||
+        objects_asset_measure(s->id,&snapshot,s->objects.next_id,&objects)!=OBJECTS_ASSET_OK) return false;
+    for (size_t i=0;i<s->objects.count;i++) {
+        const SheetObject *o=s->objects.items+i;
+        if (!analysis_numbers(&o->source) || !objects_fits(&s->objects,(int)i,o->row,o->col,o->rows,o->columns,&s->cells,0,0,NULL)) return false;
+        for (size_t role=0;role<4;role++) for (size_t field=0;field<DX_PIVOT_FIELDS;field++) if (!number_shape(o->pivot.fields[role][field].number)) return false;
+    }
+    return true;
 }
 static DefinitionOriginStatus check(DefinitionOriginContext *c,const DefinitionOrigin *p,char **error) {
     if (!context_valid(c) || !p) { fail(error,"Choose a valid working definition origin."); return DEFINITION_ORIGIN_INVALID; }
@@ -35,14 +74,22 @@ static DefinitionOriginStatus check(DefinitionOriginContext *c,const DefinitionO
     const SourceFormatCommandTarget *t=&p->before; Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id);
     if (!s || b->id.high!=t->owner.workbook.high || b->id.low!=t->owner.workbook.low || b->edit_session_id!=t->owner.document || s->edit_session_id!=t->owner.sheet ||
         b->command_revision!=t->owner.expected_document_revision || s->cells.revision!=t->owner.expected_revision || s->history_last!=t->history_last || b->history_branch!=p->branch ||
-        *c->request_epoch!=t->request_epoch || *c->primary_epoch!=p->primary_epoch || c->primary!=(t->authority ? t->authority : &s->analysis) ||
-        memcmp(c->primary,&t->primary,sizeof(t->primary)) || memcmp(&s->analysis,&t->cached,sizeof(t->cached)) || memcmp(&s->objects,&t->objects,sizeof(t->objects)) ||
+        c->primary!=(t->authority ? t->authority : &s->analysis) ||
+        !analysis_pointers(c->primary,&t->primary) || !analysis_pointers(&s->analysis,&t->cached) || memcmp(&s->objects,&t->objects,sizeof(t->objects)) ||
         memcmp(&s->source_versions,&t->sources,sizeof(t->sources)) || memcmp(&s->formats,&p->formats,sizeof(p->formats)) ||
         s->objects.count>DX_MAX_OBJECTS || s->source_versions.count>DX_SOURCE_VERSIONS ||
-        (s->objects.count && (!s->objects.items || memcmp(s->objects.items,t->items,s->objects.count*sizeof(*t->items)))) ||
+        (s->objects.count && !s->objects.items) ||
         (s->source_versions.count && (!s->source_versions.items || memcmp(s->source_versions.items,t->versions,s->source_versions.count*sizeof(*t->versions))))) {
         fail(error,"The working definition origin changed; prepare its current owner again."); return DEFINITION_ORIGIN_STALE;
     }
+    for (size_t i=0;i<s->objects.count;i++) if (!object_pointers(s->objects.items+i,t->items+i)) {
+        fail(error,"The borrowed object definition owner changed."); return DEFINITION_ORIGIN_STALE;
+    }
+    ObjectSnapshot current={s->objects.items,s->objects.count},before={(SheetObject *)t->items,t->objects.count};
+    if (!definition_analysis_equal(c->primary,&t->primary) || !definition_analysis_equal(&s->analysis,&t->cached) || !definition_objects_equal(&current,&before)) {
+        fail(error,"The authored working definition changed; prepare its current owner again."); return DEFINITION_ORIGIN_STALE;
+    }
+    if (!current_shape(c,s)) { fail(error,"The current materialized definition shape is invalid."); return DEFINITION_ORIGIN_INVALID; }
     if (!c->ready || c->read_only) { fail(error,"The working definition origin is unavailable or read-only."); return DEFINITION_ORIGIN_PROTECTED; }
     return DEFINITION_ORIGIN_READY;
 }
@@ -55,17 +102,19 @@ DefinitionOriginStatus definition_origin_begin(DefinitionOriginContext *c,size_t
     if (s->objects.count>DX_MAX_OBJECTS || (s->objects.count && !s->objects.items) || s->source_versions.count>DX_SOURCE_VERSIONS || (s->source_versions.count && !s->source_versions.items)) {
         fail(error,"Invalid bounded definition origin ownership."); return DEFINITION_ORIGIN_INVALID;
     }
+    if (!current_shape(c,s)) { fail(error,"Invalid materialized definition origin shape."); return DEFINITION_ORIGIN_INVALID; }
     if (reserved<sizeof(DefinitionOrigin)) { fail(error,"The definition origin owner exceeds its admitted reservation."); return DEFINITION_ORIGIN_LIMIT; }
     CellEditTarget target={0}; if (!workbook_prepare_cell_edit(c->book,sheet,0,0,&target,error)) return DEFINITION_ORIGIN_INVALID;
     DefinitionOrigin *p=dx_alloc(sizeof(*p)); memset(p,0,sizeof(*p)); p->before.owner=target; p->epoch=1; capture(p,c,s); *out=p; return DEFINITION_ORIGIN_READY;
 }
 static DefinitionOriginStatus projection(DefinitionOriginContext *c,const DefinitionOrigin *p,const DefinitionOriginReply *r,SheetObject items[DX_MAX_OBJECTS],Analysis *primary,DefinitionOriginCompletionInfo *info,char **error) {
     DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
-    if (!r || !r->analysis || !info || r->request!=p->before.request_epoch) { fail(error,"The default-relation reply does not match this origin request."); return DEFINITION_ORIGIN_STALE; }
+    if (!r || !r->analysis || !info || r->request!=*c->request_epoch) { fail(error,"The default-relation reply does not match this origin request."); return DEFINITION_ORIGIN_STALE; }
+    if (!analysis_numbers(r->analysis)) { fail(error,"The default reply has invalid numeric metadata."); return DEFINITION_ORIGIN_INVALID; }
     Worksheet *s=resolve(c->book,p->before.owner.sheet_id); const Analysis *old=source(s,c->primary,r->owner);
     const SheetObject *route=r->route ? object(&s->objects,r->route) : NULL;
     if ((r->route && (!route || (route->kind==OBJECT_TABLE ? route->id : route->source_id)!=r->owner || r->revision!=route->revision)) ||
-        (!r->route && (r->owner || r->revision!=p->primary_epoch)) || !old) {
+        (!r->route && (r->owner || r->revision!=*c->primary_epoch)) || !old) {
         fail(error,"The source default reply belongs to another query owner."); return DEFINITION_ORIGIN_STALE;
     }
     if (old->kind!=SOURCE_DATABASE || old->source_version || old->table || !old->path || !*old->path || r->analysis->kind!=SOURCE_DATABASE ||
