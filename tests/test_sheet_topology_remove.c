@@ -37,6 +37,8 @@ static void adopted(void) {
     CHECK(workbook_history_stream_free(&other,false)==HISTORY_STREAM_OK);
     uint64_t revision=b.command_revision,order=worksheet_history_high_water(),high=b.sheet_high_water;
     CHECK(sheet_topology_remove_reserve(c,plan,stream,SIZE_MAX,NULL)==SHEET_REMOVE_READY); b.active=2; uint64_t active=b.sheets[2].id;
+    c.reserved=0; CHECK(sheet_topology_remove_apply(c,&plan,stream,SIZE_MAX,NULL)==SHEET_REMOVE_LIMIT && plan && b.count==3 && !b.dirty && !workbook_history_stream_state(stream).owned_bytes);
+    c.reserved=SIZE_MAX; CHECK(sheet_topology_remove_reserve(c,plan,stream,SIZE_MAX,NULL)==SHEET_REMOVE_READY);
     CHECK(sheet_topology_remove_apply(c,&plan,stream,SIZE_MAX,NULL)==SHEET_REMOVE_APPLIED && !plan);
     CHECK(b.count==2 && b.command_revision==revision+1 && b.sheet_high_water==high && b.dirty && !strcmp(b.sheets[b.active].name,"Third") && worksheet_history_high_water()==order+1);
     WorkbookHistoryResult selected=workbook_history_peek(&b,false,NULL); CHECK(selected.status==WORKBOOK_HISTORY_READY && selected.lifecycle && selected.sheet_id==id && selected.order==order+1);
@@ -90,7 +92,8 @@ int main(void) {
     CHECK(!b.sheets[1].analysis.schema && !b.sheets[1].analysis.table && !b.lifecycle && !b.dirty);
     CHECK(sheet_topology_remove_usage(plan).owned==usage.owned && sheet_topology_remove_usage(plan).staging==usage.staging);
     SheetPresenceView owned=sheet_topology_remove_presence(plan); CHECK(owned.sheet->id==id && !strcmp(owned.primary->schema,"main") && !strcmp(owned.primary->table,"alpha") && !strcmp(cells_get(&owned.sheet->cells,100,8),"NULL") && owned.sheet->view.widths[0]==120);
-    const SheetTopologyPacket *packet=sheet_topology_remove_packet(plan); SheetTopologyEvent event={0};
+    const SheetTopologyPacket *packet=sheet_topology_remove_packet(plan); SheetTopologyEvent event={0}; WorkbookHistoryTopologyUsage reservation;
+    CHECK(workbook_history_topology_measure(packet,&reservation) && reservation.staging==usage.reservation && reservation.owned==workbook_history_topology_owned_bytes(packet->bytes));
     CHECK(sheet_topology_decode(packet->data,packet->bytes,SIZE_MAX,&event)==SHEET_TOPOLOGY_OK && event.operation==SHEET_TOPOLOGY_REMOVE && event.sheet==id && event.before.count==3 && event.after.count==2 && event.before.active==id && event.after.active==b.sheets[0].id); sheet_topology_free(&event);
     b.active=2; CHECK(sheet_topology_remove_check(c,plan)==SHEET_REMOVE_READY); b.active=1;
     Worksheet *moved=dx_alloc(b.count*sizeof(Worksheet)); memcpy(moved,b.sheets,b.count*sizeof(Worksheet)); free(b.sheets); b.sheets=moved;

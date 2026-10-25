@@ -40,7 +40,8 @@ static SheetTopologyRemoveStatus measure(SheetTopologyRemoveContext c,uint64_t i
     if (!add(&usage.owned,names) || !add(&usage.owned,wire->owned) || !add(&usage.owned,bytes)) return SHEET_REMOVE_LIMIT;
     usage.staging=usage.owned;
     if (!add(&usage.staging,bytes) || !add(&usage.staging,wire->owned) || !add(&usage.staging,wire->validation_scratch)) return SHEET_REMOVE_LIMIT;
-    usage.reservation=workbook_history_topology_ticket_allocation();
+    usage.reservation=workbook_history_topology_owned_bytes(bytes);
+    if (usage.reservation==SIZE_MAX) return SHEET_REMOVE_LIMIT;
     if (!add(&usage.reservation,wire->owned) || !add(&usage.reservation,wire->validation_scratch)) return SHEET_REMOVE_LIMIT;
     *out=usage; return SHEET_REMOVE_READY;
 }

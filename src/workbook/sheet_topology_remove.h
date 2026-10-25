@@ -18,8 +18,9 @@ typedef enum { SHEET_REMOVE_READY,SHEET_REMOVE_INVALID,SHEET_REMOVE_STALE,SHEET_
    Measure is allocation-free. Plan owns before/after catalog names, actual full
    presence preimage and immutable remove event. staging conservatively covers
    coexisting capture/serialization/temporary validation owners; owned is the
-   final resident plan. reservation covers the separate wrapper/validation only;
-   stream payload and caller live graphs stay separately charged. No IO, model
+   final resident plan. reservation covers the full new wrapper, actual stream
+   frame/payload and temporary validation; existing stream residents and caller
+   live graphs stay separately charged. No IO, model
    adoption, session assignment, lifecycle eviction, dirty/action clocks or App.
    Pending DATABASE defaults must first resolve through their actual owner. */
 SheetTopologyRemoveStatus sheet_topology_remove_measure(SheetTopologyRemoveContext context,uint64_t sheet,SheetTopologyRemoveMeasure *out);
