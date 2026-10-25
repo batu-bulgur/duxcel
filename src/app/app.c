@@ -5695,7 +5695,13 @@ static void column_action(App *a,ColumnAction action) {
     else if (action==COLUMN_SORT) open_modal(a,MODAL_SORT);
     else if (action==COLUMN_CLEAR) {
         uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
-        if (cells_clear(&sheet->cells,r0,r1,c0,c1)) { worksheet_record(sheet,EDIT_CELLS); a->book.dirty=true; }
+        if (manual_range_owner(a,sheet)) {
+            if (r1==UINT64_MAX) r1=DX_SHEET_ROWS-1;
+            if (c1==SIZE_MAX) c1=16383;
+            char *error=NULL;
+            if (!move_manual_range(a,(RangeCommand){.operation=RANGE_OPERATION_CLEAR,.range={r0,r1,c0,c1}},NULL,&error) && error) status(a,error);
+            free(error);
+        } else if (cells_clear(&sheet->cells,r0,r1,c0,c1)) { worksheet_record(sheet,EDIT_CELLS); a->book.dirty=true; }
     } else if (action==ROW_ABOVE || action==ROW_BELOW || action==ROW_DELETE) {
         uint64_t first,last; selected_rows(g,&first,&last);
         uint64_t row=action==ROW_BELOW ? last+1 : first,count=last-first+1,rows=a->analysis.kind==SOURCE_NONE ? 0 : !a->page.column_count ? UINT64_MAX : source_rows(a); char *error=NULL;
@@ -15765,6 +15771,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_CLEAR_RANGE
+static void clear_range_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_RANGE
 static void mixed_range_test_frame(AppSession *session);
 #endif
@@ -16679,6 +16688,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_CLEAR_RANGE
+    clear_range_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_RANGE
     mixed_range_test_frame(session);
 #endif
@@ -17066,6 +17078,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_create_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_CLEAR_RANGE
+#include "../../tests/support/clear_range_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_RANGE
 #include "../../tests/support/mixed_range_app.inc"
 #endif
