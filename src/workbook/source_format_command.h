@@ -45,8 +45,10 @@ SourceFormatCommandResult workbook_check_source_format_owner(SourceFormatCommand
    planners. A plan appends exactly one complete version at highwater+1, binds
    exactly its previously unbound owner, and changes formatting using that RAW
    dependency. Prior ledger rows and every other definition remain immutable.
-   Legacy current/Undo/Redo formats must be broad-only or already explicitly
-   source-aware; finite legacy data is never relabeled as manual. No pending
+   A source-unaware current store and its source-unaware retained states must
+   be broad-only. An already-source-aware current store keeps older finite
+   manual snapshots in their original mode (for example before real Table
+   import); all retained snapshots are validated without relabeling. No pending
    completion/replacement/Refresh/manual migration is hidden here.
    Closed event9/12 validation is reused. Reserve before any constituent adoption
    or history eviction; recheck fences and plan descriptors after reservation;

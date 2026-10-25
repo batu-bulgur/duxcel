@@ -1,5 +1,7 @@
 #include "workbook/source_format_command.h"
 #include "workbook/history.h"
+#include "workbook/format_command.h"
+#include "workbook/object_create_command.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -383,12 +385,15 @@ static void spatial_callbacks(void) {
 static bool manual_replay(SourceFormatCommandContext *c,bool redo) {
     WorkbookHistoryResult result=workbook_history_step(c->book,redo,NULL);
     if (result.status==WORKBOOK_HISTORY_APPLIED) return true;
-    if (result.status!=WORKBOOK_HISTORY_DELEGATE || result.kind!=EDIT_ANALYSIS_FORMAT) return false;
+    if (result.status!=WORKBOOK_HISTORY_DELEGATE || (result.kind!=EDIT_ANALYSIS_FORMAT && result.kind!=EDIT_OBJECTS_FORMAT)) return false;
     /* The genuine mixed Analysis/Format session event delegates its existing
        constituent handoff to App; use that same public model sequence here. */
     Worksheet *s=c->book->sheets+result.sheet;
-    if (!worksheet_analysis_history_preflight(s,c->primary,redo,NULL)) return false;
-    worksheet_analysis_history_adopt(s,c->primary,redo);
+    if (result.kind==EDIT_OBJECTS_FORMAT) { if (!objects_history(&s->objects,redo)) return false; }
+    else {
+        if (!worksheet_analysis_history_preflight(s,c->primary,redo,NULL)) return false;
+        worksheet_analysis_history_adopt(s,c->primary,redo);
+    }
     if (!format_history(&s->formats,redo)) return false;
     worksheet_transfer_history(s,redo); c->book->command_revision++; c->book->dirty=true; return true;
 }
@@ -462,7 +467,41 @@ static void manual_first_rejection(void) {
         format_snapshot_free(&p); workbook_free(&b);
     }
 }
+static void imported_manual_history(void) {
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Manual",&(Analysis){0},NULL)); Worksheet *s=b.sheets;
+    ManualFormatTarget manual; FormatSnapshot p={0}; CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(workbook_prepare_manual_format(&b,0,&manual,NULL) && format_plan_spatial(&s->formats,(FormatRange){20,20,20,20},FORMAT_BOLD,bold,&p,NULL));
+    CHECK(workbook_apply_manual_format_recorded(&b,&manual,&p,NULL,NULL).status==MANUAL_FORMAT_APPLIED);
+    FormatPatch *authored=s->formats.items; uint64_t epoch=1,primary_epoch=1,rows=0; size_t columns=0; bool pending=false;
+    ObjectCreateContext creation={.command={.book=&b,.request_epoch=&epoch,.plan_reserved=SIZE_MAX,.validation_reserved=SIZE_MAX,.ready=true},
+        .primary=&s->analysis,.primary_epoch=&primary_epoch,.source_rows=&rows,.source_columns=&columns,.source_count_pending=&pending,.manual_formats=true};
+    ObjectCreateTarget destination; CHECK(workbook_prepare_object_create(&creation,0,&destination,NULL));
+    Analysis source={.kind=SOURCE_CSV,.path="/source"};
+    CHECK(workbook_apply_object_create_recorded(&creation,&destination,(ObjectCreateCommand){.kind=OBJECT_TABLE,.row=10,.column=2,.name="Raw",.source=&source},NULL,NULL).status==OBJECT_CREATE_APPLIED);
+    CHECK(s->formats.source_aware && s->objects.count==1 && s->formats.undo[1].items==authored && !s->formats.undo[1].source_aware);
+    SourceFormatCommandContext c={&b,&s->analysis,&epoch,SIZE_MAX,true,false}; SourceFormatCommandTarget t=target(&c,true); SourceFormatCommandPlan first=plan(&c,true);
+    char *error=NULL; SourceFormatCommandResult result=workbook_apply_source_format_recorded(&c,&t,&first,NULL,&error);
+    if (result.status!=SOURCE_FORMAT_COMMAND_APPLIED) fprintf(stderr,"Actual manual import first binding: %s\n",error ? error : "no error");
+    CHECK(result.status==SOURCE_FORMAT_COMMAND_APPLIED); free(error);
+    p=bound_plan(&c,true,true); t=target(&c,true);
+    CHECK(workbook_apply_bound_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+    const SourceVersion *entry=s->source_versions.items; SourceVersions ledger=s->source_versions;
+    for (unsigned replay=0;replay<2;replay++) {
+        size_t raw=format_scope_token(&s->formats,&(FormatScopeView){1,entry->raw.data,entry->raw.bytes});
+        CHECK(format_resolve_record_token(&s->formats,0,0,SIZE_MAX,raw,1,0).flags==(FORMAT_BOLD|FORMAT_ITALIC));
+        CHECK(!format_resolve_record_token(&s->formats,1,0,SIZE_MAX,raw,2,0).flags && format_at(&s->formats,20,20).flags==FORMAT_BOLD);
+        CHECK(s->objects.items[0].id==1 && s->objects.items[0].source.source_version==1 && s->objects.next_id==1 && !s->formats.undo[1].source_aware && s->formats.undo[1].items==authored);
+        if (replay) break;
+        CHECK(manual_replay(&c,false) && manual_replay(&c,false));
+        CHECK(s->formats.source_aware && !s->objects.items[0].source.source_version && format_at(&s->formats,20,20).flags==FORMAT_BOLD);
+        CHECK(manual_replay(&c,false) && !s->objects.count && s->objects.next_id==1 && !s->formats.source_aware && s->formats.items==authored && format_at(&s->formats,20,20).flags==FORMAT_BOLD && !memcmp(&ledger,&s->source_versions,sizeof(ledger)));
+        CHECK(manual_replay(&c,true) && s->objects.count==1 && s->objects.items[0].id==1 && !s->objects.items[0].source.source_version && s->formats.source_aware && s->formats.undo[1].items==authored && !s->formats.undo[1].source_aware);
+        CHECK(manual_replay(&c,true) && manual_replay(&c,true));
+    }
+    source_format_command_plan_free(&first); workbook_free(&b);
+}
 int main(void) {
+    imported_manual_history();
     manual_first(); manual_first_rejection();
     spatial(false); spatial(true); spatial_scoped(); spatial_rejections(); spatial_callbacks();
     fences(false); fences(true); callbacks(false); callbacks(true); history(false); history(true); retained_sources(false); retained_sources(true); manual_policy(); stream_handoff(false); stream_handoff(true); bound(false); bound(true); bound_callbacks(false); bound_callbacks(true); limits();

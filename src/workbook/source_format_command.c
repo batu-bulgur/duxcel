@@ -148,7 +148,10 @@ static SourceFormatCommandResult check(SourceFormatCommandContext *c,const Sourc
     if (!p) { fail(error,"Prepare complete source formatting plans."); return (SourceFormatCommandResult){.status=SOURCE_FORMAT_COMMAND_INVALID}; }
     SourceFormatCommandResult r=workbook_check_source_format_owner(c,t,error); if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id);
-    if (!history_safe(&s->formats)) { r.status=SOURCE_FORMAT_COMMAND_PROTECTED; fail(error,"Legacy finite formatting requires its verified baseline before source binding."); return r; }
+    /* A source-aware current store already owns its manual/result distinction.
+       Earlier source-unaware finite snapshots may be genuine pre-import manual
+       history; validate them below without relabeling their immutable mode. */
+    if (!s->formats.source_aware && !history_safe(&s->formats)) { r.status=SOURCE_FORMAT_COMMAND_PROTECTED; fail(error,"Source-unaware finite formats cannot enter verified source binding."); return r; }
     if (owner_source(s,c->primary,t->object)->source_version) { r.status=SOURCE_FORMAT_COMMAND_PROTECTED; fail(error,"First binding requires an unbound source."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_LIMIT;
     if (b->command_revision==UINT64_MAX || s->formats.revision==UINT64_MAX || s->source_versions.high_water==UINT64_MAX || s->source_versions.count==DX_SOURCE_VERSIONS || !worksheet_history_order_available()) { fail(error,"Source formatting revision space is exhausted."); return r; }
@@ -244,7 +247,7 @@ static SourceFormatCommandResult format_check(SourceFormatCommandContext *c,cons
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id); const Analysis *a=owner_source(s,c->primary,t->object);
     r.status=SOURCE_FORMAT_COMMAND_PROTECTED;
     if (spatial && (t->object || !p->source_aware)) { r.status=SOURCE_FORMAT_COMMAND_INVALID; fail(error,"Keep the complete source-aware worksheet format mode unchanged."); return r; }
-    if (!spatial && !history_safe(&s->formats)) { fail(error,"Legacy finite formatting requires its verified baseline before source formatting."); return r; }
+    if (!spatial && !s->formats.source_aware && !history_safe(&s->formats)) { fail(error,"Source-unaware finite formats cannot enter verified source formatting."); return r; }
     if (!spatial && !a->source_version) { fail(error,"Source formatting needs its complete first-binding owner."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_INVALID;
     SourceFormatCommandPlan candidate={.formats=*p}; size_t validation=0;
