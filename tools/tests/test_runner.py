@@ -487,17 +487,25 @@ class RunnerTests(unittest.TestCase):
             root = pathlib.Path(directory); (root / "Makefile").write_text("")
             instance = runner.Runner(args, root)
             def completed(name, command, marker=None, **kwargs):
+                if name.endswith("-fixture"):
+                    fixture_name=name.removesuffix("-fixture")
+                    fixture=root / runner.FEATURE_FIXTURES[fixture_name][2]
+                    fixture.parent.mkdir(parents=True,exist_ok=True); fixture.write_text("current input")
                 if command[0] == "make":
                     for target in command[1:]:
                         if target.startswith(("build/tests/", "build/bin/duxcel")):
                             path = root / target; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(target)
                     fixture = root / "build/tests/generated/design-definition.dxls"
-                    fixture.parent.mkdir(parents=True); fixture.write_text("fixture")
+                    fixture.parent.mkdir(parents=True,exist_ok=True); fixture.write_text("fixture")
                 return {"name": name, "command": command, "status": "passed"}
+            def gui_requires_fresh_fixtures(name):
+                # No preexisting build/ inputs are provided by this test.
+                for _,_,target in runner.FEATURE_FIXTURES.values():
+                    self.assertTrue((root / target).is_file(),f"{name} started before fixture {target}")
             with mock.patch.object(instance, "command", side_effect=completed) as command, \
                  mock.patch.object(instance, "headless"), mock.patch.object(instance, "background_check"), \
                  mock.patch.object(instance, "about_check") as about_check, \
-                 mock.patch.object(instance, "standalone_gui_check") as standalone_gui_check, \
+                 mock.patch.object(instance, "standalone_gui_check",side_effect=gui_requires_fresh_fixtures) as standalone_gui_check, \
                  mock.patch.object(instance, "native_scenarios"), mock.patch.object(runner, "validate_native_contract"), \
                  mock.patch.object(runner, "native_lock_path", return_value=root / "desktop.lock"):
                 instance.full()
@@ -505,11 +513,13 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(standalone_gui_check.call_args_list, [mock.call(name) for name in runner.STANDALONE_GUI])
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
                        for module in runner.ENGINE_MODULES]
-            self.assertTrue(set(engines).issubset(command.call_args_list[0].args[1]))
+            self.assertTrue(set(engines).issubset(command.call_args_list[4].args[1]))
             expected=[[runner.sys.executable, "tools/create_workbook.py", "--journal-paste-only"],
                       [runner.sys.executable, "tools/create_workbook.py", "--source-connections-only"],
                       [runner.sys.executable, "tools/create_workbook.py"],
                       [runner.sys.executable, "tools/create_workbook.py", "--large"]]
+            self.assertEqual([call.args[1] for call in command.call_args_list[:4]],expected)
+            expected=[]
             for binary in engines:
                 module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
                 check=runner.ENGINE_PROCESS_CHECKS.get(module)
@@ -538,7 +548,7 @@ class RunnerTests(unittest.TestCase):
                     extra=["--output",str(instance.log_dir / f"{module}-{config}-metrics.json")] if check.primary else []
                     process_binary = instance.pin_test_binary(binary) if module == "recovery_process" else binary
                     expected.append([runner.sys.executable,check.script,"--binary",process_binary,*check.arguments,*extra])
-            self.assertEqual([call.args[1] for call in command.call_args_list[1:-1]],expected)
+            self.assertEqual([call.args[1] for call in command.call_args_list[5:-1]],expected)
 
     def test_records_cli_rejects_unrelated_or_parallel_engine_options_before_runner_creation(self):
         extras = (["--modules", "grid"], ["--scenario", "icon"], ["--feature", "shelves"],

@@ -2312,3 +2312,12 @@ preliminary binary does not replace final rebuilt artifact verification.
 Root now owns broad native engine/desktop verification and final local Wasm/
 browser/package verification. Lanes are read-only during this frozen boundary.
 Push and actual matching CI/CD verification remain required after local success.
+
+Milestone cold-start audit found full native orchestration prepared finite
+feature inputs after standalone GUI consumers. Existing cached generated files
+masked that dependency. The first broad attempt was intentionally interrupted
+during its initial build at61.899s, zero App stages; no test failure is claimed.
+Fixture generation now precedes every standalone GUI. The orchestration test
+starts without build inputs and requires every fixture before any GUI;57 runner/
+catalog contracts pass4.424s. Product C is unchanged. The coherent full run
+restarts after this fix, reusing completed incremental compiler outputs.

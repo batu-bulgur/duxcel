@@ -582,11 +582,13 @@ class Runner:
             raise RuntimeError("Required NYC dataset missing: " + str(data))
         self.headless(FAST_MODULES)
         self.about_check()
+        # Standalone App workflows consume the same finite fixtures as engine
+        # suites. Prepare them before any GUI, including on a clean checkout.
+        self.prepare_feature_fixtures(FEATURE_FIXTURES)
         for name in STANDALONE_GUI:
             self.standalone_gui_check(name)
         self.prepare_native(full=True)
         self.retain_binaries(sorted({target for check in ENGINE_PROCESS_CHECKS.values() for target in check.support}))
-        self.prepare_feature_fixtures(FEATURE_FIXTURES)
         # The workbook suite consumes core's generated fixtures. Each
         # configuration completes both before another can replace their files.
         # Independent record suites follow that adjacent pair, still serially.
