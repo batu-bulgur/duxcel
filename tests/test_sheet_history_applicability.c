@@ -16,7 +16,35 @@ static WorkbookSheetPayload *decode(WorkbookHistoryStream *stream,uint64_t id,Wo
     CHECK(workbook_sheet_payload_decode((WorkbookSheetPayloadView){info,workbook_history_event_payload(event),info->bytes,id,operation},SIZE_MAX,&payload)==SHEET_PAYLOAD_OK);
     CHECK(workbook_history_stream_complete(stream,&event)==HISTORY_STREAM_OK); return payload;
 }
+static void pending_observation(void) {
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Base",&(Analysis){0},NULL));
+    CHECK(workbook_add(&b,"CSV",&(Analysis){.kind=SOURCE_CSV,.path="/source",.source_version=1},NULL));
+    Worksheet *source=b.sheets+1; SourceVersions next={0}; SourceVersion row={.version=1,.kind=SOURCE_CSV,.path="/source"};
+    CHECK(source_versions_plan(&source->source_versions,&row,true,&next,NULL)); source->source_versions=next;
+    CHECK(workbook_prepare_command_session(&b,1,NULL)); uint64_t epoch=6,id=source->id; WorkbookHistoryStream *stream=NULL;
+    CHECK(workbook_history_stream_new((WorkbookHistoryStreamOrigin){.owner={b.id.high,b.id.low,60,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id},(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
+    SheetTopologyDuplicateContext dc={&b,&epoch,&source->analysis,id,SIZE_MAX,true,false,SIZE_MAX}; SheetTopologyDuplicatePlan *duplicate=NULL;
+    CHECK(sheet_topology_duplicate_prepare(dc,id,&duplicate,NULL)==SHEET_DUPLICATE_READY); id=sheet_topology_duplicate_presence(duplicate).sheet->id;
+    CHECK(sheet_topology_duplicate_apply(dc,&duplicate,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_APPLIED);
+    WorkbookSheetPayload *payload=decode(stream,id,SHEET_DUPLICATE); WorkbookSheetApplicability *plan=NULL;
+    CHECK(workbook_sheet_applicability_prepare(payload,SIZE_MAX,&plan)==SHEET_APPLICABILITY_OK);
+    Worksheet *sheet=b.sheets+b.active; SheetPresenceView actual={b.id,b.sheet_high_water,sheet,&sheet->analysis}; SheetLifecycleEntry rows[DX_MAX_SHEETS]; SheetLifecycleState state;
+    CHECK(sheet_lifecycle_from_workbook(&b,rows,&state)==SHEET_LIFECYCLE_OK); WorkbookSheetApplicabilityResult result;
+    CHECK(workbook_sheet_applicability_check(plan,state,&actual,false,&result)==SHEET_APPLICABILITY_OK && result.presence.matches && result.presence.sources.captured_pending==1 && result.presence.sources.exact==1);
+    Column column={.name="Amount",.type=DUCKDB_TYPE_BIGINT,.type_name="BIGINT",.numeric=true,.number_type={NUM_I64,0,0}};
+    Page schema={.columns=&column,.column_count=1}; SourceDigest digest={.bytes=42}; digest.identity.size=42; digest.sha256[0]=1; SourcePacket raw={0};
+    CHECK(source_scope_raw_build(0,1,&sheet->analysis,&schema,&digest,"engine",&raw,NULL)); row.raw=raw; next=(SourceVersions){0};
+    CHECK(source_versions_plan(&sheet->source_versions,&row,false,&next,NULL)); source_versions_free(&sheet->source_versions); sheet->source_versions=next; source_packet_free(&raw);
+    CHECK(workbook_sheet_applicability_check(plan,state,&actual,false,&result)==SHEET_APPLICABILITY_OK && result.presence.sources.refined==1 && result.presence.sources.captured_pending==1);
+    /* Compatible current completion never changes the captured observation. */
+    const SheetTopologyEvent *event=workbook_sheet_payload_topology(payload); SheetPresenceAsset *captured=NULL;
+    CHECK(sheet_presence_decode(event->presence.data,event->presence.bytes,SIZE_MAX,&captured,NULL)==SHEET_PRESENCE_OK && !sheet_presence_view(captured).sheet->source_versions.items[0].raw.bytes);
+    CHECK(sheet->analysis.source_version==1 && sheet->source_versions.items[0].raw.bytes);
+    workbook_sheet_applicability_free(&plan); workbook_sheet_payload_free(&payload); sheet_presence_free(&captured);
+    CHECK(workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK); workbook_free(&b);
+}
 int main(void) {
+    pending_observation();
     Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"A",&(Analysis){0},NULL)); CHECK(workbook_add(&b,"B",&(Analysis){0},NULL));
     CHECK(workbook_prepare_command_session(&b,0,NULL)); uint64_t epoch=8,id=b.sheets[0].id;
     WorkbookHistoryStream *stream=NULL; CHECK(workbook_history_stream_new((WorkbookHistoryStreamOrigin){.owner={b.id.high,b.id.low,20,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id},(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
