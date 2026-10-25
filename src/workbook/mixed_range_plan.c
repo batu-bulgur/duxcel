@@ -1,5 +1,6 @@
 #include "mixed_range_plan.h"
 #include "format_delta_codec.h"
+#include "cells_tsv_scan.h"
 #include <stdlib.h>
 #include <string.h>
 static bool fail(char **error,const char *text) { if (error) { free(*error); *error=dx_strdup(text); } return false; }
@@ -187,4 +188,33 @@ MixedRangeStatus mixed_column_plan(const Worksheet *s,const Analysis *primary,si
     next.effects=(cells==CELL_RANGE_READY ? 2u : 0u)|(mask ? 4u : 0u)|(!format_snapshot_matches(&s->formats,&next.formats) ? 8u : 0u)|(width_changed ? 16u : 0u);
     if (!next.effects) { mixed_range_plan_free(&next); return MIXED_RANGE_NOOP; }
     mixed_range_plan_free(out); *out=next; return MIXED_RANGE_READY;
+}
+
+static bool paste_shape_field(void *context,uint64_t row,size_t column,const char *text,size_t bytes,char **error) {
+    (void)context; (void)row; (void)column; (void)text; (void)bytes; (void)error; return true;
+}
+MixedRangeStatus mixed_paste_measure(const Worksheet *s,const Analysis *primary,uint64_t row,size_t column,const char *text,MixedPastePlanInfo *out,char **error) {
+    if (!out || !s || !primary) return MIXED_RANGE_INVALID;
+    if (!eligible(s,primary)) { fail(error,"Paste requires source-free templates and manual formats."); return MIXED_RANGE_PROTECTED; }
+    ObjectSnapshot before={s->objects.items,s->objects.count}; ObjectsAssetInfo objects={0};
+    if (!s->id || objects_asset_measure(s->id,&before,s->objects.next_id,&objects)!=OBJECTS_ASSET_OK) return MIXED_RANGE_INVALID;
+    size_t rows=0,columns=0;
+    if (!cells_tsv_scan(row,column,text,paste_shape_field,NULL,&rows,&columns,error)) return MIXED_RANGE_INVALID;
+    if (!geometry(&s->objects,&s->cells,error)) return MIXED_RANGE_INVALID;
+    if (!objects_fits(&s->objects,-1,row,column,rows,columns,NULL,0,0,error)) return MIXED_RANGE_PROTECTED;
+    CellPastePlanInfo cells={0}; CellRangeStatus status=cells_paste_measure(&s->cells,row,column,text,&cells,error);
+    if (status!=CELL_RANGE_READY) return status==CELL_RANGE_NOOP ? MIXED_RANGE_NOOP : status==CELL_RANGE_LIMIT ? MIXED_RANGE_LIMIT : MIXED_RANGE_INVALID;
+    *out=(MixedPastePlanInfo){cells,objects.measure.validation_scratch}; return MIXED_RANGE_READY;
+}
+MixedRangeStatus mixed_paste_plan(const Worksheet *s,const Analysis *primary,uint64_t row,size_t column,const char *text,size_t reserved,size_t validation_reserved,CellSnapshot *out,char **error) {
+    if (!out || (s && out->cells && out->cells==s->cells.cells)) { fail(error,"Choose independent paste cell ownership."); return MIXED_RANGE_INVALID; }
+    MixedPastePlanInfo info={0}; MixedRangeStatus status=mixed_paste_measure(s,primary,row,column,text,&info,error);
+    if (status!=MIXED_RANGE_READY) return status;
+    if (info.cells.owned>reserved || info.validation_scratch>validation_reserved) { fail(error,"Paste exceeds its complete cell/validation reservation."); return MIXED_RANGE_LIMIT; }
+    if (!objects_valid(&s->objects,error)) return MIXED_RANGE_INVALID;
+    CellSnapshot next={0}; CellRangeStatus cells=cells_paste_plan(&s->cells,row,column,text,reserved,&next,error);
+    if (cells!=CELL_RANGE_READY) return cells==CELL_RANGE_LIMIT ? MIXED_RANGE_LIMIT : MIXED_RANGE_INVALID;
+    CellStore projected={.cells=next.cells,.count=next.count,.capacity=next.count,.bytes=next.bytes};
+    if (!geometry(&s->objects,&projected,error)) { cells_snapshot_free(&next); return MIXED_RANGE_INVALID; }
+    cells_snapshot_free(out); *out=next; return MIXED_RANGE_READY;
 }

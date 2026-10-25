@@ -13,6 +13,31 @@ static Workbook fixture(bool cells,bool formats) {
     if (formats) { CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&s->formats,(FormatRange){1,4,1,3},FORMAT_BOLD,bold,NULL)); worksheet_record(s,EDIT_FORMAT); }
     b.dirty=false; return b;
 }
+static bool paste_guard(void *context,uint64_t row,size_t column,size_t rows,size_t columns,char **error) {
+    return objects_fits(context,-1,row,column,rows,columns,NULL,0,0,error);
+}
+static void paste_projection(void) {
+    const char *texts[]={"NULL\t9007199254740993.0123456789\n\tvalue", "\"quoted\ttext\"\t\"line1\nline2\"\nragged", "one\t\nthree\r\n"};
+    for (size_t n=0;n<sizeof(texts)/sizeof(*texts);n++) {
+        Workbook b=fixture(true,true); Worksheet *s=b.sheets; Workbook *reference=workbook_snapshot(&b); CHECK(reference);
+        Worksheet before=*s; MixedPastePlanInfo info={0}; CellSnapshot plan={0}; char *error=NULL; size_t rows=0,columns=0;
+        CHECK(mixed_paste_measure(s,&s->analysis,100,20,texts[n],&info,&error)==MIXED_RANGE_READY && !error);
+        CHECK(mixed_paste_plan(s,&s->analysis,100,20,texts[n],info.cells.owned-1,info.validation_scratch,&plan,&error)==MIXED_RANGE_LIMIT && !plan.cells); free(error); error=NULL;
+        if (info.validation_scratch) { CHECK(mixed_paste_plan(s,&s->analysis,100,20,texts[n],info.cells.owned,info.validation_scratch-1,&plan,&error)==MIXED_RANGE_LIMIT && !plan.cells); free(error); error=NULL; }
+        CHECK(mixed_paste_plan(s,&s->analysis,100,20,texts[n],info.cells.owned,info.validation_scratch,&plan,&error)==MIXED_RANGE_READY && !error && !memcmp(&before,s,sizeof(before)));
+        CHECK(cells_paste_checked(&reference->sheets[0].cells,100,20,texts[n],&rows,&columns,paste_guard,&reference->sheets[0].objects,&error) && !error && rows==info.cells.rows && columns==info.cells.columns);
+        CellStore *expected=&reference->sheets[0].cells; CHECK(plan.count==expected->count && plan.bytes==expected->bytes);
+        for (size_t i=0;i<plan.count;i++) CHECK(plan.cells[i].row==expected->cells[i].row && plan.cells[i].col==expected->cells[i].col && !strcmp(plan.cells[i].text,expected->cells[i].text) && plan.cells[i].text!=expected->cells[i].text);
+        CellSnapshot held=plan;
+        CHECK(mixed_paste_plan(s,&s->analysis,2,2,"",SIZE_MAX,SIZE_MAX,&plan,NULL)==MIXED_RANGE_PROTECTED && !memcmp(&held,&plan,sizeof(plan)));
+        CHECK(mixed_paste_plan(s,&s->analysis,0,1,"A\tB\tC\nD\nE",SIZE_MAX,SIZE_MAX,&plan,NULL)==MIXED_RANGE_PROTECTED && !memcmp(&held,&plan,sizeof(plan)));
+        CHECK(mixed_paste_plan(s,&s->analysis,1000,1000,"",0,0,&plan,NULL)==MIXED_RANGE_NOOP && !memcmp(&held,&plan,sizeof(plan)));
+        CHECK(mixed_paste_plan(s,&s->analysis,100,20,"\"unterminated",SIZE_MAX,SIZE_MAX,&plan,NULL)==MIXED_RANGE_INVALID && !memcmp(&held,&plan,sizeof(plan)));
+        s->objects.items[0].source_id=1; CHECK(mixed_paste_plan(s,&s->analysis,100,20,texts[n],SIZE_MAX,SIZE_MAX,&plan,NULL)==MIXED_RANGE_PROTECTED && !memcmp(&held,&plan,sizeof(plan))); s->objects.items[0].source_id=0;
+        CHECK(!memcmp(&before,s,sizeof(before)) && s->objects.next_id==before.objects.next_id);
+        workbook_free(reference); free(reference); workbook_free(&b); CHECK(plan.cells[0].text && *plan.cells[0].text); cells_snapshot_free(&plan);
+    }
+}
 static void rows(void) {
     for (unsigned mode=0;mode<4;mode++) for (unsigned deletion=0;deletion<2;deletion++) {
         Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets; Workbook *reference=workbook_snapshot(&b); CHECK(reference);
@@ -71,7 +96,7 @@ static void column_projection(void) {
     s->objects.items[1].col=20; CHECK(cells_set(&s->cells,100,16383,"Edge",NULL));
     CHECK(mixed_column_measure(s,&s->analysis,0,true,&info,NULL)==MIXED_RANGE_INVALID && info.owned==123); workbook_free(&b);
 }
-int main(void) {
+int main(void) { paste_projection();
     column_projection(); rows();
     for (unsigned mode=0;mode<4;mode++) {
         Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets; Worksheet before=*s; MixedRangePlanInfo info={0}; MixedRangePlan out={0}; SheetRange r={1,5,1,4}; char *error=NULL;

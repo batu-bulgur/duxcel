@@ -2,6 +2,7 @@
 #define DUXCEL_MIXED_RANGE_PLAN_H
 #include "workbook.h"
 #include "cell_range_plan.h"
+#include "cell_paste_plan.h"
 #include "objects_asset.h"
 #include "column_widths.h"
 typedef struct { size_t owned,validation_scratch; } MixedRangePlanInfo;
@@ -36,5 +37,15 @@ MixedRangeStatus mixed_rows_plan(const Worksheet *sheet,const Analysis *primary,
    Names stay at fixed positions. This remains a pure plan, not width adoption. */
 MixedRangeStatus mixed_column_measure(const Worksheet *sheet,const Analysis *primary,size_t column,bool insert,MixedRangePlanInfo *info,char **error);
 MixedRangeStatus mixed_column_plan(const Worksheet *sheet,const Analysis *primary,size_t column,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
+typedef struct { CellPastePlanInfo cells; size_t validation_scratch; } MixedPastePlanInfo;
+/* Text-only paste on a source-free template sheet. Preserve the existing full
+   parsed bounding-rectangle guard, including ragged holes and empty fields.
+   Objects/formats/widths remain borrowed and unchanged; output owns cells only.
+   Measure allocates no models. Plan validates the complete unchanged object
+   graph after scratch admission, then owns the exact prospective sparse cells.
+   NOOP/failure preserve output. Input text stays immutable through this pure
+   call; the later controller must own its packet before external callbacks. */
+MixedRangeStatus mixed_paste_measure(const Worksheet *sheet,const Analysis *primary,uint64_t row,size_t column,const char *text,MixedPastePlanInfo *info,char **error);
+MixedRangeStatus mixed_paste_plan(const Worksheet *sheet,const Analysis *primary,uint64_t row,size_t column,const char *text,size_t reserved,size_t validation_reserved,CellSnapshot *out,char **error);
 void mixed_range_plan_free(MixedRangePlan *plan);
 #endif
