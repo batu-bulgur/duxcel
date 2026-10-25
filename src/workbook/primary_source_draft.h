@@ -2,7 +2,7 @@
 #define DUXCEL_PRIMARY_SOURCE_DRAFT_H
 #include "cell_command.h"
 #include "definition_baseline.h"
-/* Unpublished new-primary probe; separate from existing-owner origin enrichment
+/* Unpublished CSV/Parquet/demo or pending DATABASE primary probe; separate from existing-owner origin enrichment
    and from the future detached Sheet creation/presence-asset coordinator. */
 typedef struct PrimarySourceDraft PrimarySourceDraft;
 typedef struct {
@@ -20,8 +20,10 @@ typedef enum { PRIMARY_SOURCE_READY,PRIMARY_SOURCE_RESOLVED,PRIMARY_SOURCE_TAKEN
    through workbook_prepare_command_session and assigns the actual probe request.
    No new sheet ID, high-water, action, revision, Redo, dirty flag or IO changes.
    Measure is allocation-free; begin reserves owned+naming+grammar scratch BEFORE
-   calling the actual naming helper/parser or cloning a DATABASE proposal with
-   NULL table. An explicit non-NULL schema must remain exact during resolution.
+   calling the actual naming helper/parser or cloning a source proposal. DATABASE
+   requires NULL table; an explicit non-NULL schema stays exact during resolution.
+   CSV/Parquet require a nonempty path and no schema/table. Demo preserves the
+   valid NULL/empty locator contract and rejects a nonempty locator.
    out stays unchanged on failure. Inputs are trusted readable model ownership. */
 PrimarySourceDraftStatus primary_source_draft_measure(PrimarySourceDraftContext context,const Analysis *proposal,
     const char *name,PrimarySourceDraftInfo *out,char **error);
@@ -34,7 +36,9 @@ PrimarySourceDraftStatus primary_source_draft_begin(PrimarySourceDraftContext co
    prepared anew after navigation/Save invalidates its request/borrowed lease. */
 PrimarySourceDraftStatus primary_source_draft_check(PrimarySourceDraftContext context,const PrimarySourceDraft *draft,char **error);
 /* Reply comes only from the associated real probe, not a current Page or cache.
-   Only schema/table default enrichment may differ; error, stale, unresolved or
+   Only DATABASE schema/table default enrichment may differ; CSV/Parquet/demo
+   preserve ALL authored fields. Valid numeric inference remains runtime metadata.
+   Error, stale, unresolved or
    grammar/budget failure preserves the proposal, candidate and working book.
    Existing draft bytes/results remain separately charged; reply owned+validation scratch
    is the additional clone/validation peak. A resolved draft rejects overwrite. */

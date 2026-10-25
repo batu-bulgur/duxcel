@@ -36,8 +36,10 @@ static bool numbers(const Analysis *a) {
 static bool room(size_t reserved,PrimarySourceDraftInfo info) { return add(&info.owned,info.validation_scratch) && add(&info.owned,info.naming_scratch) && reserved>=info.owned; }
 PrimarySourceDraftStatus primary_source_draft_measure(PrimarySourceDraftContext c,const Analysis *proposal,const char *name,PrimarySourceDraftInfo *out,char **error) {
     PrimarySourceDraftStatus status=context(c,error); if (status!=PRIMARY_SOURCE_READY) return status;
-    if (!proposal || !name || !out || proposal->kind!=SOURCE_DATABASE || proposal->source_version || !proposal->path || !*proposal->path || proposal->table || (proposal->schema && !*proposal->schema))
-        return fail(PRIMARY_SOURCE_INVALID,error,"Choose a pending DATABASE proposal with an unbound default table.");
+    if (!proposal || !name || !out || proposal->kind==SOURCE_NONE || (unsigned)proposal->kind>SOURCE_DEMO || proposal->source_version ||
+        (proposal->kind==SOURCE_DEMO ? proposal->path && *proposal->path : !proposal->path || !*proposal->path) ||
+        proposal->table || (proposal->kind!=SOURCE_DATABASE ? proposal->schema!=NULL : proposal->schema && !*proposal->schema))
+        return fail(PRIMARY_SOURCE_INVALID,error,"Choose a bounded unbound file/demo source or pending DATABASE default relation.");
     size_t length=0; while (length<=4096 && name[length]) length++;
     if (!length || length>4096) return fail(PRIMARY_SOURCE_INVALID,error,"Choose a bounded proposed worksheet name.");
     if (c.book->count==DX_MAX_SHEETS || c.book->sheet_high_water==UINT64_MAX) return fail(PRIMARY_SOURCE_LIMIT,error,"The document has no remaining sheet identity or count capacity.");
@@ -86,10 +88,14 @@ PrimarySourceDraftStatus primary_source_draft_reply_measure(PrimarySourceDraftCo
     if (!out || !reply.analysis) return fail(PRIMARY_SOURCE_INVALID,error,"Choose the actual owned source probe reply.");
     if (reply.request!=draft->request) return fail(PRIMARY_SOURCE_STALE,error,"The source completion belongs to another probe request.");
     if (reply.error) return fail(PRIMARY_SOURCE_FAILED,error,"The source probe failed; no document or candidate was published.");
-    if (reply.analysis->kind!=SOURCE_DATABASE || !numbers(reply.analysis) || definition_baseline_status((DefinitionDependencyView){reply.analysis,NULL})!=DEFINITION_BASELINE_READY)
-        return fail(PRIMARY_SOURCE_INVALID,error,"The source probe did not close its DATABASE relation.");
-    if (draft->proposal.schema && strcmp(draft->proposal.schema,reply.analysis->schema)) return fail(PRIMARY_SOURCE_STALE,error,"The source completion changed an explicitly selected schema.");
-    Analysis unchanged=*reply.analysis; unchanged.schema=draft->proposal.schema; unchanged.table=NULL;
+    if (reply.analysis->kind!=draft->proposal.kind) return fail(PRIMARY_SOURCE_STALE,error,"The source probe changed the proposed source kind.");
+    if (!numbers(reply.analysis) || definition_baseline_status((DefinitionDependencyView){reply.analysis,NULL})!=DEFINITION_BASELINE_READY)
+        return fail(PRIMARY_SOURCE_INVALID,error,"The source probe did not close a valid source definition.");
+    Analysis unchanged=*reply.analysis;
+    if (draft->proposal.kind==SOURCE_DATABASE) {
+        if (draft->proposal.schema && strcmp(draft->proposal.schema,reply.analysis->schema)) return fail(PRIMARY_SOURCE_STALE,error,"The source completion changed an explicitly selected schema.");
+        unchanged.schema=draft->proposal.schema; unchanged.table=NULL;
+    }
     if (!definition_analysis_equal(&unchanged,&draft->proposal)) return fail(PRIMARY_SOURCE_STALE,error,"The source completion changed authored proposal fields.");
     AnalysisAssetMeasure before={0},after={0};
     if (analysis_asset_measure(1,0,&draft->proposal,0,&before)!=ANALYSIS_ASSET_OK || analysis_asset_measure(1,0,reply.analysis,0,&after)!=ANALYSIS_ASSET_OK)

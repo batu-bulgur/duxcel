@@ -138,6 +138,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "primary-source-kinds": Feature(("primary_source_draft", "primary_source_publish"), "",
+        ("python3 tools/test.py feature --feature primary-source-publication",),
+        ("src/workbook/primary_source_draft.c: exact closed file/demo reply grammar", "tests/test_primary_source_draft.c: source kinds and authored rejection", "tests/test_primary_source_publish.c: shared actual CREATE")),
+
     "cell-history-payload": Feature(("cell_history_payload", "cell_delta_codec", "history_event_slot", "history_event_frame"), "",
         ("python3 tools/test.py feature --feature history-stream",),
         ("src/workbook/cell_history_payload.c", "src/workbook/cell_history_payload.h", "tests/test_cell_history_payload.c")),

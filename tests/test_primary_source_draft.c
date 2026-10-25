@@ -123,4 +123,45 @@ static void final_numeric_slot(void) {
     CHECK(primary_source_draft_resolve(c,draft,(PrimarySourceDraftReply){request,&reply,NULL},SIZE_MAX,NULL)==PRIMARY_SOURCE_RESOLVED);
     primary_source_draft_free(&draft); analysis_free(&source); analysis_free(&reply); workbook_free(&b);
 }
-int main(void) { basics(); reply_failures(); fences(); grammar_and_cancel(); final_numeric_slot(); printf("PASS: %u pending primary source ownership checks\n",checks); return 0; }
+static void file_and_demo_replies(void) {
+    const SourceKind kinds[]={SOURCE_CSV,SOURCE_PARQUET,SOURCE_DEMO,SOURCE_DEMO};
+    for (size_t k=0;k<4;k++) for (unsigned mode=0;mode<10;mode++) {
+        Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=7,epoch=9;
+        PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false};
+        Analysis proposal={.kind=kinds[k],.path=k==0 ? "/new.csv" : k==1 ? "/new.parquet" : k==2 ? "" : NULL,
+            .filter_column="Amount",.filter_value="10",.filter_op=FILTER_GREATER};
+        PrimarySourceDraftInfo info={0}; PrimarySourceDraft *draft=NULL;
+        CHECK(primary_source_draft_measure(c,&proposal,"File",&info,NULL)==PRIMARY_SOURCE_READY);
+        CHECK(primary_source_draft_begin(c,&proposal,"File",reservation(info)-1,&draft,NULL)==PRIMARY_SOURCE_LIMIT && !draft);
+        CHECK(primary_source_draft_begin(c,&proposal,"File",reservation(info),&draft,NULL)==PRIMARY_SOURCE_READY);
+        Analysis reply=proposal; reply.filter_number=(NumberType){NUM_DECIMAL,12,2};
+        if (mode==1) reply.path="/changed.csv";
+        if (mode==2) reply.schema="invented";
+        if (mode==3) reply.table="invented";
+        if (mode==4) reply.query="SELECT changed FROM input";
+        if (mode==5) reply.unique_rows=true;
+        if (mode==6) reply.kind=SOURCE_DATABASE;
+        if (mode==7) reply.filter_number=(NumberType){NUM_DECIMAL,39,0};
+        if (mode==8) reply.sort_column="Amount";
+        if (mode==9) reply.filter_value="20";
+        PrimarySourceDraftReply actual={request,&reply,NULL}; Workbook before=b;
+        PrimarySourceDraftStatus expected=mode==0 ? PRIMARY_SOURCE_READY : mode==7 ? PRIMARY_SOURCE_INVALID : PRIMARY_SOURCE_STALE;
+        CHECK(primary_source_draft_reply_measure(c,draft,actual,&info,NULL)==expected);
+        if (mode) {
+            CHECK(primary_source_draft_resolve(c,draft,actual,SIZE_MAX,NULL)==expected && !primary_source_draft_source(draft));
+            reply=proposal; reply.filter_number=(NumberType){NUM_DECIMAL,12,2};
+        }
+        CHECK(primary_source_draft_resolve(c,draft,actual,SIZE_MAX,NULL)==PRIMARY_SOURCE_RESOLVED && !memcmp(&before,&b,sizeof(b)));
+        const Analysis *source=primary_source_draft_source(draft);
+        CHECK(source && source->kind==kinds[k] && source->filter_number.kind==NUM_DECIMAL && !source->schema && !source->table);
+        CHECK((source->path!=NULL)==(proposal.path!=NULL) && (!source->path || !strcmp(source->path,proposal.path)));
+        primary_source_draft_free(&draft); analysis_free(&app); workbook_free(&b);
+    }
+    Workbook b=book(); uint64_t request=1,epoch=1; PrimarySourceDraftContext c={&b,&b.sheets[0].analysis,&request,&epoch,true,false}; PrimarySourceDraftInfo info={0};
+    const Analysis invalid[]={ {.kind=SOURCE_NONE}, {.kind=SOURCE_CSV}, {.kind=SOURCE_PARQUET,.path=""},
+        {.kind=SOURCE_DEMO,.path="/invented"}, {.kind=SOURCE_CSV,.path="/file.csv",.schema="main"},
+        {.kind=SOURCE_PARQUET,.path="/file.parquet",.table="invented"} };
+    for (size_t i=0;i<sizeof(invalid)/sizeof(*invalid);i++) CHECK(primary_source_draft_measure(c,invalid+i,"File",&info,NULL)==PRIMARY_SOURCE_INVALID);
+    workbook_free(&b);
+}
+int main(void) { basics(); reply_failures(); fences(); grammar_and_cancel(); final_numeric_slot(); file_and_demo_replies(); printf("PASS: %u pending primary source ownership checks\n",checks); return 0; }

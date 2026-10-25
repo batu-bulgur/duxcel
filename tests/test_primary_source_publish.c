@@ -80,4 +80,21 @@ static void assets_and_unresolved(void) {
     CHECK(definition_origin_asset_shape(view,&measure,NULL)==DEFINITION_ORIGIN_INVALID);
     b.sheets[0].analysis.filter_number=(NumberType){0}; workbook_free(&b);
 }
-int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); printf("PASS: %u primary publication checks\n",checks); return 0; }
+static void file_and_demo_publication(void) {
+    const SourceKind kinds[]={SOURCE_CSV,SOURCE_PARQUET,SOURCE_DEMO};
+    for (size_t k=0;k<3;k++) {
+        Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=12,epoch=4;
+        PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false};
+        Analysis source={.kind=kinds[k],.path=k==0 ? "/new.csv" : k==1 ? "/new.parquet" : ""};
+        PrimarySourceDraft *draft=NULL; PrimarySourcePublishPlan *plan=NULL; PrimarySourcePublication out={0};
+        CHECK(primary_source_draft_begin(c,&source,"File",SIZE_MAX,&draft,NULL)==PRIMARY_SOURCE_READY);
+        CHECK(primary_source_draft_resolve(c,draft,(PrimarySourceDraftReply){request,&source,NULL},SIZE_MAX,NULL)==PRIMARY_SOURCE_RESOLVED);
+        CHECK(primary_source_publish_prepare(c,&draft,SIZE_MAX,&plan,NULL)==PRIMARY_PUBLISH_READY && !draft && b.count==1);
+        CHECK(primary_source_publish_apply(c,&plan,SIZE_MAX,&out,NULL)==PRIMARY_PUBLISH_ADMITTED && !plan);
+        CHECK(b.count==2 && b.sheets[1].analysis.kind==kinds[k] && out.candidate.source.kind==kinds[k]);
+        CHECK(!strcmp(out.candidate.source.path,source.path) && out.candidate.source.path!=source.path && !strcmp(app.path,"/current.csv"));
+        CHECK(definition_origin_assets(out.origin).primary && sheet_presence_view(out.presence).sheet->id==b.sheets[1].id);
+        primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
+    }
+}
+int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); printf("PASS: %u primary publication checks\n",checks); return 0; }
