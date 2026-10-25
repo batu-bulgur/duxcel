@@ -18,7 +18,15 @@ static void definition_origin_test_frame(AppSession *session) {
         AppDefinitionOrigin *node=app_definition_origin_find(a); ORIGIN_CHECK(node && definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED);
         origin_immutable=definition_origin_assets(node->owner).primary; origin_initial_bytes=app_definition_origin_bytes(a);
         ORIGIN_CHECK(origin_immutable && origin_initial_bytes>definition_origin_owner_bytes());
-        open_source(a,"build/tests/generated/source-connection-a.duckdb",false);
+        /* A current loaded DATABASE definition may still lack its default.
+           New-primary opening now resolves before creation; exercise the actual
+           legacy-free loaded-owner path through the real producer/activation. */
+        ORIGIN_CHECK(capture_sheet(a));
+        Analysis loaded={.kind=SOURCE_DATABASE,.path=dx_absolute_path("build/tests/generated/source-connection-a.duckdb")};
+        ORIGIN_CHECK(loaded.path);
+        ORIGIN_CHECK(workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name="Pending loaded primary",.analysis=&loaded},NULL,NULL));
+        analysis_free(&loaded);
+        ORIGIN_CHECK(activate_sheet(a,a->book.active,false));
         ORIGIN_CHECK(!a->analysis.table && !app_definition_origin_find(a));
         /* Existing governor field exercises real reply pressure, not a test-only
            admission flag. No allocation is represented by this sentinel. */

@@ -62,9 +62,11 @@ static void primary_source_test_frame(AppSession *session) {
         {
             AppDefinitionOrigin *existing=app_definition_origin_find(a); PRIMARY_SOURCE_CHECK(existing);
             /* Use a genuinely new loaded owner instead of reopening ADMITTED. */
-            Analysis loaded={.kind=SOURCE_DATABASE,.path="build/tests/generated/source-connection-a.duckdb"};
+            Analysis loaded={.kind=SOURCE_DATABASE,.path=dx_absolute_path("build/tests/generated/source-connection-a.duckdb")};
+            PRIMARY_SOURCE_CHECK(loaded.path);
             PRIMARY_SOURCE_CHECK(capture_sheet(a));
             PRIMARY_SOURCE_CHECK(workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name="Loaded unresolved",.analysis=&loaded},NULL,NULL));
+            analysis_free(&loaded);
             PRIMARY_SOURCE_CHECK(activate_sheet(a,a->book.active,false));
             a->source_format.bytes=SIZE_MAX;
         }
