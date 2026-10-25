@@ -125,4 +125,54 @@ static void provisional_view_rejected(void) {
     CHECK(primary_source_topology_prepare(c,&candidate,SIZE_MAX,&plan,NULL)==PRIMARY_TOPOLOGY_PROTECTED && candidate && !plan && !memcmp(&before,&b,sizeof(b)));
     primary_source_publish_cancel(&candidate); workbook_free(&b);
 }
-int main(void) { prepare_and_reserve(); stale_and_lifetimes(); foreign_and_pressure(); catalog_cost_contract(); provisional_view_rejected(); printf("PASS: %u prepare-only primary CREATE topology checks\n",checks); return 0; }
+static void actual_create_adoption(bool retained,bool reserved_first,bool abandon) {
+    Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=9,epoch=4;
+    PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false}; PrimarySourceTopologyPlan *plan=prepare(c);
+    const SheetTopologyPacket *packet=primary_source_topology_packet(plan); size_t bytes=packet->bytes; unsigned char *expected=malloc(bytes); memcpy(expected,packet->data,bytes);
+    WorkbookHistoryStream *history=retained ? stream(&b,false,DX_HISTORY_STREAM_DEFAULT_BYTES) : NULL;
+    if (reserved_first) CHECK(primary_source_topology_reserve(c,plan,history,SIZE_MAX,NULL)==PRIMARY_TOPOLOGY_READY);
+    PrimarySourcePublication out={0}; uint64_t order=worksheet_history_high_water(),revision=b.command_revision;
+    CHECK(primary_source_topology_apply(c,&plan,history,SIZE_MAX,&out,NULL)==PRIMARY_TOPOLOGY_APPLIED && !plan);
+    CHECK(b.count==3 && b.active==2 && b.sheet_high_water==3 && b.command_revision==revision+1 && worksheet_history_high_water()==order+1 && out.sheet==3);
+    CHECK(b.sheets[2].view.column_count==52 && b.sheets[2].view.widths[0]==128 && b.sheets[2].view.widths[1]==190 && b.sheets[2].view.canvas_zoom==1.5f && !b.sheets[2].width_revision);
+    size_t resident=0; CHECK(workbook_lifecycle_format_usage(&b,&resident)==FORMAT_BUDGET_OK && resident==bytes);
+    Workbook *saved=workbook_snapshot(&b); CHECK(saved && !saved->lifecycle); size_t saved_bytes=1;
+    CHECK(workbook_lifecycle_format_usage(saved,&saved_bytes)==FORMAT_BUDGET_OK && !saved_bytes); workbook_free(saved); free(saved);
+    if (retained) {
+        WorkbookHistoryStreamState state=workbook_history_stream_state(history);
+        CHECK(!state.reserved && state.pending==1 && state.current.command_revision==revision+1 && state.current.cursor==4 && state.current.tail==4 && state.current.action_high_water==6 && state.current.lineage==2);
+        WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(history,&event)==HISTORY_STREAM_OK && event);
+        const WorkbookHistoryEventInfo *info=workbook_history_event_info(event);
+        CHECK(info->family==5 && info->encoding==2 && info->bytes==bytes && info->revision==revision+1 && info->forked);
+        CHECK(!memcmp(workbook_history_event_payload(event),expected,bytes));
+        CHECK(workbook_history_stream_complete(history,&event)==HISTORY_STREAM_OK && !event);
+    }
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && b.count==2 && b.sheet_high_water==3);
+    CHECK(workbook_lifecycle_format_usage(&b,&resident)==FORMAT_BUDGET_OK && resident==bytes);
+    if (abandon) {
+        CHECK(workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=0,.name="Branch"},NULL,NULL));
+        CHECK(workbook_lifecycle_format_usage(&b,&resident)==FORMAT_BUDGET_OK && !resident && b.count==2 && b.sheet_high_water==3);
+    } else {
+        CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED && b.count==3 && b.sheets[b.active].id==3 && b.sheets[b.active].view.widths[1]==190);
+        CHECK(workbook_lifecycle_format_usage(&b,&resident)==FORMAT_BUDGET_OK && resident==bytes);
+    }
+    free(expected); primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
+    if (retained) CHECK(workbook_history_stream_free(&history,false)==HISTORY_STREAM_OK);
+}
+static void apply_failure_preservation(void) {
+    for (unsigned mode=0;mode<5;mode++) {
+        Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=9,epoch=4;
+        PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false}; PrimarySourceTopologyPlan *plan=prepare(c);
+        WorkbookHistoryStream *history=stream(&b,mode==1,mode==2 ? 1 : DX_HISTORY_STREAM_DEFAULT_BYTES); WorkbookHistoryStreamState state=workbook_history_stream_state(history);
+        PrimarySourcePublication out={0}; if (mode==3) out.candidate.source.query=dx_strdup("occupied"); if (mode==4) epoch++;
+        Workbook before=b; Worksheet sheet=b.sheets[0]; uint64_t order=worksheet_history_high_water();
+        size_t budget=mode==0 ? primary_source_topology_usage(plan).total-1 : SIZE_MAX;
+        PrimarySourceTopologyStatus expected=mode==0 || mode==2 ? PRIMARY_TOPOLOGY_LIMIT : mode==3 ? PRIMARY_TOPOLOGY_INVALID : PRIMARY_TOPOLOGY_STALE;
+        CHECK(primary_source_topology_apply(c,&plan,history,budget,&out,NULL)==expected && plan);
+        CHECK(!memcmp(&b,&before,sizeof(b)) && !memcmp(b.sheets,&sheet,sizeof(sheet)) && worksheet_history_high_water()==order && !out.sheet);
+        CHECK(same_state(state,workbook_history_stream_state(history)) && !primary_source_topology_reserved(plan));
+        primary_source_publication_free(&out); primary_source_topology_free(&plan); CHECK(workbook_history_stream_free(&history,false)==HISTORY_STREAM_OK);
+        analysis_free(&app); workbook_free(&b);
+    }
+}
+int main(void) { prepare_and_reserve(); stale_and_lifetimes(); foreign_and_pressure(); catalog_cost_contract(); provisional_view_rejected(); actual_create_adoption(false,false,false); actual_create_adoption(true,false,false); actual_create_adoption(true,true,true); apply_failure_preservation(); printf("PASS: %u owned primary CREATE topology checks\n",checks); return 0; }

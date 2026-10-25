@@ -92,8 +92,11 @@ PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContex
     if (!plan || !plan->draft) return fail(PRIMARY_PUBLISH_INVALID,error,"The unpublished creation plan has no live source lease.");
     return draft_status(primary_source_draft_check(c,plan->draft,error));
 }
+bool primary_source_publication_empty(const PrimarySourcePublication *out) {
+    return out && !out->sheet && !out->primary_epoch && !out->candidate.name && !memcmp(&out->candidate.source,&(Analysis){0},sizeof(Analysis)) && !out->presence && !out->origin;
+}
 PrimarySourcePublishStatus primary_source_publish_apply(PrimarySourceDraftContext c,PrimarySourcePublishPlan **owned,size_t reserved,PrimarySourcePublication *out,char **error) {
-    if (!owned || !*owned || !out || out->sheet || out->primary_epoch || out->candidate.name || memcmp(&out->candidate.source,&(Analysis){0},sizeof(Analysis)) || out->presence || out->origin)
+    if (!owned || !*owned || !primary_source_publication_empty(out))
         return fail(PRIMARY_PUBLISH_INVALID,error,"Choose independent empty publication result ownership.");
     PrimarySourcePublishPlan *plan=*owned; PrimarySourcePublishStatus status=primary_source_publish_check(c,plan,error); if (status!=PRIMARY_PUBLISH_READY) return status;
     if (reserved<plan->info.coexisting) return fail(PRIMARY_PUBLISH_LIMIT,error,"The admitted creation coexistence must remain reserved through publication.");

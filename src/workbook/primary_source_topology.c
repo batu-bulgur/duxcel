@@ -1,4 +1,6 @@
 #include "primary_source_topology.h"
+#include "lifecycle_topology_internal.h"
+#include "history_sheet_topology_internal.h"
 #include <stdlib.h>
 #include <string.h>
 struct PrimarySourceTopologyPlan {
@@ -17,7 +19,7 @@ static PrimarySourceTopologyStatus fail(PrimarySourceTopologyStatus status,char 
 static bool add(size_t *sum,size_t bytes) { if (bytes==SIZE_MAX || *sum>SIZE_MAX-bytes) return false; *sum+=bytes; return true; }
 static PrimarySourceTopologyStatus source_status(PrimarySourcePublishStatus status) {
     return status==PRIMARY_PUBLISH_READY ? PRIMARY_TOPOLOGY_READY : status==PRIMARY_PUBLISH_STALE ? PRIMARY_TOPOLOGY_STALE :
-        status==PRIMARY_PUBLISH_PROTECTED ? PRIMARY_TOPOLOGY_PROTECTED : status==PRIMARY_PUBLISH_LIMIT ? PRIMARY_TOPOLOGY_LIMIT : PRIMARY_TOPOLOGY_INVALID;
+        status==PRIMARY_PUBLISH_PROTECTED ? PRIMARY_TOPOLOGY_PROTECTED : status==PRIMARY_PUBLISH_LIMIT ? PRIMARY_TOPOLOGY_LIMIT : status==PRIMARY_PUBLISH_FAILED ? PRIMARY_TOPOLOGY_FAILED : PRIMARY_TOPOLOGY_INVALID;
 }
 static bool same_stream(WorkbookHistoryStreamOrigin a,WorkbookHistoryStreamOrigin b) {
     return a.owner.document_high==b.owner.document_high && a.owner.document_low==b.owner.document_low && a.owner.session==b.owner.session && a.owner.mode==b.owner.mode &&
@@ -111,6 +113,42 @@ PrimarySourceTopologyStatus primary_source_topology_reserve(PrimarySourceDraftCo
         workbook_history_topology_cancel(&ticket); return status==PRIMARY_TOPOLOGY_READY ? PRIMARY_TOPOLOGY_STALE : status;
     }
     plan->ticket=ticket; plan->stream=stream; plan->stream_before=before.current; return PRIMARY_TOPOLOGY_READY;
+}
+static bool adopted_catalog(const PrimarySourceTopologyPlan *plan,const Workbook *book) {
+    SheetLifecycleEntry rows[DX_MAX_SHEETS]; SheetLifecycleState current;
+    if (sheet_lifecycle_from_workbook(book,rows,&current)!=SHEET_LIFECYCLE_OK || current.count!=plan->after.count || current.high_water!=plan->after.high_water ||
+        current.active!=plan->after.active || current.document.high!=plan->after.document.high || current.document.low!=plan->after.document.low) return false;
+    for (size_t i=0;i<current.count;i++) if (rows[i].id!=plan->after_rows[i].id || rows[i].hidden!=plan->after_rows[i].hidden || strcmp(rows[i].name,plan->after_rows[i].name)) return false;
+    return true;
+}
+PrimarySourceTopologyStatus primary_source_topology_apply(PrimarySourceDraftContext c,PrimarySourceTopologyPlan **owned,WorkbookHistoryStream *stream,size_t reserved,PrimarySourcePublication *out,char **error) {
+    if (!owned || !*owned || !primary_source_publication_empty(out)) return PRIMARY_TOPOLOGY_INVALID;
+    PrimarySourceTopologyPlan *plan=*owned; PrimarySourceTopologyStatus status=primary_source_topology_check(c,plan,error); if (status!=PRIMARY_TOPOLOGY_READY) return status;
+    if (reserved<plan->usage.total) return fail(PRIMARY_TOPOLOGY_LIMIT,error,"Reserve the complete source/topology publication ownership before CREATE.");
+    if (plan->ticket && (!stream || !workbook_history_topology_belongs(plan->ticket,stream))) return PRIMARY_TOPOLOGY_STALE;
+    if (workbook_lifecycle_topology_preflight(c.book,plan->packet.bytes,plan->usage.total)!=FORMAT_BUDGET_OK)
+        return fail(PRIMARY_TOPOLOGY_LIMIT,error,"The original topology packet and complete CREATE coexistence exceed the current budget.");
+    if (stream && !plan->ticket) { status=primary_source_topology_reserve(c,plan,stream,reserved,error); if (status!=PRIMARY_TOPOLOGY_READY) return status; }
+    status=primary_source_topology_check(c,plan,error); if (status!=PRIMARY_TOPOLOGY_READY) return status;
+    if (!worksheet_history_order_available()) return PRIMARY_TOPOLOGY_LIMIT;
+    Workbook *book=(Workbook *)c.book; uint64_t revision=book->command_revision,session=book->edit_session_id,order=worksheet_history_high_water();
+    PrimarySourcePublication result={0};
+    PrimarySourcePublishStatus applied=primary_source_publish_apply(c,&plan->source,primary_source_publish_usage(plan->source).coexisting,&result,error);
+    if (applied!=PRIMARY_PUBLISH_ADMITTED && applied!=PRIMARY_PUBLISH_PENDING) return source_status(applied);
+    /* No callbacks/frames/IO occur between actual CREATE and these proofs.
+       Never return a rollback-looking failure after a published model. */
+    WorkbookHistoryResult action=workbook_history_peek(book,false,NULL);
+    bool matches=false; Worksheet *sheet=book->sheets+book->active;
+    if (book->edit_session_id!=session || book->command_revision!=revision+1 || action.status!=WORKBOOK_HISTORY_READY || !action.lifecycle ||
+        action.sheet_id!=result.sheet || action.order!=order+1 || worksheet_history_high_water()!=action.order || !adopted_catalog(plan,book) ||
+        result.sheet!=plan->usage.prospective_sheet || sheet_presence_matches(result.presence,(SheetPresenceView){book->id,book->sheet_high_water,sheet,&result.candidate.source},&matches)!=SHEET_PRESENCE_OK || !matches) abort();
+    workbook_lifecycle_topology_adopt(book,action.order,book->command_revision,result.sheet,SHEET_CREATE,&plan->packet);
+    if (plan->ticket) {
+        if (applied==PRIMARY_PUBLISH_ADMITTED) workbook_history_topology_publish_adopted(&plan->ticket,book);
+        else workbook_history_topology_cancel(&plan->ticket);
+    }
+    *out=result; primary_source_topology_free(owned);
+    return applied==PRIMARY_PUBLISH_ADMITTED ? PRIMARY_TOPOLOGY_APPLIED : PRIMARY_TOPOLOGY_APPLIED_PENDING;
 }
 void primary_source_topology_cancel(PrimarySourceTopologyPlan *plan) { if (plan) { workbook_history_topology_cancel(&plan->ticket); plan->stream=NULL; } }
 void primary_source_topology_free(PrimarySourceTopologyPlan **owned) {

@@ -87,5 +87,7 @@ PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContex
 PrimarySourcePublishStatus primary_source_publish_apply(PrimarySourceDraftContext context,
     PrimarySourcePublishPlan **plan,size_t reserved,PrimarySourcePublication *out,char **error);
 void primary_source_publish_cancel(PrimarySourcePublishPlan **plan);
+/* Read-only complete result-ownership guard, shared by compound producers. */
+bool primary_source_publication_empty(const PrimarySourcePublication *publication);
 void primary_source_publication_free(PrimarySourcePublication *publication);
 #endif
