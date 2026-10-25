@@ -76,7 +76,7 @@ static void source_results_test_frame(AppSession *session) {
         uint64_t revision=a->book.command_revision; source_results_wrong=true;
         SR_CHECK(source_results_noop(a).status==RANGE_COMMAND_STALE && a->book.command_revision==revision); source_results_wrong=false;
         SR_CHECK(source_results_noop(a).status==RANGE_COMMAND_NOOP && a->book.command_revision==revision);
-        invalidate_object(a,1); SR_CHECK(!source_results_prepare(a,false)); break;
+        invalidate_object(a,1); a->selected_object=1; a->pivot_reveal_object=true; SR_CHECK(!source_results_prepare(a,false)); break;
     }
     case 9:
         if (!object_ready(a,1)) return;
