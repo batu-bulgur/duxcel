@@ -59,9 +59,10 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,s
     if (!eligible(c,s)) { fail(error,"Source and analytical ranges require their complete composite owner."); return RANGE_COMMAND_PROTECTED; }
     if (!format_shape(&s->formats)) { fail(error,"Invalid bounded format state."); return RANGE_COMMAND_INVALID; }
     if (s->objects.count) {
-        if (command.operation!=RANGE_OPERATION_MOVE) { fail(error,"Object-bearing axis/paste operations require a separate complete owner."); return RANGE_COMMAND_PROTECTED; }
-        if (command.row || command.row_count || command.column || command.column_count || command.text) return RANGE_COMMAND_INVALID;
-        MixedRangePlanInfo mixed={0}; MixedRangeStatus status=mixed_range_measure(s,c->primary,command.range,command.dr,command.dc,command.replace,&mixed,error);
+        bool move=command.operation==RANGE_OPERATION_MOVE,rows=command.operation==RANGE_OPERATION_INSERT_ROWS || command.operation==RANGE_OPERATION_DELETE_ROWS;
+        if (!move && !rows) { fail(error,"Object-bearing column/paste/clear operations require a separate complete owner."); return RANGE_COMMAND_PROTECTED; }
+        if (command.column || command.column_count || command.text || (move && (command.row || command.row_count)) || (rows && (command.dr || command.dc || command.replace || command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1))) return RANGE_COMMAND_INVALID;
+        MixedRangePlanInfo mixed={0}; MixedRangeStatus status=move ? mixed_range_measure(s,c->primary,command.range,command.dr,command.dc,command.replace,&mixed,error) : mixed_rows_measure(s,c->primary,command.row,command.row_count,insert(command),&mixed,error);
         if (status!=MIXED_RANGE_READY) return status==MIXED_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==MIXED_RANGE_PROTECTED ? RANGE_COMMAND_PROTECTED : status==MIXED_RANGE_OCCUPIED ? RANGE_COMMAND_OCCUPIED : status==MIXED_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID;
         ObjectSnapshot before={s->objects.items,s->objects.count}; size_t retained=objects_snapshot_owned_bytes(&before);
         if (retained==SIZE_MAX) return RANGE_COMMAND_INVALID;
@@ -142,7 +143,7 @@ static bool mixed_kind(unsigned effects,EditKind *kind) {
 }
 static RangeCommandResult apply_mixed(RangeCommandContext *c,const RangeCommandTarget *t,RangeCommand command,RangeCommandPlanInfo info,RangeCommandResult r,const WorkbookHistoryRangeRecorder *recorder,char **error) {
     Workbook *b=c->command.book; Worksheet *s=resolve(b,t->owner.owner.sheet_id); MixedRangePlan plan={0}; CellDelta *changes=NULL; void *ticket=NULL;
-    MixedRangeStatus status=mixed_range_plan(s,c->primary,command.range,command.dr,command.dc,command.replace,info.owned,c->command.validation_reserved,&plan,error);
+    MixedRangeStatus status=command.operation==RANGE_OPERATION_MOVE ? mixed_range_plan(s,c->primary,command.range,command.dr,command.dc,command.replace,info.owned,c->command.validation_reserved,&plan,error) : mixed_rows_plan(s,c->primary,command.row,command.row_count,insert(command),info.owned,c->command.validation_reserved,&plan,error);
     if (status!=MIXED_RANGE_READY) { r.status=status==MIXED_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==MIXED_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; return r; }
     r.effects=plan.effects; EditKind kind;
     if (!mixed_kind(r.effects,&kind)) { r.status=RANGE_COMMAND_INVALID; goto cancel; }

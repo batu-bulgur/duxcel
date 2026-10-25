@@ -291,4 +291,31 @@ static void clear_command(void) {
     command.range.r1=UINT64_MAX; CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_INVALID);
     CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+static void mixed_rows_command(void) {
+    for (unsigned deletion=0;deletion<2;deletion++) {
+        Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Rows",&(Analysis){0},NULL)); Worksheet *s=b.sheets;
+        CHECK(objects_add(&s->objects,5,2,"Template",NULL)==0); s->objects.items[0].rows=3; s->objects.items[0].columns=2; worksheet_record(s,EDIT_OBJECTS);
+        CHECK(cells_set(&s->cells,1,1,"9007199254740993.0123456789",NULL)); worksheet_record(s,EDIT_CELLS);
+        CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&s->formats,(FormatRange){1,6,1,3},FORMAT_BOLD,bold,NULL)); worksheet_record(s,EDIT_FORMAT);
+        b.dirty=false; uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
+        RangeCommand command={.operation=deletion ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=0,.row_count=2};
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); WorkbookHistoryRangeRecorder recorder=workbook_history_stream_range_recorder(queue);
+        uint64_t high=s->objects.next_id; RangeCommandResult result=workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL);
+        CHECK(result.status==RANGE_COMMAND_APPLIED && result.effects==14 && b.command_revision==1 && s->objects.items[0].row==(deletion ? 3u : 7u) && s->objects.next_id==high && !s->width_revision);
+        CHECK(deletion ? !s->cells.count : !strcmp(cells_get(&s->cells,3,1),"9007199254740993.0123456789"));
+        WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+        CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==14 && event.definitions.before_objects.objects.items[0].row==5 && event.definitions.after_objects.objects.items[0].row==(deletion ? 3u : 7u));
+        range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+        CHECK(cells_history(&s->cells,false) && objects_history(&s->objects,false) && format_history(&s->formats,false)); worksheet_transfer_history(s,false); b.command_revision++;
+        CHECK(s->objects.items[0].row==5 && !strcmp(cells_get(&s->cells,1,1),"9007199254740993.0123456789") && (format_at(&s->formats,1,1).flags&FORMAT_BOLD) && s->objects.next_id==high && !s->width_revision);
+        free(t); t=target(&c); command.row=1000; command.row_count=1; c.command.plan_reserved=c.command.validation_reserved=0; size_t redo=s->redo_actions_count;
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_NOOP && s->redo_actions_count==redo && b.command_revision==2);
+        c.command.plan_reserved=c.command.validation_reserved=SIZE_MAX; command.row=6;
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_INVALID && s->objects.items[0].row==5 && s->redo_actions_count==redo && b.command_revision==2);
+        CHECK(cells_history(&s->cells,true) && objects_history(&s->objects,true) && format_history(&s->formats,true)); worksheet_transfer_history(s,true); b.command_revision++;
+        CHECK(s->objects.items[0].row==(deletion ? 3u : 7u) && s->objects.next_id==high && !s->width_revision);
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
+    }
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command(); mixed_rows_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
