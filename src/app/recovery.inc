@@ -34,6 +34,7 @@ static void recovery_adopt(App *a,WorkbookRecoveryCandidate *candidate,bool disc
     if (!book) { recovery_candidate_free(a,candidate); return; }
     SOURCE_FORMAT_RESET(a); end_step_preview(a); cancel_values(a); statistics_cancel(a);
     close_journal(a,discard); recovery_resolve(a,discard);
+    DEFINITION_ORIGINS_RETIRE(a);
     workbook_free(&a->book); a->book=*book; free(book); a->recovery_owner=candidate;
     a->modal=MODAL_NONE; a->key_tips=a->file_menu=a->ribbon_focus=false;
     if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }

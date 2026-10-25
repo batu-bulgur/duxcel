@@ -205,7 +205,8 @@ bool worker_save_cancel(QueryWorker *w) {
 bool worker_retire_native(QueryWorker *w,WorkerNativeRetirement *owned) {
     if (!w || !w->started || !owned || !owned->context || !owned->dispose) return false;
     dx_lock(&w->mutex);
-    if (w->stop || owned->queued) { dx_unlock(&w->mutex); return false; }
+    if (w->stop || owned->queued || owned->reserved_bytes>SIZE_MAX-w->native_retired_reserved) { dx_unlock(&w->mutex); return false; }
+    w->native_retired_reserved+=owned->reserved_bytes;
     owned->queued=true; owned->next=NULL;
     if (w->retired_tail) w->retired_tail->next=owned; else w->retired_head=owned;
     w->retired_tail=owned; dx_signal(&w->condition); dx_unlock(&w->mutex); return true;
@@ -228,8 +229,10 @@ static void *worker_main(void *ptr) {
         if (w->retired_head) {
             WorkerNativeRetirement *owned=w->retired_head; w->retired_head=owned->next;
             if (!w->retired_head) w->retired_tail=NULL;
+            size_t reserved=owned->reserved_bytes;
             owned->next=NULL; owned->queued=false; dx_unlock(&w->mutex);
-            owned->dispose(owned->context); continue;
+            owned->dispose(owned->context);
+            dx_lock(&w->mutex); w->native_retired_reserved-=reserved; dx_unlock(&w->mutex); continue;
         }
         if (w->stop) { dx_unlock(&w->mutex); break; }
         QueryJob *j = w->pending; w->pending = NULL; w->running = true; w->active_id=j->id; w->jobs_started++;
@@ -350,7 +353,7 @@ QueryReply *worker_poll(QueryWorker *w) {
 WorkerFormatUsage worker_format_usage(QueryWorker *w) {
     if (!w || !w->started) return (WorkerFormatUsage){0};
     dx_lock(&w->mutex);
-    WorkerFormatUsage usage={.active_reserved=w->active_format_reserved,.pending_reserved=w->pending_format_reserved,.published_owned=w->published_format_owned,
+    WorkerFormatUsage usage={.retired_owned=w->native_retired_reserved,.active_reserved=w->active_format_reserved,.pending_reserved=w->pending_format_reserved,.published_owned=w->published_format_owned,
         .active_count=w->active_format_reserved!=0,.pending_count=w->pending_format_reserved!=0,.published_count=w->reply && format_job_kind(w->reply->kind)};
     dx_unlock(&w->mutex); return usage;
 }

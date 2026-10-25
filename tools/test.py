@@ -126,6 +126,7 @@ PRIVATE_LAYOUT_RANGES = {
 }
 PRIVATE_NATIVE_SCENARIOS = {"base", "workspace", "filter", "export", "count", "navigation", "nyc", "document", "chart", "statistics", "icon", "query", "unique"}
 PRIVATE_STANDALONE_GUI = {
+    "definition-origin",
     "object-create-command", "object-move-command", "object-delete-command", "object-binding-command",
     "primary-replacement", "table-replacement", "object-pivot-command",
     "object-layout-command", "object-marks-command", "object-presentation-command",

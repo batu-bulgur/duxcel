@@ -17,6 +17,7 @@
 #include "../workbook/history.h"
 #include "../workbook/lifecycle.h"
 #ifndef DUXCEL_BROWSER_HOST
+#include "../workbook/definition_origin.h"
 #include "../workbook/journal_session.h"
 #include "versionstate.h"
 #include "versionpreview.h"
@@ -128,6 +129,7 @@ typedef struct {
     bool valid;
 } SourceFormatAttempt;
 typedef struct { uint64_t owner; SourceFormatProof proof; SourceFormatAttempt attempt; } SourceFormatTable;
+typedef struct AppDefinitionOrigin AppDefinitionOrigin;
 #endif
 typedef struct {
     UIContext ui;
@@ -149,6 +151,7 @@ typedef struct {
     UICellContextLayout cell_context;
     ActiveReadout active_readout;
 #ifndef DUXCEL_BROWSER_HOST
+    AppDefinitionOrigin *definition_origins;
     SourceFormatIntent source_format;
     SourceFormatProof source_format_proof;
     SourceFormatAttempt source_format_attempt;
@@ -810,6 +813,7 @@ static size_t source_format_token(App *a);
 static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_CANCEL(a,message) source_format_cancel(a,message)
 #define SOURCE_FORMAT_RESET(a) source_format_reset(a)
+#define DEFINITION_ORIGINS_RETIRE(a) app_definition_origins_retire(a)
 #define SOURCE_FORMAT_PAGE(a) source_format_page(a)
 #define SOURCE_FORMAT_TICK(a) source_format_tick(a)
 #define SOURCE_FORMAT_SCHEDULE(a) source_format_schedule(a)
@@ -822,6 +826,7 @@ static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #else
 #define SOURCE_FORMAT_CANCEL(...) ((void)0)
 #define SOURCE_FORMAT_RESET(...) ((void)0)
+#define DEFINITION_ORIGINS_RETIRE(...) ((void)0)
 #define SOURCE_FORMAT_PAGE(...) ((void)0)
 #define SOURCE_FORMAT_TICK(...) ((void)0)
 #define SOURCE_FORMAT_SCHEDULE(...) ((void)0)
@@ -1489,7 +1494,7 @@ static void request_page(App *a,bool reset) {
     if (a->object_import.active) return;
     SOURCE_FORMAT_REQUEST(a);
     QueryJob *j=dx_alloc(sizeof(*j));
-    j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis); j->kind=JOB_PAGE;
+    j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis); j->kind=JOB_PAGE; j->revision=a->analysis_revision;
     j->refresh_source=a->refresh_plans; a->refresh_plans=false;
     uint64_t margin=a->grid.visible_rows+1<DX_PAGE_ROWS ? (DX_PAGE_ROWS-a->grid.visible_rows-1)/2 : 0;
     j->offset=reset || a->grid.top<margin ? 0 : a->grid.top-margin;
@@ -1697,7 +1702,7 @@ static void finish_document_action(App *a) {
     if (action==DOCUMENT_QUIT) { a->discard_journal=discard; a->exit_ready=true; }
     else if (action==DOCUMENT_OPEN) { a->discard_journal_on_load=discard; workspace_job(a,JOB_LOAD,path); }
     else if (action==DOCUMENT_CLOSE || action==DOCUMENT_NEW) {
-        SOURCE_FORMAT_RESET(a);
+        SOURCE_FORMAT_RESET(a); DEFINITION_ORIGINS_RETIRE(a);
         end_step_preview(a); cancel_values(a); statistics_cancel(a);
         close_journal(a,discard);
 #ifndef DUXCEL_BROWSER_HOST
@@ -2350,6 +2355,7 @@ static void poll_query(App *a) {
             recovery_resolve(a,a->discard_journal_on_load || !a->book.dirty);
 #endif
             close_journal(a,a->discard_journal_on_load || !a->book.dirty); a->discard_journal_on_load=false;
+            DEFINITION_ORIGINS_RETIRE(a);
             workbook_free(&a->book); a->book=*r->workbook; workbook_init(r->workbook);
             if (!a->app_presentation_loaded) { ui_set_scale(&a->ui,a->book.user_scale); a->reduced_motion=a->book.reduced_motion; }
             activate_sheet(a,a->book.active,false);
@@ -2410,9 +2416,18 @@ static void poll_query(App *a) {
         char *overlap_error=source_overlap(a,r->page.total,r->page.column_count);
         if (overlap_error) { status(a,overlap_error); free(overlap_error); a->fetch_failed=true; a->modal=MODAL_ERROR; reply_free(r); return; }
         for (size_t c=0;c<r->page.column_count;c++) r->page.columns[c].filtered=analysis_filter_get(&a->analysis,r->page.columns[c].name,NULL,NULL);
+#ifndef DUXCEL_BROWSER_HOST
+        char *origin_error=NULL;
+        DefinitionOriginStatus origin=app_definition_origin_reply(a,r,&origin_error);
+        if (origin_error) { status(a,origin_error); free(origin_error); }
+        if (origin!=DEFINITION_ORIGIN_READY && origin!=DEFINITION_ORIGIN_APPLIED && origin!=DEFINITION_ORIGIN_LIMIT && origin!=DEFINITION_ORIGIN_UNRESOLVED) {
+            a->fetch_failed=true; a->modal=MODAL_ERROR; reply_free(r); return;
+        }
+#else
         if (!a->analysis.table && r->analysis.table) {
             free(a->analysis.schema); a->analysis.schema=dx_strdup(r->analysis.schema); a->analysis.table=dx_strdup(r->analysis.table);
         }
+#endif
         if (r->page.count_pending && count_requires_validation(a,&r->page)) {
             page_free(&a->spare); a->spare=r->page; memset(&r->page,0,sizeof(r->page)); a->waiting_count_page=true; a->page_stale=true;
             status(a,"Checking the new table size against existing worksheet content…"); reply_free(r); return;
@@ -15604,6 +15619,9 @@ static void object_move_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
 static void range_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
+static void definition_origin_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
 static void object_create_command_test_frame(AppSession *session);
 #endif
@@ -16500,6 +16518,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
     range_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
+    definition_origin_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
     object_create_command_test_frame(session);
 #endif
@@ -16717,7 +16738,7 @@ int app_finish(AppSession *session) {
 #ifdef DUXCEL_DEV_REVIEW
     dx_review_capture_destroy(a->review); a->review=NULL;
 #endif
-    SOURCE_FORMAT_RESET(a);
+    SOURCE_FORMAT_RESET(a); DEFINITION_ORIGINS_RETIRE(a);
     object_import_draft_free(&a->object_import);
     free(a->replace_manual_target); a->replace_manual_target=NULL;
     cancel_values(a);
@@ -16725,7 +16746,7 @@ int app_finish(AppSession *session) {
     close_journal(a,a->discard_journal || !a->book.dirty);
     app_versions_reset(&a->versions,&a->worker);
 #endif
-    worker_stop(&a->worker); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
+    worker_stop(&a->worker); DEFINITION_ORIGINS_RETIRE(a); printf("Worker jobs=%" PRIu64 " SQL executions=%" PRIu64 " count queries=%" PRIu64 "\n",a->worker.jobs_started,a->worker.sql_executed,a->worker.counts_executed);
     statistics_free(&a->statistics); free(a->statistics_error);
 #ifdef DUXCEL_BROWSER_HOST
     clear_browser_file(a,false); /* worker_stop closed the engine/registrations */
@@ -16859,6 +16880,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_move_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
+#include "../../tests/support/definition_origin_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_OBJECT_CREATE_COMMAND
 #include "../../tests/support/object_create_command_app.inc"
 #endif

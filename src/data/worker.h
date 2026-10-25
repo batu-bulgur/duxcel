@@ -59,6 +59,7 @@ typedef struct WorkerNativeRetirement {
     WorkbookNativeIO *context;
     void (*dispose)(WorkbookNativeIO *context);
     bool queued;
+    size_t reserved_bytes; /* Queued + active disposal ownership; zero if accounted elsewhere. */
 } WorkerNativeRetirement;
 #endif
 typedef struct {
@@ -138,7 +139,7 @@ typedef struct {
     DX_RECORD_SELECTION_ROWS*sizeof(uint64_t) + DX_SOURCE_DIGEST_BUFFER_BYTES + \
     sizeof(QueryJob) + sizeof(QueryReply) + DX_SOURCE_DIGEST_ERROR_BYTES)
 typedef struct {
-    size_t active_reserved,pending_reserved,published_owned;
+    size_t active_reserved,pending_reserved,published_owned,retired_owned;
     unsigned active_count,pending_count,published_count;
 } WorkerFormatUsage;
 #ifndef DUXCEL_BROWSER_HOST
@@ -170,6 +171,7 @@ typedef struct {
 #ifndef DUXCEL_BROWSER_HOST
     WorkerSaveState save; /* Mutex-owned ordered file operation, retained until poll. */
     WorkerNativeRetirement *retired_head,*retired_tail;
+    size_t native_retired_reserved;
 #endif
 } QueryWorker;
 bool worker_start(QueryWorker *w);

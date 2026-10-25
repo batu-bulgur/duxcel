@@ -264,6 +264,35 @@ static size_t source_format_page_bytes(const Page *page) {
     if (page->records.source_key && !source_format_add(&bytes,strlen(page->records.source_key)+1)) return SIZE_MAX;
     return bytes;
 }
+/* Runtime origin arenas survive sheet/history switches. Only document-runtime
+   retirement frees them; an admitted origin is never reset after model edits. */
+struct AppDefinitionOrigin {
+    AppDefinitionOrigin *next;
+    WorkbookId document;
+    uint64_t session,sheet,request;
+    DefinitionOrigin *owner;
+    WorkerNativeRetirement retirement; /* Intrusive whole-list owner, used only on the head. */
+};
+static size_t app_definition_origin_bytes(const App *a) {
+    size_t bytes=0;
+    for (const AppDefinitionOrigin *n=a->definition_origins;n;n=n->next) {
+        DefinitionOriginState state=definition_origin_state(n->owner);
+        if (!source_format_add(&bytes,sizeof(*n)) || !source_format_add(&bytes,state.owner_bytes) || !source_format_add(&bytes,state.asset_bytes)) return SIZE_MAX;
+    }
+    return bytes;
+}
+static void app_definition_origins_dispose(WorkbookNativeIO *owned) {
+    AppDefinitionOrigin *node=(AppDefinitionOrigin *)owned;
+    while (node) { AppDefinitionOrigin *next=node->next; definition_origin_free(&node->owner); free(node); node=next; }
+}
+static void app_definition_origins_retire(App *a) {
+    AppDefinitionOrigin *head=a->definition_origins; if (!head) return;
+    head->retirement=(WorkerNativeRetirement){.context=(WorkbookNativeIO *)head,.dispose=app_definition_origins_dispose,.reserved_bytes=app_definition_origin_bytes(a)};
+    if (worker_retire_native(&a->worker,&head->retirement)) { a->definition_origins=NULL; return; }
+    /* Overflow/stopping refusal keeps the complete list resident and charged.
+       Only after worker stop may shutdown synchronously dispose ownership. */
+    if (!a->worker.started) { a->definition_origins=NULL; app_definition_origins_dispose((WorkbookNativeIO *)head); }
+}
 static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookFormatReplacement *replacement,
     size_t adopted,size_t captured_extra,size_t reply_owned,size_t new_jobs,size_t incoming_retained) {
     WorkbookFormatUsage live={0},next={0}; FormatBudget budget;
@@ -273,6 +302,15 @@ static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookForma
     WorkerFormatUsage worker=worker_format_usage(&a->worker);
     FormatTransientUsage transient={.adopted_staging=adopted,
         .other_staging=sizeof(SourceFormatIntent)+sizeof(SourceFormatProof)+sizeof(SourceFormatAttempt)+sizeof(a->source_format_tables)+DX_FORMAT_VALIDATION_BYTES,.io_snapshots=SOURCE_FORMAT_IO_RESERVE};
+    /* Terminal arenas stay resident until explicit document retirement. During
+       history preview the detached Working Head coexists with the shown book.
+       Save As may additionally reserve a held-head export copy; conservative
+       coexistence reservations here do not claim exact process RSS. */
+    size_t origins=app_definition_origin_bytes(a);
+    WorkbookFormatUsage held={0}; const Workbook *working=app_preview_working(&a->history);
+    if (!result && working && working!=&a->book) result=workbook_format_usage(working,NULL,0,&held);
+    if (!result && (origins==SIZE_MAX || !source_format_add(&transient.other_staging,origins) ||
+        !source_format_add(&transient.other_staging,held.retained))) result=FORMAT_BUDGET_OVERFLOW;
     size_t checkpoint_bytes=workbook_journal_session_state(a->journal,&a->book).checkpoint_format_bytes;
     if (!result && !source_format_add(&transient.io_snapshots,checkpoint_bytes)) result=FORMAT_BUDGET_OVERFLOW;
     size_t recovery_bytes=workbook_recovery_worker_state(a->recovery_worker).format_reservation_bytes;
@@ -299,6 +337,7 @@ static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookForma
     }
     transient.page_metadata_owned=pages;
     transient.collector_owned=worker.active_reserved;
+    if (!result && !source_format_add(&transient.collector_owned,worker.retired_owned)) result=FORMAT_BUDGET_OVERFLOW;
     if (!result && (!source_format_add(&transient.collector_owned,worker.pending_reserved) ||
         !source_format_add(&transient.collector_owned,worker.published_owned))) result=FORMAT_BUDGET_OVERFLOW;
     transient.pending_reserved=replacement ? sizeof(size_t)*DX_SOURCE_SCOPE_FIELDS : 3u*1024u*1024u;
@@ -628,4 +667,88 @@ static bool source_format_reply(App *a,QueryReply *reply) {
     bool handled=source_format_reply_apply(a,reply);
     a->source_format_polled=0;
     return handled;
+}
+
+/* A primary reply can enrich only its OPEN, exact authored preimage. No
+   command/history/query clock advances. LIMIT permits the valid current Page
+   to display, but keeps the origin pending with no canonical/readiness claim. */
+static DefinitionOriginContext app_definition_origin_context(App *a) {
+    return (DefinitionOriginContext){&a->book,&a->analysis,&a->request_id,&a->analysis_revision,0,!a->io_busy && !a->step_preview.active,history_locked(a)};
+}
+static DefinitionOriginStatus app_definition_origin_limit(App *a,char **error) {
+    if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Source origin admission exceeds the current memory budget."); }
+    return DEFINITION_ORIGIN_LIMIT;
+}
+static AppDefinitionOrigin *app_definition_origin_find(App *a) {
+    Worksheet *s=active_sheet(a); if (!s) return NULL;
+    for (AppDefinitionOrigin *n=a->definition_origins;n;n=n->next)
+        if (n->document.high==a->book.id.high && n->document.low==a->book.id.low && n->session==a->book.edit_session_id && n->sheet==s->id) return n;
+    return NULL;
+}
+static DefinitionOriginStatus app_definition_origin_open(App *a,size_t reply_owned,AppDefinitionOrigin **out,char **error) {
+    DefinitionOriginContext context=app_definition_origin_context(a); AppDefinitionOrigin *node=app_definition_origin_find(a);
+    if (node) {
+        if (definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) { *out=node; return DEFINITION_ORIGIN_READY; }
+        size_t scratch=0; DefinitionOriginStatus result=definition_origin_scratch(&context,node->owner,&scratch,error);
+        if (result==DEFINITION_ORIGIN_READY) { *out=node; return result; }
+        if (result!=DEFINITION_ORIGIN_STALE) return result;
+        /* Superseding an untouched request is permitted; a changed authored
+           definition/history/model cannot silently acquire a fresh preimage. */
+        DefinitionOriginContext previous=context; previous.request_epoch=&node->request;
+        result=definition_origin_scratch(&previous,node->owner,&scratch,error);
+        if (result!=DEFINITION_ORIGIN_READY) return result;
+        if (error) { free(*error); *error=NULL; }
+    }
+    size_t reserve=definition_origin_owner_bytes();
+    if ((!node && !source_format_add(&reserve,sizeof(*node))) || !source_format_budget(a,NULL,0,reserve,reply_owned,0,0)) return app_definition_origin_limit(a,error);
+    DefinitionOrigin *owner=NULL;
+    DefinitionOriginStatus result=definition_origin_begin(&context,a->book.active,definition_origin_owner_bytes(),&owner,error);
+    if (result!=DEFINITION_ORIGIN_READY) return result;
+    /* Reserve and construct before retiring a superseded OPEN owner. ADMITTED
+       nodes never pass this path, even if their live definition was changed. */
+    if (!node) {
+        node=dx_alloc(sizeof(*node)); *node=(AppDefinitionOrigin){.next=a->definition_origins,.document=a->book.id,.session=a->book.edit_session_id,.sheet=active_sheet(a)->id};
+        a->definition_origins=node;
+    } else definition_origin_free(&node->owner);
+    node->owner=owner; node->request=a->request_id; *out=node; return DEFINITION_ORIGIN_READY;
+}
+static DefinitionOriginStatus app_definition_origin_seal(App *a,AppDefinitionOrigin *node,size_t reply_owned,char **error) {
+    if (definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) return DEFINITION_ORIGIN_READY;
+    DefinitionOriginContext context=app_definition_origin_context(a); size_t scratch=0;
+    DefinitionOriginStatus result=definition_origin_scratch(&context,node->owner,&scratch,error);
+    if (result!=DEFINITION_ORIGIN_READY) return result;
+    if (!source_format_budget(a,NULL,0,scratch,reply_owned,0,0)) return app_definition_origin_limit(a,error);
+    context.validation_reserved=scratch; DefinitionOriginSealInfo info={0};
+    result=definition_origin_seal_measure(&context,node->owner,&info,error);
+    if (result!=DEFINITION_ORIGIN_READY) return result;
+    if (!source_format_add(&scratch,info.asset_bytes) || !source_format_budget(a,NULL,0,scratch,reply_owned,0,0)) return app_definition_origin_limit(a,error);
+    return definition_origin_seal(&context,node->owner,info.asset_bytes,error);
+}
+static DefinitionOriginStatus app_definition_origin_reply(App *a,const QueryReply *reply,char **error) {
+    if (reply->kind!=JOB_PAGE || history_locked(a) || a->analysis.kind!=SOURCE_DATABASE) return DEFINITION_ORIGIN_READY;
+    bool completion=!a->analysis.table && reply->analysis.table;
+    AppDefinitionOrigin *node=app_definition_origin_find(a);
+    /* Already resolved replies may retry sealing the SAME current OPEN owner;
+       they cannot replace an immutable arena or invent an absent preimage. */
+    if (!completion && (!node || definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED)) return DEFINITION_ORIGIN_READY;
+    size_t reply_owned=sizeof(*reply),text=analysis_text_bytes(&reply->analysis),ids=source_format_page_bytes(&reply->page);
+    if (text==SIZE_MAX || ids==SIZE_MAX || !source_format_add(&reply_owned,text) || !source_format_add(&reply_owned,ids)) return app_definition_origin_limit(a,error);
+    if (completion) {
+        DefinitionOriginStatus result=app_definition_origin_open(a,reply_owned,&node,error);
+        if (result!=DEFINITION_ORIGIN_READY) return result;
+        DefinitionOriginContext context=app_definition_origin_context(a);
+        DefinitionOriginReply completed={reply->id,0,reply->object_id,reply->revision,&reply->analysis}; DefinitionOriginCompletionInfo info={0};
+        result=definition_origin_completion_measure(&context,node->owner,&completed,&info,error);
+        if (result!=DEFINITION_ORIGIN_READY) return result;
+        size_t reserve=info.owned;
+        if (!source_format_add(&reserve,info.validation_scratch) || !source_format_budget(a,NULL,0,reserve,reply_owned,0,0)) return app_definition_origin_limit(a,error);
+        context.validation_reserved=info.validation_scratch;
+        result=definition_origin_complete(&context,node->owner,&completed,info.owned,error);
+        if (result!=DEFINITION_ORIGIN_APPLIED) return result;
+    }
+    DefinitionOriginStatus sealed=app_definition_origin_seal(a,node,reply_owned,error);
+    /* A later ordinary request can display a Page while an older OPEN origin
+       remains pending. Never waive its exact request fence to seal it. */
+    if (!completion && sealed==DEFINITION_ORIGIN_STALE) { if (error) { free(*error); *error=NULL; } return DEFINITION_ORIGIN_READY; }
+    return sealed;
 }

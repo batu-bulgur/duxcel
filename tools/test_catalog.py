@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "definition-origin": ("build/tests/test_definition_origin-gui", "PASS: native primary origin workflow",
+                          r"^PASS: native primary origin workflow \(5 stages, [1-9]\d* checks\)$", 5),
     "range-command": ("build/tests/test_range_command-gui", "PASS: native manual range workflow",
                       r"^PASS: native manual range workflow \(23 stages, [1-9]\d* checks\)$", 23),
     "object-create-command": ("build/tests/test_object_create_command-gui", "PASS: native object create workflow",
@@ -176,9 +178,9 @@ FEATURES = {
     "analysis-command": Feature(("analysis_command", "history_definition", "workbook_history"), "analysis-command",
         ("python3 tools/test.py native --scenario unique", "python3 tools/test.py feature --feature source-result-format"),
         ("src/workbook/analysis_command.c", "src/workbook/analysis_command.h", "src/app/app.c: primary Remove duplicates adapter", "tests/test_analysis_command.c", "tests/support/analysis_command_app.inc", "tests/test_journal_session.c: primary transform checkpoint rotation"), ("journal_session",)),
-    "definition-origin": Feature(("definition_origin", "definition_baseline"), "",
+    "definition-origin": Feature(("definition_origin", "definition_baseline"), "definition-origin",
         ("python3 tools/test.py native --scenario table",),
-        ("src/workbook/definition_origin.c", "src/workbook/definition_origin.h", "tests/test_definition_origin.c: exact open-to-immutable canonical working definition origin; App adapters remain separate")),
+        ("src/workbook/definition_origin.c", "src/workbook/definition_origin.h", "tests/test_definition_origin.c", "src/app/source_format.inc: primary origin reply/governor/retirement", "tests/support/definition_origin_app.inc"), fixtures=("source-connections",)),
     "definition-baseline": Feature(("definition_baseline", "history_definition"), "",
         ("python3 tools/test.py feature --feature definition-event", "python3 tools/test.py native --scenario table"),
         ("src/workbook/definition_baseline.c", "src/workbook/definition_baseline.h", "src/workbook/history_definition.c: resolved relation admission", "tests/test_definition_baseline.c", "tests/test_history_definition.c")),

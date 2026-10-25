@@ -14,6 +14,8 @@ struct WorkbookNativeIO {
     QueryWorker *worker; Log *log; unsigned id;
     WorkerNativeRetirement retirement;
     bool block,release,entered,executed,disposed,background,cancelled,ok;
+    bool dispose_block,dispose_entered,dispose_release;
+    size_t observed_retired;
 };
 static bool on_worker(QueryWorker *w) {
     if (!w->started) return false;
@@ -27,6 +29,12 @@ static void destroy(WorkbookNativeIO *c) {
     /* Reentering this mutex-owned scalar observer proves disposal is outside
        the worker mutex, including reject/cancel/stop paths. */
     (void)worker_save_state(c->worker); bool background=on_worker(c->worker);
+    size_t observed=worker_format_usage(c->worker).retired_owned;
+    dx_lock(&c->log->mutex); c->dispose_entered=true; c->observed_retired=observed; dx_unlock(&c->log->mutex);
+    for (;;) {
+        dx_lock(&c->log->mutex); bool blocked=c->dispose_block && !c->dispose_release; dx_unlock(&c->log->mutex);
+        if (!blocked) break; dx_sleep_ms(1);
+    }
     dx_lock(&c->log->mutex);
     c->background=background; c->disposed=true;
     if (c->log->count<16) c->log->ids[c->log->count++]=c->id; else c->ok=false;
@@ -78,7 +86,32 @@ static void verify(const char *path,const char *text) {
     Workbook b; workbook_init(&b); char *error=NULL;
     CHECK(workbook_load(&b,path,&error) && !error && !strcmp(cells_get(&b.sheets[0].cells,0,0),text)); workbook_free(&b);
 }
+static void retirement_accounting(void) {
+    QueryWorker w; CHECK(worker_start(&w)); Log log={0}; dx_mutex_init(&log.mutex);
+    WorkbookNativeIO c[3]; for (unsigned i=0;i<3;i++) init(c+i,&w,&log,i,false);
+    c[0].retirement.reserved_bytes=100; c[0].dispose_block=true;
+    c[1].retirement.reserved_bytes=200; c[2].retirement.reserved_bytes=SIZE_MAX;
+    CHECK(worker_retire_native(&w,&c[0].retirement));
+    double deadline=dx_millis()+10000;
+    for (;;) {
+        dx_lock(&log.mutex); bool entered=c[0].dispose_entered; dx_unlock(&log.mutex);
+        if (entered) break; CHECK(dx_millis()<deadline); dx_sleep_ms(1);
+    }
+    CHECK(worker_format_usage(&w).retired_owned==100);
+    CHECK(worker_retire_native(&w,&c[1].retirement));
+    CHECK(worker_format_usage(&w).retired_owned==300);
+    CHECK(!worker_retire_native(&w,&c[2].retirement) && !c[2].retirement.queued && !c[2].disposed);
+    CHECK(!worker_retire_native(&w,&c[1].retirement) && worker_format_usage(&w).retired_owned==300);
+    dx_lock(&log.mutex); CHECK(c[0].observed_retired==100); c[0].dispose_release=true; dx_unlock(&log.mutex);
+    while (worker_format_usage(&w).retired_owned) { CHECK(dx_millis()<deadline); dx_sleep_ms(1); }
+    CHECK(c[0].disposed && c[1].disposed && c[1].observed_retired==200);
+    worker_stop(&w); CHECK(!w.native_retired_reserved && !worker_format_usage(&w).retired_owned);
+    CHECK(!worker_retire_native(&w,&c[2].retirement) && !c[2].disposed);
+    retire(&c[2]); CHECK(c[2].disposed && !c[2].background);
+    dx_mutex_destroy(&log.mutex);
+}
 int main(void) {
+    retirement_accounting();
     char directory[]="build/tests/worker-native-XXXXXX"; CHECK(mkdtemp(directory)); char *path=dx_printf("%s/workbook.dxls",directory);
     Workbook book; workbook_init(&book); char *error=NULL; CHECK(workbook_add(&book,"Native envelope",&(Analysis){0},&error));
     CHECK(cells_set(&book.sheets[0].cells,0,0,"snapshot",&error)); book.command_revision=8;
