@@ -169,7 +169,40 @@ static void retention_and_ownership(void) {
     command(&b,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=0}); step(&b,false,true);
     workbook_free(&b);
 }
+static void creation_staging(void) {
+    Workbook b; workbook_init(&b); Analysis source={.kind=SOURCE_DATABASE,.path="/resolved.duckdb",.schema="main",.table="Sales",.query="SELECT * FROM input"};
+    CHECK(analysis_filter_set(&source,"Id",FILTER_BETWEEN,"[\"1\",\"2\"]",NULL));
+    Workbook empty=b; size_t low=workbook_add_staging(&b,"Created",&source);
+    CHECK(low==sizeof(Worksheet)+strlen("Created")+1+analysis_text_bytes(&source) && !memcmp(&empty,&b,sizeof(b)));
+    CHECK(workbook_lifecycle_create_staging(&b,"Created",&source)==SIZE_MAX);
+    CHECK(workbook_add(&b,"Initial",&(Analysis){0},NULL)); b.dirty=false;
+    Workbook before=b; size_t raw=workbook_add_staging(&b,"  Created  ",&source),first=workbook_lifecycle_create_staging(&b,"  Created  ",&source);
+    CHECK(raw==(b.count+1)*sizeof(Worksheet)+strlen("  Created  ")+1+analysis_text_bytes(&source));
+    CHECK(first>raw+DX_SHEET_NAME_BYTES && !memcmp(&before,&b,sizeof(b)) && !b.lifecycle);
+    uint64_t high=b.sheet_high_water,revision=b.command_revision;
+    command(&b,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name="  Created  ",.analysis=&source});
+    CHECK(b.count==2 && b.sheet_high_water==high+1 && b.command_revision==revision+1 && !strcmp(b.sheets[1].name,"Created") && b.sheets[1].analysis.path!=source.path && !strcmp(b.sheets[1].analysis.table,"Sales"));
+    size_t existing=workbook_lifecycle_create_staging(&b,"Next",&source);
+    CHECK(existing==workbook_add_staging(&b,"Next",&source)+DX_SHEET_NAME_BYTES+1u);
+    /* The cost is not permission to bypass the real naming/identity producer. */
+    before=b; char *error=NULL; bool changed=true;
+    CHECK(workbook_lifecycle_create_staging(&b,"Created",&source)!=SIZE_MAX);
+    CHECK(!workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name="Created",.analysis=&source},&changed,&error) && error && !memcmp(&before,&b,sizeof(b))); free(error); error=NULL;
+    CHECK(!workbook_sheet_command(&b,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name="bad\nname",.analysis=&source},&changed,&error) && error && !memcmp(&before,&b,sizeof(b))); free(error); error=NULL;
+    b.sheet_high_water=UINT64_MAX; before=b;
+    CHECK(workbook_lifecycle_create_staging(&b,"Next",&source)==SIZE_MAX && !memcmp(&before,&b,sizeof(b))); b.sheet_high_water=high+1;
+    b.command_revision=UINT64_MAX; before=b;
+    CHECK(workbook_lifecycle_create_staging(&b,"Next",&source)==SIZE_MAX && !memcmp(&before,&b,sizeof(b))); b.command_revision=revision+1;
+    Analysis malformed=source; malformed.filter_count=DX_ANALYSIS_FILTERS;
+    CHECK(workbook_add_staging(&b,"Next",&malformed)==SIZE_MAX && workbook_lifecycle_create_staging(&b,"Next",&malformed)==SIZE_MAX);
+    CHECK(workbook_add_staging(NULL,"Next",&source)==SIZE_MAX && workbook_add_staging(&b,NULL,&source)==SIZE_MAX && workbook_add_staging(&b,"Next",NULL)==SIZE_MAX);
+    CHECK(workbook_lifecycle_create_staging(NULL,"Next",&source)==SIZE_MAX);
+    analysis_filters_clear(&source); workbook_free(&b);
+    workbook_init(&b);
+    for (size_t i=0;i<DX_MAX_SHEETS;i++) { char name[32]; snprintf(name,sizeof(name),"Sheet %zu",i); CHECK(workbook_add(&b,name,&(Analysis){0},NULL)); }
+    before=b; CHECK(workbook_add_staging(&b,"Full",&(Analysis){0})==SIZE_MAX && workbook_lifecycle_create_staging(&b,"Full",&(Analysis){0})==SIZE_MAX && !memcmp(&before,&b,sizeof(b))); workbook_free(&b);
+}
 int main(void) {
-    deletion_and_chronology(); metadata_and_creation(); branch_and_failures(); hidden_limits_and_drafts(); retained_format_budget(); retention_and_ownership();
+    deletion_and_chronology(); metadata_and_creation(); branch_and_failures(); hidden_limits_and_drafts(); retained_format_budget(); retention_and_ownership(); creation_staging();
     printf("PASS: %u workbook lifecycle checks\n",checks); return 0;
 }

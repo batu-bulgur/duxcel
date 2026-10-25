@@ -20,6 +20,14 @@ bool workbook_sheet_command(Workbook *book,WorkbookSheetCommand command,bool *ch
    Only rename/reorder/hide/show are admitted; invalid input returns SIZE_MAX.
    No mutation/allocation. Recheck the same owner before applying the command. */
 size_t workbook_lifecycle_metadata_staging(const Workbook *book,WorkbookSheetOperation operation);
+/* Additional CREATE adoption peak from the shared real workbook_add allocation
+   plan, the actual normalized-name bound and first lifecycle ring. Caller still
+   charges live old arrays/definitions, candidate/draft/presence/retained packets
+   and App/cache copies. No new ID/action, entropy, parsing or allocation occurs.
+   This is NOT creation admission: normalization/uniqueness, closed grammar,
+   owner/readiness and complete after-sheet/event fences remain separate.
+   SIZE_MAX means absent/exhausted owner or invalid/overflowing bounded inputs. */
+size_t workbook_lifecycle_create_staging(const Workbook *book,const char *name,const Analysis *analysis);
 /* Coordinator internals: session-only, never copied into a Save snapshot. */
 void workbook_lifecycle_free(Workbook *book);
 void workbook_lifecycle_clear_redo(Workbook *book);

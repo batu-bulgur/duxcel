@@ -7,6 +7,7 @@
 #include "source_scope.h"
 #define DX_WORKSPACE_VERSION 15
 #define DX_MAX_SHEETS 64
+#define DX_SHEET_NAME_BYTES 4096u
 #define DX_HISTORY 32
 #define DX_ANALYSIS_HISTORY_BYTES (8u*1024u*1024u)
 typedef enum { EDIT_ANALYSIS,EDIT_CELLS,EDIT_OBJECTS,EDIT_RANGE,EDIT_FORMAT,EDIT_CELLS_FORMAT,EDIT_OBJECTS_FORMAT,EDIT_RANGE_FORMAT,EDIT_ANALYSIS_FORMAT,EDIT_WIDTHS,EDIT_CELLS_WIDTHS,EDIT_FORMAT_WIDTHS,EDIT_CELLS_FORMAT_WIDTHS,EDIT_OBJECTS_WIDTHS,EDIT_RANGE_WIDTHS,EDIT_OBJECTS_FORMAT_WIDTHS,EDIT_RANGE_FORMAT_WIDTHS } EditKind;
@@ -74,6 +75,12 @@ void worksheet_free(Worksheet *sheet); /* Releases one independently owned live/
 /* Copies definitions, source-version ledger/high-water and presentation only;
    undo stacks/pages are session state. NULL denotes an invalid source ledger. */
 Workbook *workbook_snapshot(const Workbook *book);
+/* Allocation-free additional ownership for the ACTUAL low-level add path:
+   replacement Worksheet array + cloned name + Analysis text. Old workbook,
+   proposal and any result/plan remain caller charges. No normalization, grammar,
+   identity allocation or mutation; SIZE_MAX for invalid shape/overflow/capacity.
+   The command-level lifecycle bound separately covers normalized naming/ring. */
+size_t workbook_add_staging(const Workbook *book,const char *name,const Analysis *analysis);
 bool workbook_add(Workbook *book,const char *name,const Analysis *analysis,char **error);
 /* Returns owned trimmed/validated unique name; except==count admits a new sheet. */
 char *workbook_prepare_sheet_name(const Workbook *book,size_t except,const char *name,char **error);

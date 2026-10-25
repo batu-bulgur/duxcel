@@ -505,12 +505,27 @@ void workbook_free(Workbook *b) {
     for (size_t i=0;i<b->count;i++) worksheet_free(b->sheets+i);
     free(b->sheets); free(b->path); workbook_init(b);
 }
+typedef struct { size_t array_bytes,owned; } WorkbookAddAllocation;
+static bool workbook_add_allocation(const Workbook *b,const char *name,const Analysis *a,WorkbookAddAllocation *out) {
+    if (!b || !name || !a || !out || b->count>=DX_MAX_SHEETS) return false;
+    size_t text=analysis_text_bytes(a),name_bytes=strlen(name);
+    if (text==SIZE_MAX || name_bytes==SIZE_MAX) return false;
+    WorkbookAddAllocation plan={.array_bytes=(b->count+1)*sizeof(Worksheet)}; plan.owned=plan.array_bytes;
+    if (name_bytes+1>SIZE_MAX-plan.owned) return false; plan.owned+=name_bytes+1;
+    if (text>SIZE_MAX-plan.owned) return false; plan.owned+=text;
+    *out=plan; return true;
+}
+size_t workbook_add_staging(const Workbook *b,const char *name,const Analysis *a) {
+    WorkbookAddAllocation plan={0}; return workbook_add_allocation(b,name,a,&plan) ? plan.owned : SIZE_MAX;
+}
 bool workbook_add(Workbook *b,const char *name,const Analysis *a,char **error) {
     if (b->count>=DX_MAX_SHEETS) { error_set(error,"A workspace supports up to 64 worksheets."); return false; }
     WorkbookId document; uint64_t identity;
     if (!workbook_identity_next(b,&document,&identity,error)) return false;
+    WorkbookAddAllocation allocation={0};
+    if (!workbook_add_allocation(b,name,a,&allocation)) return range_fail(error,"Invalid or overflowing worksheet allocation shape.");
     char *owned_name=dx_strdup(name); Analysis owned_analysis=analysis_copy(a);
-    b->sheets=dx_realloc(b->sheets,(b->count+1)*sizeof(*b->sheets));
+    b->sheets=dx_realloc(b->sheets,allocation.array_bytes);
     Worksheet *s=&b->sheets[b->count]; memset(s,0,sizeof(*s)); s->name=owned_name; s->analysis=owned_analysis; s->id=identity;
     b->id=document; b->sheet_high_water=identity;
     b->active=b->count++; b->dirty=true; return true;
@@ -532,7 +547,7 @@ char *workbook_prepare_sheet_name(const Workbook *b,size_t index,const char *nam
     if (index>b->count || !name) { range_fail(error,"Choose a worksheet name."); return NULL; }
     while (*name && isspace((unsigned char)*name)) name++;
     size_t length=strlen(name); while (length && isspace((unsigned char)name[length-1])) length--;
-    if (!length || length>4096) { range_fail(error,"Worksheet names must contain 1–4096 bytes of text."); return NULL; }
+    if (!length || length>DX_SHEET_NAME_BYTES) { range_fail(error,"Worksheet names must contain 1–4096 bytes of text."); return NULL; }
     for (size_t i=0;i<length;i++) if ((unsigned char)name[i]<32 || name[i]==127) { range_fail(error,"Worksheet names cannot contain control characters."); return NULL; }
     char *owned=dx_printf("%.*s",(int)length,name);
     for (size_t i=0;i<b->count;i++) if (i!=index && same_name(owned,b->sheets[i].name)) { free(owned); range_fail(error,"Another worksheet already has that name."); return NULL; }

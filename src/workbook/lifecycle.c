@@ -16,7 +16,13 @@ struct WorkbookLifecycle {
 };
 size_t workbook_lifecycle_metadata_staging(const Workbook *b,WorkbookSheetOperation operation) {
     if (!b || operation<SHEET_RENAME || operation>SHEET_SHOW) return SIZE_MAX;
-    return (b->lifecycle ? 0 : sizeof(struct WorkbookLifecycle))+(operation==SHEET_RENAME ? 4097u : 0);
+    return (b->lifecycle ? 0 : sizeof(struct WorkbookLifecycle))+(operation==SHEET_RENAME ? DX_SHEET_NAME_BYTES+1u : 0);
+}
+size_t workbook_lifecycle_create_staging(const Workbook *b,const char *name,const Analysis *a) {
+    if (!b || !b->count || b->active>=b->count || !workbook_identity_valid(b) || b->command_revision==UINT64_MAX || b->sheet_high_water==UINT64_MAX) return SIZE_MAX;
+    size_t bytes=workbook_add_staging(b,name,a),naming=DX_SHEET_NAME_BYTES+1u,ring=b->lifecycle ? 0 : sizeof(struct WorkbookLifecycle);
+    if (bytes==SIZE_MAX || naming>SIZE_MAX-bytes) return SIZE_MAX; bytes+=naming;
+    if (ring>SIZE_MAX-bytes) return SIZE_MAX; return bytes+ring;
 }
 static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); } return false;
