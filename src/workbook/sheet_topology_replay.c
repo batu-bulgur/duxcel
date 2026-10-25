@@ -57,13 +57,13 @@ SheetTopologyReplayStatus sheet_topology_replay_check(SheetTopologyReplayContext
     const Worksheet *s=live.worksheet;
     if (s->edit_session_id!=p->sheet_session || s->cells.revision!=p->cells_revision || s->formats.revision!=p->format_revision || s->width_revision!=p->width_revision) return SHEET_REPLAY_STALE;
     if (!catalog(c.book,p->redo ? p->event.before : p->event.after,p->event.after.high_water)) return SHEET_REPLAY_STALE;
-    SheetPresenceView expected=sheet_presence_view(p->presence); bool same=false;
+    SheetPresenceView expected=sheet_presence_view(p->presence); SheetPresenceRefinement refined={0};
     SheetPresenceView actual={c.book->id,expected.sheet_high_water,s,c.primary};
-    if (sheet_presence_matches_authored(p->presence,actual,&same)!=SHEET_PRESENCE_OK) return SHEET_REPLAY_INVALID;
-    if (!same) return SHEET_REPLAY_STALE;
+    if (sheet_presence_matches_refined(p->presence,actual,&refined)!=SHEET_PRESENCE_OK) return SHEET_REPLAY_INVALID;
+    if (!refined.matches) return SHEET_REPLAY_STALE;
     actual.primary=&s->analysis;
-    if (sheet_presence_matches_authored(p->presence,actual,&same)!=SHEET_PRESENCE_OK) return SHEET_REPLAY_INVALID;
-    return same ? SHEET_REPLAY_READY : SHEET_REPLAY_PROTECTED;
+    if (sheet_presence_matches_refined(p->presence,actual,&refined)!=SHEET_PRESENCE_OK) return SHEET_REPLAY_INVALID;
+    return refined.matches ? SHEET_REPLAY_READY : SHEET_REPLAY_PROTECTED;
 }
 SheetTopologyReplayStatus sheet_topology_replay_prepare(SheetTopologyReplayContext c,const SheetTopologyPacket *packet,bool redo,uint64_t order,SheetTopologyReplayPlan **out,char **error) {
     if (!out || *out || !order) return SHEET_REPLAY_INVALID;
@@ -108,8 +108,8 @@ SheetTopologyReplayStatus sheet_topology_replay_apply(SheetTopologyReplayContext
     if (!catalog(c.book,target,p->high_water) || c.book->sheet_high_water!=p->high_water || c.book->command_revision!=p->revision+1 || c.book->edit_session_id!=p->session ||
         c.book->history_branch!=p->branch || worksheet_history_high_water()!=p->issued || c.book->sheets[c.book->active].id!=active ||
         !workbook_lifecycle_presence(c.book,!p->redo,&inverse) || inverse.sheet!=p->event.sheet || inverse.order!=p->order || inverse.detached==p->selection.detached || !navigation_same(&navigation,&inverse.worksheet->view)) abort();
-    SheetPresenceView expected=sheet_presence_view(p->presence); bool same=false;
-    if (sheet_presence_matches_authored(p->presence,(SheetPresenceView){c.book->id,expected.sheet_high_water,inverse.worksheet,&inverse.worksheet->analysis},&same)!=SHEET_PRESENCE_OK || !same) abort();
+    SheetPresenceView expected=sheet_presence_view(p->presence); SheetPresenceRefinement refined={0};
+    if (sheet_presence_matches_refined(p->presence,(SheetPresenceView){c.book->id,expected.sheet_high_water,inverse.worksheet,&inverse.worksheet->analysis},&refined)!=SHEET_PRESENCE_OK || !refined.matches) abort();
     sheet_topology_replay_free(owned); return SHEET_REPLAY_APPLIED;
 }
 void sheet_topology_replay_free(SheetTopologyReplayPlan **owned) {

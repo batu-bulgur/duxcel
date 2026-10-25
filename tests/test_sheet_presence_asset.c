@@ -203,4 +203,36 @@ static void authored_capacity(void) {
     CHECK(sheet_presence_matches_authored(asset,view,&same)==SHEET_PRESENCE_OK && same);
     sheet_presence_free(&asset); workbook_free(&b);
 }
-int main(void) { authored_capacity(); empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }
+static void ledger_refinement(void) {
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Refinement",&(Analysis){.kind=SOURCE_CSV,.path="/source",.source_version=1},NULL)); Worksheet *s=b.sheets;
+    SourceVersions next={0}; SourceVersion row={.version=1,.kind=SOURCE_CSV,.path="/source"};
+    CHECK(source_versions_plan(&s->source_versions,&row,true,&next,NULL)); s->source_versions=next; s->source_versions.high_water=2;
+    SheetPresenceView view={b.id,b.sheet_high_water,s,&s->analysis}; SheetPresenceAsset *asset=NULL,*complete=NULL;
+    CHECK(sheet_presence_capture(view,SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK);
+    SheetPresenceRefinement proof={0}; CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && proof.matches && proof.sources.captured_pending==1);
+    Column column={.name="Amount",.type=DUCKDB_TYPE_BIGINT,.type_name="BIGINT",.numeric=true,.number_type={NUM_I64,0,0}};
+    Page schema={.columns=&column,.column_count=1}; SourceDigest digest={.bytes=42}; digest.identity.size=42; digest.sha256[0]=1; SourcePacket raw={0};
+    CHECK(source_scope_raw_build(0,1,&s->analysis,&schema,&digest,"engine",&raw,NULL)); row.raw=raw; next=(SourceVersions){0};
+    CHECK(source_versions_plan(&s->source_versions,&row,false,&next,NULL)); source_versions_free(&s->source_versions); s->source_versions=next; source_packet_free(&raw);
+    bool same=true; CHECK(sheet_presence_matches_authored(asset,view,&same)==SHEET_PRESENCE_OK && !same);
+    CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && proof.matches && proof.sources.refined==1 && proof.sources.captured_pending==1);
+    s->source_versions.high_water=1; CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && !proof.matches && proof.sources.allocator_unavailable); s->source_versions.high_water=2;
+    row=(SourceVersion){.version=3,.kind=SOURCE_PARQUET,.path="/retired"}; next=(SourceVersions){0};
+    CHECK(source_versions_plan(&s->source_versions,&row,true,&next,NULL)); source_versions_free(&s->source_versions); s->source_versions=next;
+    CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && proof.matches && proof.sources.captured_pending==1);
+    CHECK(sheet_presence_capture(view,SIZE_MAX,&complete,NULL)==SHEET_PRESENCE_OK);
+    digest.sha256[0]=2; CHECK(source_scope_raw_build(0,1,&s->analysis,&schema,&digest,"engine",&raw,NULL));
+    SourcePacket saved=s->source_versions.items[0].raw; s->source_versions.items[0].raw=raw; s->source_versions.bytes+=raw.bytes-saved.bytes;
+    CHECK(sheet_presence_matches_refined(complete,view,&proof)==SHEET_PRESENCE_OK && !proof.matches && proof.sources.conflicting==1);
+    s->source_versions.items[0].raw=saved; s->source_versions.bytes+=saved.bytes-raw.bytes; source_packet_free(&raw);
+    s->source_versions.items[0].raw=(SourcePacket){0}; s->source_versions.bytes-=saved.bytes;
+    CHECK(sheet_presence_matches_refined(complete,view,&proof)==SHEET_PRESENCE_OK && !proof.matches && proof.sources.unavailable==1);
+    s->source_versions.items[0].raw=saved; s->source_versions.bytes+=saved.bytes;
+    SheetPresenceRefinement unchanged={.matches=true,.sources.exact=17}; proof=unchanged; saved.data[0]^=1;
+    CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_INVALID && !memcmp(&proof,&unchanged,sizeof(proof))); saved.data[0]^=1;
+    CHECK(cells_set(&s->cells,1,1,"authored change",NULL)); CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && !proof.matches);
+    CHECK(cells_set(&s->cells,1,1,"",NULL)); s->view.row=9000;
+    CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && proof.matches);
+    sheet_presence_free(&complete); sheet_presence_free(&asset); workbook_free(&b);
+}
+int main(void) { ledger_refinement(); authored_capacity(); empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }

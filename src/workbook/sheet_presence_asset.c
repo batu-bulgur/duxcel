@@ -308,3 +308,22 @@ SheetPresenceStatus sheet_presence_matches_authored(const SheetPresenceAsset *as
     Workbook book=*asset->snapshot; book.sheets=&expected; SheetPresenceAsset borrowed={&book};
     current.sheet=&projected; return sheet_presence_matches(&borrowed,current,out);
 }
+
+SheetPresenceStatus sheet_presence_matches_refined(const SheetPresenceAsset *asset,SheetPresenceView current,SheetPresenceRefinement *out) {
+    if (!asset || !out) return SHEET_PRESENCE_INVALID;
+    SheetPresenceMeasure measured; SheetPresenceStatus status=sheet_presence_measure(current,&measured); if (status) return status;
+    SheetPresenceView expected=sheet_presence_view(asset); const Worksheet *s=current.sheet;
+    SourceVersionsAsset captured={expected.sheet->id,expected.sheet->source_versions}; SheetPresenceRefinement result={0};
+    SourceSubsetStatus sources=source_versions_subset_admit(&captured,s->id,&s->source_versions,s->objects.next_id,&result.sources);
+    if (sources==SOURCE_SUBSET_INVALID) return SHEET_PRESENCE_INVALID;
+    for (size_t i=0;i<s->source_versions.count;i++) for (size_t j=0;j<s->objects.count;j++)
+        if (s->source_versions.items[i].owner==s->objects.items[j].id && s->objects.items[j].kind!=OBJECT_TABLE) return SHEET_PRESENCE_INVALID;
+    if (sources==SOURCE_SUBSET_EXACT || sources==SOURCE_SUBSET_REFINED) {
+        /* Only after proving immutable refinement may comparison borrow the
+           captured ledger. Actual graph bindings and every other field remain
+           untouched; this does not project or adopt the captured ledger. */
+        Worksheet projected=*s; projected.source_versions=expected.sheet->source_versions; current.sheet=&projected;
+        status=sheet_presence_matches_authored(asset,current,&result.matches); if (status) return status;
+    }
+    *out=result; return SHEET_PRESENCE_OK;
+}

@@ -1,6 +1,7 @@
 #ifndef DUXCEL_SHEET_PRESENCE_ASSET_H
 #define DUXCEL_SHEET_PRESENCE_ASSET_H
 #include "workbook.h"
+#include "source_versions_admission.h"
 #define DX_SHEET_PRESENCE_ENCODING 1u
 #define DX_SHEET_PRESENCE_HEADER_BYTES 136u
 #define DX_SHEET_PRESENCE_WIRE_BYTES (33u*1024u*1024u)
@@ -46,6 +47,17 @@ SheetPresenceStatus sheet_presence_matches(const SheetPresenceAsset *asset,Sheet
    No allocation;
    malformed view preserves matches. Strict stored-preference API stays above. */
 SheetPresenceStatus sheet_presence_matches_authored(const SheetPresenceAsset *asset,SheetPresenceView current,bool *matches);
+/* Session replay proof with explicit immutable-ledger enrichment. Preserve the
+   strict APIs above. All authored graph/view/binding fields stay exact; only
+   additional valid live rows, monotonic source allocator and same-key pending
+   RAW completion may differ. Complete captured RAW must match exactly. The
+   returned source observations never authorize readiness, rebinding or IO.
+   Validate the actual ledger before borrowed comparison normalization; no
+   ledger is merged/rewritten and no allocation or callback occurs. Invalid
+   input preserves out; valid missing/conflicting obligations report false. */
+typedef struct { bool matches; SourceSubsetAdmission sources; } SheetPresenceRefinement;
+SheetPresenceStatus sheet_presence_matches_refined(const SheetPresenceAsset *asset,SheetPresenceView current,SheetPresenceRefinement *out);
+
 SheetPresenceStatus sheet_presence_capture(SheetPresenceView view,size_t reserved,SheetPresenceAsset **out,char **error);
 /* Borrowed immutable graph; the asset outlives every reader. */
 SheetPresenceView sheet_presence_view(const SheetPresenceAsset *asset);
