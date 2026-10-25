@@ -3,6 +3,10 @@ static unsigned source_results_stage,source_results_wait,source_results_checks;
 static int source_results_result;
 static bool source_results_ready,source_results_wrong;
 static uint64_t source_results_first,source_results_other;
+#ifdef DUXCEL_FEATURE_SOURCE_MOVE
+static uint64_t source_move_revision,source_move_high,source_move_ledger;
+static void source_move_select(App *a,uint64_t row,size_t col) { grid_select_cell(&a->grid,row,col,false); a->grid.end_row=row+312; a->grid.end_col=col+12; }
+#endif
 static RangeSourcePolicy source_results_policy;
 static RangeResultContext source_results_resolver;
 static RangeCommandTarget *source_results_target;
@@ -94,8 +98,46 @@ static void source_results_test_frame(AppSession *session) {
         if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
         RangeResultProof proof={0}; SR_CHECK(app_range_result(a,source_results_first,&proof) && proof.ready && proof.object==source_results_first && proof.owner==&a->objects[1] && proof.definition==&s->objects.items[0].source && proof.query_epoch==s->objects.items[1].revision && proof.source_epoch==s->objects.items[0].revision && proof.request==a->request_id);
         SR_CHECK(source_results_noop(a).status==RANGE_COMMAND_STALE && source_results_prepare(a,true) && source_results_noop(a).status==RANGE_COMMAND_NOOP && !s->cells.count);
-        source_results_result=1; printf("PASS: native actual source result association workflow (13 stages, %u checks)\n",source_results_checks); break;
+#ifndef DUXCEL_FEATURE_SOURCE_MOVE
+        source_results_result=1; printf("PASS: native actual source result association workflow (13 stages, %u checks)\n",source_results_checks);
+#endif
+        break;
     }
+#ifdef DUXCEL_FEATURE_SOURCE_MOVE
+    case 13: {
+        char *error=NULL; SR_CHECK(cells_set(&s->cells,329,15,"9007199254740993.0123456789",&error)); worksheet_record(s,EDIT_CELLS);
+        grid_select_cell(&a->grid,329,15,false); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; SR_CHECK(apply_format(a,FORMAT_BOLD,bold));
+        source_move_revision=a->book.command_revision; source_move_high=s->objects.next_id; source_move_ledger=s->source_versions.high_water;
+        source_move_select(a,329,15); begin_move_range(a,false); SR_CHECK(a->modal==MODAL_MOVE_RANGE); input_set(&a->input,"Q1001"); a->range_move_focus=1; ui_note_key_press(KEY_ENTER,0); free(error); break;
+    }
+    case 14:
+        SR_CHECK(a->modal==MODAL_NONE && a->book.command_revision==source_move_revision+1 && s->objects.items[0].row==1001 && s->objects.items[0].col==17 && s->undo_actions[s->undo_actions_count-1]==EDIT_RANGE_FORMAT);
+        SR_CHECK(!strcmp(cells_get(&s->cells,1000,16),"9007199254740993.0123456789") && (format_at(&s->formats,1000,16).flags&FORMAT_BOLD) && !*cells_get(&s->cells,329,15)); history(a,false); break;
+    case 15:
+        SR_CHECK(s->objects.items[0].row==330 && s->objects.items[0].col==16 && !strcmp(cells_get(&s->cells,329,15),"9007199254740993.0123456789")); history(a,true); break;
+    case 16: {
+        SR_CHECK(s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,1000,16),"9007199254740993.0123456789"));
+        char *error=NULL; SR_CHECK(cells_set(&s->cells,2000,16,"Replace destination",&error)); worksheet_record(s,EDIT_CELLS);
+        source_move_select(a,1000,16); SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->modal==MODAL_REPLACE_RANGE && a->replace_manual_target); free(error); break;
+    }
+    case 17:
+        cancel_range_replace(a); SR_CHECK(!a->replace_manual_target && s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,2000,16),"Replace destination"));
+        { char *error=NULL; SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->modal==MODAL_REPLACE_RANGE && a->replace_manual_target); free(error); }
+        source_move_revision=a->book.command_revision; SR_CHECK(confirm_range_replace(a)); break;
+    case 18:
+        SR_CHECK(a->book.command_revision==source_move_revision+1 && s->objects.items[0].row==2001 && !strcmp(cells_get(&s->cells,2000,16),"9007199254740993.0123456789")); history(a,false); break;
+    case 19: {
+        SR_CHECK(s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,2000,16),"Replace destination") && !strcmp(cells_get(&s->cells,1000,16),"9007199254740993.0123456789"));
+        /* Undo changes the selection owner; explicitly select the restored full rectangle. */
+        source_move_select(a,1000,16); char *error=NULL; SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->replace_manual_target); free(error);
+        source_move_revision=a->book.command_revision; run_action(a,ACTION_REFRESH); SR_CHECK(!confirm_range_replace(a) && !a->replace_manual_target); break;
+    }
+    case 20:
+        if (a->page.count_pending || a->count_request_id) return;
+        SR_CHECK(s->objects.items[0].row==1001 && a->book.command_revision==source_move_revision && !strcmp(cells_get(&s->cells,2000,16),"Replace destination") && (format_at(&s->formats,1000,16).flags&FORMAT_BOLD));
+        SR_CHECK(s->objects.next_id==source_move_high && s->source_versions.high_water==source_move_ledger && a->analysis.kind==SOURCE_CSV && !a->replace_manual_target);
+        source_results_result=1; printf("PASS: native source mixed move workflow (21 stages, %u checks)\n",source_results_checks); break;
+#endif
     }
     source_results_stage++;
 }

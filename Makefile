@@ -296,6 +296,13 @@ OBJECT_CREATE_COMMAND_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.
 build/tests/test_object_create_command-gui: tests/test_object_create_command_gui.c $(OBJECT_CREATE_COMMAND_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_object_create_command_gui.c $(OBJECT_CREATE_COMMAND_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(OBJECT_CREATE_COMMAND_GUI_OBJECT:.o=.d)
+SOURCE_MOVE_GUI_OBJECT = build/obj/feature-source-move/app.o
+$(SOURCE_MOVE_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_SOURCE_RESULTS -DDUXCEL_FEATURE_SOURCE_MOVE)
+SOURCE_MOVE_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(SOURCE_MOVE_GUI_OBJECT)
+build/tests/test_source_move-gui: tests/test_source_move_gui.c $(SOURCE_MOVE_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_move_gui.c $(SOURCE_MOVE_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(SOURCE_MOVE_GUI_OBJECT:.o=.d)
 SOURCE_RESULTS_GUI_OBJECT = build/obj/feature-source-results/app.o
 $(SOURCE_RESULTS_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
 	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_SOURCE_RESULTS)
@@ -1098,6 +1105,8 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_range_plan build/tests/test_sou
 PARALLEL_NATIVE_GOALS += build/tests/test_source_cells-gui
 
 PARALLEL_NATIVE_GOALS += build/tests/test_source_results-gui
+
+PARALLEL_NATIVE_GOALS += build/tests/test_source_move-gui
 
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:

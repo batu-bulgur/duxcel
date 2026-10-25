@@ -1,4 +1,4 @@
-/* Read-only actual result associations. No route activation or owned data copies. */
+/* Read-only actual result associations; no owned copies or source activation. */
 static bool app_range_result(void *context,uint64_t id,RangeResultProof *out) {
     App *a=context; Worksheet *s=active_sheet(a); if (!s || !out) return false;
     bool quiet=!a->busy && !a->io_busy && !a->query_loading && !a->refresh_plans && !a->step_preview.active;

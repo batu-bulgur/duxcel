@@ -380,6 +380,9 @@ typedef struct {
     size_t replace_sheet;
     uint64_t replace_cells_revision,replace_formats_revision,replace_analysis_revision;
     RangeCommandTarget *replace_manual_target;
+    RangeSourcePolicy range_source_policy;
+    RangeResultContext range_result_context;
+    bool range_result_ready;
     int64_t replace_dr;
     int replace_dc,replace_focus;
     bool replace_reveal;
@@ -5495,9 +5498,7 @@ static bool move_single_object(App *a,uint64_t id,uint64_t row,size_t column,cha
     ObjectMoveResult result=workbook_apply_object_move_recorded(&context,&target,row,column,NULL,error);
     return result.status==OBJECT_MOVE_APPLIED || result.status==OBJECT_MOVE_NOOP;
 }
-#ifdef DUXCEL_FEATURE_SOURCE_RESULTS
 #include "source_range_results.inc"
-#endif
 static bool manual_range_owner(const App *a,const Worksheet *s) {
     return s && a->analysis.kind==SOURCE_NONE && s->analysis.kind==SOURCE_NONE && !s->objects.count && !s->formats.source_aware && !s->formats.scope_count;
 }
@@ -5514,12 +5515,23 @@ static bool admit_manual_range(void *context,const FormatStore *formats,size_t a
 }
 #endif
 static bool template_range_owner(const App *a,const Worksheet *sheet);
+/* These descriptors live with App so a Replace confirmation can fence their
+   exact authorities after the modal interval, including a new async reply. */
+static RangeCommandContext app_range_context(App *a,RangeCommandOperation operation) {
+    RangeCommandContext context=manual_range_context(a); Worksheet *sheet=active_sheet(a);
+    if (!manual_range_owner(a,sheet) && !template_range_owner(a,sheet) &&
+        (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_PASTE || operation==RANGE_OPERATION_CLEAR)) {
+        a->range_result_ready=context.command.ready;
+        a->range_source_policy=(RangeSourcePolicy){&a->page.total,&a->page.column_count,&a->page.count_pending,&a->fetch_failed,&a->range_result_ready};
+        context.source=&a->range_source_policy;
+        if (operation==RANGE_OPERATION_MOVE) {
+            a->range_result_context=(RangeResultContext){app_range_result,a}; context.results=&a->range_result_context;
+        }
+    }
+    return context;
+}
 static bool move_manual_range_result(App *a,RangeCommand command,const RangeCommandTarget *captured,RangeCommandResult *out,char **error) {
-    RangeCommandContext context=manual_range_context(a); RangeCommandPlanInfo info={0};
-    Worksheet *sheet=active_sheet(a);
-    RangeSourcePolicy source={&a->page.total,&a->page.column_count,&a->page.count_pending,&a->fetch_failed,&context.command.ready};
-    if ((command.operation==RANGE_OPERATION_PASTE || command.operation==RANGE_OPERATION_CLEAR) &&
-        !manual_range_owner(a,sheet) && !template_range_owner(a,sheet)) context.source=&source;
+    RangeCommandContext context=app_range_context(a,command.operation); RangeCommandPlanInfo info={0};
     RangeCommandStatus measured=workbook_range_command_measure(&context,a->book.active,command,&info,error);
     if (measured==RANGE_COMMAND_NOOP) {
         RangeCommandResult result={.status=RANGE_COMMAND_NOOP};
@@ -5569,17 +5581,15 @@ static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replac
         const SheetObject *o=sheet->objects.items+i;
         if (range.r0==o->row && range.r1==o->row+o->rows-1 && range.c0==o->col && range.c1==o->col+o->columns-1) single=o->id;
     }
-    /* Source-bearing mixed ranges keep their complete protected owner; never
-       omit manual cells when choosing the single-object move route. */
+    /* An exact object selection retains its dedicated complete owner. Any sparse
+       cell in that rectangle requires the full compound range transaction. */
     for (size_t i=0;single && i<sheet->cells.count;i++) {
         const SheetCell *cell=sheet->cells.cells+i;
         if (cell->row>=range.r0 && cell->row<=range.r1 && cell->col>=range.c0 && cell->col<=range.c1) single=0;
     }
-    bool manual=manual_range_owner(a,sheet) || (!single && template_range_owner(a,sheet));
+    bool manual=manual_range_owner(a,sheet) || !single;
     if (captured && !manual) { if (error) *error=dx_strdup("The manual range owner changed. Review the destination again."); return false; }
-    bool moved=manual ? move_manual_range(a,(RangeCommand){.range=range,.dr=dr,.dc=dc,.replace=replace},captured,error) : single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
-        replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
-        worksheet_move_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error);
+    bool moved=manual ? move_manual_range(a,(RangeCommand){.range=range,.dr=dr,.dc=dc,.replace=replace},captured,error) : move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error);
     if (!moved) return false;
     g->anchor_row=(uint64_t)((int64_t)g->anchor_row+dr); g->end_row=(uint64_t)((int64_t)g->end_row+dr); g->row=(uint64_t)((int64_t)g->row+dr);
     g->anchor_col=(size_t)((int)g->anchor_col+dc); g->end_col=(size_t)((int)g->end_col+dc); g->col=(size_t)((int)g->col+dc);
@@ -5600,11 +5610,11 @@ static bool request_range_move(App *a,int64_t dr,int dc,bool reveal,char **error
     if (check==SHEET_MOVE_INVALID) return false;
     if (check==SHEET_MOVE_READY) return move_selection(a,dr,dc,reveal,error);
     free(a->replace_manual_target); a->replace_manual_target=NULL;
-    if (manual_range_owner(a,s) || template_range_owner(a,s)) {
+    {
 #ifndef DUXCEL_BROWSER_HOST
         if (source_format_budget_status(a,NULL,sizeof(RangeCommandTarget),0,0,0,0)) return false;
 #endif
-        RangeCommandContext context=manual_range_context(a); RangeCommandTarget *target=dx_alloc(sizeof(*target));
+        RangeCommandContext context=app_range_context(a,RANGE_OPERATION_MOVE); RangeCommandTarget *target=dx_alloc(sizeof(*target));
         if (!workbook_prepare_range_command(&context,a->book.active,target,error)) { free(target); return false; }
         a->replace_manual_target=target;
     }
