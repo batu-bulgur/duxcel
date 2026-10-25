@@ -29,6 +29,7 @@ FAST_MODULES = (
     "source_dependency_admission",
     "source_versions_admission",
     "primary_source_draft",
+    "sheet_history_batch",
     "sheet_history_slot",
     "sheet_session_chronology",
     "sheet_metadata_replay",

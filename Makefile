@@ -2411,3 +2411,13 @@ build/tests/test_sheet_history_slot: $(SHEET_HISTORY_SLOT_OBJECTS) build/web-tes
 build/tests/test_sheet_history_slot-debug: $(SHEET_HISTORY_SLOT_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_HISTORY_SLOT_OBJECTS:.o=.d) $(SHEET_HISTORY_SLOT_SAN_OBJECTS:.o=.d)
+
+SHEET_HISTORY_BATCH_SRC = $(filter-out tests/test_sheet_history_slot.c,$(SHEET_HISTORY_SLOT_SRC)) src/workbook/sheet_history_batch.c tests/test_sheet_history_batch.c
+SHEET_HISTORY_BATCH_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_BATCH_SRC))))
+SHEET_HISTORY_BATCH_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_BATCH_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_batch build/tests/test_sheet_history_batch-debug
+build/tests/test_sheet_history_batch: $(SHEET_HISTORY_BATCH_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_history_batch-debug: $(SHEET_HISTORY_BATCH_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_HISTORY_BATCH_OBJECTS:.o=.d) $(SHEET_HISTORY_BATCH_SAN_OBJECTS:.o=.d)
