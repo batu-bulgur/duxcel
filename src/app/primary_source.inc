@@ -1,4 +1,4 @@
-/* Native new DATABASE primary: actual probe first, one real session CREATE last.
+/* Native new file/demo or DATABASE primary: actual probe first, one real session CREATE last.
    Old visible source/Page remain authoritative until complete admission. This
    does not activate retained topology events or a retained writer. */
 static PrimarySourceDraftContext app_primary_source_context(App *a) {
@@ -11,13 +11,13 @@ static bool app_primary_source_begin(App *a,const Analysis *source,const char *n
     if (old && !old->admission_pending && definition_origin_state(old->owner).phase==DEFINITION_ORIGIN_OPEN) {
         DefinitionOriginStatus sealed=app_definition_origin_seal(a,old,0,&error);
         if (sealed!=DEFINITION_ORIGIN_READY && sealed!=DEFINITION_ORIGIN_APPLIED && sealed!=DEFINITION_ORIGIN_STALE) {
-            status(a,"Finish resolving the current worksheet before opening another database. F5 retries its pending source.");
+            status(a,"Finish resolving the current worksheet before opening another source. F5 retries its pending source.");
             free(error); return false;
         }
         free(error); error=NULL;
     }
     if (a->request_id==UINT64_MAX || !workbook_prepare_command_session(&a->book,a->book.active,&error)) {
-        status(a,error ? error : "Database open request identities are exhausted."); free(error); return false;
+        status(a,error ? error : "Source open request identities are exhausted."); free(error); return false;
     }
     uint64_t previous=a->request_id; a->request_id++;
     PrimarySourceDraftInfo info={0}; PrimarySourceDraftContext context=app_primary_source_context(a);
@@ -35,11 +35,12 @@ static bool app_primary_source_begin(App *a,const Analysis *source,const char *n
     job->analysis=analysis_copy(source); job->known_total=-1;
     a->busy=true; a->pending_kind=JOB_PAGE; a->pending_object_id=0; app_worker_submit(a,job);
     a->modal=MODAL_NONE; a->consume_grid_input=true;
-    status(a,"Resolving the database before creating its worksheet… Escape cancels."); return true;
+    status(a,"Loading the source before creating its worksheet… Escape cancels."); return true;
 }
 static void app_primary_source_publish(App *a) {
     QueryReply *reply=a->primary_source_reply; if (!reply || !a->primary_source_draft) return;
     PrimarySourceDraftContext context=app_primary_source_context(a); char *error=NULL;
+    if (reply->error) { error=dx_strdup(reply->error); goto rejected; }
     PrimarySourceDraftStatus checked=primary_source_draft_check(context,a->primary_source_draft,&error);
     if (checked!=PRIMARY_SOURCE_READY) goto rejected;
     if (!primary_source_draft_source(a->primary_source_draft)) {
@@ -80,17 +81,17 @@ static void app_primary_source_publish(App *a) {
     a->count_request_id=0; a->count_paused=a->count_deferred=false; a->fetch_failed=false; a->new_schema=true;
     a->grid.elastic=a->grid.spring_velocity=(Vector2){0}; a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0; grid_select_cell(&a->grid,0,0,false);
     a->relation_scroll=0; a->modal=MODAL_NONE; cache_pipeline(a); source_ready(a);
-    if (result==PRIMARY_PUBLISH_PENDING) status(a,"Database worksheet opened. Retained origin admission remains unavailable.");
+    if (result==PRIMARY_PUBLISH_PENDING) status(a,"Source worksheet opened. Retained origin admission remains unavailable.");
     primary_source_publication_free(&published); app_primary_source_cancel(a); free(error); return;
 pending:
-    status(a,"Database resolved. Publication needs memory; F5 retries and Escape cancels. The current worksheet is unchanged."); free(error); return;
+    status(a,"Source loaded. Publication needs memory; F5 retries and Escape cancels. The current worksheet is unchanged."); free(error); return;
 rejected:
-    status(a,error ? error : "Database open was not admitted. The current worksheet is unchanged.");
+    status(a,error ? error : "Source open was not admitted. The current worksheet is unchanged.");
     free(error); app_primary_source_cancel(a);
 }
 static bool app_primary_source_reply(App *a,QueryReply *reply) {
     if (!a->primary_source_draft || reply->kind!=JOB_PAGE || reply->object_id || reply->is_preview) return false;
-    if (reply->revision!=a->analysis_revision) { reply_free(reply); app_primary_source_cancel(a); status(a,"The database probe belongs to an earlier source request."); return true; }
+    if (reply->revision!=a->analysis_revision) { reply_free(reply); app_primary_source_cancel(a); status(a,"The source probe belongs to an earlier source request."); return true; }
     reply_free(a->primary_source_reply); a->primary_source_reply=reply;
     app_primary_source_publish(a); return true;
 }

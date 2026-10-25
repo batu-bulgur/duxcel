@@ -31,6 +31,8 @@ STANDALONE_GUI = {
                     r"^PASS: native source manual cell workflow \(12 stages, [1-9]\d* checks\)$", 12),
     "template-cells": ("build/tests/test_template_cells-gui", "PASS: native template manual cell workflow",
                     r"^PASS: native template manual cell workflow \(10 stages, [1-9]\d* checks\)$", 10),
+    "primary-source-kinds": ("build/tests/test_primary_source_kinds-gui", "PASS: native source kind workflow",
+                             r"^PASS: native source kind workflow \(9 stages, [1-9]\d* checks\)$", 9),
     "primary-source": ("build/tests/test_primary_source-gui", "PASS: native pending primary workflow",
                        r"^PASS: native pending primary workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "paste-command": ("build/tests/test_paste_command-gui", "PASS: native manual paste workflow",
@@ -437,6 +439,9 @@ FEATURES = {
     "primary-source-open": Feature(("primary_source_publish", "primary_source_draft"), "primary-source",
         ("Retained topology recording is not activated.", "Browser source-open staging remains separate."),
         ("src/app/primary_source.inc", "src/app/app.c: native pending open/probe/poll/cancel", "src/app/source_format.inc: draft/reply governor ownership", "tests/support/primary_source_app.inc"), fixtures=("source-connections",)),
+    "primary-source-files": Feature(("primary_source_draft", "primary_source_publish"), "primary-source-kinds",
+        ("Retained topology writing and browser source publication remain separate.",),
+        ("src/app/primary_source.inc: shared file/demo probe adoption", "src/app/app.c: all native existing-document opens", "tests/support/primary_source_kinds_app.inc", "tools/create_workbook.py: finite source-opens"), fixtures=("source-opens", "source-connections")),
     "primary-source-publication": Feature(("primary_source_publish", "primary_source_draft", "definition_origin"), "",
         ("python3 tools/test.py feature --feature definition-origin", "python3 tools/test.py feature --feature workbook-lifecycle"),
         ("src/workbook/primary_source_publish.c", "src/workbook/primary_source_publish.h", "src/workbook/definition_origin.c: shared canonical asset cost", "tests/test_primary_source_publish.c")),
@@ -827,7 +832,8 @@ FEATURES = {
 def plan(name):
     feature = FEATURES[name]
     return {"feature": name, "modules": list(feature.modules), "gui": feature.gui or None,
-            "tool_tests": ["tools.tests.test_create_workbook.SourceConnectionTests"] if name == "table-replacement" else
+            "tool_tests": ["tools.tests.test_create_workbook.SourceOpenTests"] if name == "primary-source-files" else
+            ["tools.tests.test_create_workbook.SourceConnectionTests"] if name == "table-replacement" else
             ["tools.tests.test_build_info"] if name == "about" else
                           ["tools.tests.test_runner", "tools.tests.test_feature_catalog", "tools.tests.test_web_build"] if name == "test-infrastructure" else [],
             "engine_modules": list(feature.engine_modules), "fixtures": list(feature.fixtures),
@@ -837,4 +843,4 @@ def plan(name):
             "limits": "A focused pass covers this boundary; it does not establish whole-application or browser acceptance."}
 
 
-FEATURE_FIXTURES = {"source-origins": (("tools/create_workbook.py", "--source-origins-only"), "PASS: source origin fixture:", "build/tests/generated/source-origins.dxls"), "transactions": (("tools/create_workbook.py",), "PASS: Python transaction fixture,", "build/tests/generated/design-definition.dxls"), "transactions-large": (("tools/create_workbook.py", "--large"), "PASS: Python transaction fixture,", "build/tests/generated/design-large.dxls"), "source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}
+FEATURE_FIXTURES = {"source-opens": (("tools/create_workbook.py", "--source-opens-only"), "PASS: source open fixtures:", "build/tests/generated/source-open.parquet"), "source-origins": (("tools/create_workbook.py", "--source-origins-only"), "PASS: source origin fixture:", "build/tests/generated/source-origins.dxls"), "transactions": (("tools/create_workbook.py",), "PASS: Python transaction fixture,", "build/tests/generated/design-definition.dxls"), "transactions-large": (("tools/create_workbook.py", "--large"), "PASS: Python transaction fixture,", "build/tests/generated/design-large.dxls"), "source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}

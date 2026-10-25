@@ -1738,7 +1738,7 @@ static void open_source(App *a,const char *path,bool demo) {
     if (!capture_sheet(a)) { free(absolute); return; }
     Analysis source={.kind=kind,.path=absolute}; char *error=NULL;
 #ifndef DUXCEL_BROWSER_HOST
-    if (kind==SOURCE_DATABASE && a->book.count) { app_primary_source_begin(a,&source,dx_basename(path)); analysis_free(&source); return; }
+    if (a->book.count) { app_primary_source_begin(a,&source,demo ? "Million-row demo" : dx_basename(path)); analysis_free(&source); return; }
     app_primary_source_cancel(a);
 #endif
     char *name=workbook_unique_sheet_name(&a->book,demo ? "Million-row demo" : dx_basename(path),&error);
@@ -2021,7 +2021,7 @@ static void pause_count(App *a) {
 }
 static void cancel_active_query(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
-    if (a->primary_source_draft) { worker_cancel(&a->worker); a->request_id++; a->busy=false; app_primary_source_cancel(a); a->consume_grid_input=true; status(a,"Database open cancelled. The current worksheet is unchanged."); return; }
+    if (a->primary_source_draft) { worker_cancel(&a->worker); a->request_id++; a->busy=false; app_primary_source_cancel(a); a->consume_grid_input=true; status(a,"Source open cancelled. The current worksheet is unchanged."); return; }
 #endif
     if (a->object_import.active) {
         worker_cancel(&a->worker); a->request_id++; a->busy=false; object_import_draft_free(&a->object_import);
@@ -12409,10 +12409,12 @@ static void layout_smoke_step(App *a,int *step) {
         ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->left_drawer=false; a->sidebar=a->fields_visible=a->pipeline=false;
         a->selected_object=-1; a->pivot_focus=a->chrome_focus=0; a->ribbon_focus=false; break;
     case 571:
-        open_source(a,"",true);
-        if (!analysis_query_set(&a->analysis,"SELECT i AS ID, '-123456789012345678901234567890.12'::DECIMAL(38,2) AS Amount, CASE i%3 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'NULL' END::VARCHAR AS Value, repeat('ğ€😀',300) AS LongText FROM range(4096) t(i)",&error)) goto failed;
-        change_analysis(a,true); grid_select_cell(&a->grid,0,1,false); break;
+        open_source(a,"",true); break;
     case 572:
+        if (!a->analysis.query) {
+            if (!analysis_query_set(&a->analysis,"SELECT i AS ID, '-123456789012345678901234567890.12'::DECIMAL(38,2) AS Amount, CASE i%3 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'NULL' END::VARCHAR AS Value, repeat('ğ€😀',300) AS LongText FROM range(4096) t(i)",&error)) goto failed;
+            change_analysis(a,true); grid_select_cell(&a->grid,0,1,false); return;
+        }
         if (a->page.total!=4096 || a->page.column_count!=4) goto failed;
         grid_select_cell(&a->grid,0,1,false); active_value(a);
         if (!a->active_readout.value.valid || a->active_readout.value.type!=DUCKDB_TYPE_DECIMAL || strcmp(a->active_readout.value.text,"-123456789012345678901234567890.12")) goto failed;
@@ -13050,9 +13052,19 @@ static void layout_smoke_step(App *a,int *step) {
         if (!retired_object_bytes) goto failed;
         a->selected_object=1; a->matrix_cells_active=true;
         open_source(a,"tests/fixtures/transactions.csv",false);
+        if (a->book.count!=cache_source_sheets || !active_sheet(a)->objects.count) goto failed;
+        break;
+    }
+    case 715: {
         if (a->book.count!=cache_source_sheets+1 || active_sheet(a)->objects.count || a->matrix_object ||
             a->matrix_cells_active || a->pivot_metrics_id || a->filter_labels_id || a->pivot_drop_pending ||
-            a->pivot_drag_field!=-1 || a->pivot_drag_role!=-1 || a->active_readout.value.valid) goto failed;
+            a->pivot_drag_field!=-1 || a->pivot_drag_role!=-1) goto failed;
+        /* Publication invalidates the old readout. The following frame may
+           already populate the NEW Page; prove its authority instead of
+           requiring that valid new runtime cache to remain empty. */
+        if (a->active_readout.value.valid && (a->active_readout.sheet!=a->book.active || a->active_readout.source ||
+            a->active_readout.revision!=a->analysis_revision || a->active_readout.row || a->active_readout.column ||
+            strcmp(a->active_readout.value.text,a->page.cells[0].text))) goto failed;
         for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
             const ObjectView *v=&a->objects[i]; const Page *page=&v->page;
             if (page->columns || page->cells || page->relations || page->sql || page->totals || page->records.ids ||
@@ -13062,9 +13074,6 @@ static void layout_smoke_step(App *a,int *step) {
         }
         const unsigned char empty_locations[sizeof(a->source_locations)]={0};
         if (memcmp(a->source_locations,empty_locations,sizeof(empty_locations))) goto failed;
-        break;
-    }
-    case 715: {
         const Worksheet *previous=&a->book.sheets[cache_source_sheet];
         if (a->book.count!=cache_source_sheets+1 || a->page.total!=5 || a->page.column_count!=6 ||
             strcmp(a->page.columns[1].name,"City") || strcmp(a->page.cells[1].text,"İstanbul") ||
@@ -15846,6 +15855,9 @@ static void column_width_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 static void paste_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_SOURCE_KINDS
+static void primary_source_kinds_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_PRIMARY_SOURCE
 static void primary_source_test_frame(AppSession *session);
 #endif
@@ -16784,6 +16796,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
     paste_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_PRIMARY_SOURCE_KINDS
+    primary_source_kinds_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_PRIMARY_SOURCE
     primary_source_test_frame(session);
 #endif
@@ -17201,4 +17216,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_PRIMARY_SOURCE
 #include "../../tests/support/primary_source_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_PRIMARY_SOURCE_KINDS
+#include "../../tests/support/primary_source_kinds_app.inc"
 #endif

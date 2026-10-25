@@ -126,5 +126,34 @@ class SourceConnectionTests(unittest.TestCase):
             self.assertFalse(list(output.glob(".source-connections-*")))
 
 
+class SourceOpenTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("duckdb"), "existing DuckDB CLI required")
+    def test_finite_file_probes_and_failure_before_publication(self):
+        with tempfile.TemporaryDirectory(prefix="duxcel source opens '") as directory:
+            output = pathlib.Path(directory)
+            targets = fixture.create_source_opens(output)
+            self.assertEqual([path.name for path in targets], ["source-open.csv", "source-open.parquet", "source-open-bad.csv.gz", "source-open-bad.parquet"])
+            executable = shutil.which("duckdb")
+            for path, reader in ((targets[0], "read_csv"), (targets[1], "read_parquet")):
+                rows = fixture.execute(executable, ":memory:", f"SELECT count(*) AS n,sum(Amount)::DECIMAL(12,2) AS amount FROM {reader}({fixture.quote(path)});")
+                self.assertEqual(rows, [{"n": 3, "amount": "60.00"}])
+            for path, reader in ((targets[2], "read_csv"), (targets[3], "read_parquet")):
+                with self.assertRaises(RuntimeError):
+                    fixture.execute(executable, ":memory:", f"SELECT * FROM {reader}({fixture.quote(path)});")
+            before = [path.read_bytes() for path in targets]
+            original, calls = fixture.execute, 0
+            def fail_export(*args, **kwargs):
+                nonlocal calls
+                calls += 1
+                if calls == 3:
+                    raise RuntimeError("file export failed")
+                return original(*args, **kwargs)
+            with mock.patch.object(fixture, "execute", side_effect=fail_export):
+                with self.assertRaisesRegex(RuntimeError, "file export failed"):
+                    fixture.create_source_opens(output)
+            self.assertEqual([path.read_bytes() for path in targets], before)
+            self.assertFalse(list(output.glob(".source-opens-*")))
+
+
 if __name__ == "__main__":
     unittest.main()

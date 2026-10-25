@@ -123,6 +123,29 @@ def create_source_connections(output, *, duckdb=None):
     return targets
 
 
+def create_source_opens(output, *, duckdb=None):
+    """Finite file probes, including genuine malformed gzip/Parquet failures."""
+    executable = duckdb or shutil.which("duckdb")
+    if not executable:
+        raise RuntimeError("The existing DuckDB CLI is required to generate fixtures")
+    output.mkdir(parents=True, exist_ok=True)
+    targets = []
+    with tempfile.TemporaryDirectory(prefix=".source-opens-", dir=output) as temporary:
+        stage = Path(temporary)
+        database = create_source_connections(stage, duckdb=executable)[0]
+        csv, parquet = stage / "source-open.csv", stage / "source-open.parquet"
+        sql = (ROOT / "tests/fixtures/workbook/source-opens.sql").read_text()
+        execute(executable, database, sql.replace("@CSV@", quote(csv)).replace("@PARQUET@", quote(parquet)))
+        bad_csv, bad_parquet = stage / "source-open-bad.csv.gz", stage / "source-open-bad.parquet"
+        bad_csv.write_bytes(b"not a gzip stream\n")
+        bad_parquet.write_bytes(b"not a parquet file\n")
+        for candidate in (csv, parquet, bad_csv, bad_parquet):
+            target = output / candidate.name
+            os.replace(candidate, target)
+            targets.append(target)
+    return targets
+
+
 def create_source_origins(output, *, duckdb=None):
     """Loaded NULL defaults, typed count and unrelated ready-primary fixture."""
     executable = duckdb or shutil.which("duckdb")
@@ -193,9 +216,14 @@ def main():
     mode.add_argument("--journal-paste-only", action="store_true")
     mode.add_argument("--source-connections-only", action="store_true")
     mode.add_argument("--source-origins-only", action="store_true")
+    mode.add_argument("--source-opens-only", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/tests/generated")
     options = parser.parse_args()
     with FileLock(ROOT / "build/locks/fixture-inputs.lock", "Fixture generation"):
+        if options.source_opens_only:
+            targets = create_source_opens(options.output_dir.resolve())
+            print(f"PASS: source open fixtures: {len(targets)} finite files")
+            return
         if options.source_origins_only:
             target = create_source_origins(options.output_dir.resolve())
             print(f"PASS: source origin fixture: {target}")

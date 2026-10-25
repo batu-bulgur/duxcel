@@ -1151,6 +1151,8 @@ PARALLEL_NATIVE_GOALS += build/tests/test_primary_source_topology build/tests/te
 
 PARALLEL_NATIVE_GOALS += build/tests/test_primary_source-gui
 
+PARALLEL_NATIVE_GOALS += build/tests/test_primary_source_kinds-gui
+
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2575,4 +2577,12 @@ PRIMARY_SOURCE_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build
 build/tests/test_primary_source-gui: tests/test_primary_source_gui.c $(PRIMARY_SOURCE_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_primary_source_gui.c $(PRIMARY_SOURCE_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(PRIMARY_SOURCE_GUI_OBJECT:.o=.d)
+
+PRIMARY_SOURCE_KINDS_GUI_OBJECT = build/obj/feature-primary-source-kinds/app.o
+$(PRIMARY_SOURCE_KINDS_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_PRIMARY_SOURCE_KINDS)
+PRIMARY_SOURCE_KINDS_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(PRIMARY_SOURCE_KINDS_GUI_OBJECT)
+build/tests/test_primary_source_kinds-gui: tests/test_primary_source_kinds_gui.c $(PRIMARY_SOURCE_KINDS_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_primary_source_kinds_gui.c $(PRIMARY_SOURCE_KINDS_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(PRIMARY_SOURCE_KINDS_GUI_OBJECT:.o=.d)
 
