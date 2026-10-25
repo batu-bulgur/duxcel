@@ -253,6 +253,9 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3a.2b · P1 · Complete | Precise origin memory admission; W12c.3c.3a.2a. | Budget all owned assets/parser scratch and retain terminal origin bytes. The former migration baseline bridge is retired by current-only policy. App reply integration and new-primary publication stay explicit. |
 | W12c.3c.3a.2c · P1 · In progress | Native default-reply and origin adapters; W12c.3c.3a.2b. | Charge every live OPEN/ADMITTED origin, including suspended Working Head ownership, and route primary/loaded-Table completions through the actual typed owner before sealing. New-primary pending publication remains separate. |
 | W12c.3c.3a.2c.1 · P1 · Complete | Current primary DATABASE default-reply and origin ownership; W12c.3c.3a.2b. | Exact accepted request/default-table completion, bounded OPEN/ADMITTED registry and background retirement; no authored action/clock or sealed-root mutation. Table completion and new-primary publication remain separate. |
+| W12c.3c.3a.2c.1a · P1 · Complete | Authored origin projection; W12c.3c.3a.2c.1. | Check borrowed owners before semantic reads; preserve origins through valid derived Table/Pivot extents, numeric inference and query epochs, while actual replies require current request/route revision. Exact Saved/layout/event fences remain unchanged. |
+| W12c.3c.3a.2c.1b · P1 · In progress | Pending-origin Analysis lifetime; W12c.3c.3a.2c.1a. | Typed before-free cache synchronization and sheet authority suspend/resume preserve a valid OPEN owner across Save/refused Save, navigation and Working Head inspection. Prepare all ownership/budget transfers before destructive publication; never rebind freed pointers or reopen an authored preimage. Required before loaded-Table completion and final milestone replay. |
+| W12c.3c.3a.2c.2 · P1 · Planned | Existing loaded-Table default-reply adapter; W12c.3c.3a.2c.1b. | Central owner-aware actual-reply completion handles Table and bound analytical routes, carries distinct-job revision, preserves result/count/cache publication and proves real pressure/retry plus lifecycle continuity. New-primary publication and retained replay remain separate. |
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
@@ -2409,3 +2412,16 @@ Runner/catalog contracts pass59 tests. Remaining layout checks are first
 isolated from the existing522 bootstrap before the final full native replay;
 this avoids repeatedly running the unchanged first500 stages while fixing
 old test setup paths. No product/history admission checks were weakened.
+
+The remaining native layout522–949 passes391 actual stages under ASan/UBSan
+at clean `66d789b` (255.382s GUI,292.000s total); receipt
+`build/tests/results/runs/20261025T183148-affected-54498/summary.json`.
+Authored origin projection `ff8e53c` is integrated as `0b61759`; its registered
+gate passes16.935s, including498 origin/24 baseline assertions per configuration
+and5 hidden App stages (3.690s). Receipt
+`build/tests/results/runs/20261025T183809-feature-55300/summary.json`.
+Read-only lifecycle audit found capture/activation still free borrowed Analysis
+owners while an origin may be OPEN under admission pressure. This can reject a
+later valid primary reply or leave sealing pending; Saved bytes are unaffected.
+Close .1b before the final all-scenario native replay and delivery. Previous
+engine/browser/UI evidence stays source-scoped; no full milestone is claimed.
