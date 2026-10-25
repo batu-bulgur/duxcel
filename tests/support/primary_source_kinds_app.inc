@@ -24,16 +24,25 @@ static void primary_source_kinds_test_frame(AppSession *session) {
     switch (source_kinds_stage) {
     case 0:
         SOURCE_KINDS_CHECK(a->analysis.kind==SOURCE_DATABASE && a->page.total==3);
-        source_kinds_capture(a); open_source(a,"build/tests/generated/source-open.csv",false);
+        source_kinds_capture(a);
+        {
+            uint64_t request=a->request_id; a->request_id=UINT64_MAX-1;
+            open_source(a,"build/tests/generated/source-open.csv",false);
+            SOURCE_KINDS_CHECK(!a->primary_source_draft && a->request_id==UINT64_MAX-1 && source_kinds_unchanged(a));
+            a->request_id=request;
+        }
+        open_source(a,"build/tests/generated/source-open.csv",false);
         SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a));
         a->source_format.bytes=SIZE_MAX; break;
     case 1:
         SOURCE_KINDS_CHECK(a->primary_source_reply && source_kinds_unchanged(a));
         a->source_format.bytes=0; ui_note_key_press(KEY_F5,0); break;
     case 2:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis.kind==SOURCE_CSV && a->page.total==3 && a->page.column_count==2);
+        SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis.kind==SOURCE_CSV && a->page.total==3 && a->page.column_count==3);
         SOURCE_KINDS_CHECK(!a->analysis.schema && !a->analysis.table && a->book.count==source_kinds_count+1 && a->book.command_revision==source_kinds_command+1);
         SOURCE_KINDS_CHECK(a->page.cells[1].text && strtod(a->page.cells[1].text,NULL)==10);
+        SOURCE_KINDS_CHECK(a->page.cells[2].is_null && !a->page.cells[5].is_null && a->page.cells[5].text && !*a->page.cells[5].text &&
+            !a->page.cells[8].is_null && a->page.cells[8].text && !strcmp(a->page.cells[8].text,"NULL"));
         SOURCE_KINDS_CHECK(definition_origin_state(app_definition_origin_find(a)->owner).phase==DEFINITION_ORIGIN_ADMITTED);
         source_kinds_capture(a); open_source(a,"build/tests/generated/source-open-bad.csv.gz",false);
         SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); break;
@@ -42,9 +51,11 @@ static void primary_source_kinds_test_frame(AppSession *session) {
         open_source(a,"build/tests/generated/source-open.parquet",false);
         SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); break;
     case 4:
-        SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis.kind==SOURCE_PARQUET && a->page.total==3 && a->page.column_count==2);
+        SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis.kind==SOURCE_PARQUET && a->page.total==3 && a->page.column_count==3);
         SOURCE_KINDS_CHECK(!a->analysis.schema && !a->analysis.table && a->book.count==source_kinds_count+1 && a->book.sheet_high_water==source_kinds_high+1);
         SOURCE_KINDS_CHECK(a->page.cells[1].text && !strcmp(a->page.cells[1].text,"10.00"));
+        SOURCE_KINDS_CHECK(a->page.cells[2].is_null && !a->page.cells[5].is_null && a->page.cells[5].text && !*a->page.cells[5].text &&
+            !a->page.cells[8].is_null && a->page.cells[8].text && !strcmp(a->page.cells[8].text,"NULL"));
         SOURCE_KINDS_CHECK(definition_origin_state(app_definition_origin_find(a)->owner).phase==DEFINITION_ORIGIN_ADMITTED);
         source_kinds_capture(a); open_source(a,"build/tests/generated/source-open-bad.parquet",false);
         SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a)); break;

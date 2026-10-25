@@ -16,7 +16,8 @@ static bool app_primary_source_begin(App *a,const Analysis *source,const char *n
         }
         free(error); error=NULL;
     }
-    if (a->request_id==UINT64_MAX || !workbook_prepare_command_session(&a->book,a->book.active,&error)) {
+    /* Reserve the probe AND its cancellation/stale-reply invalidation ID. */
+    if (a->request_id>=UINT64_MAX-1 || !workbook_prepare_command_session(&a->book,a->book.active,&error)) {
         status(a,error ? error : "Source open request identities are exhausted."); free(error); return false;
     }
     uint64_t previous=a->request_id; a->request_id++;

@@ -135,8 +135,10 @@ class SourceOpenTests(unittest.TestCase):
             self.assertEqual([path.name for path in targets], ["source-open.csv", "source-open.parquet", "source-open-bad.csv.gz", "source-open-bad.parquet"])
             executable = shutil.which("duckdb")
             for path, reader in ((targets[0], "read_csv"), (targets[1], "read_parquet")):
-                rows = fixture.execute(executable, ":memory:", f"SELECT count(*) AS n,sum(Amount)::DECIMAL(12,2) AS amount FROM {reader}({fixture.quote(path)});")
-                self.assertEqual(rows, [{"n": 3, "amount": "60.00"}])
+                options = ",allow_quoted_nulls=false" if reader == "read_csv" else ""
+                rows = fixture.execute(executable, ":memory:", f"SELECT count(*) AS n,sum(Amount)::DECIMAL(12,2) AS amount,"
+                    f"count(Value) AS present,count_if(Value='') AS empty,count_if(Value='NULL') AS literal FROM {reader}({fixture.quote(path)}{options});")
+                self.assertEqual(rows, [{"n": 3, "amount": "60.00", "present": 2, "empty": 1, "literal": 1}])
             for path, reader in ((targets[2], "read_csv"), (targets[3], "read_parquet")):
                 with self.assertRaises(RuntimeError):
                     fixture.execute(executable, ":memory:", f"SELECT * FROM {reader}({fixture.quote(path)});")
