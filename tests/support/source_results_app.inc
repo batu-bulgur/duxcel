@@ -1,4 +1,9 @@
-/* Private real-worker association proof; source movement routes stay disabled. */
+/* Private actual-worker association and separately tagged range workflows. */
+#ifdef DUXCEL_SOURCE_RECORD_PARQUET
+#define SOURCE_RESULTS_TABLE_FILE "build/tests/generated/design-definition.parquet"
+#else
+#define SOURCE_RESULTS_TABLE_FILE "build/tests/generated/design-definition.csv"
+#endif
 static unsigned source_results_stage,source_results_wait,source_results_checks;
 static int source_results_result;
 static bool source_results_ready,source_results_wrong;
@@ -40,6 +45,9 @@ static RangeCommandResult source_results_noop(App *a) {
     RangeCommandContext c=source_results_context(a);
     return workbook_apply_range_command_recorded(&c,source_results_target,(RangeCommand){.operation=RANGE_OPERATION_MOVE,.range={1000,1001,100,101}},NULL,NULL);
 }
+#ifdef DUXCEL_FEATURE_SOURCE_RECORD_RANGE
+#include "source_record_range_app.inc"
+#endif
 static void source_results_test_frame(AppSession *session) {
     App *a=&session->app; Worksheet *s=active_sheet(a);
     if (source_results_result || !s || a->busy || a->io_busy) return;
@@ -62,10 +70,13 @@ static void source_results_test_frame(AppSession *session) {
         uint64_t revision=a->book.command_revision;
         SR_CHECK(a->page.total==310 && source_results_noop(a).status==RANGE_COMMAND_STALE && a->book.command_revision==revision); free(source_results_target); source_results_target=NULL;
         grid_select_cell(&a->grid,0,14,false); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; SR_CHECK(apply_format(a,FORMAT_BOLD,bold));
-        grid_select_cell(&a->grid,330,16,false); SR_CHECK(import_table(a,"build/tests/generated/design-definition.csv")); break;
+        grid_select_cell(&a->grid,330,16,false); SR_CHECK(import_table(a,SOURCE_RESULTS_TABLE_FILE)); break;
     }
     case 4:
         if (!a->objects[0].page.column_count) return;
+#ifdef DUXCEL_FEATURE_SOURCE_RECORD_RANGE
+        if (!a->objects[0].page.count_pending) { SR_CHECK(a->objects[0].page.total==310 && object_ready(a,0)); break; }
+#endif
         SR_CHECK(s->objects.count==1 && a->objects[0].page.count_pending && a->objects[0].page.total<310 && !source_results_prepare(a,false));
         a->objects[0].count_paused=false; schedule_table_count(a); break;
     case 5: {
@@ -109,7 +120,7 @@ static void source_results_test_frame(AppSession *session) {
         if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
         RangeResultProof proof={0}; SR_CHECK(app_range_result(a,source_results_first,&proof) && proof.ready && proof.object==source_results_first && proof.owner==&a->objects[1] && proof.definition==&s->objects.items[0].source && proof.query_epoch==s->objects.items[1].revision && proof.source_epoch==s->objects.items[0].revision && proof.request==a->request_id);
         SR_CHECK(source_results_noop(a).status==RANGE_COMMAND_STALE && source_results_prepare(a,true) && source_results_noop(a).status==RANGE_COMMAND_NOOP && !s->cells.count);
-#if !defined(DUXCEL_FEATURE_SOURCE_MOVE) && !defined(DUXCEL_FEATURE_SOURCE_ROWS) && !defined(DUXCEL_FEATURE_SOURCE_COLUMNS)
+#if !defined(DUXCEL_FEATURE_SOURCE_MOVE) && !defined(DUXCEL_FEATURE_SOURCE_ROWS) && !defined(DUXCEL_FEATURE_SOURCE_COLUMNS) && !defined(DUXCEL_FEATURE_SOURCE_RECORD_RANGE)
         source_results_result=1; printf("PASS: native actual source result association workflow (13 stages, %u checks)\n",source_results_checks);
 #endif
         break;
@@ -214,9 +225,16 @@ static void source_results_test_frame(AppSession *session) {
         SR_CHECK(s->objects.next_id==source_columns_high && s->source_versions.high_water==source_columns_ledger && a->analysis.kind==SOURCE_CSV && s->objects.items[0].col==16);
         source_results_result=1; printf("PASS: native source mixed column workflow (26 stages, %u checks)\n",source_results_checks); break;
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_RECORD_RANGE
+    case 13: case 14: case 15: case 16: case 17: case 18: case 19: case 20: case 21:
+    case 22: case 23: case 24: case 25: case 26: case 27: case 28: case 29: case 30:
+        if (!source_record_range_step(a,s)) return; break;
+#endif
     }
     source_results_stage++;
 }
 int app_test_source_results_result(void) { if (source_results_result) { free(source_results_target); source_results_target=NULL; } return source_results_result; }
 unsigned app_test_source_results_stage(void) { return source_results_stage; }
 #undef SR_CHECK
+
+#undef SOURCE_RESULTS_TABLE_FILE

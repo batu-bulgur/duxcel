@@ -17,6 +17,10 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "source-record-range-csv": ("build/tests/test_source_record_range_csv-gui", "PASS: native CSV record range workflow",
+                    r"^PASS: native CSV record range workflow \(31 stages, [1-9]\d* checks\)$", 31),
+    "source-record-range-parquet": ("build/tests/test_source_record_range_parquet-gui", "PASS: native Parquet record range workflow",
+                    r"^PASS: native Parquet record range workflow \(31 stages, [1-9]\d* checks\)$", 31),
     "clear-keys": ("build/tests/test_clear_keys-gui", "PASS: native sparse keyboard clear workflow",
                     r"^PASS: native sparse keyboard clear workflow \(22 stages, [1-9]\d* checks\)$", 22),
     "source-columns": ("build/tests/test_source_columns-gui", "PASS: native source mixed column workflow",
@@ -164,6 +168,13 @@ FEATURES = {
     "sheet-presence-observations": Feature(("sheet_presence_asset", "definition_dependencies", "format_dependencies"), "",
         ("python3 tools/test.py feature --feature sheet-topology-app",),
         ("src/workbook/sheet_presence_asset.c: scalar full-snapshot source observations", "src/workbook/sheet_presence_asset.h", "tests/test_sheet_presence_asset.c")),
+    "source-record-range-csv-app": Feature(("source_range_plan", "range_command", "history_range"), "source-record-range-csv",
+        ("python3 tools/test.py feature --feature source-record-range-parquet-app",),
+        ("tests/support/source_record_range_app.inc: actual CSV record formatting and layout",), fixtures=("transactions",)),
+    "source-record-range-parquet-app": Feature(("source_range_plan", "range_command", "history_range"), "source-record-range-parquet",
+        ("python3 tools/test.py feature --feature source-record-range-csv-app",),
+        ("tests/support/source_record_range_app.inc: actual Parquet record formatting and layout",), fixtures=("transactions",)),
+
     "range-history-slot": Feature(("range_history_slot", "range_history_payload", "history_event_slot"), "",
         ("python3 tools/test.py feature --feature source-move-app",),
         ("src/workbook/range_history_slot.c", "src/workbook/range_history_slot.h", "tests/test_range_history_slot.c", "tests/support/range_payload_fixture.h")),
