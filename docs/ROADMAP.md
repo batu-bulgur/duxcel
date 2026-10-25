@@ -2448,3 +2448,13 @@ Web build/browser smoke and web tests/sanitizers pass in
 [run40222893017](https://github.com/batu-bulgur/duxcel/actions/runs/40222893017).
 Pages deployment is intentionally skipped for that checkpoint branch. Main
 delivery remains gated on the coherent local native/Wasm milestone and matching CI.
+
+Final native scenario coverage is complete across all18 names/1,353 stages:
+`20261025T190018-native-61501` passes layout913 plus base/workspace/filter/Pivot/
+export/count (1,066 stages) before clipboard exposes an unpaired raw cell fixture.
+Four clipboard notes now pair cells_set with EDIT_CELLS; production logic is
+unchanged. `20261025T191326-native-62576` passes clipboard and all remaining names
+(287 stages,266.962s), including required NYC data. The original raw run stays
+failed; this is explicit complete coverage by source-scoped union, not a claimed
+single-run full success. GPU/current changed-boundary GUI, platform and final
+Wasm/browser packaging remain the delivery tail.

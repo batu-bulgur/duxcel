@@ -9985,6 +9985,7 @@ static void clipboard_smoke_step(App *a,int *step) {
     case 0:
         if (!a->page.column_count) return;
         if (a->page.total!=6 || !cells_set(&sheet->cells,0,4,"Side note",&error)) goto failed;
+        worksheet_record(sheet,EDIT_CELLS);
         grid_select_cell(&a->grid,0,0,false); a->grid.end_row=2; a->grid.end_col=4; copy_selection(a);
         if (a->busy || request!=a->request_id || strcmp(GetClipboardText(),"1\t\t10\t\tSide note\n2\tNULL\t10\t\t\n3\t\"\"\t10\t\t")) goto failed;
         grid_select_cell(&a->grid,0,5,false); create_pivot(a);
@@ -9998,8 +9999,10 @@ static void clipboard_smoke_step(App *a,int *step) {
     case 2:
         if (!a->page.column_count || a->page.count_pending) return;
         if (!cells_set(&sheet->cells,500,4,"Snapshot note",&error)) goto failed;
+        worksheet_record(sheet,EDIT_CELLS);
         grid_select_cell(&a->grid,500,0,false); a->grid.end_row=501; a->grid.end_col=4; copy_selection(a);
         if (!a->busy || a->pending_kind!=JOB_RANGE_COPY || !cells_set(&sheet->cells,500,4,"Newer note",&error)) goto failed;
+        worksheet_record(sheet,EDIT_CELLS);
         break;
     case 3:
         if (strncmp(GetClipboardText(),"500\t0\t50.0\t\tSnapshot note\n501\t1\t50.1\t\t",strlen("500\t0\t50.0\t\tSnapshot note\n501\t1\t50.1\t\t")) || strstr(GetClipboardText(),"Newer note")) goto failed;
@@ -10010,6 +10013,7 @@ static void clipboard_smoke_step(App *a,int *step) {
     case 4:
         if (a->objects[0].dirty || !a->objects[0].page.column_count) return;
         if (a->objects[0].page.total!=1000 || !cells_set(&sheet->cells,502,9,"Pivot snapshot note",&error)) goto failed;
+        worksheet_record(sheet,EDIT_CELLS);
         grid_select_cell(&a->grid,502,6,false); a->grid.end_row=503; a->grid.end_col=9; copy_selection(a);
         if (!a->busy || a->pending_kind!=JOB_RANGE_COPY) goto failed;
         break;
