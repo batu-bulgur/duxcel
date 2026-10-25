@@ -7,13 +7,13 @@
 typedef struct PrimarySourcePublishPlan PrimarySourcePublishPlan;
 typedef struct {
     size_t coexisting,live,draft,presence,creation,origin,scratch;
-    uint64_t prospective_sheet;
+    uint64_t prospective_sheet,primary_epoch; /* Proposed one-step App query revision, never wrapped. */
 } PrimarySourcePublishInfo;
 typedef enum { PRIMARY_PUBLISH_READY,PRIMARY_PUBLISH_ADMITTED,PRIMARY_PUBLISH_PENDING,
     PRIMARY_PUBLISH_STALE,PRIMARY_PUBLISH_INVALID,PRIMARY_PUBLISH_LIMIT,PRIMARY_PUBLISH_PROTECTED,
     PRIMARY_PUBLISH_FAILED } PrimarySourcePublishStatus;
 typedef struct {
-    uint64_t sheet;
+    uint64_t sheet,primary_epoch; /* Caller adopts the measured query revision after publication. */
     PrimarySourceCandidate candidate; /* Independent App surface source/name. */
     SheetPresenceAsset *presence; /* Independent prospective preimage, not an event. */
     DefinitionOrigin *origin; /* Cached-sheet authority; may be OPEN only when PENDING. */
@@ -40,6 +40,10 @@ PrimarySourcePublishStatus primary_source_publish_prepare(PrimarySourceDraftCont
    must independently copy/reserve its event, and both current owners must be
    rechecked before the actual producer. Stale plans may still be inspected as
    values; they cannot be adopted or used to reset a changed authored preimage. */
+/* Captured complete coexistence obligation; not a new admission or current-lease
+   proof. A compound preparation owner adds its own resident/serialization/stream
+   charges to coexisting and rechecks the source plan before transfer. */
+PrimarySourcePublishInfo primary_source_publish_usage(const PrimarySourcePublishPlan *plan);
 const SheetPresenceAsset *primary_source_publish_presence(const PrimarySourcePublishPlan *plan);
 PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContext context,
     const PrimarySourcePublishPlan *plan,char **error);

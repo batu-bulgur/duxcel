@@ -139,4 +139,17 @@ static void occupied_output_preservation(void) {
     PrimarySourcePublication out={0}; CHECK(primary_source_publish_apply(c,&plan,SIZE_MAX,&out,NULL)==PRIMARY_PUBLISH_ADMITTED && b.count==2);
     primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
 }
-int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); prospective_presence_lifetime(); occupied_output_preservation(); printf("PASS: %u primary publication checks\n",checks); return 0; }
+static void query_revision_exhaustion(void) {
+    Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=12,epoch=UINT64_MAX;
+    PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false}; PrimarySourceDraft *draft=resolved(c);
+    PrimarySourcePublishInfo info={0},unchanged=info; PrimarySourcePublishPlan *plan=NULL; Workbook before=b;
+    CHECK(primary_source_publish_measure(c,draft,&info,NULL)==PRIMARY_PUBLISH_LIMIT && !memcmp(&info,&unchanged,sizeof(info)));
+    CHECK(primary_source_publish_prepare(c,&draft,SIZE_MAX,&plan,NULL)==PRIMARY_PUBLISH_LIMIT && draft && !plan && !memcmp(&before,&b,sizeof(b)));
+    primary_source_draft_free(&draft); epoch--; draft=resolved(c);
+    CHECK(primary_source_publish_prepare(c,&draft,SIZE_MAX,&plan,NULL)==PRIMARY_PUBLISH_READY);
+    info=primary_source_publish_usage(plan); CHECK(info.primary_epoch==UINT64_MAX && info.coexisting && !primary_source_publish_usage(NULL).coexisting);
+    PrimarySourcePublication out={0}; CHECK(primary_source_publish_apply(c,&plan,SIZE_MAX,&out,NULL)==PRIMARY_PUBLISH_ADMITTED);
+    CHECK(out.primary_epoch==UINT64_MAX && epoch==UINT64_MAX-1 && b.count==2);
+    primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
+}
+int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); prospective_presence_lifetime(); occupied_output_preservation(); query_revision_exhaustion(); printf("PASS: %u primary publication checks\n",checks); return 0; }

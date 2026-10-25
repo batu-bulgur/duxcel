@@ -23,6 +23,7 @@ PrimarySourcePublishStatus primary_source_publish_measure(PrimarySourceDraftCont
     PrimarySourceDraftStatus ds=primary_source_draft_check(c,draft,error); if (ds!=PRIMARY_SOURCE_READY) return draft_status(ds);
     const Analysis *source=primary_source_draft_source(draft);
     if (!out || !source) return fail(PRIMARY_PUBLISH_PROTECTED,error,"Resolve the actual source probe before preparing publication.");
+    if (*c.primary_epoch==UINT64_MAX) return fail(PRIMARY_PUBLISH_LIMIT,error,"Source query revision space is exhausted before publication.");
     size_t creation=workbook_lifecycle_create_staging(c.book,primary_source_draft_name(draft),source);
     if (creation==SIZE_MAX) return fail(PRIMARY_PUBLISH_LIMIT,error,"The real worksheet creation allocation cannot be admitted.");
     WorkbookHistoryResult history=workbook_history_peek(c.book,false,error);
@@ -32,7 +33,7 @@ PrimarySourcePublishStatus primary_source_publish_measure(PrimarySourceDraftCont
         definition_origin_asset_shape((DefinitionOriginAssetView){&sheet,&sheet.analysis},&seal,error)!=DEFINITION_ORIGIN_READY)
         return fail(PRIMARY_PUBLISH_INVALID,error,"The complete prospective source sheet is invalid.");
     PrimarySourcePublishInfo info={.live=c.book->count*sizeof(Worksheet),.draft=primary_source_draft_owned(draft),
-        .presence=presence.staging,.creation=creation,.origin=definition_origin_owner_bytes(),.scratch=seal.validation_scratch,.prospective_sheet=sheet.id};
+        .presence=presence.staging,.creation=creation,.origin=definition_origin_owner_bytes(),.scratch=seal.validation_scratch,.prospective_sheet=sheet.id,.primary_epoch=*c.primary_epoch+1};
     for (size_t i=0;i<c.book->count;i++) if (!add(&info.live,analysis_text_bytes(&c.book->sheets[i].analysis))) return PRIMARY_PUBLISH_LIMIT;
     if (!add(&info.live,sizeof(Analysis)) || !add(&info.live,analysis_text_bytes(c.primary)) || !add(&info.origin,seal.asset_bytes)) return PRIMARY_PUBLISH_LIMIT;
     info.coexisting=sizeof(PrimarySourcePublishPlan);
@@ -54,6 +55,7 @@ PrimarySourcePublishStatus primary_source_publish_prepare(PrimarySourceDraftCont
     PrimarySourcePublishPlan *plan=dx_alloc(sizeof(*plan)); *plan=(PrimarySourcePublishPlan){.draft=*draft,.presence=presence,.info=info,.seal=seal};
     *draft=NULL; *out=plan; return PRIMARY_PUBLISH_READY;
 }
+PrimarySourcePublishInfo primary_source_publish_usage(const PrimarySourcePublishPlan *plan) { return plan ? plan->info : (PrimarySourcePublishInfo){0}; }
 const SheetPresenceAsset *primary_source_publish_presence(const PrimarySourcePublishPlan *plan) {
     return plan && plan->draft ? plan->presence : NULL;
 }
@@ -62,7 +64,7 @@ PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContex
     return draft_status(primary_source_draft_check(c,plan->draft,error));
 }
 PrimarySourcePublishStatus primary_source_publish_apply(PrimarySourceDraftContext c,PrimarySourcePublishPlan **owned,size_t reserved,PrimarySourcePublication *out,char **error) {
-    if (!owned || !*owned || !out || out->sheet || out->candidate.name || memcmp(&out->candidate.source,&(Analysis){0},sizeof(Analysis)) || out->presence || out->origin)
+    if (!owned || !*owned || !out || out->sheet || out->primary_epoch || out->candidate.name || memcmp(&out->candidate.source,&(Analysis){0},sizeof(Analysis)) || out->presence || out->origin)
         return fail(PRIMARY_PUBLISH_INVALID,error,"Choose independent empty publication result ownership.");
     PrimarySourcePublishPlan *plan=*owned; PrimarySourcePublishStatus status=primary_source_publish_check(c,plan,error); if (status!=PRIMARY_PUBLISH_READY) return status;
     if (reserved<plan->info.coexisting) return fail(PRIMARY_PUBLISH_LIMIT,error,"The admitted creation coexistence must remain reserved through publication.");
@@ -71,7 +73,7 @@ PrimarySourcePublishStatus primary_source_publish_apply(PrimarySourceDraftContex
     if (!workbook_sheet_command(book,(WorkbookSheetCommand){.operation=SHEET_CREATE,.name=plan->candidate.name,.analysis=&plan->candidate.source},&changed,error) || !changed)
         return PRIMARY_PUBLISH_FAILED;
     Worksheet *sheet=book->sheets+book->active;
-    PrimarySourcePublication result={.sheet=sheet->id,.candidate=plan->candidate,.presence=plan->presence};
+    PrimarySourcePublication result={.sheet=sheet->id,.primary_epoch=plan->info.primary_epoch,.candidate=plan->candidate,.presence=plan->presence};
     plan->candidate=(PrimarySourceCandidate){0}; plan->presence=NULL;
     DefinitionOriginContext origin={book,&sheet->analysis,c.request,c.primary_epoch,plan->seal.validation_scratch,true,false};
     result.origin_status=definition_origin_begin(&origin,book->active,definition_origin_owner_bytes(),&result.origin,error);
