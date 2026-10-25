@@ -147,6 +147,10 @@ FEATURES = {
     "sheet-presence-observations": Feature(("sheet_presence_asset", "definition_dependencies", "format_dependencies"), "",
         ("python3 tools/test.py feature --feature sheet-topology-app",),
         ("src/workbook/sheet_presence_asset.c: scalar full-snapshot source observations", "src/workbook/sheet_presence_asset.h", "tests/test_sheet_presence_asset.c")),
+    "range-history-slot": Feature(("range_history_slot", "range_history_payload", "history_event_slot"), "",
+        ("python3 tools/test.py feature --feature source-move-app",),
+        ("src/workbook/range_history_slot.c", "src/workbook/range_history_slot.h", "tests/test_range_history_slot.c", "tests/support/range_payload_fixture.h")),
+
     "range-history-payload": Feature(("range_history_payload", "range_event", "history_range", "history_event_frame", "source_versions_admission"), "",
         ("python3 tools/test.py feature --feature source-move-app",),
         ("src/workbook/range_history_payload.c", "src/workbook/range_history_payload.h", "tests/test_range_history_payload.c")),
