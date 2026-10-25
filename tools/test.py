@@ -21,6 +21,7 @@ from test_catalog import FEATURE_FIXTURES, FEATURES, STANDALONE_GUI, ENGINE_PROC
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged, make_jobserver_fds, operation_lease, inherited_lease_fds)
 FAST_MODULES = (
+    "history_profile",
     "range_history_slot",
     "range_history_payload",
     'manual_cells_plan',

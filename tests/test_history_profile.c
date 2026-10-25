@@ -1,0 +1,176 @@
+#include "workbook/history_profile.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+static unsigned checks;
+#define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL history profile:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
+static WorkbookHistoryProfileCaps caps(void) { return (WorkbookHistoryProfileCaps){DX_HISTORY_PROFILE_RECORDS,4u*1024u*1024u,DX_HISTORY_PROFILE_OWNED_BYTES,DX_HISTORY_PROFILE_STAGING_BYTES}; }
+typedef struct {
+    WorkbookId doc; WorkbookVersionRoot root; WorkbookVersionTag tag; WorkbookVersionIndex index;
+    WorkbookHistoryAnchor anchor; WorkbookHistoryTagAnchor label; WorkbookHistoryAnchors anchors;
+    WorkbookHistorySegment segment; WorkbookHistoryEventPosition positions[6]; WorkbookHistoryPath path; size_t map[6];
+    WorkbookHistoryEventInfo frames[6]; WorkbookHistoryProfileRecord records[6];
+    SourceVersions ledger; SourceDependencyLive live;
+    WorkbookHistoryProfileView view;
+} Fixture;
+static void packet(Fixture *f,size_t i,unsigned family,unsigned encoding,void *data,size_t bytes,void *deps,size_t dependency_bytes,unsigned dependency_encoding) {
+    f->frames[i]=(WorkbookHistoryEventInfo){.owner={f->doc.high,f->doc.low,88,VERSION_WORKING_HEAD},.edit_session=9,.revision=i+1,.action=i+1,.transition=i+1,.position=i+1,.previous_position=i,.family=family,.encoding=encoding,.bytes=bytes,.dependency_bytes=dependency_bytes,.dependency_encoding=dependency_encoding};
+    f->records[i]=(WorkbookHistoryProfileRecord){.owner=f->frames[i].owner,.edit_session=9,.event=f->frames+i,.data=data,.dependencies=deps,.bytes=bytes,.dependency_bytes=dependency_bytes,.sheet=1,.live=&f->live};
+    f->positions[i]=(WorkbookHistoryEventPosition){i+1,0,i+1}; f->map[i]=i;
+}
+static void fixture(Fixture *f) {
+    *f=(Fixture){0}; f->doc=(WorkbookId){11,22}; f->root=(WorkbookVersionRoot){.bytes=12345,.encoding=15}; f->root.key.bytes[0]=71;
+    f->tag=(WorkbookVersionTag){{"Current",7},f->root.key,1};
+    f->index=(WorkbookVersionIndex){f->doc.high,f->doc.low,1,1,{true,f->root.key},&f->root,1,&f->tag,1};
+    f->anchor=(WorkbookHistoryAnchor){{1,4,f->root.key},0}; f->label=(WorkbookHistoryTagAnchor){1,1};
+    f->anchors=(WorkbookHistoryAnchors){f->doc.high,f->doc.low,1,1,&f->anchor,1,&f->label,1};
+    f->segment=(WorkbookHistorySegment){0,0,6}; f->path=(WorkbookHistoryPath){f->doc.high,f->doc.low,&f->segment,1,f->positions,6,0,6,0,0,4,6};
+    f->live=(SourceDependencyLive){1,0,&f->ledger};
+    CellDelta cell={1,10,2,"NULL","",4,0}; size_t bytes=0,written=0;
+    CHECK(cell_delta_encoded_size(cell,&bytes)==CELL_DELTA_CODEC_OK); void *data=dx_alloc(bytes);
+    CHECK(cell_delta_encode(cell,data,bytes,&written)==CELL_DELTA_CODEC_OK); packet(f,0,DX_HISTORY_CELL_FAMILY,DX_CELL_DELTA_ENCODING,data,bytes,NULL,0,0); f->records[0].intent.effects=2;
+    FormatStore formats={0}; CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply(&formats,(FormatRange){1,1,1,1},FORMAT_BOLD,bold,NULL));
+    CHECK(format_delta_encoded_size(1,(FormatSnapshotView){0},format_delta_store_view(&formats),&bytes)==FORMAT_DELTA_OK); data=dx_alloc(bytes);
+    CHECK(format_delta_encode(1,(FormatSnapshotView){0},format_delta_store_view(&formats),data,bytes,&written)==FORMAT_DELTA_OK);
+    size_t source_bytes=0; CHECK(source_versions_asset_size(1,&f->ledger,0,&source_bytes)==SOURCE_VERSIONS_CODEC_OK); void *deps=dx_alloc(source_bytes);
+    CHECK(source_versions_asset_encode(1,&f->ledger,0,deps,source_bytes,&written)==SOURCE_VERSIONS_CODEC_OK); packet(f,1,DX_HISTORY_FORMAT_FAMILY,DX_FORMAT_DELTA_ENCODING,data,bytes,deps,source_bytes,DX_SOURCE_VERSIONS_ENCODING); f->records[1].intent.effects=8; format_free(&formats);
+    Analysis before={0},after={.kind=SOURCE_CSV,.path="/source"}; DefinitionEventPacket definition={0};
+    CHECK(definition_event_capture((DefinitionEventView){.sheet=1,.effects=1,.before={&before,NULL},.after={&after,NULL},.sources=&f->ledger},SIZE_MAX,&definition)==DEFINITION_EVENT_OK);
+    packet(f,2,DX_HISTORY_DEFINITION_FAMILY,DX_DEFINITION_EVENT_ENCODING,definition.data,definition.bytes,NULL,0,0); f->records[2].intent.effects=1;
+    ColumnWidthEntry width={3,column_width_bits(128)}; RangeEventView range={.sheet=1,.effects=16,.widths={{0},{&width,1}}}; RangeEventInfo ri;
+    CHECK(range_event_measure(range,SIZE_MAX,&ri)==RANGE_EVENT_OK); data=dx_alloc(ri.bytes);
+    CHECK(range_event_encode(range,SIZE_MAX,data,ri.bytes,&written)==RANGE_EVENT_OK); packet(f,3,DX_HISTORY_RANGE_FAMILY,DX_RANGE_EVENT_ENCODING,data,ri.bytes,NULL,0,0); f->records[3].intent.effects=16;
+    SheetLifecycleEntry original[]={{1,"A",false},{2,"B",false}},renamed[]={{1,"Renamed",false},{2,"B",false}};
+    SheetLifecyclePacket metadata={0}; CHECK(sheet_lifecycle_capture((SheetLifecycle){{f->doc,2,1,original,2},{f->doc,2,1,renamed,2}},SIZE_MAX,&metadata)==SHEET_LIFECYCLE_OK);
+    packet(f,4,DX_HISTORY_SHEET_LIFECYCLE_FAMILY,DX_HISTORY_SHEET_LIFECYCLE_PROFILE,metadata.data,metadata.bytes,NULL,0,0); f->records[4].intent.operation=SHEET_RENAME; f->records[4].live=NULL;
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Added",&(Analysis){0},NULL)); b.id=f->doc; b.sheet_high_water=3; b.sheets[0].id=3;
+    SheetPresenceAsset *asset=NULL; SheetPresencePacket presence={0}; CHECK(sheet_presence_capture((SheetPresenceView){f->doc,3,b.sheets,&b.sheets[0].analysis},SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_encode(asset,SIZE_MAX,&presence)==SHEET_PRESENCE_OK); SheetLifecycleEntry added[]={{1,"Renamed",false},{2,"B",false},{3,"Added",false}}; SheetTopologyPacket topology={0};
+    CHECK(sheet_topology_capture((SheetTopologyView){SHEET_TOPOLOGY_ADD,3,{f->doc,2,1,renamed,2},{f->doc,3,3,added,3},&presence},SIZE_MAX,&topology)==SHEET_TOPOLOGY_OK);
+    packet(f,5,DX_HISTORY_SHEET_LIFECYCLE_FAMILY,DX_HISTORY_SHEET_TOPOLOGY_PROFILE,topology.data,topology.bytes,NULL,0,0); f->records[5].sheet=3; f->records[5].intent.operation=SHEET_CREATE; f->records[5].live=NULL;
+    sheet_presence_free(&asset); sheet_presence_packet_free(&presence); workbook_free(&b);
+    f->view=(WorkbookHistoryProfileView){f->doc,16,15,HISTORY_PROFILE_RETAINED,&f->index,&f->anchors,{&f->path,f->map,6},{&f->path,f->map,6},f->records,6};
+}
+static void fixture_free(Fixture *f) { for (size_t i=0;i<6;i++) { free((void *)f->records[i].data); free((void *)f->records[i].dependencies); } }
+static void rejects(WorkbookHistoryProfileView view,WorkbookHistoryProfileCaps budget,WorkbookHistoryProfile *prior,WorkbookHistoryProfileStatus expected) {
+    WorkbookHistoryProfileMeasure out={.records=77},before=out; WorkbookHistoryProfile *next=prior;
+    CHECK(workbook_history_profile_measure(view,budget,prior,&out)==expected && !memcmp(&out,&before,sizeof(out)));
+    CHECK(workbook_history_profile_prepare(view,budget,&next)==expected && next==prior);
+}
+static void mixed(void) {
+    Fixture f; fixture(&f); WorkbookHistoryProfile *out=NULL; WorkbookHistoryProfileMeasure m;
+    CHECK(workbook_history_profile_measure(f.view,caps(),NULL,&m)==HISTORY_PROFILE_OK && m.records==6 && m.owned==m.metadata_bytes+m.payload_bytes && m.validation_peak && m.staging==m.owned+m.validation_peak && m.root_bytes==12345);
+    WorkbookHistoryProfileCaps limited=caps(); limited.staging_bytes=m.staging-1; rejects(f.view,limited,NULL,HISTORY_PROFILE_LIMIT);
+    CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK && workbook_history_profile_owned(out)==m.owned);
+    const WorkbookHistoryProfileView *held=workbook_history_profile_view(out); const WorkbookHistoryProtection *protection=workbook_history_profile_protection(out);
+    CHECK(held && held->records!=f.records && held->versions!=&f.index && held->versions->tags[0].label.data!=f.tag.label.data && !memcmp(held->versions->tags[0].label.data,"Current",7));
+    CHECK(protection && protection->has_saved && protection->current_cursor==4 && protection->current_through==6 && protection->saved.count==1);
+    for (size_t i=0;i<6;i++) CHECK(held->records[i].data!=f.records[i].data && held->records[i].event!=f.frames+i && !held->records[i].live && workbook_history_profile_report(out,i)->family==f.frames[i].family);
+    CHECK(workbook_history_profile_report(out,2)->observations.unbound_sources==1 && workbook_history_profile_report(out,2)->compatibility==SOURCE_DEPENDENCY_EXACT);
+    CHECK(!workbook_history_profile_report(out,5)->source_compared && !workbook_history_profile_report(out,0)->source_compared);
+    WorkbookHistoryProfileMeasure replacement; CHECK(workbook_history_profile_measure(f.view,caps(),out,&replacement)==HISTORY_PROFILE_OK && replacement.prior_owned==m.owned && replacement.staging==m.staging+m.owned);
+    limited=caps(); limited.staging_bytes=replacement.staging-1; rejects(f.view,limited,out,HISTORY_PROFILE_LIMIT);
+    limited=caps(); limited.records=5; rejects(f.view,limited,out,HISTORY_PROFILE_LIMIT);
+    limited=caps(); limited.metadata_bytes=m.metadata_bytes-1; rejects(f.view,limited,out,HISTORY_PROFILE_LIMIT);
+    limited=caps(); limited.payload_bytes=m.payload_bytes-1; rejects(f.view,limited,out,HISTORY_PROFILE_LIMIT);
+    WorkbookHistoryProfileView v=f.view; v.container_version=15; rejects(v,caps(),out,HISTORY_PROFILE_UNSUPPORTED); v=f.view; v.core_version=16; rejects(v,caps(),out,HISTORY_PROFILE_UNSUPPORTED);
+    f.root.encoding=14; rejects(f.view,caps(),out,HISTORY_PROFILE_UNSUPPORTED); f.root.encoding=15;
+    v=f.view; v.document.low++; rejects(v,caps(),out,HISTORY_PROFILE_METADATA);
+    f.frames[5].family=99; rejects(f.view,caps(),out,HISTORY_PROFILE_UNSUPPORTED); f.frames[5].family=5;
+    f.frames[4].encoding=99; rejects(f.view,caps(),out,HISTORY_PROFILE_UNSUPPORTED); f.frames[4].encoding=1;
+    f.records[3].intent.effects=2; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); f.records[3].intent.effects=16;
+    f.frames[5].transition=5; rejects(f.view,caps(),out,HISTORY_PROFILE_COVERAGE); f.frames[5].transition=6;
+    f.map[5]=4; rejects(f.view,caps(),out,HISTORY_PROFILE_ASSOCIATION); f.map[5]=5;
+    v=f.view; v.current.count=5; rejects(v,caps(),out,HISTORY_PROFILE_COVERAGE);
+    f.anchor.boundary.root.bytes[0]++; rejects(f.view,caps(),out,HISTORY_PROFILE_METADATA); f.anchor.boundary.root.bytes[0]--;
+    f.records[0].owner.session++; rejects(f.view,caps(),out,HISTORY_PROFILE_ASSOCIATION); f.records[0].owner.session--;
+    /* Late full DXSP semantics fail after all copied earlier family bytes have
+       closed. The previous candidate and every old descriptor stay owned. */
+    SheetTopologyInfo info; CHECK(sheet_topology_preflight(f.records[5].data,f.records[5].bytes,&info)==SHEET_TOPOLOGY_OK);
+    unsigned char *bad=(unsigned char *)f.records[5].data; size_t at=f.records[5].bytes-info.presence_bytes+DX_SHEET_PRESENCE_HEADER_BYTES; bad[at]^=1;
+    CHECK(workbook_history_profile_measure(f.view,caps(),out,&replacement)==HISTORY_PROFILE_OK); WorkbookHistoryProfile *prior=out;
+    CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_INVALID && out==prior); bad[at]^=1;
+    f.records[2].live=NULL; CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK && workbook_history_profile_report(out,2)->compatibility==SOURCE_DEPENDENCY_UNAVAILABLE); f.records[2].live=&f.live;
+    fixture_free(&f); memset(&f,0,sizeof(f)); held=workbook_history_profile_view(out);
+    CHECK(held->current.path->tail==6 && held->records[5].event->transition==6 && !memcmp(held->records[0].data,"DXCD",4) && !memcmp(held->versions->tags[0].label.data,"Current",7));
+    CHECK(!workbook_history_profile_report(out,6)); workbook_history_profile_free(&out); CHECK(!out); workbook_history_profile_free(&out); workbook_history_profile_free(NULL);
+}
+static void checkpoint(void) {
+    Fixture f; fixture(&f); WorkbookHistoryProfile *out=NULL;
+    WorkbookHistoryProfileView v=f.view; v.kind=HISTORY_PROFILE_CHECKPOINT_ONLY;
+    rejects(v,caps(),NULL,HISTORY_PROFILE_COVERAGE);
+    v.anchors=NULL; v.current=(WorkbookHistoryProfilePath){0}; v.saved=(WorkbookHistoryProfilePath){0}; v.records=NULL; v.count=0;
+    WorkbookHistoryProfileMeasure m; CHECK(workbook_history_profile_measure(v,caps(),NULL,&m)==HISTORY_PROFILE_OK && !m.records && !m.payload_bytes && !m.validation_peak && m.owned==m.staging);
+    CHECK(workbook_history_profile_prepare(v,caps(),&out)==HISTORY_PROFILE_OK && !workbook_history_profile_protection(out) && !workbook_history_profile_report(out,0));
+    CHECK(workbook_history_profile_view(out)->versions->saved.present && !workbook_history_profile_view(out)->records);
+    WorkbookHistoryProfileView invalid=v; invalid.kind=(WorkbookHistoryProfileKind)2; rejects(invalid,caps(),out,HISTORY_PROFILE_UNSUPPORTED);
+    invalid=v; invalid.current.records=f.map; rejects(invalid,caps(),out,HISTORY_PROFILE_COVERAGE);
+    invalid=v; invalid.saved.path=&f.path; rejects(invalid,caps(),out,HISTORY_PROFILE_COVERAGE);
+    invalid=v; invalid.records=f.records; rejects(invalid,caps(),out,HISTORY_PROFILE_COVERAGE);
+    invalid=v; invalid.kind=HISTORY_PROFILE_RETAINED; rejects(invalid,caps(),out,HISTORY_PROFILE_METADATA);
+    /* A current unsaved empty document also has an explicit checkpoint mode;
+       there is no inferred event history or synthetic Saved anchor. */
+    WorkbookVersionIndex empty={.document_high=f.doc.high,.document_low=f.doc.low}; v.versions=&empty;
+    CHECK(workbook_history_profile_prepare(v,caps(),&out)==HISTORY_PROFILE_OK && !workbook_history_profile_view(out)->versions->saved.present);
+    CHECK(!workbook_history_profile_view(NULL) && !workbook_history_profile_protection(NULL) && !workbook_history_profile_report(NULL,0) && !workbook_history_profile_owned(NULL));
+    CHECK(workbook_history_profile_prepare(v,caps(),NULL)==HISTORY_PROFILE_INVALID && workbook_history_profile_measure(v,caps(),NULL,NULL)==HISTORY_PROFILE_INVALID);
+    workbook_history_profile_free(&out); fixture_free(&f);
+}
+static void fork_union(void) {
+    Fixture f; fixture(&f);
+    WorkbookHistoryEventPosition saved_events[]={{1,0,1},{2,0,2}},current_events[]={{1,0,1},{3,1,2}};
+    WorkbookHistorySegment saved_segment={0,0,2},current_segments[]={{0,0,1},{1,1,2}};
+    WorkbookHistoryPath saved={f.doc.high,f.doc.low,&saved_segment,1,saved_events,2,0,2,0,0,2,2};
+    WorkbookHistoryPath current={f.doc.high,f.doc.low,current_segments,2,current_events,2,1,3,0,0,1,2};
+    size_t saved_map[]={0,1},current_map[]={0,2};
+    f.anchor.boundary.position=2;
+    f.frames[2].lineage=1; f.frames[2].parent_lineage=0; f.frames[2].forked=true; f.frames[2].position=2; f.frames[2].previous_position=1;
+    f.view.current=(WorkbookHistoryProfilePath){&current,current_map,2}; f.view.saved=(WorkbookHistoryProfilePath){&saved,saved_map,2}; f.view.count=3;
+    WorkbookHistoryProfile *out=NULL; WorkbookHistoryProfileMeasure m;
+    CHECK(workbook_history_profile_measure(f.view,caps(),NULL,&m)==HISTORY_PROFILE_OK && m.records==3 && m.payload_bytes==f.records[0].bytes+f.records[1].bytes+f.records[1].dependency_bytes+f.records[2].bytes);
+    CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK);
+    const WorkbookHistoryProtection *p=workbook_history_profile_protection(out); const WorkbookHistoryProfileView *held=workbook_history_profile_view(out);
+    CHECK(p && p->has_saved && p->shared_through==1 && p->current_cursor==1 && p->current_through==2 && p->saved.through==2);
+    CHECK(held->current.records[0]==held->saved.records[0] && held->current.path!=held->saved.path && held->records[2].event->forked);
+    /* Shared transition bytes are owned/decoded once, but divergent suffixes
+       remain separately owned even while the current cursor is before Redo. */
+    CHECK(held->records[held->current.records[0]].data==held->records[held->saved.records[0]].data);
+    WorkbookHistoryProfileView invalid=f.view; invalid.count=4; rejects(invalid,caps(),out,HISTORY_PROFILE_COVERAGE);
+    invalid=f.view; invalid.count=2; rejects(invalid,caps(),out,HISTORY_PROFILE_COVERAGE);
+    current_map[0]=1; rejects(f.view,caps(),out,HISTORY_PROFILE_ASSOCIATION); current_map[0]=0;
+    current_map[1]=0; rejects(f.view,caps(),out,HISTORY_PROFILE_ASSOCIATION); current_map[1]=2;
+    f.frames[2].forked=false; f.frames[2].parent_lineage=1; rejects(f.view,caps(),out,HISTORY_PROFILE_ASSOCIATION); f.frames[2].forked=true; f.frames[2].parent_lineage=0;
+    f.frames[2].parent_lineage=1; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); f.frames[2].parent_lineage=0;
+    current.lineage_high_water=0; rejects(f.view,caps(),out,HISTORY_PROFILE_METADATA); current.lineage_high_water=1;
+    /* Reusable action identity is not transition identity: replay transitions
+       can reuse the original action without duplicating global record IDs. */
+    f.frames[2].action=1; CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK);
+    fixture_free(&f); memset(saved_events,0,sizeof(saved_events)); memset(current_events,0,sizeof(current_events));
+    held=workbook_history_profile_view(out); CHECK(held->current.path->events[1].operation==3 && held->saved.path->events[1].operation==2 && held->records[2].event->action==1);
+    workbook_history_profile_free(&out);
+}
+static void adversarial(void) {
+    Fixture f; fixture(&f); WorkbookHistoryProfile *out=NULL;
+    CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK);
+    WorkbookHistoryProfileView invalid=f.view; invalid.count=DX_HISTORY_PROFILE_RECORDS+1u; invalid.records=NULL; rejects(invalid,caps(),out,HISTORY_PROFILE_LIMIT);
+    size_t count=f.index.root_count; f.index.root_count=DX_VERSION_ROOTS+1u; rejects(f.view,caps(),out,HISTORY_PROFILE_LIMIT); f.index.root_count=count;
+    count=f.path.event_count; f.path.event_count=DX_HISTORY_PROFILE_RECORDS+1u; rejects(f.view,caps(),out,HISTORY_PROFILE_LIMIT); f.path.event_count=count;
+    count=f.anchors.count; f.anchors.count=DX_HISTORY_PUBLIC_ANCHORS+1u; rejects(f.view,caps(),out,HISTORY_PROFILE_LIMIT); f.anchors.count=count;
+    WorkbookVersionRoot roots[]={f.root,f.root}; roots[0].bytes=UINT64_MAX; roots[1].key.bytes[0]++; roots[1].bytes=1; f.index.roots=roots; f.index.root_count=2;
+    rejects(f.view,caps(),out,HISTORY_PROFILE_METADATA); f.index.roots=&f.root; f.index.root_count=1;
+    size_t bytes=f.records[0].bytes; f.records[0].bytes=SIZE_MAX; rejects(f.view,caps(),out,HISTORY_PROFILE_LIMIT); f.records[0].bytes=bytes;
+    f.frames[0].owner.document_low++; f.records[0].owner=f.frames[0].owner; rejects(f.view,caps(),out,HISTORY_PROFILE_ASSOCIATION); f.frames[0].owner.document_low--; f.records[0].owner=f.frames[0].owner;
+    f.frames[0].edit_session=0; f.records[0].edit_session=0; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); f.frames[0].edit_session=9; f.records[0].edit_session=9;
+    f.records[5].dependencies=f.records[1].dependencies; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); f.records[5].dependencies=NULL;
+    f.records[4].intent.operation=SHEET_HIDE; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); f.records[4].intent.operation=SHEET_RENAME;
+    f.records[5].sheet=1; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); f.records[5].sheet=3;
+    f.frames[1].dependency_encoding=99; rejects(f.view,caps(),out,HISTORY_PROFILE_UNSUPPORTED); f.frames[1].dependency_encoding=DX_SOURCE_VERSIONS_ENCODING;
+    f.live.sheet=2; WorkbookHistoryProfile *prior=out;
+    CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_ASSOCIATION && out==prior); f.live.sheet=1;
+    unsigned char *data=(unsigned char *)f.records[1].dependencies; data[0]^=1; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); data[0]^=1;
+    f.frames[0].bytes++; rejects(f.view,caps(),out,HISTORY_PROFILE_INVALID); f.frames[0].bytes--;
+    CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK);
+    fixture_free(&f); workbook_history_profile_free(&out);
+}
+int main(void) { mixed(); checkpoint(); fork_union(); adversarial(); printf("PASS: %u combined current history profile checks\n",checks); return 0; }
