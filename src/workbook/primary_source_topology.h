@@ -26,12 +26,14 @@ PrimarySourceTopologyStatus primary_source_topology_measure(PrimarySourceDraftCo
 PrimarySourceTopologyStatus primary_source_topology_prepare(PrimarySourceDraftContext context,
     PrimarySourcePublishPlan **source,size_t reserved,PrimarySourceTopologyPlan **out,char **error);
 /* READY proves only the still-current PREPARATION lease, not actual adoption.
-   IMPORTANT: the current source plan has an empty pre-UI SheetView. That is NOT
-   the post-open authored 128/190 source column initialization. A future producer
-   must own the actual probe's initial names/widths and adopt them atomically,
-   then prove the real model/history/revision before topology publication.
-   No publication/adoption API exists here; this blocker cannot be waived with
-   a caller flag, metadata loss, a fake session or a new archive encoding. */
+   Requires the actual-probe initial-view source constructor; provisional empty
+   views are PROTECTED. Its complete names/128/190 widths/default96 tail and
+   explicit navigation/zoom are owned in the ADD. The source producer adopts
+   that same AFTER view atomically with actual CREATE. A future compound owner
+   must still prove real model/history/revision before topology publication,
+   and native surface adoption must reset/reproject Grid deterministically.
+   No publication/adoption API exists here; caller flags, metadata loss, fake
+   sessions and new archive encodings cannot replace that adoption proof. */
 PrimarySourceTopologyStatus primary_source_topology_check(PrimarySourceDraftContext context,
     const PrimarySourceTopologyPlan *plan,char **error);
 /* Reserve immutable ADD before actual CREATE; recheck source/catalog/stream.

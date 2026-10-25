@@ -14,7 +14,10 @@ static PrimarySourcePublishPlan *source(PrimarySourceDraftContext c) {
     CHECK(primary_source_draft_begin(c,&proposal,"Current",SIZE_MAX,&draft,NULL)==PRIMARY_SOURCE_READY);
     proposal.schema="main"; proposal.table="Sales";
     CHECK(primary_source_draft_resolve(c,draft,(PrimarySourceDraftReply){*c.request,&proposal,NULL},SIZE_MAX,NULL)==PRIMARY_SOURCE_RESOLVED);
-    PrimarySourcePublishPlan *plan=NULL; CHECK(primary_source_publish_prepare(c,&draft,SIZE_MAX,&plan,NULL)==PRIMARY_PUBLISH_READY); return plan;
+    Column columns[]={{.name="City",.type=DUCKDB_TYPE_VARCHAR},{.name="When",.type=DUCKDB_TYPE_TIMESTAMP},{.name="Amount",.type=DUCKDB_TYPE_DECIMAL}};
+    SheetSourceView *initial=NULL; CHECK(sheet_source_view_build((SheetSourceViewSpec){columns,3,{.canvas_zoom=1.5f}},SIZE_MAX,&initial)==SHEET_SOURCE_VIEW_OK);
+    PrimarySourceInitialSchema schema={*c.request,*c.primary_epoch,primary_source_draft_source(draft),columns,3,NULL};
+    PrimarySourcePublishPlan *plan=NULL; CHECK(primary_source_publish_prepare_initial(c,&draft,&initial,schema,SIZE_MAX,&plan,NULL)==PRIMARY_PUBLISH_READY); return plan;
 }
 static WorkbookHistoryStream *stream(const Workbook *b,bool wrong,size_t bytes) {
     WorkbookHistoryStreamOrigin origin={.owner={b->id.high,b->id.low^(wrong ? 1u : 0u),77,VERSION_WORKING_HEAD},
@@ -50,12 +53,10 @@ static void prepare_and_reserve(void) {
     CHECK(event.before.high_water==2 && event.after.high_water==3 && event.before.sheets[1].hidden && event.after.sheets[1].hidden);
     CHECK(!strcmp(event.after.sheets[0].name,"Current") && !strcmp(event.after.sheets[2].name,"Current (2)")); sheet_topology_free(&event);
     SheetPresenceView proposed=sheet_presence_view(primary_source_topology_presence(plan));
-    CHECK(proposed.sheet->id==3 && !proposed.sheet->edit_session_id && !proposed.sheet->view.column_count && b.count==2 && b.sheet_high_water==2 && worksheet_history_high_water()==order);
-    /* Explicit blocker: pre-UI empty-view DXSP is not the post-open authored
-       source initialization. No publication API may waive this mismatch. */
-    Worksheet initialized=*proposed.sheet; char *names[]={"City","Amount"}; float widths[]={128,190};
-    initialized.view.column_count=2; initialized.view.columns=names; initialized.view.widths=widths;
-    bool matches=true; CHECK(sheet_presence_matches(primary_source_topology_presence(plan),(SheetPresenceView){b.id,3,&initialized,&initialized.analysis},&matches)==SHEET_PRESENCE_OK && !matches);
+    CHECK(proposed.sheet->id==3 && !proposed.sheet->edit_session_id && proposed.sheet->view.column_count==52 && b.count==2 && b.sheet_high_water==2 && worksheet_history_high_water()==order);
+    CHECK(proposed.sheet->view.widths[0]==128 && proposed.sheet->view.widths[1]==190 && proposed.sheet->view.widths[51]==96 && proposed.sheet->view.canvas_zoom==1.5f);
+    Worksheet changed=*proposed.sheet; float widths[52]; memcpy(widths,changed.view.widths,sizeof(widths)); widths[1]=128; changed.view.widths=widths;
+    bool matches=true; CHECK(sheet_presence_matches(primary_source_topology_presence(plan),(SheetPresenceView){b.id,3,&changed,&changed.analysis},&matches)==SHEET_PRESENCE_OK && !matches);
     WorkbookHistoryStream *history=stream(&b,false,DX_HISTORY_STREAM_DEFAULT_BYTES); WorkbookHistoryStreamState before=workbook_history_stream_state(history);
     CHECK(primary_source_topology_reserve(c,plan,history,usage.total-1,NULL)==PRIMARY_TOPOLOGY_LIMIT && same_state(before,workbook_history_stream_state(history)));
     CHECK(primary_source_topology_reserve(c,plan,history,usage.total,NULL)==PRIMARY_TOPOLOGY_READY && primary_source_topology_reserved(plan));
@@ -113,4 +114,15 @@ static void catalog_cost_contract(void) {
     CHECK(sheet_lifecycle_state_measure((SheetLifecycleState){0},&untouched)==SHEET_LIFECYCLE_INVALID && !memcmp(&untouched,&copy,sizeof(copy)));
     CHECK(sheet_lifecycle_measure((SheetLifecycle){a,a},&untouched)==SHEET_LIFECYCLE_NOOP && !memcmp(&untouched,&copy,sizeof(copy)));
 }
-int main(void) { prepare_and_reserve(); stale_and_lifetimes(); foreign_and_pressure(); catalog_cost_contract(); printf("PASS: %u prepare-only primary CREATE topology checks\n",checks); return 0; }
+static void provisional_view_rejected(void) {
+    Workbook b=book(); uint64_t request=9,epoch=4; PrimarySourceDraftContext c={&b,&b.sheets[0].analysis,&request,&epoch,true,false};
+    Analysis proposal={.kind=SOURCE_DATABASE,.path="/new.duckdb"}; PrimarySourceDraft *draft=NULL;
+    CHECK(primary_source_draft_begin(c,&proposal,"New",SIZE_MAX,&draft,NULL)==PRIMARY_SOURCE_READY); proposal.schema="main"; proposal.table="Sales";
+    CHECK(primary_source_draft_resolve(c,draft,(PrimarySourceDraftReply){request,&proposal,NULL},SIZE_MAX,NULL)==PRIMARY_SOURCE_RESOLVED);
+    PrimarySourcePublishPlan *candidate=NULL; CHECK(primary_source_publish_prepare(c,&draft,SIZE_MAX,&candidate,NULL)==PRIMARY_PUBLISH_READY);
+    CHECK(!primary_source_publish_initial_view(candidate)); PrimarySourceTopologyUsage usage={0},unchanged=usage; PrimarySourceTopologyPlan *plan=NULL; Workbook before=b;
+    CHECK(primary_source_topology_measure(c,candidate,&usage,NULL)==PRIMARY_TOPOLOGY_PROTECTED && !memcmp(&usage,&unchanged,sizeof(usage)));
+    CHECK(primary_source_topology_prepare(c,&candidate,SIZE_MAX,&plan,NULL)==PRIMARY_TOPOLOGY_PROTECTED && candidate && !plan && !memcmp(&before,&b,sizeof(b)));
+    primary_source_publish_cancel(&candidate); workbook_free(&b);
+}
+int main(void) { prepare_and_reserve(); stale_and_lifetimes(); foreign_and_pressure(); catalog_cost_contract(); provisional_view_rejected(); printf("PASS: %u prepare-only primary CREATE topology checks\n",checks); return 0; }

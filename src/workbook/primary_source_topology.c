@@ -28,6 +28,7 @@ static PrimarySourceTopologyStatus measure(PrimarySourceDraftContext c,const Pri
     SheetPresenceWireInfo *wire,char **error) {
     PrimarySourcePublishStatus checked=primary_source_publish_check(c,source,error); if (checked!=PRIMARY_PUBLISH_READY) return source_status(checked);
     if (!out || !wire) return PRIMARY_TOPOLOGY_INVALID;
+    if (!primary_source_publish_initial_view(source)) return fail(PRIMARY_TOPOLOGY_PROTECTED,error,"Prepare the actual-probe initial names/widths/preferences before a topology ADD.");
     const SheetPresenceAsset *presence=primary_source_publish_presence(source); SheetPresenceView view=sheet_presence_view(presence);
     PrimarySourcePublishInfo source_usage=primary_source_publish_usage(source);
     if (!presence || !view.sheet || view.sheet->id!=source_usage.prospective_sheet || view.sheet->id!=c.book->sheet_high_water+1 ||
