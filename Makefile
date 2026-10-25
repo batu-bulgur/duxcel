@@ -1135,6 +1135,8 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_columns-gui
 
 PARALLEL_NATIVE_GOALS += build/tests/test_clear_keys-gui
 
+PARALLEL_NATIVE_GOALS += build/tests/test_range_history_payload build/tests/test_range_history_payload-debug
+
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2495,3 +2497,12 @@ build/tests/test_source_range_plan: $(SOURCE_RANGE_PLAN_OBJECTS) build/web-tests
 build/tests/test_source_range_plan-debug: $(SOURCE_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(SOURCE_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include build/obj/release/cell-command/src/workbook/source_range_plan.d build/obj/sanitize/cell-command/src/workbook/source_range_plan.d build/obj/release/cell-command/tests/test_source_range_plan.d build/obj/sanitize/cell-command/tests/test_source_range_plan.d
+RANGE_HISTORY_PAYLOAD_SRC = $(filter-out tests/test_definition_event.c,$(DEFINITION_EVENT_SRC)) src/workbook/cell_delta.c src/workbook/cell_delta_codec.c src/workbook/column_widths.c src/workbook/range_event.c src/workbook/history_stream.c src/workbook/history_range.c src/workbook/history_event_frame.c src/workbook/source_versions_admission.c src/workbook/range_history_payload.c tests/test_range_history_payload.c
+RANGE_HISTORY_PAYLOAD_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(RANGE_HISTORY_PAYLOAD_SRC))))
+RANGE_HISTORY_PAYLOAD_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(RANGE_HISTORY_PAYLOAD_SRC))))
+build/tests/test_range_history_payload: $(RANGE_HISTORY_PAYLOAD_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_range_history_payload-debug: $(RANGE_HISTORY_PAYLOAD_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(RANGE_HISTORY_PAYLOAD_OBJECTS:.o=.d) $(RANGE_HISTORY_PAYLOAD_SAN_OBJECTS:.o=.d)
+
