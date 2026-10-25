@@ -5707,7 +5707,7 @@ static void column_action(App *a,ColumnAction action) {
         uint64_t row=action==ROW_BELOW ? last+1 : first,count=last-first+1,rows=a->analysis.kind==SOURCE_NONE ? 0 : !a->page.column_count ? UINT64_MAX : source_rows(a); char *error=NULL;
         bool moved=false; for (size_t i=0;i<sheet->objects.count;i++) if (action==ROW_DELETE ? sheet->objects.items[i].row>=row+count : sheet->objects.items[i].row>=row) moved=true;
         uint64_t revision=sheet->cells.revision,format_revision=sheet->formats.revision;
-        bool accepted=manual_range_owner(a,sheet) ? move_manual_range(a,(RangeCommand){.operation=action==ROW_DELETE ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=row,.row_count=count},NULL,&error) :
+        bool accepted=(manual_range_owner(a,sheet) || admitted_template_range_owner(a,sheet)) ? move_manual_range(a,(RangeCommand){.operation=action==ROW_DELETE ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=row,.row_count=count},NULL,&error) :
             worksheet_rows(sheet,row,count,action!=ROW_DELETE,rows,&error);
         if (!accepted) { status(a,error); free(error); return; }
         bool changed=moved || revision!=sheet->cells.revision || format_revision!=sheet->formats.revision;
@@ -15771,6 +15771,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_MIXED_ROWS
+static void mixed_rows_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_CLEAR_RANGE
 static void clear_range_test_frame(AppSession *session);
 #endif
@@ -16688,6 +16691,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_MIXED_ROWS
+    mixed_rows_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_CLEAR_RANGE
     clear_range_test_frame(session);
 #endif
@@ -17078,6 +17084,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_create_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_MIXED_ROWS
+#include "../../tests/support/mixed_rows_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_CLEAR_RANGE
 #include "../../tests/support/clear_range_app.inc"
 #endif
