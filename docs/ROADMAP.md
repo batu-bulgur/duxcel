@@ -2514,3 +2514,15 @@ stages pass43.993s/39.083s/7.590s respectively (receipts
 unchanged standalone TSV scanner; scanner coverage remains registered separately
 and in full regression. Deferred source plans now contain runnable existing gates.
 All14 feature catalog contracts pass. Major milestone acceptance remains open.
+
+The next full report `20261025T212020-full-45607` passes202 pure configurations,
+About and all33 standalone workflows (570 stages), then detects stale scalar
+ColumnEdit expectations in the workbook engine fixture. That fixture now replays
+the actual effect constituents and verifies nondefault physical widths through
+insert/delete, Undo/Redo and Save/Open; the original cell/object and rejection
+assertions remain. Ordered core/workbook release/sanitizer acceptance passes
+208.116s (`20261025T213335-feature-59333`, workbook sanitizer170.032s).
+The failed full report is preserved. Remaining engine/native acceptance uses a
+source-scoped coverage union; App/product source and its570-stage inputs remain
+unchanged. Document Open CLI inspection now parses arguments before any build,
+fixture output or hidden launch, with a no-side-effect contract.

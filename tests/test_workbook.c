@@ -1,4 +1,5 @@
 #include "workbook/workbook.h"
+#include "workbook/column_width_command.h"
 #include "data/database.h"
 #include "platform/platform.h"
 #include <math.h>
@@ -229,9 +230,14 @@ static void test_mixed_history(void) {
 static void range_history(Worksheet *s,bool redo) {
     size_t n=redo ? s->redo_actions_count : s->undo_actions_count; CHECK(n>0);
     EditKind kind=(redo ? s->redo_actions : s->undo_actions)[n-1];
-    CHECK(kind!=EDIT_ANALYSIS);
-    if (kind==EDIT_CELLS || kind==EDIT_RANGE) CHECK(cells_history(&s->cells,redo));
-    if (kind==EDIT_OBJECTS || kind==EDIT_RANGE) CHECK(objects_history(&s->objects,redo));
+    unsigned effects=worksheet_edit_effects(kind); CHECK(effects && !(effects&1));
+    ColumnWidthCommand *widths=NULL;
+    ColumnWidthCommandContext context={&s->view,&s->width_history,&s->width_revision,SIZE_MAX};
+    if (effects&16) CHECK(column_width_command_replay(context,redo,&widths)==COLUMN_WIDTH_OK);
+    if (effects&2) CHECK(cells_history(&s->cells,redo));
+    if (effects&4) CHECK(objects_history(&s->objects,redo));
+    if (effects&8) CHECK(format_history(&s->formats,redo));
+    if (widths) CHECK(column_width_command_adopt(context,&widths)==COLUMN_WIDTH_OK);
     worksheet_transfer_history(s,redo);
 }
 static void test_range_move(void) {
@@ -289,14 +295,20 @@ static void test_composite_history_budget(void) {
 static void test_worksheet_columns(void) {
     Workbook b,loaded; workbook_init(&b); workbook_init(&loaded); Analysis a={0}; char *error=NULL;
     CHECK(workbook_add(&b,"Column shifts",&a,&error)); Worksheet *s=&b.sheets[0];
+    s->view.column_count=6; s->view.columns=dx_alloc(6*sizeof(char *)); s->view.widths=dx_alloc(6*sizeof(float));
+    for (size_t c=0;c<6;c++) { s->view.columns[c]=dx_strdup(""); s->view.widths[c]=96; }
+    s->view.widths[2]=137; s->view.widths[4]=181;
     CHECK(cells_set(&s->cells,0,4,"Note",&error)); worksheet_record(s,EDIT_CELLS);
     CHECK(objects_add(&s->objects,10,4,"Pivot",&error)==0); worksheet_record(s,EDIT_OBJECTS);
     uint64_t revision=s->objects.items[0].revision; size_t actions=s->undo_actions_count;
     CHECK(worksheet_column(s,2,true,0,&error));
     CHECK(!strcmp(cells_get(&s->cells,0,5),"Note") && !*cells_get(&s->cells,0,4) && s->objects.items[0].col==5 && s->objects.items[0].revision==revision);
-    CHECK(s->undo_actions_count==actions+1 && s->undo_actions[actions]==EDIT_RANGE && s->undo_columns[actions].active && s->undo_columns[actions].column==2);
-    range_history(s,false); CHECK(s->redo_columns[s->redo_actions_count-1].active && s->redo_columns[s->redo_actions_count-1].insert); CHECK(s->objects.items[0].col==4 && !strcmp(cells_get(&s->cells,0,4),"Note"));
-    range_history(s,true); CHECK(s->undo_columns[s->undo_actions_count-1].active && s->undo_columns[s->undo_actions_count-1].column==2); CHECK(s->objects.items[0].col==5 && !strcmp(cells_get(&s->cells,0,5),"Note"));
+    CHECK(s->undo_actions_count==actions+1 && s->undo_actions[actions]==EDIT_RANGE_WIDTHS && !s->undo_columns[actions].active);
+    CHECK(s->view.widths[2]==96 && s->view.widths[3]==137 && s->view.widths[5]==181 && column_width_history_info(s->width_history).undo==1);
+    range_history(s,false); CHECK(s->redo_actions[s->redo_actions_count-1]==EDIT_RANGE_WIDTHS && !s->redo_columns[s->redo_actions_count-1].active);
+    CHECK(s->objects.items[0].col==4 && !strcmp(cells_get(&s->cells,0,4),"Note") && s->view.widths[2]==137 && s->view.widths[4]==181);
+    range_history(s,true); CHECK(s->undo_actions[s->undo_actions_count-1]==EDIT_RANGE_WIDTHS && !s->undo_columns[s->undo_actions_count-1].active);
+    CHECK(s->objects.items[0].col==5 && !strcmp(cells_get(&s->cells,0,5),"Note") && s->view.widths[2]==96 && s->view.widths[3]==137 && s->view.widths[5]==181);
     actions=s->undo_actions_count; char *owned=s->cells.cells[0].text;
     CHECK(!worksheet_column(s,6,true,0,&error)); free(error); error=NULL;
     CHECK(!worksheet_column(s,5,false,0,&error)); free(error); error=NULL;
@@ -308,6 +320,7 @@ static void test_worksheet_columns(void) {
     CHECK(worksheet_column(s,4,true,0,&error) && s->objects.items[0].col==5); /* At the left edge moves the whole object. */
     remove("build/tests/generated/column-shifts.dxls"); CHECK(workbook_save(&b,"build/tests/generated/column-shifts.dxls",&error)); CHECK(workbook_load(&loaded,"build/tests/generated/column-shifts.dxls",&error));
     CHECK(loaded.sheets[0].objects.items[0].col==5 && !strcmp(cells_get(&loaded.sheets[0].cells,0,5),"Note"));
+    CHECK(loaded.sheets[0].view.widths[2]==137 && loaded.sheets[0].view.widths[4]==96 && loaded.sheets[0].view.widths[5]==181);
     CHECK(cells_set(&s->cells,0,16383,"Edge",&error)); worksheet_record(s,EDIT_CELLS); actions=s->undo_actions_count;
     CHECK(!worksheet_column(s,2,true,0,&error)); free(error); error=NULL;
     CHECK(s->objects.items[0].col==5 && s->undo_actions_count==actions && !strcmp(cells_get(&s->cells,0,16383),"Edge"));

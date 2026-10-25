@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Hidden LaunchServices cold/warm workbook Open checks in an isolated bundle."""
+import argparse
 import hashlib
 import json
 import os
@@ -13,7 +14,8 @@ import time
 from workspace import ROOT, FileLock, native_lock_path, source_metadata
 
 
-def main():
+def main(argv=None):
+    argparse.ArgumentParser(description=__doc__).parse_args(argv)
     output = ROOT / 'build/tests/results/runs' / (time.strftime('%Y%m%dT%H%M%S', time.gmtime()) + f'-open-documents-{os.getpid()}')
     output.mkdir(parents=True)
     bundle = output / 'DocumentOpenTest.app'
