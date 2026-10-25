@@ -2558,3 +2558,27 @@ runtime claim). History at `6b689d3` passes topology12/lifecycle28 actual stages
 Object association/paste gates pass25 stages; source MOVE/rows/columns/key Clear
 have separate queued native gates. Exact refs/evidence remain in their isolated
 checkouts and Git tags until linear integration; no routine human approval gate.
+
+## Main milestone delivery validation — 26 October 2026
+
+Product/source anchor `654bbfa` includes the integrated width/paste prerequisites
+and the independently reproduced detached-Redo/final-metadata-revision fixes.
+The audited maintained native inventory has no missing entries:
+202 pure module configurations,116 ordered engine checks,33 standalone workflows
+(579 actual stages),18 native scenarios (1,353 stages), GPU110 and background477.
+This is an explicit source-scoped union: failed raw reports remain failed; the
+native prefix0–675 has its completed checkpoints before the unrelated stage685
+fixture failure, and the corrected675–950 tail completes independently. Changed
+history/lifecycle/journal interactions pass30/28/18 fresh main stages; the extra
+AppKit lifecycle gate passes38 checks per optimized/sanitizer binary.
+Inventory evidence: `build/tests/results/milestone-current-coverage-audit.json`.
+
+All228 Python contracts and341 Node tests pass. The browser-host C core passes
+all maintained normal/sanitizer binaries. Normal/review/Worker Wasm builds pass
+33.621s/51.841s/35.498s, then9 real shared-C/official-Worker browser profiles pass:
+blank/source zoom at both DPRs, normal filters, Worker probe/driver, controls and
+selection. Runtime evidence is `build/tests/results/milestone-browser-runtime.json`.
+Browser workbook Open/Save and retained Undo/data/output activation remain off.
+Final clean bundle/signature/LaunchServices and Pages-subpath smoke, followed by
+origin push and matching CI/CD/deployment verification, are the remaining delivery
+steps; their disposable evidence stays under `build/tests/results/`.
