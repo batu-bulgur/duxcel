@@ -62,7 +62,7 @@ PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContex
     return draft_status(primary_source_draft_check(c,plan->draft,error));
 }
 PrimarySourcePublishStatus primary_source_publish_apply(PrimarySourceDraftContext c,PrimarySourcePublishPlan **owned,size_t reserved,PrimarySourcePublication *out,char **error) {
-    if (!owned || !*owned || !out || out->sheet || out->candidate.name || out->candidate.source.path || out->presence || out->origin)
+    if (!owned || !*owned || !out || out->sheet || out->candidate.name || memcmp(&out->candidate.source,&(Analysis){0},sizeof(Analysis)) || out->presence || out->origin)
         return fail(PRIMARY_PUBLISH_INVALID,error,"Choose independent empty publication result ownership.");
     PrimarySourcePublishPlan *plan=*owned; PrimarySourcePublishStatus status=primary_source_publish_check(c,plan,error); if (status!=PRIMARY_PUBLISH_READY) return status;
     if (reserved<plan->info.coexisting) return fail(PRIMARY_PUBLISH_LIMIT,error,"The admitted creation coexistence must remain reserved through publication.");

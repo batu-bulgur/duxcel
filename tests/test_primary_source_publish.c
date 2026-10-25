@@ -119,4 +119,24 @@ static void prospective_presence_lifetime(void) {
     CHECK(view.sheet->id==2 && !strcmp(view.sheet->name,"Current (2)") && !strcmp(view.primary->path,"/next.duckdb") && !strcmp(view.primary->table,"Sales"));
     sheet_presence_free(&independent); CHECK(!independent);
 }
-int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); prospective_presence_lifetime(); printf("PASS: %u primary publication checks\n",checks); return 0; }
+static void occupied_output_preservation(void) {
+    Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=12,epoch=4;
+    PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false}; PrimarySourceDraft *draft=resolved(c); PrimarySourcePublishPlan *plan=NULL;
+    CHECK(primary_source_publish_prepare(c,&draft,SIZE_MAX,&plan,NULL)==PRIMARY_PUBLISH_READY);
+    Workbook before=b; Worksheet old=b.sheets[0];
+    for (unsigned mode=0;mode<4;mode++) {
+        PrimarySourcePublication out={0};
+        if (mode==0) out.candidate.source.query=dx_strdup("SELECT occupied FROM input");
+        if (mode==1) out.candidate.source.schema=dx_strdup("occupied");
+        if (mode==2) out.candidate.source.filter_value=dx_strdup("occupied");
+        if (mode==3) out.candidate.source.kind=SOURCE_DEMO;
+        PrimarySourcePublication occupied=out;
+        CHECK(primary_source_publish_apply(c,&plan,SIZE_MAX,&out,NULL)==PRIMARY_PUBLISH_INVALID);
+        CHECK(!memcmp(&out,&occupied,sizeof(out)) && !memcmp(&b,&before,sizeof(b)) && !memcmp(b.sheets,&old,sizeof(old)));
+        CHECK(primary_source_publish_check(c,plan,NULL)==PRIMARY_PUBLISH_READY && primary_source_publish_presence(plan));
+        primary_source_publication_free(&out);
+    }
+    PrimarySourcePublication out={0}; CHECK(primary_source_publish_apply(c,&plan,SIZE_MAX,&out,NULL)==PRIMARY_PUBLISH_ADMITTED && b.count==2);
+    primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
+}
+int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); prospective_presence_lifetime(); occupied_output_preservation(); printf("PASS: %u primary publication checks\n",checks); return 0; }
