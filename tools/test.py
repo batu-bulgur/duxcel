@@ -23,6 +23,9 @@ from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
 FAST_MODULES = (
     "range_history_slot",
     "range_history_payload",
+    'primary_source_pending',
+    'primary_source_topology',
+
     'sheet_source_view',
 
     'primary_source_publish',
