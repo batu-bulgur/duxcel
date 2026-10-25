@@ -43,6 +43,7 @@ static SheetTopologyRemoveStatus measure(SheetTopologyRemoveContext c,uint64_t i
     usage.reservation=workbook_history_topology_owned_bytes(bytes);
     if (usage.reservation==SIZE_MAX) return SHEET_REMOVE_LIMIT;
     if (!add(&usage.reservation,wire->owned) || !add(&usage.reservation,wire->validation_scratch)) return SHEET_REMOVE_LIMIT;
+    usage.packet_bytes=bytes;
     *out=usage; return SHEET_REMOVE_READY;
 }
 SheetTopologyRemoveStatus sheet_topology_remove_measure(SheetTopologyRemoveContext context,uint64_t sheet,SheetTopologyRemoveMeasure *out) {

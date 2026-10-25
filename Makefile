@@ -27,6 +27,8 @@ CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
 CORE = src/workbook/workbook_width_command.c src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells_tsv_scan.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/source_versions_codec.c src/workbook/objects.c src/workbook/workbook.c src/workbook/column_widths.c src/workbook/column_width_history.c src/workbook/column_width_command.c src/workbook/cell_command.c src/workbook/format_command.c src/workbook/source_format_command.c src/workbook/analysis_command.c src/workbook/object_source_plan.c src/workbook/table_command.c src/workbook/object_fence.c src/workbook/object_name_command.c src/workbook/object_presentation_command.c src/workbook/object_layout_command.c src/workbook/object_pivot_command.c src/workbook/object_binding_command.c src/workbook/object_delete_command.c src/workbook/object_create_command.c src/workbook/object_import_draft.c src/workbook/object_move_command.c src/workbook/cell_delta.c src/workbook/cell_delta_codec.c src/workbook/format_delta_codec.c src/workbook/format_dependencies.c src/workbook/save_fence.c src/workbook/history.c src/workbook/lifecycle.c src/workbook/sheet_lifecycle.c src/workbook/history_sheet_lifecycle.c src/workbook/sheet_lifecycle_command.c src/workbook/identity.c src/workbook/workbook_codec.c src/workbook/schema.c src/workbook/version_index.c src/workbook/history_anchors.c src/workbook/history_window.c src/workbook/history_path.c src/workbook/history_stream.c src/workbook/history_format.c src/workbook/analysis_asset.c src/workbook/definition_wire.c src/workbook/pivot_asset.c src/workbook/marks_asset.c src/workbook/objects_asset.c src/workbook/definition_dependencies.c src/workbook/definition_state.c src/workbook/definition_event.c src/workbook/history_definition.c src/workbook/definition_baseline.c src/workbook/definition_origin.c src/workbook/version_tag.c src/workbook/version_chunks.c src/workbook/version_codec.c src/data/worker.c src/workbook/cell_range_plan.c src/workbook/range_event.c src/workbook/history_range.c src/workbook/range_command.c src/workbook/cell_paste_plan.c
 CORE += src/workbook/mixed_range_plan.c
+# Current topology owners are shared model code; native App activation stays session-only.
+CORE += src/workbook/sheet_presence_asset.c src/workbook/sheet_topology_event.c src/workbook/history_sheet_topology.c src/workbook/sheet_topology_remove.c src/workbook/sheet_topology_duplicate.c src/workbook/sheet_topology_replay.c
 NATIVE_PERSISTENCE = src/app/versionpreview.c src/workbook/version_preview.c src/app/versionstate.c src/data/worker_archive.c src/workbook/version_save.c src/workbook/archive_write.c src/workbook/archive_read.c src/workbook/version_restore.c src/workbook/version_read.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/core_compare.c src/workbook/core_payload.c src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
 SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/versionview.c src/ui/versionpreviewview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
@@ -424,6 +426,14 @@ HISTORY_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/re
 build/tests/test_workbook_history-gui: tests/test_workbook_history_gui.c $(HISTORY_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_workbook_history_gui.c $(HISTORY_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(HISTORY_GUI_OBJECT:.o=.d)
+
+SHEET_TOPOLOGY_GUI_OBJECT = build/obj/feature-sheet-topology/app.o
+$(SHEET_TOPOLOGY_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_SHEET_TOPOLOGY)
+SHEET_TOPOLOGY_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(SHEET_TOPOLOGY_GUI_OBJECT)
+build/tests/test_sheet_topology-gui: tests/test_sheet_topology_gui.c $(SHEET_TOPOLOGY_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_sheet_topology_gui.c $(SHEET_TOPOLOGY_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(SHEET_TOPOLOGY_GUI_OBJECT:.o=.d)
 
 LIFECYCLE_GUI_OBJECT = build/obj/feature-workbook-lifecycle/app.o
 $(LIFECYCLE_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
@@ -2354,3 +2364,5 @@ build/tests/test_sheet_topology_replay: $(SHEET_TOPOLOGY_REPLAY_OBJECTS) build/w
 build/tests/test_sheet_topology_replay-debug: $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_TOPOLOGY_REPLAY_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_REPLAY_SAN_OBJECTS:.o=.d)
+
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology-gui

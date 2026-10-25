@@ -136,7 +136,7 @@ int main(void) {
     c.read_only=true; CHECK(sheet_topology_duplicate_check(c,p)==SHEET_DUPLICATE_PROTECTED); c.read_only=false;
     WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id}; WorkbookHistoryStream *stream=NULL;
     CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
-    WorkbookHistoryTopologyUsage exact; CHECK(workbook_history_topology_measure(packet,&exact) && exact.staging<=usage.reservation);
+    WorkbookHistoryTopologyUsage exact; CHECK(usage.packet_bytes>=packet->bytes && workbook_history_topology_measure(packet,&exact) && exact.staging<=usage.reservation);
     CHECK(sheet_topology_duplicate_reserve(c,p,stream,exact.staging-1,NULL)==SHEET_DUPLICATE_LIMIT && !sheet_topology_duplicate_reserved(p) && !workbook_history_stream_state(stream).owned_bytes);
     CHECK(sheet_topology_duplicate_reserve(c,p,stream,exact.staging,NULL)==SHEET_DUPLICATE_READY && sheet_topology_duplicate_reserved(p) && !workbook_history_stream_state(stream).pending);
     CHECK(sheet_topology_duplicate_reserve(c,p,stream,SIZE_MAX,NULL)==SHEET_DUPLICATE_BUSY);

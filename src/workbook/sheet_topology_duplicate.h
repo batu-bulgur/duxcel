@@ -11,7 +11,7 @@ typedef struct {
     size_t adoption_reserved;
 } SheetTopologyDuplicateContext;
 typedef struct SheetTopologyDuplicatePlan SheetTopologyDuplicatePlan;
-typedef struct { size_t owned,staging,reservation; } SheetTopologyDuplicateMeasure;
+typedef struct { size_t owned,staging,reservation,packet_bytes; } SheetTopologyDuplicateMeasure;
 typedef enum { SHEET_DUPLICATE_READY,SHEET_DUPLICATE_INVALID,SHEET_DUPLICATE_STALE,SHEET_DUPLICATE_PROTECTED,SHEET_DUPLICATE_LIMIT,SHEET_DUPLICATE_BUSY,SHEET_DUPLICATE_APPLIED } SheetTopologyDuplicateStatus;
 /* Independent prospective copy, using the existing current DXSP capture. Exactly
    the next stable ID, normalized unique name, visible state and insertion after

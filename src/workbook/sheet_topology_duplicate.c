@@ -48,6 +48,7 @@ static SheetTopologyDuplicateStatus measure(SheetTopologyDuplicateContext c,uint
     usage.reservation=workbook_history_topology_owned_bytes(bytes);
     if (usage.reservation==SIZE_MAX) return SHEET_DUPLICATE_LIMIT;
     if (!add(&usage.reservation,wire->owned) || !add(&usage.reservation,wire->validation_scratch)) return SHEET_DUPLICATE_LIMIT;
+    usage.packet_bytes=bytes;
     *out=usage; return SHEET_DUPLICATE_READY;
 }
 SheetTopologyDuplicateStatus sheet_topology_duplicate_measure(SheetTopologyDuplicateContext context,uint64_t sheet,SheetTopologyDuplicateMeasure *out) {

@@ -1,5 +1,8 @@
 #include "../workbook/cell_command.h"
 #include "../workbook/sheet_lifecycle_command.h"
+#include "../workbook/sheet_topology_remove.h"
+#include "../workbook/sheet_topology_duplicate.h"
+#include "../workbook/sheet_topology_replay.h"
 #include "../workbook/format_command.h"
 #include "../workbook/analysis_command.h"
 #include "../workbook/table_command.h"
@@ -1441,6 +1444,7 @@ static void remember(App *a) {
 #include "source_format.inc"
 #endif
 #include "column_widths.inc"
+#include "sheet_topology.inc"
 static bool table_transform_budget(App *a,const ObjectSourcePlanInfo *info,const Analysis *source,char **error) {
     if (info->owned>SIZE_MAX-info->validation_scratch) {
         if (error) { free(*error); *error=dx_strdup("Table planning reservation overflow."); } return false;
@@ -2599,8 +2603,10 @@ static void history(App *a,bool redo) {
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo."); end_step_preview(a);
     if (target.lifecycle) {
         if (!capture_sheet(a)) { free(error); return; }
-        WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
-        if (applied.status==WORKBOOK_HISTORY_APPLIED) activate_sheet(a,a->book.active,false);
+        WorkbookLifecyclePresence selected;
+        bool typed=workbook_lifecycle_presence(&a->book,redo,&selected) && selected.packet;
+        bool applied=typed ? replay_sheet_presence(a,redo,&selected,&error) : workbook_history_step(&a->book,redo,&error).status==WORKBOOK_HISTORY_APPLIED;
+        if (applied) activate_sheet(a,a->book.active,false);
         else if (error) status(a,error);
     } else if (!(worksheet_edit_effects(target.kind)&5)) {
         bool hidden=a->book.sheets[target.sheet].hidden;
@@ -6060,9 +6066,9 @@ static void process_sheet_action(App *a) {
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by worksheet navigation.");
     char *error=NULL; size_t previous=a->book.active; bool ok=false;
     if (!capture_sheet(a)) return;
-    if (action==SHEET_ACTION_DUPLICATE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=index},NULL,&error);
+    if (action==SHEET_ACTION_DUPLICATE) ok=apply_sheet_presence(a,index,true,&error);
     else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=apply_sheet_metadata(a,index,action==SHEET_ACTION_HIDE ? SHEET_METADATA_HIDE : SHEET_METADATA_SHOW,0,NULL,&error);
-    else if (action==SHEET_ACTION_DELETE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=index},NULL,&error);
+    else if (action==SHEET_ACTION_DELETE) ok=apply_sheet_presence(a,index,false,&error);
     else {
         size_t destination=index;
         while (action==SHEET_ACTION_UP ? destination>0 : destination+1<a->book.count) {
@@ -15738,6 +15744,9 @@ static void workbook_save_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_JOURNAL_SESSION
 static void journal_session_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_SHEET_TOPOLOGY
+static void sheet_topology_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
 static void workbook_lifecycle_test_frame(AppSession *session);
 #endif
@@ -16664,6 +16673,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_JOURNAL_SESSION
     journal_session_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_SHEET_TOPOLOGY
+    sheet_topology_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
     workbook_lifecycle_test_frame(session);
 #endif
@@ -17026,6 +17038,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/workbook_history_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_SHEET_TOPOLOGY
+#include "../../tests/support/sheet_topology_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_WORKBOOK_LIFECYCLE
 #include "../../tests/support/workbook_lifecycle_app.inc"
 #endif

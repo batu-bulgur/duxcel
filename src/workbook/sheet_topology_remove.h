@@ -11,7 +11,7 @@ typedef struct {
     size_t adoption_reserved; /* Separate real DELETE allocation grant. */
 } SheetTopologyRemoveContext;
 typedef struct SheetTopologyRemovePlan SheetTopologyRemovePlan;
-typedef struct { size_t owned,staging,reservation; } SheetTopologyRemoveMeasure;
+typedef struct { size_t owned,staging,reservation,packet_bytes; } SheetTopologyRemoveMeasure;
 typedef enum { SHEET_REMOVE_READY,SHEET_REMOVE_INVALID,SHEET_REMOVE_STALE,SHEET_REMOVE_PROTECTED,SHEET_REMOVE_LIMIT,SHEET_REMOVE_BUSY,SHEET_REMOVE_APPLIED } SheetTopologyRemoveStatus;
 /* Genuine existing document/target sessions are required; caller may establish
    them through workbook_prepare_command_session without creating a user action.

@@ -93,7 +93,7 @@ int main(void) {
     CHECK(sheet_topology_remove_usage(plan).owned==usage.owned && sheet_topology_remove_usage(plan).staging==usage.staging);
     SheetPresenceView owned=sheet_topology_remove_presence(plan); CHECK(owned.sheet->id==id && !strcmp(owned.primary->schema,"main") && !strcmp(owned.primary->table,"alpha") && !strcmp(cells_get(&owned.sheet->cells,100,8),"NULL") && owned.sheet->view.widths[0]==120);
     const SheetTopologyPacket *packet=sheet_topology_remove_packet(plan); SheetTopologyEvent event={0}; WorkbookHistoryTopologyUsage reservation;
-    CHECK(workbook_history_topology_measure(packet,&reservation) && reservation.staging==usage.reservation && reservation.owned==workbook_history_topology_owned_bytes(packet->bytes));
+    CHECK(usage.packet_bytes==packet->bytes && workbook_history_topology_measure(packet,&reservation) && reservation.staging==usage.reservation && reservation.owned==workbook_history_topology_owned_bytes(packet->bytes));
     CHECK(sheet_topology_decode(packet->data,packet->bytes,SIZE_MAX,&event)==SHEET_TOPOLOGY_OK && event.operation==SHEET_TOPOLOGY_REMOVE && event.sheet==id && event.before.count==3 && event.after.count==2 && event.before.active==id && event.after.active==b.sheets[0].id); sheet_topology_free(&event);
     b.active=2; CHECK(sheet_topology_remove_check(c,plan)==SHEET_REMOVE_READY); b.active=1;
     Worksheet *moved=dx_alloc(b.count*sizeof(Worksheet)); memcpy(moved,b.sheets,b.count*sizeof(Worksheet)); free(b.sheets); b.sheets=moved;
