@@ -173,4 +173,31 @@ static void adversarial(void) {
     CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK);
     fixture_free(&f); workbook_history_profile_free(&out);
 }
-int main(void) { mixed(); checkpoint(); fork_union(); adversarial(); printf("PASS: %u combined current history profile checks\n",checks); return 0; }
+static void self_replacement(void) {
+    Fixture f; fixture(&f); WorkbookHistoryProfile *out=NULL;
+    CHECK(workbook_history_profile_prepare(f.view,caps(),&out)==HISTORY_PROFILE_OK);
+    /* Returned immutable views are valid preparation inputs until replacement.
+       No copied descriptor may keep pointing at the old owner when it dies. */
+    WorkbookHistoryProfileView borrowed=*workbook_history_profile_view(out);
+    WorkbookHistoryProfileMeasure m; CHECK(workbook_history_profile_measure(borrowed,caps(),out,&m)==HISTORY_PROFILE_OK && m.prior_owned==workbook_history_profile_owned(out));
+    WorkbookHistoryProfileCaps exact=caps(); exact.staging_bytes=m.staging;
+    WorkbookHistoryProfileCaps short_by_one=exact; short_by_one.staging_bytes--;
+    WorkbookHistoryProfile *prior=out; const void *old_bytes=borrowed.records[5].data; const WorkbookVersionRoot *old_roots=borrowed.versions->roots;
+    rejects(borrowed,short_by_one,out,HISTORY_PROFILE_LIMIT);
+    CHECK(out==prior && workbook_history_profile_view(out)->records[5].data==old_bytes);
+    CHECK(workbook_history_profile_prepare(borrowed,exact,&out)==HISTORY_PROFILE_OK && out!=prior);
+    const WorkbookHistoryProfileView *held=workbook_history_profile_view(out);
+    CHECK(held->records[5].data!=old_bytes && held->versions->roots!=old_roots);
+    /* The old view is expired now. All observations below use the new owner;
+       the optional live source authorities were deliberately never retained. */
+    CHECK(held->records[2].event->action==3 && held->records[0].sheet==1 && !memcmp(held->records[4].data,"DXSL",4));
+    CHECK(workbook_history_profile_report(out,2)->compatibility==SOURCE_DEPENDENCY_UNAVAILABLE);
+    WorkbookHistoryProfileView checkpoint=*held; checkpoint.kind=HISTORY_PROFILE_CHECKPOINT_ONLY;
+    checkpoint.anchors=NULL; checkpoint.current=(WorkbookHistoryProfilePath){0}; checkpoint.saved=(WorkbookHistoryProfilePath){0}; checkpoint.records=NULL; checkpoint.count=0;
+    CHECK(workbook_history_profile_measure(checkpoint,caps(),out,&m)==HISTORY_PROFILE_OK && m.prior_owned && !m.validation_peak);
+    exact=caps(); exact.staging_bytes=m.staging;
+    CHECK(workbook_history_profile_prepare(checkpoint,exact,&out)==HISTORY_PROFILE_OK && !workbook_history_profile_protection(out) && !workbook_history_profile_view(out)->records);
+    CHECK(!memcmp(workbook_history_profile_view(out)->versions->tags[0].label.data,"Current",7));
+    fixture_free(&f); workbook_history_profile_free(&out);
+}
+int main(void) { mixed(); checkpoint(); fork_union(); adversarial(); self_replacement(); printf("PASS: %u combined current history profile checks\n",checks); return 0; }
