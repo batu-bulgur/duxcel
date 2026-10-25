@@ -1,15 +1,30 @@
 /* Actual Worker probes and session publication, independent of retained writing. */
 static unsigned primary_source_stage,primary_source_wait,primary_source_checks;
 static int primary_source_result;
+static bool primary_source_prepared_escape;
 static uint64_t primary_source_command,primary_source_high,primary_source_sheet;
 static size_t primary_source_count,primary_source_index;
 static const Cell *primary_source_cells;
 static Analysis primary_source_before;
+static unsigned char *primary_source_file;
+static int primary_source_file_bytes;
 #define PRIMARY_SOURCE_CHECK(x) do { primary_source_checks++; if (!(x)) { fprintf(stderr,"FAIL pending primary stage %u:%d: %s (%s)\n",primary_source_stage,__LINE__,#x,a->message ? a->message : ""); primary_source_result=-1; return; } } while (0)
 static bool primary_source_unchanged(const App *a) {
     return a->book.count==primary_source_count && a->book.active==primary_source_index && a->book.command_revision==primary_source_command &&
         a->book.sheet_high_water==primary_source_high && active_sheet((App *)a)->id==primary_source_sheet && a->page.cells==primary_source_cells &&
         !memcmp(&a->analysis,&primary_source_before,sizeof(Analysis));
+}
+static void primary_source_prepare_held(App *a) {
+    PrimarySourcePending *owner=a->primary_source_pending_owner; QueryReply *reply=a->primary_source_reply;
+    PrimarySourceDraftContext c=app_primary_source_context(a);
+    PRIMARY_SOURCE_CHECK(owner && reply && primary_source_pending_stage(owner)==PRIMARY_PENDING_DRAFT);
+    PRIMARY_SOURCE_CHECK(primary_source_pending_resolve(c,owner,(PrimarySourceDraftReply){reply->id,&reply->analysis,reply->error},SIZE_MAX,NULL)==PRIMARY_TOPOLOGY_READY);
+    SheetSourceView *view=NULL;
+    PRIMARY_SOURCE_CHECK(sheet_source_view_build((SheetSourceViewSpec){reply->page.columns,reply->page.column_count,a->primary_source_navigation},SIZE_MAX,&view)==SHEET_SOURCE_VIEW_OK);
+    PrimarySourceInitialSchema schema={reply->id,reply->revision,&reply->analysis,reply->page.columns,reply->page.column_count,NULL};
+    PRIMARY_SOURCE_CHECK(primary_source_pending_prepare_initial(c,owner,&view,schema,SIZE_MAX,NULL)==PRIMARY_TOPOLOGY_READY && !view);
+    PRIMARY_SOURCE_CHECK(primary_source_pending_prepare_topology(c,owner,SIZE_MAX,NULL)==PRIMARY_TOPOLOGY_READY);
+    PRIMARY_SOURCE_CHECK(primary_source_pending_stage(owner)==PRIMARY_PENDING_TOPOLOGY && app_primary_source_owned(a)>sizeof(QueryReply));
 }
 static void primary_source_test_frame(AppSession *session) {
     App *a=&session->app;
@@ -17,6 +32,8 @@ static void primary_source_test_frame(AppSession *session) {
     primary_source_wait=0;
     switch (primary_source_stage) {
     case 0:
+        primary_source_file=LoadFileData("build/tests/generated/source-connection-b.duckdb",&primary_source_file_bytes);
+        PRIMARY_SOURCE_CHECK(primary_source_file && primary_source_file_bytes>0 && primary_source_file_bytes<8*1024*1024);
         PRIMARY_SOURCE_CHECK(a->page.total==3 && a->analysis.table && !strcmp(a->analysis.table,"alpha"));
         primary_source_count=a->book.count; primary_source_index=a->book.active; primary_source_command=a->book.command_revision;
         primary_source_high=a->book.sheet_high_water; primary_source_sheet=active_sheet(a)->id; primary_source_cells=a->page.cells; primary_source_before=a->analysis;
@@ -54,8 +71,13 @@ static void primary_source_test_frame(AppSession *session) {
         open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
         PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner); a->source_format.bytes=SIZE_MAX; break;
     case 6:
-        PRIMARY_SOURCE_CHECK(a->primary_source_reply && primary_source_unchanged(a));
-        cancel_active_query(a); a->source_format.bytes=0;
+        if (!primary_source_prepared_escape) {
+            PRIMARY_SOURCE_CHECK(a->primary_source_reply && primary_source_unchanged(a));
+            primary_source_prepare_held(a); if (primary_source_result) return;
+            primary_source_prepared_escape=true; a->source_format.bytes=0;
+            ui_note_key_press(KEY_ESCAPE,0); return;
+        }
+        PRIMARY_SOURCE_CHECK(!app_primary_source_owned(a));
         PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && primary_source_unchanged(a));
         /* Real current OPEN pressure must be protected before CREATE can
            invalidate its document revision. No replacement preimage is made. */
@@ -93,10 +115,40 @@ static void primary_source_test_frame(AppSession *session) {
         open_source(a,"build/tests/generated/source-connection-a.duckdb",false); a->source_format.bytes=SIZE_MAX; break;
     case 10:
         PRIMARY_SOURCE_CHECK(a->primary_source_reply); a->source_format.bytes=0;
-        a->document_action=DOCUMENT_NEW; a->book.dirty=false; finish_document_action(a);
-        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && a->book.count==1 && a->analysis.kind==SOURCE_NONE);
+        primary_source_prepare_held(a); if (primary_source_result) return;
+        {
+            /* Re-run the genuine old probe after replacement. Production poll
+               must reject its old ID; no synthetic reply or dispatch bridge. */
+            QueryJob *late=dx_alloc(sizeof(*late)); late->kind=JOB_PAGE;
+            late->id=a->primary_source_reply->id; late->revision=a->primary_source_reply->revision;
+            late->analysis=analysis_copy(&a->primary_source_reply->analysis); late->known_total=-1;
+            a->document_action=DOCUMENT_NEW; a->book.dirty=false; finish_document_action(a);
+            PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && !app_primary_source_owned(a) && a->book.count==1 && a->analysis.kind==SOURCE_NONE);
+            PRIMARY_SOURCE_CHECK(late->id!=a->request_id);
+            primary_source_count=a->book.count; primary_source_index=a->book.active; primary_source_command=a->book.command_revision;
+            primary_source_high=a->book.sheet_high_water; primary_source_sheet=active_sheet(a)->id; primary_source_cells=a->page.cells; primary_source_before=a->analysis;
+            worker_submit(&a->worker,late);
+        }
+        break;
+    case 11:
+        {
+            dx_lock(&a->worker.mutex); bool drained=!a->worker.running && !a->worker.pending && !a->worker.reply; dx_unlock(&a->worker.mutex);
+            if (!drained) return;
+        }
+        PRIMARY_SOURCE_CHECK(primary_source_unchanged(a) && !app_primary_source_owned(a));
+        open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a)); break;
+    case 12:
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && !app_primary_source_owned(a));
+        PRIMARY_SOURCE_CHECK(a->book.count==primary_source_count+1 && a->book.command_revision==primary_source_command+1 && a->book.sheet_high_water==primary_source_high+1);
+        PRIMARY_SOURCE_CHECK(a->analysis.table && !strcmp(a->analysis.table,"alpha") && a->page.total==3);
+        {
+            int bytes=0; unsigned char *current=LoadFileData("build/tests/generated/source-connection-b.duckdb",&bytes);
+            PRIMARY_SOURCE_CHECK(current && bytes==primary_source_file_bytes && !memcmp(current,primary_source_file,(size_t)bytes));
+            UnloadFileData(current); UnloadFileData(primary_source_file); primary_source_file=NULL;
+        }
         primary_source_result=1;
-        printf("PASS: native pending primary workflow (11 stages, %u checks)\n",primary_source_checks); return;
+        printf("PASS: native pending primary workflow (13 stages, %u checks)\n",primary_source_checks); return;
     }
     primary_source_stage++;
 }
