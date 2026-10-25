@@ -2478,3 +2478,15 @@ interactions pass86 stages in62.524s including build, hidden-window checks and
 38.081s Table execution (`20261025T202346-native-99296`). No broad regression or
 Wasm acceptance is inferred. The three lanes continue topology event ownership,
 new-primary publication and mixed-range command adoption respectively.
+
+Milestone regression found and fixed a genuine projection race: after sheet
+activation/new source selection, Grid could still show the previous sheet before
+its committed view/schema was restored. Automatic draft completion interpreted
+that cache as a width edit, advancing the document clock and invalidating a held
+OPEN source origin. Width admission and structural pointer input now wait for
+projection readiness; no old cache is authored. Deterministic activation/first-
+schema guards were added to the width GUI. Focused primary-origin11, width30 and
+Table-origin12 stages pass15.928s/28.080s/23.498s respectively, both module modes.
+The original full report `20261025T202853-full-2085` remains failed (all202 pure
+module configurations passed); it is not relabelled successful. Broad acceptance
+resumes on the corrected App source; later private lane commits remain queued.

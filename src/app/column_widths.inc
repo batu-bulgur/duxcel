@@ -1,6 +1,9 @@
 /* Native and shared-C presentation command adapter. SheetView owns committed
    widths; Grid changes are a draft until this complete owner admits them. */
 typedef struct { App *app; size_t captured; } WidthAdmission;
+static bool column_widths_ready(const App *a) {
+    return !a->restore_view && !(a->analysis.kind!=SOURCE_NONE && a->new_schema);
+}
 static bool admit_column_width(void *context,size_t staging,size_t retained_add,char **error) {
     WidthAdmission *admission=context;
 #ifndef DUXCEL_BROWSER_HOST
@@ -21,6 +24,10 @@ static void project_sheet_widths(App *a) {
 static bool commit_grid_widths(App *a) {
     Worksheet *sheet=active_sheet(a); Grid *g=&a->grid;
     if (!sheet) return false;
+    /* During activation the cache can still belong to the outgoing sheet;
+       during first source load its default widths are not initialized yet.
+       Neither representation is an authored draft of the current owner. */
+    if (!column_widths_ready(a)) return false;
     bool changed=false;
     size_t count=g->width_count>sheet->view.column_count ? g->width_count : sheet->view.column_count;
     for (size_t c=0;c<count;c++) {

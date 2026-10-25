@@ -9237,7 +9237,7 @@ static void draw_app(App *a) {
     a->grid.source_header=a->analysis.kind!=SOURCE_NONE; a->grid.hide_gridlines=!a->gridlines;
     a->grid.digit_width=u->digit_width;
     a->grid.elastic_enabled=!a->reduced_motion;
-    a->grid.lock_structure=a->io_busy;
+    a->grid.lock_structure=a->io_busy || !column_widths_ready(a);
     prepare_objects(a); grid_layout(&a->grid,s*a->grid.zoom,&a->page,gr); reveal_pivot(a);
     if ((!pivot_active && !over_inspector && !a->left_drawer) || a->chart_resizing) chart_resize_input(a);
     if (!pivot_active && !over_inspector && !a->left_drawer) object_input(a);

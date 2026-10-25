@@ -14,6 +14,9 @@ static void column_width_test_frame(AppSession *session) {
     switch (width_stage) {
     case 0:
         remove(width_path); WIDTH_CHECK(s->view.column_count && s->view.widths[0]==96);
+        width_revision=a->book.command_revision; a->restore_view=true; grid_set_width(&a->grid,0,333);
+        WIDTH_CHECK(!commit_grid_widths(a) && s->view.widths[0]==96 && a->book.command_revision==width_revision && !s->undo_actions_count);
+        a->restore_view=false; project_sheet_widths(a);
         width_revision=a->book.command_revision; width_request=a->request_id; width_dialog_input(a,"177.5"); break;
     case 1:
         WIDTH_CHECK(a->grid.widths[0]==177.5f && s->view.widths[0]==177.5f && a->book.command_revision==width_revision+1 && a->request_id==width_request);
@@ -52,7 +55,10 @@ static void column_width_test_frame(AppSession *session) {
     case 12:
         WIDTH_CHECK(a->book.count==2 && a->book.active==1); open_source(a,"tests/fixtures/duplicates.csv",false); break;
     case 13:
-        WIDTH_CHECK(a->page.total==8 && a->grid.widths[0]==128 && s->view.widths[0]==128); width_dialog_input(a,"220"); break;
+        WIDTH_CHECK(a->page.total==8 && a->grid.widths[0]==128 && s->view.widths[0]==128);
+        width_revision=a->book.command_revision; a->new_schema=true; grid_set_width(&a->grid,0,333);
+        WIDTH_CHECK(!commit_grid_widths(a) && s->view.widths[0]==128 && a->book.command_revision==width_revision && !s->undo_actions_count);
+        a->new_schema=false; project_sheet_widths(a); width_dialog_input(a,"220"); break;
     case 14:
         WIDTH_CHECK(a->grid.widths[0]==220 && s->view.widths[0]==220);
         begin_source_query(a); input_set(&a->input,"SELECT City AS Renamed, Amount FROM input"); ui_note_key_press(KEY_ENTER,DX_MOD_SUPER); break;
