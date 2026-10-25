@@ -20,19 +20,26 @@ static bool source_fence(const RangeCommandContext *c,const RangeCommandTarget *
         *p->rows==t->source_rows && *p->columns==t->source_columns && *p->count_pending==t->count_pending && *p->fetch_failed==t->fetch_failed && *p->ready==t->result_ready;
 }
 static RangeCommandStatus source_status(SourceRangeStatus s) { return s==SOURCE_RANGE_READY ? RANGE_COMMAND_READY : s==SOURCE_RANGE_NOOP ? RANGE_COMMAND_NOOP : s==SOURCE_RANGE_PROTECTED ? RANGE_COMMAND_PROTECTED : s==SOURCE_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; }
+static bool needs_result(const SheetObject *o) { return o->kind==OBJECT_TABLE || (o->kind==OBJECT_PIVOT && o->pivot.counts[PIVOT_VALUES]); }
 static bool resolve_result(const RangeCommandContext *c,const Worksheet *s,uint64_t id,RangeResultProof *out,char **error) {
     if (!c->results || !c->results->resolve || !c->results->resolve(c->results->context,id,out) || out->object!=id || !out->owner || !out->definition || !out->page || !out->ready || out->failed || out->page->count_pending || out->request!=*c->command.request_epoch) return fail(error,"Wait for the actual complete result owner before moving this range.");
     if (out->page->offset>out->page->total || out->page->row_count>out->page->total-out->page->offset) return fail(error,"The result row window exceeds its complete count.");
-    const Analysis *definition=c->primary; uint64_t epoch=*c->primary_epoch;
-    const SheetObject *table=NULL;
-    if (id) { for (size_t i=0;i<s->objects.count;i++) if (s->objects.items[i].id==id && s->objects.items[i].kind==OBJECT_TABLE) table=s->objects.items+i;
-        if (!table) return fail(error,"The Table result owner is missing."); definition=&table->source; epoch=table->revision;
-    }
-    if (out->definition!=definition || out->query_epoch!=epoch || out->source_epoch!=epoch || (out->page->column_count && !out->page->columns) || (out->page->row_count && !out->page->cells)) return fail(error,"The result belongs to another definition or query epoch.");
+    const Analysis *definition=c->primary; uint64_t query_epoch=*c->primary_epoch,source_epoch=query_epoch;
+    const SheetObject *object=NULL;
     if (id) {
-        if (!out->page->column_count || out->page->column_count>16384 || out->page->total>DX_SHEET_ROWS-2) return fail(error,"The complete Table result does not fit the worksheet.");
+        for (size_t i=0;i<s->objects.count;i++) if (s->objects.items[i].id==id && needs_result(s->objects.items+i)) object=s->objects.items+i;
+        if (!object) return fail(error,"The matrix result owner is missing.");
+        const SheetObject *source=objects_source(&s->objects,object);
+        definition=source ? &source->source : c->primary; query_epoch=object->revision; source_epoch=source ? source->revision : *c->primary_epoch;
+    }
+    if (out->definition!=definition || out->query_epoch!=query_epoch || out->source_epoch!=source_epoch || (out->page->column_count && !out->page->columns) || (out->page->row_count && !out->page->cells)) return fail(error,"The result belongs to another definition or query epoch.");
+    if (id) {
+        if (definition->kind==SOURCE_NONE || !out->page->column_count || out->page->column_count>16384 || out->page->total>DX_SHEET_ROWS-2) return fail(error,"The complete matrix result does not fit the worksheet.");
+        /* draw_objects_plane uses one title and one flattened field-header row.
+           Hierarchy/totals in the authoring matrix add no worksheet-grid rows or
+           columns; reconcile_object_views/publish_object_extent use this rule. */
         uint64_t rows=out->page->total+2<5 ? 5 : out->page->total+2; size_t columns=out->page->column_count<3 ? 3 : out->page->column_count;
-        if (table->rows!=rows || table->columns!=columns) return fail(error,"The Table footprint does not match its actual complete result.");
+        if (object->rows!=rows || object->columns!=columns) return fail(error,"The matrix footprint differs from its actual complete grid result.");
     } else if (out->page->total!=*c->source->rows || out->page->column_count!=*c->source->columns || out->page->count_pending!=*c->source->count_pending || out->failed!=*c->source->fetch_failed) return fail(error,"The primary result policy differs from its actual owner.");
     return true;
 }
@@ -41,7 +48,7 @@ static bool result_capture(const RangeCommandContext *c,const Worksheet *s,Range
     if (!c->source) return fail(error,"Source result proofs require explicit primary policy.");
     out->results_authority=c->results; out->results=*c->results;
     for (size_t i=0;i<=s->objects.count;i++) {
-        uint64_t id=0; if (i) { const SheetObject *o=s->objects.items+i-1; if (o->kind!=OBJECT_TABLE) continue; id=o->id; }
+        uint64_t id=0; if (i) { const SheetObject *o=s->objects.items+i-1; if (!needs_result(o)) continue; id=o->id; }
         RangeResultSnapshot *snapshot=out->result+out->result_count;
         if (!resolve_result(c,s,id,&snapshot->proof,error)) return false;
         snapshot->definition=*snapshot->proof.definition; snapshot->page=*snapshot->proof.page; out->result_count++;
@@ -63,9 +70,9 @@ static bool move_context(const RangeCommandContext *c,const Worksheet *s,SourceT
     if (!c->source || !c->results) return fail(error,"Source movement requires explicit actual result proofs.");
     RangeResultProof primary={0}; if (!resolve_result(c,s,0,&primary,error)) return false;
     size_t count=0;
-    for (size_t i=0;i<s->objects.count;i++) if (s->objects.items[i].kind==OBJECT_TABLE) {
+    for (size_t i=0;i<s->objects.count;i++) if (needs_result(s->objects.items+i)) {
         const SheetObject *o=s->objects.items+i; RangeResultProof proof={0}; if (!resolve_result(c,s,o->id,&proof,error)) return false;
-        tables[count++]=(SourceTableExtent){o->id,o->rows,o->columns,true,false,false};
+        if (o->kind==OBJECT_TABLE) tables[count++]=(SourceTableExtent){o->id,o->rows,o->columns,true,false,false};
     }
     *out=(SourceMoveContext){source_context(c,s),tables,count}; return true;
 }

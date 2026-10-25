@@ -18,7 +18,8 @@ typedef struct {
    owners afresh after callbacks. The synchronous resolver is read-only, performs
    no allocation/IO/event dispatch, and cannot reenter or mutate the command.
    Captured native pointers are never old owners
-   to dereference. Primary object0 and every Table must be resolved. Page headers
+   to dereference. Primary object0, every Table and every Pivot with a nonempty Values shelf must
+   be resolved, including obstacles outside the selected range. Page headers
    are fences only, never event payloads or dataset retention. */
 typedef struct {
     uint64_t object,request,query_epoch,source_epoch;

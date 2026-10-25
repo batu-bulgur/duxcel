@@ -460,7 +460,8 @@ static void mixed_columns_command(void) {
     }
 }
 typedef struct {
-    Workbook b; Analysis primary; Page primary_page,table_page,alternate;
+    Workbook b; Analysis primary; Page primary_page,table_page,alternate,pivot_page;
+    uint64_t pivot_id,pivot_epoch,pivot_source_epoch; bool pivot_ready,pivot_failed; const void *pivot_owner;
     Page *live_primary,*live_table; const void *table_owner;
     uint64_t request,epoch,table_epoch,table_source_epoch,proof_id; bool pending,failed,ready,table_failed,table_ready;
     RangeSourcePolicy source; RangeResultContext results,other_results; RangeCommandContext c;
@@ -469,6 +470,7 @@ typedef struct {
 static bool result_resolve(void *context,uint64_t object,RangeResultProof *out) {
     ResultFixture *f=context; Worksheet *s=f->b.sheets;
     if (!object) *out=(RangeResultProof){0,f->request,f->epoch,f->epoch,f->live_primary,f->c.primary,f->live_primary,f->ready,f->failed};
+    else if (object==f->pivot_id) *out=(RangeResultProof){object,f->request,f->pivot_epoch,f->pivot_source_epoch,f->pivot_owner,&s->objects.items[0].source,&f->pivot_page,f->pivot_ready,f->pivot_failed};
     else *out=(RangeResultProof){f->proof_id,f->request,f->table_epoch,f->table_source_epoch,f->table_owner,&s->objects.items[0].source,f->live_table,f->table_ready,f->table_failed};
     return true;
 }
@@ -489,7 +491,14 @@ static void result_fixture(ResultFixture *f) {
 static void result_fixture_free(ResultFixture *f) {
     if (f->primary_page.column_count && !f->primary_page.columns) f->primary_page.columns=dx_alloc(f->primary_page.column_count*sizeof(Column));
     if (f->table_page.column_count && !f->table_page.columns) f->table_page.columns=dx_alloc(f->table_page.column_count*sizeof(Column));
-    page_free(&f->primary_page); page_free(&f->table_page); page_free(&f->alternate); analysis_free(&f->primary); workbook_free(&f->b); }
+    page_free(&f->primary_page); page_free(&f->table_page); page_free(&f->alternate); page_free(&f->pivot_page); analysis_free(&f->primary); workbook_free(&f->b); }
+static void result_pivot(ResultFixture *f) {
+    Worksheet *s=f->b.sheets; CHECK(objects_add(&s->objects,500,30,"Active obstacle",NULL)==1); SheetObject *o=s->objects.items+1;
+    CHECK(pivot_assign(&o->pivot,PIVOT_VALUES,"Amount",AGG_SUM,NULL)); o->source_id=s->objects.items[0].id; o->revision=8; o->rows=5; o->columns=3; worksheet_record(s,EDIT_OBJECTS);
+    f->pivot_id=o->id; f->pivot_epoch=8; f->pivot_source_epoch=33; f->pivot_ready=true; f->pivot_owner=&f->pivot_page;
+    f->pivot_page=(Page){.total=2,.offset=2,.column_count=1,.columns=dx_alloc(sizeof(Column)),.totals=dx_alloc(sizeof(PivotTotals))};
+    f->pivot_page.totals->has_columns=true;
+}
 static bool result_reserve(void *context,const WorkbookHistoryRangeRecord *record,void **ticket,char **error) {
     ResultFixture *f=context; if (!f->inner.reserve(f->inner.context,record,ticket,error)) return false;
     switch (f->mode) {
@@ -514,6 +523,12 @@ static bool result_reserve(void *context,const WorkbookHistoryRangeRecord *recor
         f->table_page.cells[0].is_null=true; f->table_page.cells[1].text=dx_strdup("replacement viewport"); break;
     }
     case 16: { Column *replacement=dx_alloc(3*sizeof(Column)); free(f->primary_page.columns); f->primary_page.columns=replacement; break; }
+    case 17: f->pivot_owner=&f->alternate; break;
+    case 18: f->pivot_ready=false; break;
+    case 19: f->pivot_epoch++; break;
+    case 20: f->pivot_failed=true; break;
+    case 21: f->pivot_page.count_pending=true; break;
+    case 22: f->pivot_source_epoch++; break;
     }
     return true;
 }
@@ -521,8 +536,8 @@ static void result_publish(void *context,void *ticket) { ResultFixture *f=contex
 static void result_cancel(void *context,void *ticket) { ResultFixture *f=context; f->cancelled++; f->inner.cancel(f->inner.context,ticket); }
 static bool contains(const void *data,size_t bytes,const char *text) { size_t n=strlen(text); for (size_t i=0;n<=bytes && i<=bytes-n;i++) if (!memcmp((const char *)data+i,text,n)) return true; return false; }
 static void source_move_controller(void) {
-    for (unsigned mode=0;mode<=16;mode++) {
-        ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); f->mode=mode; Worksheet *s=f->b.sheets; RangeCommandTarget *t=target(&f->c);
+    for (unsigned mode=0;mode<=22;mode++) {
+        ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); if (mode>=17) result_pivot(f); f->mode=mode; Worksheet *s=f->b.sheets; RangeCommandTarget *t=target(&f->c);
         RangeCommand cmd={.operation=RANGE_OPERATION_MOVE,.range={12,321,4,10},.dr=400,.dc=10}; RangeCommandPlanInfo plan={0};
         CHECK(workbook_range_command_measure(&f->c,0,cmd,&plan,NULL)==RANGE_COMMAND_READY);
         f->c.command.plan_reserved=plan.owned+plan.validation_scratch-1;
@@ -560,5 +575,11 @@ static void result_readiness(void) {
     f->b.sheets[0].objects.items[0].rows=3; CHECK(!result_prepares(f)); f->b.sheets[0].objects.items[0].rows=5;
     f->b.sheets[0].objects.items[0].columns=2; CHECK(!result_prepares(f)); f->b.sheets[0].objects.items[0].columns=3;
     result_fixture_free(f); free(f);
+    f=dx_alloc(sizeof(*f)); result_fixture(f); result_pivot(f); CHECK(result_prepares(f));
+    f->pivot_ready=false; CHECK(!result_prepares(f)); f->pivot_ready=true;
+    f->pivot_failed=true; CHECK(!result_prepares(f)); f->pivot_failed=false;
+    f->pivot_source_epoch++; CHECK(!result_prepares(f)); f->pivot_source_epoch--;
+    f->b.sheets[0].objects.items[1].rows=6; CHECK(!result_prepares(f)); f->b.sheets[0].objects.items[1].rows=5;
+    CHECK(result_prepares(f)); result_fixture_free(f); free(f);
 }
 int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
