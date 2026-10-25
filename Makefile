@@ -1048,6 +1048,7 @@ PARALLEL_NATIVE_GOALS = build/tests/test_column_widths build/tests/test_column_w
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
 	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/test_fixture build/tests/test_fixture-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_paste_command-gui build/tests/test_mixed_range-gui build/tests/test_clear_range-gui build/tests/test_mixed_rows-gui build/tests/test_mixed_columns-gui build/tests/test_template_cells-gui
+PARALLEL_NATIVE_GOALS += build/tests/test_source_versions_admission build/tests/test_source_versions_admission-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2232,3 +2233,11 @@ build/tests/test_mixed_range_plan: $(MIXED_RANGE_PLAN_OBJECTS) build/web-tests/p
 build/tests/test_mixed_range_plan-debug: $(MIXED_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(MIXED_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(MIXED_RANGE_PLAN_OBJECTS:.o=.d) $(MIXED_RANGE_PLAN_SAN_OBJECTS:.o=.d)
+
+SOURCE_ADMISSION_OBJECTS = $(filter-out %/tests/test_source_versions_codec.o,$(SOURCE_VERSIONS_CODEC_OBJECTS)) build/obj/release/source-scope/src/workbook/source_versions_admission.o build/obj/release/source-scope/tests/test_source_versions_admission.o
+SOURCE_ADMISSION_SAN_OBJECTS = $(filter-out %/tests/test_source_versions_codec.o,$(SOURCE_VERSIONS_CODEC_SAN_OBJECTS)) build/obj/sanitize/source-scope/src/workbook/source_versions_admission.o build/obj/sanitize/source-scope/tests/test_source_versions_admission.o
+build/tests/test_source_versions_admission: $(SOURCE_ADMISSION_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_source_versions_admission-debug: $(SOURCE_ADMISSION_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(SOURCE_ADMISSION_OBJECTS:.o=.d) $(SOURCE_ADMISSION_SAN_OBJECTS:.o=.d)

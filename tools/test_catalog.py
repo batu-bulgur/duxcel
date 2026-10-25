@@ -124,6 +124,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "source-subset-admission": Feature(("source_versions_admission", "source_versions_codec"), "",
+        ("python3 tools/test.py feature --feature history-definition",),
+        ("src/workbook/source_versions_admission.c", "src/workbook/source_versions_admission.h", "tests/test_source_versions_admission.c")),
+
     "column-width": Feature(("column_widths", "column_width_history", "workbook_history", "grid"), "column-width",
         ("python3 tools/test.py native --scenario table navigation --config sanitize", "python3 tools/test.py feature --feature history-preview"),
         ("src/app/column_widths.inc", "src/app/app.c: physical width authority, schema projection and all width inputs",
