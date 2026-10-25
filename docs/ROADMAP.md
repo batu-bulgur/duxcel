@@ -2385,3 +2385,17 @@ Native product source is now changed in journal_session; previously passed
 model/UI evidence remains source-scoped, and current engine plus remaining
 GPU/all native scenarios must verify the integrated current writer. Browser
 runtime source is unaffected because journal_session is native persistence.
+
+The integrated current writer passes the complete ordered engine inventory at
+clean `e599617`:121/121 results, release and ASan/UBSan,933.418s; binary hashes
+remain unchanged. Receipt `build/tests/results/runs/20261025T175856-engines-46403/summary.json`.
+The native scenario attempt passed the477-check background gate but stopped at
+layout536 after312.146s: the test selected End expecting Move, although the
+current menu ends with Change data source. No product failure is established.
+The test now validates all eight entries, navigates End then Up and exercises
+the real Move/Cancel input. Registered `shared-actions` limits local coverage to
+choiceview/popup release+sanitizer and30 actual App stages; all pass29.910s.
+Receipt `build/tests/results/runs/20261025T182228-feature-52109/summary.json`.
+An earlier affected invocation was intentionally stopped during its unnecessary
+all-module build at54.379s, zero App stages. All native scenarios will restart
+after this test-only fix; the original failed reports remain explicit.

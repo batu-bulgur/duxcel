@@ -12100,8 +12100,8 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
         a->selected_object=0; a->context_focus=a->context_scroll=0; a->modal=MODAL_OBJECT; break;
     case 535: {
-        UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,7);
-        if (!menu.frame.valid || menu.frame.panel.width!=360 || menu.visible!=7 || a->request_id!=request) goto failed;
+        UIChoiceListLayout menu=ui_choice_list_layout(a->context_origin,(Vector2){640,640},1.5f,8);
+        if (!menu.frame.valid || menu.frame.panel.width!=360 || menu.visible!=8 || a->context_focus!=7 || a->request_id!=request) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/native-object-actions-150.png"); break;
     }
     case 536:
@@ -16446,7 +16446,10 @@ bool app_frame(AppSession *session) {
     if (options->layout_smoke && a->frames%24==2 && session->layout_smoke>=524 && session->layout_smoke<=537) {
         static unsigned shared_actions_injected=0; unsigned bit=1u<<(session->layout_smoke-524);
         if (!(shared_actions_injected&bit)) {
-            if (session->layout_smoke==524 || session->layout_smoke==536) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            if (session->layout_smoke==524) { ui_note_key_press(KEY_END,0); ui_note_key_press(KEY_ENTER,0); }
+            else if (session->layout_smoke==535) ui_note_key_press(KEY_END,0);
+            /* Move precedes Change data source in the current object menu. */
+            else if (session->layout_smoke==536) { ui_note_key_press(KEY_UP,0); ui_note_key_press(KEY_ENTER,0); }
             else if (session->layout_smoke==525 || session->layout_smoke==532 || session->layout_smoke==534 || session->layout_smoke==537) ui_note_key_press(KEY_ESCAPE,0);
             else if (session->layout_smoke==531) ui_note_key_press(KEY_UP,0);
             else if (session->layout_smoke==526 || session->layout_smoke==528) {
