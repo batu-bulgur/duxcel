@@ -2139,3 +2139,12 @@ build/tests/test_cell_tsv: $(CELL_TSV_OBJECTS) | build/tests
 build/tests/test_cell_tsv-debug: $(CELL_TSV_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(CELL_TSV_SAN_OBJECTS),$(SANFLAGS))
 -include $(CELL_TSV_OBJECTS:.o=.d) $(CELL_TSV_SAN_OBJECTS:.o=.d)
+
+CELL_PASTE_PLAN_SRC = $(filter-out tests/test_cell_tsv.c,$(CELL_TSV_SRC)) src/workbook/cell_paste_plan.c tests/test_cell_paste_plan.c
+CELL_PASTE_PLAN_OBJECTS = $(addprefix build/obj/release/app/,$(CELL_PASTE_PLAN_SRC:.c=.o))
+CELL_PASTE_PLAN_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(CELL_PASTE_PLAN_SRC:.c=.o))
+build/tests/test_cell_paste_plan: $(CELL_PASTE_PLAN_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(CELL_PASTE_PLAN_OBJECTS),)
+build/tests/test_cell_paste_plan-debug: $(CELL_PASTE_PLAN_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(CELL_PASTE_PLAN_SAN_OBJECTS),$(SANFLAGS))
+-include $(CELL_PASTE_PLAN_OBJECTS:.o=.d) $(CELL_PASTE_PLAN_SAN_OBJECTS:.o=.d)
