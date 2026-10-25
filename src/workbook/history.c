@@ -27,8 +27,10 @@ static bool journal_valid(const Worksheet *s,bool redo) {
     for (unsigned k=0;k<5;k++) if (available[k]>DX_HISTORY || required[k]!=available[k]) return false;
     return true;
 }
-static uint64_t latest_record(const Workbook *book) {
-    uint64_t latest=workbook_lifecycle_latest(book); for (size_t i=0;i<book->count;i++) if (book->sheets[i].history_last>latest) latest=book->sheets[i].history_last;
+uint64_t workbook_history_latest_record(const Workbook *book) {
+    if (!book) return 0;
+    if (book->count>DX_MAX_SHEETS || (book->count && !book->sheets)) return UINT64_MAX;
+    uint64_t latest=workbook_lifecycle_retained_latest(book); for (size_t i=0;i<book->count;i++) if (book->sheets[i].history_last>latest) latest=book->sheets[i].history_last;
     return latest;
 }
 WorkbookHistoryResult workbook_history_peek(const Workbook *book,bool redo,char **error) {
@@ -36,7 +38,7 @@ WorkbookHistoryResult workbook_history_peek(const Workbook *book,bool redo,char 
     if (!workbook_identity_valid(book)) return fail(result,WORKBOOK_HISTORY_INVALID,error,"Invalid workbook history identity.");
     WorkbookHistoryResult lifecycle={.status=WORKBOOK_HISTORY_EMPTY};
     if (!workbook_lifecycle_peek(book,redo,&lifecycle,error)) { result.status=WORKBOOK_HISTORY_INVALID; return result; }
-    uint64_t floor=workbook_lifecycle_floor(book),ceiling=0,latest=workbook_lifecycle_latest(book);
+    uint64_t floor=workbook_lifecycle_floor(book),ceiling=0,latest=workbook_history_latest_record(book);
     for (size_t i=0;i<book->count;i++) {
         const Worksheet *s=book->sheets+i;
         if (!journal_valid(s,false) || !journal_valid(s,true)) return fail(result,WORKBOOK_HISTORY_INVALID,error,"Worksheet history is incomplete; no edit was replayed.");
@@ -79,10 +81,10 @@ void worksheet_history_clear_redo(Worksheet *s) {
 void workbook_history_note_edit(Workbook *book) {
     for (size_t i=0;i<book->count;i++) worksheet_history_clear_redo(book->sheets+i);
     workbook_lifecycle_clear_redo(book);
-    book->history_branch=latest_record(book);
+    book->history_branch=workbook_history_latest_record(book);
 }
 void workbook_history_sync(Workbook *book) {
-    if (book->history_branch!=latest_record(book)) workbook_history_note_edit(book);
+    if (book->history_branch!=workbook_history_latest_record(book)) workbook_history_note_edit(book);
 }
 WorkbookHistoryResult workbook_history_step(Workbook *book,bool redo,char **error) {
     WorkbookHistoryResult result=workbook_history_peek(book,redo,error);

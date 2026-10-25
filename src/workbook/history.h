@@ -19,6 +19,10 @@ bool worksheet_history_order_available(void);
 /* Process-local issued chronology bound; read-only, no order reservation. */
 uint64_t worksheet_history_high_water(void);
 uint64_t worksheet_history_issue_order(void);
+/* Global branch stamp includes live AND lifecycle-owned detached constituent
+   histories. Detaching an Undo/Redo owner must not make its branch disappear.
+   Allocation-free trusted-model query; no new action/order is issued. */
+uint64_t workbook_history_latest_record(const Workbook *book);
 /* Trusted owned model, not an archive/pointer-ownership parser.
    Pure bounded query: global newest Undo / earliest Redo, stable sheet identity,
    exact constituent counts and retention floor. Never skips a missing interval.

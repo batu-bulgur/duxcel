@@ -1370,9 +1370,7 @@ static bool retry_journal(App *a,char **error) {
     return !state.queue.failed || workbook_journal_session_retry(a->journal,error);
 }
 static uint64_t workbook_history_stamp(const Workbook *book) {
-    uint64_t order=workbook_lifecycle_latest(book);
-    for (size_t i=0;i<book->count;i++) if (book->sheets[i].history_last>order) order=book->sheets[i].history_last;
-    return order;
+    return workbook_history_latest_record(book);
 }
 #else
 #define close_journal(a,discard) ((void)0)

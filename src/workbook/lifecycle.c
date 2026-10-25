@@ -49,6 +49,16 @@ void workbook_lifecycle_free(Workbook *b) {
     free(b->lifecycle); b->lifecycle=NULL;
 }
 uint64_t workbook_lifecycle_latest(const Workbook *b) { return b->lifecycle ? b->lifecycle->latest : 0; }
+uint64_t workbook_lifecycle_retained_latest(const Workbook *b) {
+    const struct WorkbookLifecycle *h=b ? b->lifecycle : NULL; if (!h) return 0;
+    uint64_t latest=h->latest;
+    for (unsigned side=0;side<2;side++) {
+        const SheetEvent *events=side ? h->redo : h->undo; size_t count=side ? h->redo_count : h->undo_count;
+        if (count>DX_HISTORY) return UINT64_MAX;
+        for (size_t i=0;i<count;i++) if (events[i].detached && events[i].detached->history_last>latest) latest=events[i].detached->history_last;
+    }
+    return latest;
+}
 uint64_t workbook_lifecycle_floor(const Workbook *b) { return b->lifecycle ? b->lifecycle->floor : 0; }
 FormatBudgetStatus workbook_lifecycle_format_usage(const Workbook *b,size_t *retained) {
     size_t bytes=0; const struct WorkbookLifecycle *h=b->lifecycle;

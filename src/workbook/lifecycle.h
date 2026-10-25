@@ -32,6 +32,9 @@ size_t workbook_lifecycle_create_staging(const Workbook *book,const char *name,c
 void workbook_lifecycle_free(Workbook *book);
 void workbook_lifecycle_clear_redo(Workbook *book);
 uint64_t workbook_lifecycle_latest(const Workbook *book);
+/* Branch high-water also retains constituent history while a Worksheet is
+   detached. This is not the newest lifecycle action clock above. */
+uint64_t workbook_lifecycle_retained_latest(const Workbook *book);
 FormatBudgetStatus workbook_lifecycle_format_usage(const Workbook *book,size_t *retained);
 uint64_t workbook_lifecycle_floor(const Workbook *book);
 bool workbook_lifecycle_peek(const Workbook *book,bool redo,WorkbookHistoryResult *result,char **error);
