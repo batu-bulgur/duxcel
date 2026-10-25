@@ -13,6 +13,12 @@ typedef struct { bool rows[DX_SOURCE_VERSIONS]; size_t unbound_sources; } Defini
    the SAME unchanged immutable ledger for the later union/capture. Full canonical
    definition semantics and source activation remain separate as below. Failure
    preserves out. Selection permits pending metadata but never invents identity. */
+/* One decoded canonical state, not an artificial unchanged before/after pair.
+   Same trusted graph and scratch prerequisites as select; each source0
+   observation is counted once. Full-ledger rows need not all be selected.
+   Failure preserves out; no copy, issuance, mutation or readiness proof. */
+DefinitionDependenciesStatus definition_dependencies_select_state(uint64_t sheet,DefinitionDependencyView state,
+    const SourceVersions *ledger,uint64_t object_high_water,DefinitionDependencySelection *out);
 DefinitionDependenciesStatus definition_dependencies_select(uint64_t sheet,DefinitionDependencyView before,DefinitionDependencyView after,
     const SourceVersions *ledger,uint64_t object_high_water,DefinitionDependencySelection *out);
 /* Close primary/Table version bindings across both definition states. A changed

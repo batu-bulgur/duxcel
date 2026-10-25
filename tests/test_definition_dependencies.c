@@ -59,6 +59,15 @@ static void definitions(void) {
     CHECK(!memcmp(out.sources.versions.items[0].raw.data,v.items[0].raw.data,v.items[0].raw.bytes));
     DefinitionDependencySelection selected={0};
     CHECK(definition_dependencies_select(99,before,after,&v,10,&selected)==DEFINITION_DEPENDENCIES_OK && selected.rows[0] && selected.rows[1] && !selected.rows[2] && !selected.rows[3] && !selected.unbound_sources);
+    DefinitionDependencySelection single={0};
+    CHECK(definition_dependencies_select_state(99,before,&v,10,&single)==DEFINITION_DEPENDENCIES_OK && single.rows[0] && single.rows[1] && !single.rows[2] && !single.unbound_sources);
+    b.source_version=0;
+    CHECK(definition_dependencies_select_state(99,after,&v,10,&single)==DEFINITION_DEPENDENCIES_OK && !single.rows[0] && single.rows[1] && !single.rows[2] && single.unbound_sources==1);
+    b.source_version=1; DefinitionDependencySelection single_prior=single;
+    CHECK(definition_dependencies_select_state(0,before,&v,10,&single)==DEFINITION_DEPENDENCIES_INVALID && !memcmp(&single,&single_prior,sizeof(single)));
+    old.id=8;
+    CHECK(definition_dependencies_select_state(99,before,&v,10,&single)==DEFINITION_DEPENDENCIES_CONFLICT && !memcmp(&single,&single_prior,sizeof(single))); old.id=9;
+    CHECK(definition_dependencies_select_state(99,before,&v,8,&single)==DEFINITION_DEPENDENCIES_INVALID && !memcmp(&single,&single_prior,sizeof(single)));
     DefinitionDependencySelection original_selection=selected; b.source_version=5;
     CHECK(definition_dependencies_select(99,before,after,&v,10,&selected)==DEFINITION_DEPENDENCIES_MISSING && !memcmp(&selected,&original_selection,sizeof(selected))); b.source_version=1;
 

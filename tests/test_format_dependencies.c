@@ -37,6 +37,12 @@ int main(void) {
     CHECK(format_dependencies_build(99,bv,av,&v,10,DX_SOURCE_VERSIONS_BYTES,&out)==FORMAT_DEPENDENCIES_OK);
     FormatDependencySelection selected={0};
     CHECK(format_dependencies_select(99,bv,av,&v,10,&selected)==FORMAT_DEPENDENCIES_OK && selected.rows[0] && selected.rows[1] && !selected.rows[2] && !selected.legacy_scopes);
+    FormatDependencySelection single={0};
+    CHECK(format_dependencies_select_state(99,bv,&v,10,&single)==FORMAT_DEPENDENCIES_OK && single.rows[0] && !single.rows[1] && !single.legacy_scopes);
+    FormatDependencySelection single_prior=single;
+    CHECK(format_dependencies_select_state(0,bv,&v,10,&single)==FORMAT_DEPENDENCIES_INVALID && !memcmp(&single,&single_prior,sizeof(single)));
+    before.scopes[0].owner=8;
+    CHECK(format_dependencies_select_state(99,format_delta_store_view(&before),&v,10,&single)==FORMAT_DEPENDENCIES_INVALID && !memcmp(&single,&single_prior,sizeof(single))); before.scopes[0].owner=0;
     FormatDependencySelection original_selection=selected;
     CHECK(format_dependencies_select(0,bv,av,&v,10,&selected)==FORMAT_DEPENDENCIES_INVALID && !memcmp(&selected,&original_selection,sizeof(selected)));
     CHECK(out.sources.sheet==99 && out.sources.versions.high_water==20 && out.sources.versions.count==2 && !out.legacy_scopes && out.sources.versions.items[0].version==1 && out.sources.versions.items[1].version==2);
@@ -65,11 +71,13 @@ int main(void) {
     CHECK(format_apply_scoped(&legacy,(FormatRange){0},FORMAT_BOLD,value,&opaque,1,true,NULL));
     FormatDependencies old_meta={0}; CHECK(format_dependencies_build(99,format_delta_store_view(&legacy),format_delta_store_view(&legacy),&v,10,0,&old_meta)==FORMAT_DEPENDENCIES_OK);
     CHECK(old_meta.legacy_scopes==2 && !old_meta.sources.versions.count && old_meta.sources.versions.high_water==20);
+    CHECK(format_dependencies_select_state(99,format_delta_store_view(&legacy),&v,10,&single)==FORMAT_DEPENDENCIES_OK && single.legacy_scopes==1 && !single.rows[0] && !single.rows[1] && !single.rows[2]);
     CHECK(format_apply_records(&wrong,&opaque,ids,2,fields,2,FORMAT_BOLD,value,NULL));
     rejected(format_delta_store_view(&wrong),av,&v,DX_SOURCE_VERSIONS_BYTES,&out,FORMAT_DEPENDENCIES_UNSUPPORTED); format_free(&wrong); format_free(&legacy); format_dependencies_free(&old_meta);
     /* An orphaned scope never activates a record or invents a metadata edge. */
     FormatScope unused={123,(void *)"DXFS",4}; FormatStore orphan={.source_aware=true,.scopes=&unused,.scope_count=1};
     CHECK(format_dependencies_build(99,format_delta_store_view(&orphan),(FormatSnapshotView){0},&v,10,0,&old_meta)==FORMAT_DEPENDENCIES_OK && !old_meta.legacy_scopes && !old_meta.sources.versions.count);
+    CHECK(format_dependencies_select_state(99,format_delta_store_view(&orphan),&v,10,&single)==FORMAT_DEPENDENCIES_OK && !single.legacy_scopes && !single.rows[0] && !single.rows[1] && !single.rows[2]);
     format_dependencies_free(&old_meta);
     source_packet_free(&result); format_free(&before); format_free(&after); source_versions_free(&v);
     CHECK(!strcmp(out.sources.versions.items[0].path,"/one.csv") && !strcmp(out.sources.versions.items[1].path,"/two.parquet"));

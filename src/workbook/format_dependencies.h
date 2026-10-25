@@ -17,6 +17,12 @@ typedef struct { bool rows[DX_SOURCE_VERSIONS]; size_t legacy_scopes; } FormatDe
    scratch. For packet grammar reserve at most analysis_filter_validation_scratch
    (FILTER_COMPOSITE,DX_SOURCE_SCOPE_TEXT_BYTES,true), plus the scope marker and
    format validation allowance. No activation, live adoption or source IO. */
+/* One decoded canonical snapshot; observations are counted once. Reuses the
+   exact scope/selector collector and SAME documented scratch as select.
+   Unreferenced full-ledger rows and orphan scopes create no observation.
+   Failure preserves out; no copy, mutation or source activation proof. */
+FormatDependenciesStatus format_dependencies_select_state(uint64_t sheet,FormatSnapshotView state,
+    const SourceVersions *ledger,uint64_t object_high_water,FormatDependencySelection *out);
 FormatDependenciesStatus format_dependencies_select(uint64_t sheet,FormatSnapshotView before,FormatSnapshotView after,
     const SourceVersions *ledger,uint64_t object_high_water,FormatDependencySelection *out);
 /* Close referenced source metadata for two valid format snapshots against the

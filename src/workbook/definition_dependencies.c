@@ -24,6 +24,12 @@ static DefinitionDependenciesStatus collect(DefinitionDependencyView view,const 
     return status;
 }
 void definition_dependencies_free(DefinitionDependencies *out) { if (out) { source_versions_asset_free(&out->sources); *out=(DefinitionDependencies){0}; } }
+DefinitionDependenciesStatus definition_dependencies_select_state(uint64_t sheet,DefinitionDependencyView view,
+    const SourceVersions *ledger,uint64_t owners,DefinitionDependencySelection *out) {
+    if (!sheet || !out || !source_versions_valid(ledger,owners,NULL) || !shape(sheet,view,owners)) return DEFINITION_DEPENDENCIES_INVALID;
+    DefinitionDependencySelection next={0}; DefinitionDependenciesStatus status=collect(view,ledger,next.rows,&next.unbound_sources);
+    if (status==DEFINITION_DEPENDENCIES_OK) *out=next; return status;
+}
 DefinitionDependenciesStatus definition_dependencies_select(uint64_t sheet,DefinitionDependencyView before,DefinitionDependencyView after,
     const SourceVersions *ledger,uint64_t owners,DefinitionDependencySelection *out) {
     if (!sheet || !out || (!!before.primary!=!!after.primary) || (!!before.objects!=!!after.objects) ||

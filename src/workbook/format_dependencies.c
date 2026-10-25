@@ -38,6 +38,12 @@ void format_dependencies_free(FormatDependencies *out) {
     if (!out) return;
     source_versions_asset_free(&out->sources); *out=(FormatDependencies){0};
 }
+FormatDependenciesStatus format_dependencies_select_state(uint64_t sheet,FormatSnapshotView view,
+    const SourceVersions *ledger,uint64_t owners,FormatDependencySelection *out) {
+    if (!sheet || !out || !source_versions_valid(ledger,owners,NULL) || !valid(view)) return FORMAT_DEPENDENCIES_INVALID;
+    FormatDependencySelection next={0}; FormatDependenciesStatus status=collect(view,ledger,next.rows,&next.legacy_scopes);
+    if (status==FORMAT_DEPENDENCIES_OK) *out=next; return status;
+}
 FormatDependenciesStatus format_dependencies_select(uint64_t sheet,FormatSnapshotView before,FormatSnapshotView after,
     const SourceVersions *ledger,uint64_t owners,FormatDependencySelection *out) {
     if (!sheet || !out || !source_versions_valid(ledger,owners,NULL) || !valid(before) || !valid(after)) return FORMAT_DEPENDENCIES_INVALID;
