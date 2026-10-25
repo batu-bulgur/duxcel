@@ -1,4 +1,5 @@
 #include "cells.h"
+#include "cells_tsv_scan.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,36 +70,18 @@ bool cells_clear(CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1) {
 static int order(const void *aa,const void *bb) {
     const SheetCell *a=aa,*b=bb; if (a->row!=b->row) return a->row<b->row ? -1 : 1; return (a->col>b->col)-(a->col<b->col);
 }
+static bool paste_field(void *context,uint64_t row,size_t col,const char *text,size_t bytes,char **error) {
+    (void)bytes; (void)error; CellStore *input=context;
+    if (input->count==input->capacity) { input->capacity=input->capacity ? input->capacity*2 : 32; input->cells=dx_realloc(input->cells,input->capacity*sizeof(SheetCell)); }
+    input->cells[input->count++]=(SheetCell){row,col,dx_strdup(text)}; return true;
+}
 bool cells_paste(CellStore *s,uint64_t row,size_t col,const char *tsv,size_t *rows,size_t *columns,char **error) {
     return cells_paste_checked(s,row,col,tsv,rows,columns,NULL,NULL,error);
 }
 bool cells_paste_checked(CellStore *s,uint64_t row,size_t col,const char *tsv,size_t *rows,size_t *columns,CellPasteGuard guard,void *context,char **error) {
-    CellStore input={0},merged={0}; char *field=NULL; bool ok=false;
-    size_t r=0,c=0,width=0,length=strlen(tsv);
-    if (length>8*1024*1024) return fail(error,"Paste up to 8 MiB of text.");
-    field=dx_alloc(65537); const char *p=tsv;
-    for (;;) {
-        size_t n=0; bool quoted=*p=='"',closed=!quoted; if (quoted) p++;
-        while (*p) {
-            if (quoted && *p=='"') {
-                p++; if (*p!='"') { closed=true; break; }
-            } else if (!quoted && (*p=='\t' || *p=='\r' || *p=='\n')) break;
-            if (n==65536) { fail(error,"Cell exceeds the 64 KiB text limit."); goto done; }
-            field[n++]=*p++;
-        }
-        if (!closed || (*p && *p!='\t' && *p!='\r' && *p!='\n')) { fail(error,"Invalid quoted clipboard text."); goto done; }
-        field[n]=0;
-        if (input.count==DX_MAX_EDIT_CELLS || (uint64_t)r>=DX_SHEET_ROWS || row>=DX_SHEET_ROWS-r || c>=16384 || col>=16384-c) { fail(error,"Paste up to 20,000 cells inside the worksheet."); goto done; }
-        if (input.count==input.capacity) { input.capacity=input.capacity ? input.capacity*2 : 32; input.cells=dx_realloc(input.cells,input.capacity*sizeof(SheetCell)); }
-        input.cells[input.count++]=(SheetCell){row+r,col+c,dx_strdup(field)};
-        if (c+1>width) width=c+1;
-        if (!*p) break;
-        if (*p++=='\t') { c++; continue; }
-        if (p[-1]=='\r' && *p=='\n') p++;
-        if (!*p) break;
-        r++; c=0;
-    }
-    if (guard && !guard(context,row,col,r+1,width,error)) goto done;
+    CellStore input={0},merged={0}; bool ok=false; size_t r=0,width=0;
+    if (!cells_tsv_scan(row,col,tsv,paste_field,&input,&r,&width,error)) goto done;
+    if (guard && !guard(context,row,col,r,width,error)) goto done;
     merged.capacity=s->count+input.count; merged.cells=dx_alloc(merged.capacity*sizeof(SheetCell));
     size_t old=0,add=0;
     while (old<s->count || add<input.count) {
@@ -117,9 +100,9 @@ bool cells_paste_checked(CellStore *s,uint64_t row,size_t col,const char *tsv,si
         remember(s); CellSnapshot previous={s->cells,s->count,s->bytes}; cells_snapshot_free(&previous);
         s->cells=merged.cells; s->count=merged.count; s->capacity=merged.capacity; s->bytes=merged.bytes; memset(&merged,0,sizeof(merged));
     }
-    *rows=r+1; *columns=width; ok=true;
+    *rows=r; *columns=width; ok=true;
  done:
-    free(field); cells_free(&input); cells_free(&merged); return ok;
+    cells_free(&input); cells_free(&merged); return ok;
 }
 static bool move_cells(CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,int64_t dr,int dc,bool replace,char **error) {
     if (r0>r1 || c0>c1 || r1>=DX_SHEET_ROWS || c1>=16384 || dr < -(int64_t)DX_SHEET_ROWS || dr>(int64_t)DX_SHEET_ROWS || dc < -16384 || dc>16384) return fail(error,"Move stays inside the worksheet.");
