@@ -2534,6 +2534,7 @@ build/tests/test_range_history_slot-debug: $(RANGE_HISTORY_SLOT_SAN_OBJECTS) | b
 -include $(RANGE_HISTORY_SLOT_OBJECTS:.o=.d) $(RANGE_HISTORY_SLOT_SAN_OBJECTS:.o=.d)
 
 
+
 PRIMARY_SOURCE_PUBLISH_SRC = $(sort $(filter-out tests/test_primary_source_draft.c,$(PRIMARY_SOURCE_DRAFT_SRC)) src/workbook/sheet_presence_asset.c src/workbook/sheet_source_view.c src/workbook/primary_source_publish.c tests/test_primary_source_publish.c)
 
 PRIMARY_SOURCE_PUBLISH_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_PUBLISH_SRC))))
