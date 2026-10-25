@@ -2339,3 +2339,30 @@ full evidence remains explicit; completion requires the union of all full-tier
 checks, not only the repaired module. The new tier reuses existing engine/process
 controllers and fixture ordering;59 runner/catalog contracts pass4.594s.
 All local Wasm/browser checks and actual origin CI/CD delivery remain required.
+
+
+Browser milestone accepted at clean harness commit `62ecd6b` (integrated
+`0d3042c`): the recorded zoom failure was a hard-darkness measurement false
+positive, not a product font-size change. True rendered row support is6x9
+pixels in both compared states; the new foreground-coverage measurement
+retains the same ROI and1.25/DPR+.02 size tolerance. Negative synthetic cases
+still reject real resizing. All341 Node tests pass2.920s on combined main.
+Actual blank/source zoom profiles pass at both DPRs in10.677/18.285/11.186/
+15.928s. Object receipts:174539-browser-42762,174606-browser-42786,
+174639-browser-42814,174701-browser-42837 under its25October runs.
+
+Independent actual browser normal import/filters, Worker protocol, shared-C
+Worker driver, review controls and selection also pass at clean `518bce4`.
+Final clean62ecd6b normal/review Wasm builds pass22.714/24.624s, with static
+Pages185files/41,999,664bytes and actual project-subpath smoke9.497s.
+Final package receipt: Object `build/tests/results/runs/20261025T174804-pages/summary.json`.
+No runtime product source changed from `212092a`; web/tests changes are test
+orchestration only. Root's preserved prefix has219 passed checks,507 App
+stages and unchanged binary SHA-256 values, explicitly recorded in
+`build/tests/results/milestone-prefix-evidence.json`.
+
+The complete engines tier now continues both configurations using the already
+built, source-equivalent binaries and current fixtures (`--no-build`); this
+retains every registered process/fault/recovery gate. All GPU/named native
+scenarios and final ordinary package verification remain pending. The raw
+failed full report is retained; no single-run full success is claimed.
