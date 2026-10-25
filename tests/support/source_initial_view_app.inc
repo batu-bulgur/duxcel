@@ -12,9 +12,17 @@ static const char *initial_view_saved="build/tests/generated/source-initial-view
 #define INITIAL_VIEW_CHECK(x) do { initial_view_checks++; if (!(x)) { fprintf(stderr,"FAIL source initial view stage %u:%d: %s (%s)\n",initial_view_stage,__LINE__,#x,a->message ? a->message : ""); initial_view_result=-1; return; } } while (0)
 static bool initial_view_current(const App *a) {
     const Worksheet *s=a->book.sheets+a->book.active;
-    return a->page.column_count==40 && a->page.total==3 && s->view.column_count==56 && a->grid.width_count==56 &&
-        s->view.widths[0]==190 && s->view.widths[39]==128 && s->view.widths[55]==96 && a->grid.widths[0]==190 && a->grid.widths[55]==96 &&
-        s->view.canvas_zoom==1.5f && a->grid.zoom==1.5f && !s->view.col && !a->grid.col && !s->view.horizontal && !a->grid.horizontal;
+    if (a->page.column_count!=40 || a->page.total!=3 || s->view.column_count<56 || a->grid.width_count<56 ||
+        s->view.canvas_zoom!=1.5f || a->grid.zoom!=1.5f || s->view.col || a->grid.col || s->view.horizontal || a->grid.horizontal) return false;
+    for (size_t i=0;i<s->view.column_count;i++) {
+        float expected=i==0 ? 190 : i<40 ? 128 : 96;
+        if (s->view.widths[i]!=expected || (i>=40 && s->view.columns && s->view.columns[i] && *s->view.columns[i])) return false;
+    }
+    for (size_t i=0;i<a->grid.width_count;i++) {
+        float expected=i==0 ? 190 : i<40 ? 128 : 96;
+        if (a->grid.widths[i]!=expected || (i>=40 && a->grid.column_names[i] && *a->grid.column_names[i])) return false;
+    }
+    return true;
 }
 /* Far navigation may add unnamed default-width cache columns. Preserve the
    complete authored prefix; representation growth is not a width action. */
@@ -72,6 +80,7 @@ static void source_initial_view_test_frame(AppSession *session) {
         initial_view_hold_prepared_stages(a); if (initial_view_result) return; break;
     case 2:
         INITIAL_VIEW_CHECK(!a->primary_source_pending_owner && initial_view_current(a));
+        INITIAL_VIEW_CHECK(s->view.column_count==56 && a->grid.width_count==56);
         INITIAL_VIEW_CHECK(a->book.count==initial_view_count+1 && a->book.sheet_high_water==initial_view_high+1 && s->id!=initial_view_old_sheet);
         INITIAL_VIEW_CHECK(a->book.command_revision==initial_view_revision+1 && worksheet_history_high_water()==initial_view_order+1);
         INITIAL_VIEW_CHECK(!s->width_history && !s->width_revision && !s->undo_actions_count && !s->redo_actions_count);
