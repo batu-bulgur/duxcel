@@ -668,4 +668,71 @@ static void source_definition_profiles(void) {
         CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); result_fixture_free(f); free(f);
     }
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); source_axes_controller(); source_definition_profiles(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+typedef struct { uint64_t id; Page page; } InventoryPage;
+typedef struct {
+    Workbook b; Analysis primary; Page primary_page; InventoryPage views[DX_MAX_OBJECTS];
+    uint64_t request,epoch; bool ready,failed,replace_last; unsigned mode,published,cancelled;
+    RangeSourcePolicy source; RangeResultContext results; RangeCommandContext c; WorkbookHistoryRangeRecorder inner;
+} ResultInventory;
+static bool inventory_resolve(void *context,uint64_t id,RangeResultProof *out) {
+    ResultInventory *f=context; Worksheet *s=f->b.sheets;
+    if (!id) { *out=(RangeResultProof){0,f->request,f->epoch,f->epoch,&f->primary_page,&f->primary,&f->primary_page,f->ready,f->failed}; return true; }
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) if (f->views[i].id==id) for (size_t k=0;k<s->objects.count;k++) if (s->objects.items[k].id==id) {
+        const SheetObject *o=s->objects.items+k; InventoryPage *view=f->views+i;
+        const void *owner=f->replace_last && id==s->objects.items[31].id ? (const void *)&f->primary_page : view;
+        *out=(RangeResultProof){id,f->request,o->revision,o->revision,owner,&o->source,&view->page,f->ready,false}; return true;
+    }
+    return false;
+}
+static bool inventory_reserve(void *context,const WorkbookHistoryRangeRecord *record,void **ticket,char **error) {
+    ResultInventory *f=context; if (!f->inner.reserve(f->inner.context,record,ticket,error)) return false;
+    if (f->mode==1) f->replace_last=true; return true;
+}
+static void inventory_publish(void *context,void *ticket) { ResultInventory *f=context; f->published++; f->inner.publish(f->inner.context,ticket); }
+static void inventory_cancel(void *context,void *ticket) { ResultInventory *f=context; f->cancelled++; f->inner.cancel(f->inner.context,ticket); }
+static void maximum_result_inventory(void) {
+    CHECK(DX_MAX_OBJECTS==32);
+    for (unsigned mode=0;mode<3;mode++) {
+        ResultInventory *f=dx_alloc(sizeof(*f)); workbook_init(&f->b); CHECK(workbook_add(&f->b,"Maximum results",&(Analysis){0},NULL)); Worksheet *s=f->b.sheets;
+        f->primary=(Analysis){.kind=SOURCE_DEMO}; f->primary_page=(Page){.total=10,.column_count=3,.columns=dx_alloc(3*sizeof(Column))};
+        f->request=7; f->epoch=4; f->ready=true; f->mode=mode;
+        for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
+            char path[64],name[64]; snprintf(path,sizeof(path),"/inventory-%zu.parquet",i); snprintf(name,sizeof(name),"Table %zu",i);
+            CHECK(objects_add_table(&s->objects,20+i*10,8,name,&(Analysis){.kind=SOURCE_PARQUET,.path=path},NULL)==(int)i);
+            s->objects.items[i].rows=5; s->objects.items[i].columns=3; s->objects.items[i].revision=33+i; worksheet_record(s,EDIT_OBJECTS);
+        }
+        /* Native result owners deliberately have a different order than objects. */
+        for (size_t i=0;i<DX_MAX_OBJECTS;i++) {
+            size_t k=mode==2 ? i : DX_MAX_OBJECTS-1-i; f->views[i].id=s->objects.items[k].id;
+            f->views[i].page=(Page){.total=3,.offset=3,.column_count=2,.columns=dx_alloc(2*sizeof(Column))};
+        }
+        CHECK(cells_set(&s->cells,12,4,"NULL",NULL)); worksheet_record(s,EDIT_CELLS); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+        CHECK(format_apply(&s->formats,(FormatRange){12,334,4,10},FORMAT_BOLD,bold,NULL)); s->formats.source_aware=true; worksheet_record(s,EDIT_FORMAT); s->source_versions.high_water=37;
+        f->source=(RangeSourcePolicy){&f->primary_page.total,&f->primary_page.column_count,&f->primary_page.count_pending,&f->failed,&f->ready}; f->results=(RangeResultContext){inventory_resolve,f};
+        f->c=context(&f->b,&f->request,&f->epoch); f->c.primary=&f->primary; f->c.source=&f->source; f->c.results=&f->results; f->b.dirty=false;
+        RangeCommandTarget *t=target(&f->c); CHECK(t->result_count==33 && t->result[1].proof.object==s->objects.items[0].id && t->result[32].proof.object==s->objects.items[31].id);
+        CHECK(t->result[32].proof.owner==(mode==2 ? (void *)(f->views+31) : (void *)f->views));
+        RangeCommand cmd={.operation=RANGE_OPERATION_MOVE,.range=mode==1 ? (SheetRange){12,24,4,10} : mode==2 ? (SheetRange){330,334,8,10} : (SheetRange){12,334,4,10},.dr=400,.dc=10};
+        RangeCommandPlanInfo measured={0}; CHECK(workbook_range_command_measure(&f->c,0,cmd,&measured,NULL)==RANGE_COMMAND_READY);
+        Worksheet before=*s; f->c.command.plan_reserved=measured.owned+measured.validation_scratch-1;
+        CHECK(workbook_apply_range_command_recorded(&f->c,t,cmd,NULL,NULL).status==RANGE_COMMAND_LIMIT && !memcmp(&before,s,sizeof(before)) && !f->b.command_revision); f->c.command.plan_reserved=SIZE_MAX;
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={f->b.id.high,f->b.id.low,9,VERSION_WORKING_HEAD},.edit_session=f->b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){1,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); f->inner=workbook_history_stream_range_recorder(queue);
+        WorkbookHistoryRangeRecorder recorder={inventory_reserve,inventory_publish,inventory_cancel,f}; RangeCommandResult applied=workbook_apply_range_command_recorded(&f->c,t,cmd,&recorder,NULL);
+        if (mode==1) CHECK(applied.status==RANGE_COMMAND_STALE && f->cancelled==1 && !f->published && !f->b.command_revision && !f->b.dirty && !memcmp(&before,s,sizeof(before)) && !workbook_history_stream_state(queue).owned_bytes);
+        else {
+            CHECK(applied.status==RANGE_COMMAND_APPLIED && applied.effects==(mode==2 ? 12u : 14u) && f->published==1 && !f->cancelled && s->objects.items[31].row==730 && s->objects.items[31].col==18 && s->objects.items[0].row==(mode==2 ? 20u : 420u));
+            free(t); t=target(&f->c); RangeCommand inverse=cmd; inverse.range.r0+=400; inverse.range.r1+=400; inverse.range.c0+=10; inverse.range.c1+=10; inverse.dr=-400; inverse.dc=-10; before=*s;
+            CHECK(workbook_apply_range_command_recorded(&f->c,t,inverse,&f->inner,NULL).status==RANGE_COMMAND_LIMIT && !memcmp(&before,s,sizeof(before)) && f->b.command_revision==1);
+            WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+            CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.unbound_sources==64 && event.definitions.before_objects.objects.count==32 && event.definitions.after_objects.objects.count==32);
+            CHECK(event.definitions.after_objects.objects.items[31].row==730 && event.definitions.sources.versions.high_water==37 && !event.definitions.sources.versions.count);
+            range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+            mixed_history_transfer(s,false); CHECK(s->objects.items[31].row==330 && s->objects.items[0].row==20 && !strcmp(cells_get(&s->cells,12,4),"NULL"));
+        }
+        CHECK(s->objects.next_id==32 && s->source_versions.high_water==37 && !s->source_versions.count);
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); page_free(&f->primary_page);
+        for (size_t i=0;i<DX_MAX_OBJECTS;i++) page_free(&f->views[i].page); workbook_free(&f->b); free(f);
+    }
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); source_axes_controller(); source_definition_profiles(); maximum_result_inventory(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
