@@ -1,5 +1,6 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#include "support/current_checkpoint.h"
 #include "workbook/recovery.h"
 #include "workbook/journal_session.h"
 #include "workbook/history.h"
@@ -120,8 +121,8 @@ static void unbound(Fixture *f) {
     CHECK(workbook_recovery_info(candidate)->tail_unknown && workbook_recovery_info(candidate)->tail_deferred); workbook_recovery_free(candidate);
 }
 static void wrong_baseline(Fixture *f) {
-    Workbook wrong; workbook_init(&wrong); char *error=NULL; CHECK(workbook_load(&wrong,f->checkpoint,&error));
-    CHECK(cells_set(&wrong.sheets[0].cells,0,0,"Other baseline",&error)); CHECK(workbook_save(&wrong,f->checkpoint,&error)); workbook_free(&wrong);
+    Workbook wrong; workbook_init(&wrong); char *error=NULL; CHECK(test_current_checkpoint_load(&wrong,f->checkpoint,&error));
+    CHECK(cells_set(&wrong.sheets[0].cells,0,0,"Other baseline",&error)); CHECK(test_current_checkpoint_save(&wrong,f->checkpoint,&error)); workbook_free(&wrong);
     SourceDigest baseline=digest(f->checkpoint),tail=digest(f->journal); WorkbookRecoveryCandidate *candidate=NULL;
     for (unsigned mode=0;mode<2;mode++) {
         CHECK(workbook_recovery_prepare(f->root,f->name,(WorkbookRecoveryMode)mode,(WorkbookRecoveryControl){0},&candidate,&error)==RECOVERY_FAILED && !candidate && error); free(error); error=NULL;

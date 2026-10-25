@@ -1,5 +1,6 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#include "support/current_checkpoint.h"
 #include "workbook/recovery_catalog.h"
 #include "workbook/journal_session.h"
 #include "platform/platform.h"
@@ -70,7 +71,7 @@ int main(void) {
     CHECK(first.generation.high!=second.generation.high || first.generation.low!=second.generation.low);
     SourceDigest checkpoint=digest(first.checkpoint),journal=digest(first.journal);
     char *legacy=folder(root,1,false,false),*incomplete=folder(root,2,true,false),*invalid=folder(root,3,true,true),*only=folder(root,4,true,false);
-    char *only_checkpoint=dx_printf("%s/checkpoint.dxls",only); CHECK(workbook_save(&a,only_checkpoint,&error));
+    char *only_checkpoint=dx_printf("%s/checkpoint.dxls",only); CHECK(test_current_checkpoint_save(&a,only_checkpoint,&error));
     char *note=dx_printf("%s/notes",root); CHECK(!mkdir(note,0700)); char *plain=dx_printf("%s/plain",root); FILE *f=fopen(plain,"wb"); CHECK(f && fputs("preserve",f)>=0 && !fclose(f));
     char *alias=dx_printf("%s/session-00000000000000000000000000000005",root); CHECK(!symlink(dx_basename(first.directory),alias));
     CHECK(workbook_recovery_scan_open(root,&scan,&error) && scan && !error); Read read={.document=a.id,.first=&first,.second=&second,.cancel=true};

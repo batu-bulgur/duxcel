@@ -1,5 +1,6 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#include "support/current_checkpoint.h"
 #include "workbook/journal_session.h"
 #include "workbook/format_command.h"
 #include "workbook/analysis_command.h"
@@ -49,7 +50,7 @@ static bool replay(void *context,const JournalCellEdit *e,char **error) {
     worksheet_record(sheet,EDIT_CELLS); workbook_history_note_edit(b); b->command_revision=e->revision; return true;
 }
 static void recover(const char *checkpoint,const char *journal,Workbook *out,uint64_t head,const char *original) {
-    char *error=NULL; CHECK(workbook_load(out,checkpoint,&error)); WorkbookJournal *j=NULL;
+    char *error=NULL; CHECK(test_current_checkpoint_load(out,checkpoint,&error)); WorkbookJournal *j=NULL;
     CHECK(workbook_journal_open(&j,journal,out->id,out->command_revision,&error)); CHECK(workbook_journal_durable_revision(j)==head);
 #ifdef __APPLE__
     const JournalOrigin *origin=workbook_journal_origin(j); CHECK(origin && (origin->generation.high || origin->generation.low));
@@ -83,7 +84,7 @@ static void initial_checkpoint(const char *root) {
     CHECK(dx_file_lease_acquire(lease_path,false,&lease,&error)==DX_FILE_LEASE_BUSY && !lease && !error);
     CHECK(workbook_journal_session_close(s,false,&error)); CHECK(!error);
     CHECK(dx_file_lease_acquire(lease_path,false,&lease,&error)==DX_FILE_LEASE_ACQUIRED && lease && !error); dx_file_lease_release(lease); free(lease_path);
-    CHECK(workbook_load(&loaded,checkpoint,&error)); CHECK(loaded.command_revision==0 && !*cells_get(&loaded.sheets[0].cells,3,2));
+    CHECK(test_current_checkpoint_load(&loaded,checkpoint,&error)); CHECK(loaded.command_revision==0 && !*cells_get(&loaded.sheets[0].cells,3,2));
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,0,0),"9007199254740993.0123456789"));
     recover(checkpoint,journal,&loaded,2,b.path);
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,3,2),"First") && !strcmp(cells_get(&loaded.sheets[1].cells,3,2),"NULL"));

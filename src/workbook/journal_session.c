@@ -83,7 +83,7 @@ static void checkpoint_release(void *context) {
 static bool checkpoint_prepare(void *context,char **error) {
     Checkpoint *c=context;
     if (!c->snapshot) return true;
-    if (c->versioned) {
+    {
         if (!dx_make_directories(c->version_parent)) return fail(error,"Cannot create the version working folder for local backup.");
         WorkbookVersionReceipt *receipt=NULL;
         WorkbookSaveResult result=workbook_version_save((WorkbookVersionSaveRequest){
@@ -92,11 +92,11 @@ static bool checkpoint_prepare(void *context,char **error) {
         },(WorkbookVersionSaveControl){0},&receipt,error);
         workbook_version_receipt_free(receipt);
         if (result!=WORKBOOK_SAVE_COMPLETE) return false;
-    } else if (!workbook_save(c->snapshot,c->checkpoint,error)) return false;
+    }
 #ifdef __APPLE__
-    /* The existing streaming digest adapter is validated on native macOS.
-       Other native hosts retain unbound v1 backup behavior until their digest
-       boundary is implemented; no SDK dependency enters this C controller. */
+    /* The streaming digest binding is validated on native macOS. Hosts without
+       that adapter retain an explicit unbound journal-origin state; this does
+       not select a different checkpoint file format or add an SDK dependency. */
     char *wal=dx_printf("%s.wal",c->checkpoint),*unfinished=dx_absolute_path(wal); free(wal);
     if (unfinished) { free(unfinished); return fail(error,"The recovery checkpoint still has a pending WAL. Retry after the storage error is resolved."); }
     SourceDigest digest={0}; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0};
@@ -172,6 +172,16 @@ static bool begin_generation(WorkbookJournalSession *s,const Workbook *b,const J
         identified=c->origin.generation.high || c->origin.generation.low;
     }
     if (!identified) { checkpoint_release(c); return fail(error,"Cannot allocate a recovery generation identity. Your draft is kept."); }
+    if (!versions) {
+        /* An ordinary checkpoint has a current empty retained-version index.
+           This runtime owner does not invent a Saved binding or a user root. */
+        c->binding.owner=(WorkbookVersionOwner){.document_high=b->id.high,.document_low=b->id.low,
+            .session=c->origin.generation.low ? c->origin.generation.low : c->origin.generation.high,.mode=VERSION_WORKING_HEAD};
+        /* Admitted disk/core-set bound, not an RSS allocation. */
+        c->binding.reserved_bytes=UINT64_C(8)*1024*1024*1024;
+        /* Archive staging must not enter the fixed recovery-generation inventory. */
+        c->version_parent=dx_strdup(s->root); c->binding.parent=c->version_parent;
+    }
     c->origin.parent=s->active.checkpoint ? s->active.checkpoint->origin.generation : s->inherited_parent;
     if (b->path && strlen(b->path)>65536) { checkpoint_release(c); return fail(error,"The original workbook path exceeds the recovery metadata limit."); }
     c->origin.original_path=dx_strdup(b->path && *b->path ? b->path : s->inherited_original ? s->inherited_original : "");

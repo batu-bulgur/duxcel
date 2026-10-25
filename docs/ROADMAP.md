@@ -2366,3 +2366,22 @@ built, source-equivalent binaries and current fixtures (`--no-build`); this
 retains every registered process/fault/recovery gate. All GPU/named native
 scenarios and final ordinary package verification remain pending. The raw
 failed full report is retained; no single-run full success is claimed.
+
+The resumed engine inventory passed preview/file conflict/native worker checks
+but exposed an ordinary-checkpoint producer mismatch at workbook_recovery
+(source0448a58,129.258s). Without an explicit Saved-store binding, the current
+journal API still wrote a bare core while recovery correctly required container16.
+The forward fix uses the same current checkpoint writer for every generation:
+empty index/baseNULL preserves absent Saved/root/tag state; explicit Saved
+bindings and their generation policy remain unchanged. No older reader or
+upgrade path is restored. Staging stays outside the fixed generation inventory.
+
+Verified lane fix `0239b6c` passes current-checkpoint both configurations53.506s:
+journal session/performance, workbook recovery, explicit version checkpoint,
+recovery catalog and recovery worker;0GUI. Report Object
+`build/tests/results/runs/20261025T175628-feature-45776/summary.json`.
+Main integration makes only comment wrapping/clarification beyond that patch.
+Native product source is now changed in journal_session; previously passed
+model/UI evidence remains source-scoped, and current engine plus remaining
+GPU/all native scenarios must verify the integrated current writer. Browser
+runtime source is unaffected because journal_session is native persistence.

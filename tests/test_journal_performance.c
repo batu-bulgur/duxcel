@@ -1,5 +1,6 @@
 #define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#include "support/current_checkpoint.h"
 #include "workbook/journal_session.h"
 #include "platform/platform.h"
 #include <duckdb.h>
@@ -88,7 +89,7 @@ int main(int argc,char **argv) {
     CHECK(!strcmp(cells_get(&b.sheets[0].cells,19999,0),"last-row"));
     start=dx_millis(); double checkpoint_admission=apply(s,&b,"after-paste"); ready(s,&b); double checkpoint_durable=dx_millis()-start;
     char *checkpoint=dx_strdup(workbook_journal_session_checkpoint(s)),*journal=dx_strdup(workbook_journal_session_journal(s));
-    CHECK(workbook_journal_session_close(s,false,&error)); CHECK(workbook_load(&loaded,checkpoint,&error));
+    CHECK(workbook_journal_session_close(s,false,&error)); CHECK(test_current_checkpoint_load(&loaded,checkpoint,&error));
     CHECK(loaded.command_revision==577 && loaded.sheets[0].cells.count==20000);
     CHECK(!strcmp(cells_get(&loaded.sheets[0].cells,0,0),"9007199254740993.0123456789"));
     WorkbookJournal *j=NULL; CHECK(workbook_journal_open(&j,journal,loaded.id,loaded.command_revision,&error)); size_t visited=0;

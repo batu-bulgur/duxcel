@@ -33,8 +33,9 @@ typedef struct {
 /* Explicit versioned checkpoint admission before a changed valid command, or
    after Saved advances while newer edits remain. Retains immutable roots and
    copies binding metadata; all archive IO runs on the journal writer. A matching
-   covered generation is reused. No Saved pointer advances here. Legacy callers
-   keep their existing v15 checkpoint path. */
+   covered generation is reused. No Saved pointer advances here. Ordinary
+   callers also write the current v16 container, with an empty retained index
+   and no invented Saved binding. */
 bool workbook_journal_session_capture_versions(WorkbookJournalSession *session,const Workbook *book,
     JournalCheckpointVersions versions,char **error);
 CellEditResult workbook_journal_session_apply(WorkbookJournalSession *session,Workbook *book,const CellEditCommand *command,CellEditPolicy policy,char **error);
