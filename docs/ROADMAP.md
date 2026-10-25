@@ -306,6 +306,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.4.8 · P1 · Complete | Source-free template row/column axes; W12c.4.6. | Adopt exact cells/objects/styles/width effects once, retain fixed physical labels and truncated edge widths, and prove integrated inverses without changing source editing policy. |
 | W12c.4.9 · P1 · Complete | Source-free template paste/Clear; W12c.4.7–W12c.4.8. | Paste protects the full rectangle including ragged holes; Clear removes sparse cells only. Both preserve object definitions, styles and physical widths through Undo/Redo/Save/Open. |
 | W12c.4.10 · P1 · Complete | Source-bearing result-fenced ranges and producer closure; W12c.4.9. | Prove actual primary/Table/active-Pivot result association and full extents; close MOVE/Replace/axes/keyboard Clear with complete effects. Main scoped acceptance verifies 118 actual App stages plus optimized/sanitizer modules; pending/incomplete result extents remain protected. |
+| W12c.4.11 · P1 · Complete | Read-only current range payload/slot admission; W12c.4.10 and shared source/frame admission. | Decode actual DXRE4 bytes under exact budgets; validate selected source closure and assigned transition without activation or another shared owner. |
 | W12c.5 · P1 · In progress | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Session packet/adoption prerequisites are verified; persistent traversal and source CREATE publication remain separate. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
@@ -2651,3 +2652,9 @@ Complete actual primary/Table/active-Pivot associations fence source MOVE and
 axes; incomplete/offscreen-unloaded results remain protected. Manual Replace
 does not overwrite analytical objects. Current DXRE4 is the only admitted range
 encoding; no durable history or browser file activation is claimed.
+
+Read-only family4 admission integrates `a739e729`/`6f9bebe9`, with focused plan
+`efce6355`. Both registered payload/slot plans pass optimized and sanitizer
+configurations (receipts `20261025T231643-feature-49979` and
+`231647-feature-50239`; exact elapsed values in their ignored summaries). This
+closes the range leaf only; the combined durable profile and writer stay open.
