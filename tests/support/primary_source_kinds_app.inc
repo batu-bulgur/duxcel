@@ -30,6 +30,10 @@ static void primary_source_kinds_test_frame(AppSession *session) {
             open_source(a,"build/tests/generated/source-open.csv",false);
             SOURCE_KINDS_CHECK(!a->primary_source_draft && a->request_id==UINT64_MAX-1 && source_kinds_unchanged(a));
             a->request_id=request;
+            uint64_t revision=a->analysis_revision; a->analysis_revision=UINT64_MAX;
+            open_source(a,"build/tests/generated/source-open.csv",false);
+            SOURCE_KINDS_CHECK(!a->primary_source_draft && a->analysis_revision==UINT64_MAX && source_kinds_unchanged(a));
+            a->analysis_revision=revision;
         }
         open_source(a,"build/tests/generated/source-open.csv",false);
         SOURCE_KINDS_CHECK(a->primary_source_draft && source_kinds_unchanged(a));

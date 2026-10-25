@@ -17,8 +17,8 @@ static bool app_primary_source_begin(App *a,const Analysis *source,const char *n
         free(error); error=NULL;
     }
     /* Reserve the probe AND its cancellation/stale-reply invalidation ID. */
-    if (a->request_id>=UINT64_MAX-1 || !workbook_prepare_command_session(&a->book,a->book.active,&error)) {
-        status(a,error ? error : "Source open request identities are exhausted."); free(error); return false;
+    if (a->request_id>=UINT64_MAX-1 || a->analysis_revision==UINT64_MAX || !workbook_prepare_command_session(&a->book,a->book.active,&error)) {
+        status(a,error ? error : "Source request or query revision space is exhausted."); free(error); return false;
     }
     uint64_t previous=a->request_id; a->request_id++;
     PrimarySourceDraftInfo info={0}; PrimarySourceDraftContext context=app_primary_source_context(a);
@@ -78,7 +78,7 @@ static void app_primary_source_publish(App *a) {
     page_free(&a->page); page_free(&a->spare); a->page=reply->page; reply->page=(Page){0};
     a->restore_view=false; a->active_readout.value.valid=false; a->page_stale=a->waiting_count_page=false;
     a->selected_object=a->filter_object=-1; a->pivot_focus=0; a->pivot_search_focus=false; a->reveal_tab=true;
-    a->analysis_revision++; a->known_total=a->page.count_pending ? -1 : (int64_t)a->page.total; a->observed_rows=a->page.total;
+    a->analysis_revision=published.primary_epoch; a->known_total=a->page.count_pending ? -1 : (int64_t)a->page.total; a->observed_rows=a->page.total;
     a->count_request_id=0; a->count_paused=a->count_deferred=false; a->fetch_failed=false; a->new_schema=true;
     a->grid.elastic=a->grid.spring_velocity=(Vector2){0}; a->grid.top=0; a->grid.fraction=0; a->grid.horizontal=0; grid_select_cell(&a->grid,0,0,false);
     a->relation_scroll=0; a->modal=MODAL_NONE; cache_pipeline(a); source_ready(a);
