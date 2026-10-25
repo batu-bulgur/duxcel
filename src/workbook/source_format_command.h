@@ -71,5 +71,22 @@ SourceFormatCommandResult workbook_apply_source_format_recorded(SourceFormatComm
 SourceFormatCommandResult workbook_apply_bound_source_format_recorded(SourceFormatCommandContext *context,
     const SourceFormatCommandTarget *target,FormatSnapshot *owned,
     const WorkbookHistoryFormatRecorder *recorder,char **error);
+/* Worksheet-wide spatial fallback in an ALREADY source-aware store. The same
+   exact borrowed owner/request/definition/ledger fences apply, without selecting
+   a raw source owner or issuing/rebinding any source version. Existing raw-only
+   preparation and first/bound record commands retain their eligibility rules.
+   The independent plan comes from format_plan_spatial; its current source-aware
+   mode and all existing record/RESULT/GUARDED scope semantics remain intact.
+   App admission still proves manual-space versus imported-result eligibility.
+   A complete effect8 format/source union is reserved before mutation, then
+   rechecked and adopted once. Historical snapshots are validated but never
+   relabeled. False-to-true manual-first ownership is explicitly unsupported.
+   NOOP consumes only the candidate and preserves Redo/clocks at exhaustion;
+   every failure preserves the candidate. No retained App writer activation. */
+bool workbook_prepare_source_aware_spatial_format(SourceFormatCommandContext *context,size_t sheet,
+    SourceFormatCommandTarget *out,char **error);
+SourceFormatCommandResult workbook_apply_source_aware_spatial_format_recorded(SourceFormatCommandContext *context,
+    const SourceFormatCommandTarget *target,FormatSnapshot *owned,
+    const WorkbookHistoryFormatRecorder *recorder,char **error);
 void source_format_command_plan_free(SourceFormatCommandPlan *plan);
 #endif

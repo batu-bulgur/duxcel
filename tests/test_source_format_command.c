@@ -257,7 +257,105 @@ static void limits(void) {
     CHECK(workbook_apply_source_format_recorded(&c,&t,&p,&broken,&error).status==SOURCE_FORMAT_COMMAND_INVALID && error && p.sources.items && !b.dirty); free(error);
     source_format_command_plan_free(&p); workbook_free(&b);
 }
+
+static SourceFormatCommandTarget spatial_target(SourceFormatCommandContext *c) {
+    SourceFormatCommandTarget t; CHECK(workbook_prepare_source_aware_spatial_format(c,0,&t,NULL)); return t;
+}
+static FormatSnapshot spatial_plan(const Worksheet *s,bool broad) {
+    FormatSnapshot p={0}; CellFormat style=format_default(); style.color=3; style.flags=FORMAT_ITALIC;
+    CHECK(format_plan_spatial(&s->formats,broad ? (FormatRange){0,DX_SHEET_ROWS-1,0,0} : (FormatRange){20,20,20,20},
+        broad ? FORMAT_COLOR : FORMAT_ITALIC,style,&p,NULL)); return p;
+}
+static void spatial(bool table) {
+    Workbook b=book(table); Worksheet *s=b.sheets; uint64_t epoch=1;
+    Analysis actual=analysis_copy(&s->analysis); SourceFormatCommandContext c={&b,&actual,&epoch,SIZE_MAX,true,false};
+    SourceFormatCommandTarget t=target(&c,table); SourceFormatCommandPlan first=plan(&c,table);
+    CHECK(workbook_apply_source_format_recorded(&c,&t,&first,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+    SourceVersions ledger=s->source_versions; Analysis primary=actual,cached=s->analysis; ObjectStore objects=s->objects;
+    FormatSnapshot p=spatial_plan(s,true); t=spatial_target(&c); b.dirty=false;
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,99,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id,.command_revision=b.command_revision};
+    WorkbookHistoryStream *stream=NULL; CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
+    WorkbookHistoryFormatRecorder recorder=workbook_history_stream_format_recorder(stream);
+    CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,&recorder,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && !p.items && b.command_revision==2);
+    CHECK(!memcmp(&ledger,&s->source_versions,sizeof(ledger)) && !memcmp(&primary,&actual,sizeof(primary)) && !memcmp(&cached,&s->analysis,sizeof(cached)) && !memcmp(&objects,&s->objects,sizeof(objects)));
+    const SourceVersion *entry=s->source_versions.items; size_t raw=format_scope_token(&s->formats,&(FormatScopeView){entry->owner,entry->raw.data,entry->raw.bytes});
+    CellFormat record=format_resolve_record_token(&s->formats,0,0,SIZE_MAX,raw,1,0);
+    CHECK(raw && raw!=SIZE_MAX && record.flags==FORMAT_BOLD && record.color==3);
+    WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK && event);
+    const WorkbookHistoryEventInfo *info=workbook_history_event_info(event); FormatDelta delta={0};
+    CHECK(info->family==DX_HISTORY_FORMAT_FAMILY && info->dependency_bytes && format_delta_decode(workbook_history_event_payload(event),info->bytes,SIZE_MAX,&delta)==FORMAT_DELTA_OK);
+    format_delta_free(&delta); CHECK(workbook_history_stream_complete(stream,&event)==HISTORY_STREAM_OK && workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && s->formats.redo_count==1);
+    p=bound_plan(&c,table,false); t=spatial_target(&c); b.dirty=false; uint64_t revision=b.command_revision,order=worksheet_history_high_water();
+    CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_NOOP && !p.items && !b.dirty && b.command_revision==revision && worksheet_history_high_water()==order && s->formats.redo_count==1);
+    CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED);
+    p=spatial_plan(s,false); t=spatial_target(&c);
+    CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && format_at(&s->formats,20,20).flags==FORMAT_ITALIC);
+    raw=format_scope_token(&s->formats,&(FormatScopeView){entry->owner,entry->raw.data,entry->raw.bytes});
+    record=format_resolve_record_token(&s->formats,20,20,SIZE_MAX,raw,1,0);
+    CHECK(!(record.flags&FORMAT_ITALIC)); /* A finite manual patch cannot leak into imported records. */
+    b.command_revision=UINT64_MAX; s->formats.revision=UINT64_MAX; s->source_versions.high_water=UINT64_MAX;
+    p=bound_plan(&c,table,false); t=spatial_target(&c); b.dirty=false;
+    CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_NOOP && !p.items && !b.dirty);
+    analysis_free(&actual); source_format_command_plan_free(&first); workbook_free(&b);
+}
+static void spatial_rejections(void) {
+    for (unsigned mode=0;mode<10;mode++) {
+        Workbook b=book(false); Worksheet *s=b.sheets; s->formats.source_aware=true;
+        if (mode!=4) s->analysis.kind=SOURCE_DATABASE; /* No RAW eligibility or first binding is invented. */
+        uint64_t epoch=1; SourceFormatCommandContext c={&b,&s->analysis,&epoch,SIZE_MAX,true,false};
+        if (mode==4) {
+            SourceFormatCommandTarget raw=target(&c,false); SourceFormatCommandPlan first=plan(&c,false);
+            CHECK(workbook_apply_source_format_recorded(&c,&raw,&first,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+            source_format_command_plan_free(&first);
+        }
+        SourceFormatCommandTarget t=spatial_target(&c),raw_target={0};
+        if (mode!=4) CHECK(!workbook_prepare_source_format(&c,0,0,&raw_target,NULL));
+        FormatSnapshot p=spatial_plan(s,true);
+        if (mode==0) epoch++;
+        if (mode==1) t.cached.unique_rows=true;
+        if (mode==2) t.objects.next_id++;
+        if (mode==3) t.sources.high_water++;
+        if (mode==4) c.validation_reserved=0;
+        if (mode==5) p.source_aware=false;
+        if (mode==6) c.ready=false;
+        if (mode==7) c.read_only=true;
+        if (mode==8) b.command_revision=UINT64_MAX;
+        if (mode==9) s->formats.source_aware=false;
+        Workbook before=b; Worksheet sheet=*s; FormatSnapshot owned=p;
+        SourceFormatCommandStatus expected=mode<4 || mode==8 ? SOURCE_FORMAT_COMMAND_STALE : mode==4 ? SOURCE_FORMAT_COMMAND_LIMIT : mode==5 ? SOURCE_FORMAT_COMMAND_INVALID : SOURCE_FORMAT_COMMAND_PROTECTED;
+        SourceFormatCommandResult result=workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL);
+        if (result.status!=expected) fprintf(stderr,"Spatial rejection mode %u: expected %u, got %u\n",mode,expected,result.status);
+        CHECK(result.status==expected && !memcmp(&before,&b,sizeof(b)) && !memcmp(&sheet,s,sizeof(sheet)) && !memcmp(&owned,&p,sizeof(p)));
+        format_snapshot_free(&p); workbook_free(&b);
+    }
+    Workbook b=book(false); Worksheet *s=b.sheets; uint64_t epoch=1; SourceFormatCommandContext c={&b,&s->analysis,&epoch,SIZE_MAX,true,false};
+    SourceFormatCommandTarget t={0},unchanged=t; CHECK(!workbook_prepare_source_aware_spatial_format(&c,0,&t,NULL) && !memcmp(&t,&unchanged,sizeof(t)));
+    s->formats.source_aware=true; s->analysis.kind=SOURCE_DATABASE;
+    FormatSnapshot p=spatial_plan(s,true); t=spatial_target(&c);
+    CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && !s->source_versions.count && !s->analysis.source_version);
+    workbook_free(&b);
+}
+static void spatial_callbacks(void) {
+    for (unsigned mode=0;mode<=6;mode++) {
+        Workbook b=book(false); uint64_t epoch=1; SourceFormatCommandContext c={&b,&b.sheets[0].analysis,&epoch,SIZE_MAX,true,false};
+        SourceFormatCommandTarget t=target(&c,false); SourceFormatCommandPlan first=plan(&c,false);
+        CHECK(workbook_apply_source_format_recorded(&c,&t,&first,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED); b.dirty=false;
+        FormatSnapshot p=spatial_plan(b.sheets,true); t=spatial_target(&c); size_t actions=b.sheets[0].undo_actions_count;
+        BoundProbe probe={&c,mode,0,0,0}; WorkbookHistoryFormatRecorder recorder={bound_reserve,bound_publish,bound_cancel,&probe};
+        SourceFormatCommandResult r=workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,&recorder,NULL);
+        CHECK(probe.reserves==1);
+        if (!mode) CHECK(r.status==SOURCE_FORMAT_COMMAND_APPLIED && probe.publishes==1 && !probe.cancels && !p.items);
+        else {
+            CHECK(r.status==(mode==1 ? SOURCE_FORMAT_COMMAND_LIMIT : mode==2 || mode==6 ? SOURCE_FORMAT_COMMAND_INVALID : mode==4 ? SOURCE_FORMAT_COMMAND_PROTECTED : SOURCE_FORMAT_COMMAND_STALE));
+            CHECK(!probe.publishes && probe.cancels==(mode>=3 ? 1u : 0u) && p.items && !b.dirty && b.command_revision==1 && b.sheets[0].undo_actions_count==actions);
+            if (mode==1) CHECK(workbook_apply_source_aware_spatial_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+        }
+        format_snapshot_free(&p); source_format_command_plan_free(&first); workbook_free(&b);
+    }
+}
 int main(void) {
+    spatial(false); spatial(true); spatial_rejections(); spatial_callbacks();
     fences(false); fences(true); callbacks(false); callbacks(true); history(false); history(true); retained_sources(false); retained_sources(true); manual_policy(); stream_handoff(false); stream_handoff(true); bound(false); bound(true); bound_callbacks(false); bound_callbacks(true); limits();
     source_format_command_plan_free(NULL); printf("PASS: %u atomic source format command checks\n",checks); return 0;
 }

@@ -10,13 +10,13 @@ static const Analysis *owner_source(const Worksheet *s,const Analysis *primary,u
     return NULL;
 }
 static bool eligible(const Analysis *a) { return a && (a->kind==SOURCE_CSV || a->kind==SOURCE_PARQUET); }
-bool workbook_prepare_source_format(SourceFormatCommandContext *c,size_t index,uint64_t object,SourceFormatCommandTarget *out,char **error) {
+static bool prepare_owner(SourceFormatCommandContext *c,size_t index,uint64_t object,bool raw,SourceFormatCommandTarget *out,char **error) {
     if (!c || !c->primary || !c->request_epoch || !out || !workbook_identity_valid(c->book) || index>=c->book->count)
         return fail(error,"Choose a valid source formatting owner.");
     Worksheet *s=c->book->sheets+index;
     if (s->objects.count>DX_MAX_OBJECTS || (s->objects.count && !s->objects.items) || s->source_versions.count>DX_SOURCE_VERSIONS || (s->source_versions.count && !s->source_versions.items))
         return fail(error,"Invalid bounded source formatting ownership.");
-    if (!c->ready || c->read_only || !eligible(owner_source(s,c->primary,object))) return fail(error,"Wait for an editable, verified raw source.");
+    if (!c->ready || c->read_only || (raw ? !eligible(owner_source(s,c->primary,object)) : !s->formats.source_aware)) return fail(error,"Wait for an editable formatting owner.");
     CellEditTarget owner={0}; if (!workbook_prepare_cell_edit(c->book,index,0,0,&owner,error)) return false;
     memset(out,0,sizeof(*out)); out->owner=owner; out->object=object; out->authority=c->primary==&s->analysis ? NULL : c->primary;
     out->request_epoch=*c->request_epoch; out->format_revision=s->formats.revision; out->history_last=s->history_last;
@@ -25,6 +25,12 @@ bool workbook_prepare_source_format(SourceFormatCommandContext *c,size_t index,u
     if (s->objects.count) memcpy(out->items,s->objects.items,s->objects.count*sizeof(*out->items));
     if (s->source_versions.count) memcpy(out->versions,s->source_versions.items,s->source_versions.count*sizeof(*out->versions));
     return true;
+}
+bool workbook_prepare_source_format(SourceFormatCommandContext *c,size_t index,uint64_t object,SourceFormatCommandTarget *out,char **error) {
+    return prepare_owner(c,index,object,true,out,error);
+}
+bool workbook_prepare_source_aware_spatial_format(SourceFormatCommandContext *c,size_t index,SourceFormatCommandTarget *out,char **error) {
+    return prepare_owner(c,index,0,false,out,error);
 }
 static bool format_safe(FormatSnapshotView f) {
     if (f.source_aware) return true;
@@ -102,7 +108,7 @@ static DefinitionEventView view(const Worksheet *s,const SourceFormatCommandCont
     else { v.before.primary=c->primary; v.after.primary=&p->primary; }
     return v;
 }
-SourceFormatCommandResult workbook_check_source_format_owner(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,char **error) {
+static SourceFormatCommandResult check_owner(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,bool raw,char **error) {
     SourceFormatCommandResult r={.status=SOURCE_FORMAT_COMMAND_INVALID};
     if (!c || !c->primary || !c->request_epoch || !t || !workbook_identity_valid(c->book) || !t->owner.document || !t->owner.sheet || t->owner.row || t->owner.column) {
         fail(error,"Invalid composite source formatting command."); return r;
@@ -118,8 +124,11 @@ SourceFormatCommandResult workbook_check_source_format_owner(SourceFormatCommand
         fail(error,"The source formatting owner changed; prepare the command again."); return r;
     }
     r.status=SOURCE_FORMAT_COMMAND_PROTECTED;
-    if (!c->ready || c->read_only || !eligible(owner_source(s,c->primary,t->object))) { fail(error,"The source formatting owner is unavailable."); return r; }
+    if (!c->ready || c->read_only || (raw ? !eligible(owner_source(s,c->primary,t->object)) : !s->formats.source_aware)) { fail(error,"The source formatting owner is unavailable."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_READY; return r;
+}
+SourceFormatCommandResult workbook_check_source_format_owner(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,char **error) {
+    return check_owner(c,t,true,error);
 }
 static SourceFormatCommandResult check(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,SourceFormatCommandPlan *p,char **error) {
     if (!p) { fail(error,"Prepare complete source formatting plans."); return (SourceFormatCommandResult){.status=SOURCE_FORMAT_COMMAND_INVALID}; }
@@ -214,13 +223,14 @@ SourceFormatCommandResult workbook_apply_source_format_recorded(SourceFormatComm
 void source_format_command_plan_free(SourceFormatCommandPlan *p) {
     if (p) { source_versions_free(&p->sources); analysis_free(&p->primary); objects_snapshot_free(&p->objects); format_snapshot_free(&p->formats); }
 }
-static SourceFormatCommandResult bound_check(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,FormatSnapshot *p,char **error) {
+static SourceFormatCommandResult format_check(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,FormatSnapshot *p,bool spatial,char **error) {
     if (!p) { fail(error,"Prepare an independent source format plan."); return (SourceFormatCommandResult){.status=SOURCE_FORMAT_COMMAND_INVALID}; }
-    SourceFormatCommandResult r=workbook_check_source_format_owner(c,t,error); if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
+    SourceFormatCommandResult r=check_owner(c,t,!spatial,error); if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id); const Analysis *a=owner_source(s,c->primary,t->object);
     r.status=SOURCE_FORMAT_COMMAND_PROTECTED;
-    if (!history_safe(&s->formats)) { fail(error,"Legacy finite formatting requires its verified baseline before source formatting."); return r; }
-    if (!a->source_version) { fail(error,"Source formatting needs its complete first-binding owner."); return r; }
+    if (spatial && (t->object || !p->source_aware)) { r.status=SOURCE_FORMAT_COMMAND_INVALID; fail(error,"Keep the complete source-aware worksheet format mode unchanged."); return r; }
+    if (!spatial && !history_safe(&s->formats)) { fail(error,"Legacy finite formatting requires its verified baseline before source formatting."); return r; }
+    if (!spatial && !a->source_version) { fail(error,"Source formatting needs its complete first-binding owner."); return r; }
     r.status=SOURCE_FORMAT_COMMAND_INVALID;
     SourceFormatCommandPlan candidate={.formats=*p}; size_t validation=0;
     if (!independent_format(&s->formats,p,error)) return r;
@@ -228,14 +238,14 @@ static SourceFormatCommandResult bound_check(SourceFormatCommandContext *c,const
     if (validation>c->validation_reserved) { r.status=SOURCE_FORMAT_COMMAND_LIMIT; fail(error,"Source format validation exceeds its admitted scratch budget."); return r; }
     if (!source_versions_valid(&s->source_versions,s->objects.next_id,error)) return r;
     const SourceVersion *entry=source_versions_find(&s->source_versions,a->source_version);
-    if (!entry || entry->owner!=t->object || entry->kind!=a->kind || !a->path || strcmp(entry->path,a->path) || !entry->raw.bytes) {
+    if (!spatial && (!entry || entry->owner!=t->object || entry->kind!=a->kind || !a->path || strcmp(entry->path,a->path) || !entry->raw.bytes)) {
         fail(error,"The current source binding has no complete immutable metadata."); return r;
     }
     FormatSnapshotView before=format_delta_store_view(&s->formats),after=format_delta_snapshot_view(p); size_t bytes=0;
     FormatDeltaStatus delta=format_delta_encoded_size(s->id,before,after,&bytes);
     FormatDependencySelection deps={0};
     if ((delta!=FORMAT_DELTA_OK && delta!=FORMAT_DELTA_NOOP) ||
-        format_dependencies_select(s->id,before,after,&s->source_versions,s->objects.next_id,&deps)!=FORMAT_DEPENDENCIES_OK || !deps.rows[(size_t)(entry-s->source_versions.items)]) {
+        format_dependencies_select(s->id,before,after,&s->source_versions,s->objects.next_id,&deps)!=FORMAT_DEPENDENCIES_OK || (!spatial && !deps.rows[(size_t)(entry-s->source_versions.items)])) {
         fail(error,"The source format delta and immutable dependencies are incomplete."); return r;
     }
     if (delta==FORMAT_DELTA_NOOP) { r.status=SOURCE_FORMAT_COMMAND_NOOP; return r; }
@@ -254,8 +264,8 @@ static SourceFormatCommandResult bound_check(SourceFormatCommandContext *c,const
     if (!format_valid(&projected,error)) { r.status=SOURCE_FORMAT_COMMAND_LIMIT; return r; }
     r.status=SOURCE_FORMAT_COMMAND_READY; return r;
 }
-SourceFormatCommandResult workbook_apply_bound_source_format_recorded(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,FormatSnapshot *p,const WorkbookHistoryFormatRecorder *recorder,char **error) {
-    SourceFormatCommandResult r=bound_check(c,t,p,error);
+static SourceFormatCommandResult apply_format_recorded(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,FormatSnapshot *p,const WorkbookHistoryFormatRecorder *recorder,bool spatial,char **error) {
+    SourceFormatCommandResult r=format_check(c,t,p,spatial,error);
     if (r.status==SOURCE_FORMAT_COMMAND_NOOP) { format_snapshot_free(p); return r; }
     if (r.status!=SOURCE_FORMAT_COMMAND_READY) return r;
     Workbook *b=c->book; Worksheet *s=resolve(b,t->owner.sheet_id); void *ticket=NULL;
@@ -267,7 +277,7 @@ SourceFormatCommandResult workbook_apply_bound_source_format_recorded(SourceForm
         bool reserved=recorder->reserve(recorder->context,&record,&ticket,error);
         if (!reserved || !ticket) { r.status=reserved || ticket ? SOURCE_FORMAT_COMMAND_INVALID : SOURCE_FORMAT_COMMAND_LIMIT; if (ticket) recorder->cancel(recorder->context,ticket); if (!error || !*error) fail(error,"Source format recording is busy; the plan is kept."); return r; }
         if (memcmp(&descriptors,p,sizeof(descriptors))) { r.status=SOURCE_FORMAT_COMMAND_STALE; fail(error,"The source format plan changed during reservation."); recorder->cancel(recorder->context,ticket); return r; }
-        r=bound_check(c,t,p,error);
+        r=format_check(c,t,p,spatial,error);
         if (r.status!=SOURCE_FORMAT_COMMAND_READY) { recorder->cancel(recorder->context,ticket); if (r.status==SOURCE_FORMAT_COMMAND_NOOP) format_snapshot_free(p); return r; }
         s=resolve(b,t->owner.sheet_id);
     }
@@ -275,4 +285,10 @@ SourceFormatCommandResult workbook_apply_bound_source_format_recorded(SourceForm
     r.status=SOURCE_FORMAT_COMMAND_APPLIED; r.after_revision=b->command_revision;
     if (recorder) recorder->publish(recorder->context,ticket);
     return r;
+}
+SourceFormatCommandResult workbook_apply_bound_source_format_recorded(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,FormatSnapshot *p,const WorkbookHistoryFormatRecorder *recorder,char **error) {
+    return apply_format_recorded(c,t,p,recorder,false,error);
+}
+SourceFormatCommandResult workbook_apply_source_aware_spatial_format_recorded(SourceFormatCommandContext *c,const SourceFormatCommandTarget *t,FormatSnapshot *p,const WorkbookHistoryFormatRecorder *recorder,char **error) {
+    return apply_format_recorded(c,t,p,recorder,true,error);
 }
