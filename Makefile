@@ -2389,3 +2389,14 @@ build/tests/test_sheet_metadata_replay: $(SHEET_METADATA_REPLAY_OBJECTS) build/w
 build/tests/test_sheet_metadata_replay-debug: $(SHEET_METADATA_REPLAY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_METADATA_REPLAY_OBJECTS:.o=.d) $(SHEET_METADATA_REPLAY_SAN_OBJECTS:.o=.d)
+
+# Mixed live/detached session chronology uses genuine width/cell/lifecycle producers.
+SHEET_SESSION_CHRONOLOGY_SRC = $(filter-out tests/test_sheet_metadata_replay.c,$(SHEET_METADATA_REPLAY_SRC)) src/workbook/workbook_width_command.c src/workbook/range_event.c src/workbook/history_range.c src/workbook/definition_event.c tests/test_sheet_session_chronology.c
+SHEET_SESSION_CHRONOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_SESSION_CHRONOLOGY_SRC))))
+SHEET_SESSION_CHRONOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_SESSION_CHRONOLOGY_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_session_chronology build/tests/test_sheet_session_chronology-debug
+build/tests/test_sheet_session_chronology: $(SHEET_SESSION_CHRONOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_session_chronology-debug: $(SHEET_SESSION_CHRONOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_SESSION_CHRONOLOGY_OBJECTS:.o=.d) $(SHEET_SESSION_CHRONOLOGY_SAN_OBJECTS:.o=.d)

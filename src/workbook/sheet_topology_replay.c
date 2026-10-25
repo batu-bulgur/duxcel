@@ -39,8 +39,7 @@ static SheetTopologyReplayStatus selection(SheetTopologyReplayContext c,const Sh
     if (!workbook_lifecycle_presence(c.book,p->redo,out)) return SHEET_REPLAY_INVALID;
     bool remove=p->event.operation==SHEET_TOPOLOGY_REMOVE;
     if ((remove ? out->operation!=SHEET_DELETE : out->operation!=SHEET_CREATE && out->operation!=SHEET_DUPLICATE) || out->detached!=(remove ? !p->redo : p->redo)) return SHEET_REPLAY_STALE;
-    uint64_t latest=workbook_lifecycle_latest(c.book);
-    for (size_t i=0;i<c.book->count;i++) if (c.book->sheets[i].history_last>latest) latest=c.book->sheets[i].history_last;
+    uint64_t latest=workbook_history_latest_record(c.book);
     if (c.book->history_branch!=latest) return SHEET_REPLAY_STALE;
     /* Detached session constituents remain real owners. Validate their counts
        before restoration without copying/mutating them or inventing actions. */

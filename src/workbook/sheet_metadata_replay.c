@@ -22,8 +22,7 @@ static SheetMetadataReplayStatus selected(SheetMetadataReplayContext c,bool redo
     if (history.status==WORKBOOK_HISTORY_INVALID) return SHEET_METADATA_REPLAY_INVALID;
     if (history.status!=WORKBOOK_HISTORY_READY || !history.lifecycle || !workbook_lifecycle_metadata(c.book,redo,out) || !out->packet) return SHEET_METADATA_REPLAY_UNSUPPORTED;
     if (!c.book->sheets[locate(c.book,out->sheet)].edit_session_id) return SHEET_METADATA_REPLAY_INVALID;
-    uint64_t latest=workbook_lifecycle_latest(c.book);
-    for (size_t i=0;i<c.book->count;i++) if (c.book->sheets[i].history_last>latest) latest=c.book->sheets[i].history_last;
+    uint64_t latest=workbook_history_latest_record(c.book);
     return c.book->history_branch==latest ? SHEET_METADATA_REPLAY_READY : SHEET_METADATA_REPLAY_STALE;
 }
 SheetMetadataReplayStatus sheet_metadata_replay_measure(SheetMetadataReplayContext c,bool redo,SheetMetadataReplayMeasure *out) {
