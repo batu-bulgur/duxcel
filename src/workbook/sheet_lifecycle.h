@@ -14,7 +14,7 @@ typedef struct {
 } SheetLifecycleState;
 typedef struct { SheetLifecycleState before,after; } SheetLifecycle;
 typedef struct { size_t bytes,owned,count; } SheetLifecycleInfo;
-typedef struct { void *data; size_t bytes; } SheetLifecyclePacket;
+typedef struct SheetLifecyclePacket { void *data; size_t bytes; } SheetLifecyclePacket;
 typedef enum { SHEET_LIFECYCLE_OK,SHEET_LIFECYCLE_NOOP,SHEET_LIFECYCLE_INVALID,
     SHEET_LIFECYCLE_LIMIT,SHEET_LIFECYCLE_UNSUPPORTED,SHEET_LIFECYCLE_STALE } SheetLifecycleStatus;
 /* Metadata-only rename/reorder/hide foundation. Both sides contain the SAME

@@ -8,7 +8,8 @@ typedef struct {
     bool hidden;
     char *name;
     Worksheet *detached;
-    SheetTopologyPacket packet;
+    unsigned payload_profile;
+    union { SheetTopologyPacket topology; SheetLifecyclePacket metadata; } payload;
 } SheetEvent;
 struct WorkbookLifecycle {
     SheetEvent undo[DX_HISTORY],redo[DX_HISTORY];
@@ -43,7 +44,9 @@ static size_t locate(const Workbook *b,uint64_t id) {
     return b->count;
 }
 static void event_free(SheetEvent *e) {
-    free(e->name); free(e->packet.data);
+    free(e->name);
+    if (e->payload_profile==DX_HISTORY_SHEET_TOPOLOGY_PROFILE) free(e->payload.topology.data);
+    else if (e->payload_profile==DX_HISTORY_SHEET_LIFECYCLE_PROFILE) free(e->payload.metadata.data);
     if (e->detached) { worksheet_free(e->detached); free(e->detached); }
     memset(e,0,sizeof(*e));
 }
@@ -71,14 +74,21 @@ uint64_t workbook_lifecycle_retained_latest(const Workbook *b) {
     return latest;
 }
 uint64_t workbook_lifecycle_floor(const Workbook *b) { return b->lifecycle ? b->lifecycle->floor : 0; }
+static size_t payload_bytes(const SheetEvent *e) {
+    if (!e->payload_profile) return 0;
+    if (e->payload_profile==DX_HISTORY_SHEET_TOPOLOGY_PROFILE) return e->payload.topology.data && e->payload.topology.bytes<=DX_SHEET_TOPOLOGY_MAX_BYTES ? e->payload.topology.bytes : SIZE_MAX;
+    if (e->payload_profile==DX_HISTORY_SHEET_LIFECYCLE_PROFILE) return e->payload.metadata.data && e->payload.metadata.bytes<=DX_SHEET_LIFECYCLE_MAX_BYTES ? e->payload.metadata.bytes : SIZE_MAX;
+    return SIZE_MAX;
+}
 FormatBudgetStatus workbook_lifecycle_format_usage(const Workbook *b,size_t *retained) {
     size_t bytes=0; const struct WorkbookLifecycle *h=b->lifecycle;
     if (h) for (unsigned side=0;side<2;side++) {
         const SheetEvent *events=side ? h->redo : h->undo; size_t count=side ? h->redo_count : h->undo_count;
         if (count>DX_HISTORY) return FORMAT_BUDGET_MODEL;
         for (size_t i=0;i<count;i++) {
-            if (bytes>SIZE_MAX-events[i].packet.bytes) return FORMAT_BUDGET_OVERFLOW;
-            bytes+=events[i].packet.bytes;
+            size_t packet=payload_bytes(events+i); if (packet==SIZE_MAX) return FORMAT_BUDGET_MODEL;
+            if (bytes>SIZE_MAX-packet) return FORMAT_BUDGET_OVERFLOW;
+            bytes+=packet;
             if (!events[i].detached) continue;
             /* Borrowed one-sheet accounting view, never freed or snapshotted.
                Its null lifecycle prevents recursive retained-owner traversal. */
@@ -142,21 +152,31 @@ bool workbook_lifecycle_presence(const Workbook *b,bool redo,WorkbookLifecyclePr
     if (e->operation>SHEET_DELETE || e->order!=selected.order ||
         (!e->detached && (index==b->count || (!b->sheets[index].hidden && workbook_visible_count(b)<=1))) ||
         (e->detached && (index!=b->count || b->count>=DX_MAX_SHEETS || e->position>b->count || e->detached->id!=e->id))) return false;
-    *out=(WorkbookLifecyclePresence){h,e->detached ? e->detached : b->sheets+index,e->operation,e->id,e->order,e->active,e->position,e->detached!=NULL,e->packet.data ? &e->packet : NULL}; return true;
+    *out=(WorkbookLifecyclePresence){h,e->detached ? e->detached : b->sheets+index,e->operation,e->id,e->order,e->active,e->position,e->detached!=NULL,e->payload_profile==DX_HISTORY_SHEET_TOPOLOGY_PROFILE ? &e->payload.topology : NULL}; return true;
+}
+bool workbook_lifecycle_metadata(const Workbook *b,bool redo,WorkbookLifecycleMetadata *out) {
+    if (!b || !out) return false; WorkbookHistoryResult selected=workbook_history_peek(b,redo,NULL);
+    if ((selected.status!=WORKBOOK_HISTORY_READY && selected.status!=WORKBOOK_HISTORY_LIMIT) || !selected.lifecycle || !b->lifecycle) return false;
+    const struct WorkbookLifecycle *h=b->lifecycle; size_t count=redo ? h->redo_count : h->undo_count; if (!count) return false;
+    const SheetEvent *e=(redo ? h->redo : h->undo)+count-1;
+    if (e->operation<SHEET_RENAME || e->operation>SHEET_SHOW || e->order!=selected.order || locate(b,e->id)==b->count || e->detached) return false;
+    *out=(WorkbookLifecycleMetadata){h,e->operation,e->id,e->order,e->active,e->payload_profile==DX_HISTORY_SHEET_LIFECYCLE_PROFILE ? &e->payload.metadata : NULL}; return true;
 }
 size_t workbook_lifecycle_presence_staging(const Workbook *b,bool redo) {
     WorkbookLifecyclePresence view;
     if (!workbook_lifecycle_presence(b,redo,&view)) return SIZE_MAX;
     return view.detached ? (b->count+1)*sizeof(Worksheet)+DX_FORMAT_VALIDATION_BYTES : sizeof(Worksheet);
 }
-FormatBudgetStatus workbook_lifecycle_topology_preflight(const Workbook *b,size_t packet_bytes,size_t staging) {
-    if (!packet_bytes || packet_bytes>DX_SHEET_TOPOLOGY_MAX_BYTES) return FORMAT_BUDGET_INPUT;
+static FormatBudgetStatus lifecycle_payload_preflight(const Workbook *b,size_t packet_bytes,size_t staging,size_t bound) {
+    if (!packet_bytes || packet_bytes>bound) return FORMAT_BUDGET_INPUT;
     WorkbookFormatUsage live,next; FormatBudget budget;
     FormatBudgetStatus status=workbook_format_usage(b,NULL,0,&live); if (status!=FORMAT_BUDGET_OK) return status;
     next=live; if (next.retained>SIZE_MAX-packet_bytes) return FORMAT_BUDGET_OVERFLOW;
     next.retained+=packet_bytes;
     return workbook_format_preflight(&live,&next,&(FormatTransientUsage){.adopted_staging=staging},&budget);
 }
+FormatBudgetStatus workbook_lifecycle_topology_preflight(const Workbook *b,size_t bytes,size_t staging) { return lifecycle_payload_preflight(b,bytes,staging,DX_SHEET_TOPOLOGY_MAX_BYTES); }
+FormatBudgetStatus workbook_lifecycle_metadata_preflight(const Workbook *b,size_t bytes,size_t staging) { return lifecycle_payload_preflight(b,bytes,staging,DX_SHEET_LIFECYCLE_MAX_BYTES); }
 static uint64_t topology_number(const unsigned char *p,unsigned n) {
     uint64_t value=0; for (unsigned i=0;i<n;i++) value|=(uint64_t)p[i]<<(8*i); return value;
 }
@@ -164,11 +184,19 @@ void workbook_lifecycle_topology_adopt(Workbook *b,uint64_t order,uint64_t revis
     if (!b || !b->lifecycle || !b->edit_session_id || !b->lifecycle->undo_count || !packet || !packet->data || packet->bytes<DX_SHEET_TOPOLOGY_HEADER_BYTES || operation>SHEET_DELETE ||
         b->command_revision!=revision || b->lifecycle->latest!=order || worksheet_history_high_water()!=order) abort();
     SheetEvent *e=b->lifecycle->undo+b->lifecycle->undo_count-1; const unsigned char *data=packet->data;
-    if (e->operation!=operation || e->id!=sheet || e->order!=order || e->packet.data || e->packet.bytes ||
+    if (e->operation!=operation || e->id!=sheet || e->order!=order || e->payload_profile ||
         memcmp(data,"DXTP",4) || topology_number(data+4,2)!=DX_SHEET_TOPOLOGY_ENCODING ||
         topology_number(data+6,2)!=(operation==SHEET_DELETE ? SHEET_TOPOLOGY_REMOVE : SHEET_TOPOLOGY_ADD) ||
         topology_number(data+8,8)!=b->id.high || topology_number(data+16,8)!=b->id.low || topology_number(data+24,8)!=sheet) abort();
-    e->packet=*packet; *packet=(SheetTopologyPacket){0};
+    e->payload.topology=*packet; e->payload_profile=DX_HISTORY_SHEET_TOPOLOGY_PROFILE; *packet=(SheetTopologyPacket){0};
+}
+void workbook_lifecycle_metadata_adopt(Workbook *b,uint64_t order,uint64_t revision,uint64_t sheet,WorkbookSheetOperation operation,SheetLifecyclePacket *packet) {
+    if (!b || !b->lifecycle || !b->edit_session_id || !b->lifecycle->undo_count || !packet || !packet->data || packet->bytes<DX_SHEET_LIFECYCLE_HEADER_BYTES || operation<SHEET_RENAME || operation>SHEET_SHOW ||
+        b->command_revision!=revision || b->lifecycle->latest!=order || worksheet_history_high_water()!=order) abort();
+    SheetEvent *e=b->lifecycle->undo+b->lifecycle->undo_count-1; const unsigned char *data=packet->data;
+    if (e->operation!=operation || e->id!=sheet || e->order!=order || e->payload_profile || memcmp(data,"DXSL",4) ||
+        topology_number(data+4,2)!=DX_SHEET_LIFECYCLE_ENCODING || topology_number(data+8,8)!=b->id.high || topology_number(data+16,8)!=b->id.low) abort();
+    e->payload.metadata=*packet; e->payload_profile=DX_HISTORY_SHEET_LIFECYCLE_PROFILE; *packet=(SheetLifecyclePacket){0};
 }
 static Worksheet *remove_sheet(Workbook *b,size_t index) {
     Worksheet *detached=dx_alloc(sizeof(*detached)); *detached=b->sheets[index];

@@ -1,6 +1,6 @@
 #include "sheet_lifecycle_command.h"
 #include "history.h"
-#include "lifecycle.h"
+#include "lifecycle_topology_internal.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -158,6 +158,8 @@ SheetMetadataStatus sheet_lifecycle_command_apply(SheetLifecycleCommandContext c
     size_t staging=workbook_lifecycle_metadata_staging(c.book,operation);
     if (staging==SIZE_MAX || staging>c.adoption_reserved)
         return fail(SHEET_METADATA_LIMIT,error,"The admitted worksheet metadata adoption budget is exhausted.");
+    if (p->owned>SIZE_MAX-staging || workbook_lifecycle_metadata_preflight(c.book,p->packet.bytes,p->owned+staging)!=FORMAT_BUDGET_OK)
+        return fail(SHEET_METADATA_LIMIT,error,"The complete metadata packet residency and coexistence are not admitted.");
     if (p->ticket) {
         if (!recorder || recorder->context!=p->recorder.context || recorder->reserve!=p->recorder.reserve || recorder->publish!=p->recorder.publish || recorder->cancel!=p->recorder.cancel)
             return fail(SHEET_METADATA_BUSY,error,"The prepared metadata ticket has a different owner.");
@@ -176,6 +178,9 @@ SheetMetadataStatus sheet_lifecycle_command_apply(SheetLifecycleCommandContext c
        or pretend to be a recoverable failure after authored metadata changed. */
     if (!changed || !after_matches(c,p)) abort();
     if (p->ticket) { p->recorder.publish(p->recorder.context,p->ticket); p->ticket=NULL; p->recorder=(WorkbookHistorySheetLifecycleRecorder){0}; }
+    size_t transferred=p->packet.bytes;
+    workbook_lifecycle_metadata_adopt(b,workbook_lifecycle_latest(b),b->command_revision,p->target,operation,&p->packet);
+    p->owned-=transferred;
     return SHEET_METADATA_APPLIED;
 }
 void sheet_lifecycle_command_cancel(SheetLifecycleCommandPlan *p) { if (p && p->ticket) { p->recorder.cancel(p->recorder.context,p->ticket); p->ticket=NULL; p->recorder=(WorkbookHistorySheetLifecycleRecorder){0}; } }
@@ -184,6 +189,6 @@ void sheet_lifecycle_command_free(SheetLifecycleCommandPlan **owned) {
     sheet_lifecycle_free(&p->view); sheet_lifecycle_packet_free(&p->packet); free(p); *owned=NULL;
 }
 const SheetLifecycle *sheet_lifecycle_command_view(const SheetLifecycleCommandPlan *p) { return p ? &p->view : NULL; }
-const SheetLifecyclePacket *sheet_lifecycle_command_packet(const SheetLifecycleCommandPlan *p) { return p ? &p->packet : NULL; }
+const SheetLifecyclePacket *sheet_lifecycle_command_packet(const SheetLifecycleCommandPlan *p) { return p && p->packet.data ? &p->packet : NULL; }
 size_t sheet_lifecycle_command_owned(const SheetLifecycleCommandPlan *p) { return p ? p->owned : 0; }
 bool sheet_lifecycle_command_reserved(const SheetLifecycleCommandPlan *p) { return p && p->ticket; }

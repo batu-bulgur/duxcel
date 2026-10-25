@@ -52,6 +52,14 @@ typedef struct {
     const struct SheetTopologyPacket *packet; /* Borrowed original; NULL for plain session events. */
 } WorkbookLifecyclePresence;
 bool workbook_lifecycle_presence(const Workbook *book,bool redo,WorkbookLifecyclePresence *out);
+struct SheetLifecyclePacket;
+typedef struct {
+    const void *owner;
+    WorkbookSheetOperation operation;
+    uint64_t sheet,order,active;
+    const struct SheetLifecyclePacket *packet; /* NULL for plain session metadata. */
+} WorkbookLifecycleMetadata;
+bool workbook_lifecycle_metadata(const Workbook *book,bool redo,WorkbookLifecycleMetadata *out);
 /* Actual presence transfer allocation bound: replacement array + serial global
    format-validation scratch for restoration, one wrapper for detachment. */
 size_t workbook_lifecycle_presence_staging(const Workbook *book,bool redo);

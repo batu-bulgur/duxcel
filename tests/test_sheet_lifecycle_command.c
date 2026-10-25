@@ -1,5 +1,6 @@
 #include "workbook/sheet_lifecycle_command.h"
 #include "workbook/lifecycle.h"
+#include "workbook/lifecycle_topology_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -145,6 +146,27 @@ static void test_last_valid_revision(void) {
         workbook_free(&b);
     }
 }
+static void test_owned_metadata(void) {
+    for (unsigned kind=0;kind<4;kind++) {
+        Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"First",&(Analysis){0},NULL)); CHECK(workbook_add(&b,"Second",&(Analysis){0},NULL));
+        b.edit_session_id=900; b.sheets[0].edit_session_id=901; b.sheets[1].edit_session_id=902;
+        if (kind==3) b.sheets[0].hidden=true;
+        b.command_revision=UINT64_MAX-1; uint64_t epoch=60,id=b.sheets[0].id;
+        SheetLifecycleCommandContext c={&b,&epoch,SIZE_MAX,true,false,SIZE_MAX};
+        SheetMetadataCommand command={(SheetMetadataOperation)kind,id,kind==1 ? b.sheets[1].id : 0,kind==0 ? "Last rename" : NULL}; SheetLifecycleCommandPlan *p=NULL;
+        CHECK(sheet_lifecycle_command_prepare(c,command,&p,NULL)==SHEET_METADATA_READY);
+        size_t before=sheet_lifecycle_command_owned(p),bytes=sheet_lifecycle_command_packet(p)->bytes; const void *data=sheet_lifecycle_command_packet(p)->data;
+        CHECK(sheet_lifecycle_command_apply(c,p,NULL,NULL)==SHEET_METADATA_APPLIED && b.command_revision==UINT64_MAX && !sheet_lifecycle_command_packet(p) && sheet_lifecycle_command_owned(p)==before-bytes);
+        WorkbookLifecycleMetadata selected; CHECK(workbook_lifecycle_metadata(&b,false,&selected) && selected.packet && selected.packet->data==data && selected.packet->bytes==bytes && selected.sheet==id);
+        size_t retained=0; CHECK(workbook_lifecycle_format_usage(&b,&retained)==FORMAT_BUDGET_OK && retained==bytes);
+        WorkbookFormatUsage usage; CHECK(workbook_format_usage(&b,NULL,0,&usage)==FORMAT_BUDGET_OK && usage.retained==bytes);
+        CHECK(workbook_lifecycle_topology_preflight(&b,DX_WORKBOOK_FORMAT_RETAINED_BYTES,0)==FORMAT_BUDGET_RETAINED);
+        CHECK(workbook_lifecycle_metadata_preflight(&b,bytes,DX_APP_FORMAT_ADDITIONAL_BYTES)==FORMAT_BUDGET_APP);
+        Workbook *snapshot=workbook_snapshot(&b); CHECK(snapshot && !snapshot->lifecycle); workbook_free(snapshot); free(snapshot);
+        sheet_lifecycle_command_free(&p); CHECK(selected.packet->data==data && workbook_history_peek(&b,false,NULL).status==WORKBOOK_HISTORY_LIMIT);
+        workbook_free(&b);
+    }
+}
 int main(void) {
     Workbook book; workbook_init(&book); char *error=NULL;
     CHECK(workbook_add(&book,"First",&(Analysis){0},&error)); CHECK(workbook_add(&book,"Second",&(Analysis){0},&error));
@@ -250,6 +272,6 @@ int main(void) {
     CHECK(sheet_lifecycle_command_prepare(context,rename,&plan,&error)==SHEET_METADATA_INVALID && !plan); clear(&error); book.sheets[0].history_last=0;
     CHECK(!memcmp(&book,&original,sizeof(book)) && !memcmp(book.sheets,originals,sizeof(originals)));
     workbook_free(&book); sheet_lifecycle_command_free(&plan); sheet_lifecycle_command_free(NULL);
-    test_last_valid_revision(); test_apply();
+    test_last_valid_revision(); test_owned_metadata(); test_apply();
     printf("PASS: %u workbook metadata command checks; actual session adoption and family5 publication\n",checks); return 0;
 }

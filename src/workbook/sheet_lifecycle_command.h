@@ -35,6 +35,8 @@ SheetMetadataStatus sheet_lifecycle_command_reserve(SheetLifecycleCommandContext
    before real workbook_sheet_command chronology can evict a lifecycle ring.
    Recheck precedes adoption; actual after metadata/session/revision/lifecycle
    history is proved before nonfallible publication. No worksheet action is made.
+   Success moves the original DXSL packet into the genuine lifecycle event;
+   the remaining plan/view stay owned until free, and packet() then returns NULL.
    adoption_reserved covers the real coordinator allocation before reserve;
    plan and retained stream memory stay separately charged. NULL recorder uses
    the identical session-only model path. No IO/App retained
