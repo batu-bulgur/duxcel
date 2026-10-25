@@ -235,4 +235,17 @@ static void ledger_refinement(void) {
     CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && proof.matches);
     sheet_presence_free(&complete); sheet_presence_free(&asset); workbook_free(&b);
 }
-int main(void) { ledger_refinement(); authored_capacity(); empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }
+static void object_allocator_refinement(void) {
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Allocator",&(Analysis){0},NULL)); Worksheet *s=b.sheets; s->objects.next_id=7;
+    SheetPresenceView view={b.id,b.sheet_high_water,s,&s->analysis}; SheetPresenceAsset *asset=NULL; SheetPresenceRefinement proof;
+    CHECK(sheet_presence_capture(view,SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK);
+    s->objects.next_id=8; bool same=true;
+    CHECK(sheet_presence_matches_authored(asset,view,&same)==SHEET_PRESENCE_OK && !same);
+    CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && proof.matches && !proof.object_allocator_unavailable && s->objects.next_id==8);
+    s->objects.next_id=6; CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && !proof.matches && proof.object_allocator_unavailable && s->objects.next_id==6);
+    s->objects.next_id=UINT64_MAX; CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && proof.matches && s->objects.next_id==UINT64_MAX);
+    s->objects.next_id=7; CHECK(objects_add(&s->objects,20,2,"Authored",NULL)==0);
+    CHECK(sheet_presence_matches_refined(asset,view,&proof)==SHEET_PRESENCE_OK && !proof.matches && s->objects.next_id==8);
+    sheet_presence_free(&asset); workbook_free(&b);
+}
+int main(void) { object_allocator_refinement(); ledger_refinement(); authored_capacity(); empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }

@@ -177,8 +177,26 @@ static void first_binding_undo(void) {
     CHECK(sheet->analysis.source_version==1 && sheet->formats.count==1);
     sheet_topology_packet_free(&original); workbook_free(&b);
 }
+static void object_allocator_undo(void) {
+    Workbook b=fixture(); uint64_t id,order,epoch=400; Analysis actual;
+    SheetTopologyPacket packet=command(&b,SHEET_DUPLICATE,&id,&order,&actual,&epoch); Worksheet *sheet=b.sheets+b.active;
+    CHECK(objects_add(&sheet->objects,50,3,"Temporary",NULL)>=0); worksheet_record(sheet,EDIT_OBJECTS); b.command_revision++; workbook_history_note_edit(&b);
+    uint64_t issued=sheet->objects.next_id; CHECK(issued && sheet->objects.count==1);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_DELEGATE && objects_history(&sheet->objects,false));
+    worksheet_transfer_history(sheet,false); b.command_revision++;
+    CHECK(!sheet->objects.count && sheet->objects.next_id==issued);
+    SheetTopologyReplayContext c={&b,&epoch,&actual,id,SIZE_MAX,SIZE_MAX,true,false}; SheetTopologyReplayPlan *p=NULL;
+    CHECK(sheet_topology_replay_prepare(c,&packet,false,order,&p,NULL)==SHEET_REPLAY_READY);
+    CHECK(sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_APPLIED);
+    WorkbookLifecyclePresence selected; CHECK(workbook_lifecycle_presence(&b,true,&selected) && selected.worksheet->objects.next_id==issued);
+    CHECK(sheet_topology_replay_prepare(c,&packet,true,order,&p,NULL)==SHEET_REPLAY_READY && sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_APPLIED);
+    sheet=b.sheets+b.active; CHECK(sheet->objects.next_id==issued && workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_DELEGATE);
+    CHECK(objects_history(&sheet->objects,true)); worksheet_transfer_history(sheet,true); b.command_revision++;
+    CHECK(sheet->objects.count==1 && sheet->objects.items[0].id==issued && sheet->objects.next_id==issued);
+    analysis_free(&actual); sheet_topology_packet_free(&packet); workbook_free(&b);
+}
 int main(void) {
-    first_binding_undo(); packet_lifetime(); fences(); replay(SHEET_CREATE,false); replay(SHEET_DELETE,false); replay(SHEET_DUPLICATE,false); replay(SHEET_CREATE,true); replay(SHEET_DELETE,true); replay(SHEET_DUPLICATE,true);
+    object_allocator_undo(); first_binding_undo(); packet_lifetime(); fences(); replay(SHEET_CREATE,false); replay(SHEET_DELETE,false); replay(SHEET_DUPLICATE,false); replay(SHEET_CREATE,true); replay(SHEET_DELETE,true); replay(SHEET_DUPLICATE,true);
     SheetTopologyReplayMeasure untouched={7,9}; CHECK(sheet_topology_replay_measure(&(SheetTopologyPacket){"bad",3},&untouched)==SHEET_REPLAY_INVALID && untouched.owned==7 && untouched.staging==9);
     sheet_topology_replay_free(NULL); printf("PASS: %u genuine topology session replay checks\n",checks); return 0;
 }

@@ -318,11 +318,15 @@ SheetPresenceStatus sheet_presence_matches_refined(const SheetPresenceAsset *ass
     if (sources==SOURCE_SUBSET_INVALID) return SHEET_PRESENCE_INVALID;
     for (size_t i=0;i<s->source_versions.count;i++) for (size_t j=0;j<s->objects.count;j++)
         if (s->source_versions.items[i].owner==s->objects.items[j].id && s->objects.items[j].kind!=OBJECT_TABLE) return SHEET_PRESENCE_INVALID;
-    if (sources==SOURCE_SUBSET_EXACT || sources==SOURCE_SUBSET_REFINED) {
+    result.object_allocator_unavailable=s->objects.next_id<expected.sheet->objects.next_id;
+    bool same_ids=s->objects.count==expected.sheet->objects.count;
+    for (size_t i=0;same_ids && i<s->objects.count;i++) same_ids=s->objects.items[i].id==expected.sheet->objects.items[i].id;
+    if (same_ids && !result.object_allocator_unavailable && (sources==SOURCE_SUBSET_EXACT || sources==SOURCE_SUBSET_REFINED)) {
         /* Only after proving immutable refinement may comparison borrow the
-           captured ledger. Actual graph bindings and every other field remain
+           captured ledger and allocator after proving the same ordered object IDs.
+           Actual graph bindings and every other field remain
            untouched; this does not project or adopt the captured ledger. */
-        Worksheet projected=*s; projected.source_versions=expected.sheet->source_versions; current.sheet=&projected;
+        Worksheet projected=*s; projected.source_versions=expected.sheet->source_versions; projected.objects.next_id=expected.sheet->objects.next_id; current.sheet=&projected;
         status=sheet_presence_matches_authored(asset,current,&result.matches); if (status) return status;
     }
     *out=result; return SHEET_PRESENCE_OK;

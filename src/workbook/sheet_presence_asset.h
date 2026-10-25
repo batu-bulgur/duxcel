@@ -49,13 +49,13 @@ SheetPresenceStatus sheet_presence_matches(const SheetPresenceAsset *asset,Sheet
 SheetPresenceStatus sheet_presence_matches_authored(const SheetPresenceAsset *asset,SheetPresenceView current,bool *matches);
 /* Session replay proof with explicit immutable-ledger enrichment. Preserve the
    strict APIs above. All authored graph/view/binding fields stay exact; only
-   additional valid live rows, monotonic source allocator and same-key pending
+   additional valid live rows, monotonic source/object allocators and same-key pending
    RAW completion may differ. Complete captured RAW must match exactly. The
    returned source observations never authorize readiness, rebinding or IO.
    Validate the actual ledger before borrowed comparison normalization; no
    ledger is merged/rewritten and no allocation or callback occurs. Invalid
    input preserves out; valid missing/conflicting obligations report false. */
-typedef struct { bool matches; SourceSubsetAdmission sources; } SheetPresenceRefinement;
+typedef struct { bool matches,object_allocator_unavailable; SourceSubsetAdmission sources; } SheetPresenceRefinement;
 SheetPresenceStatus sheet_presence_matches_refined(const SheetPresenceAsset *asset,SheetPresenceView current,SheetPresenceRefinement *out);
 
 SheetPresenceStatus sheet_presence_capture(SheetPresenceView view,size_t reserved,SheetPresenceAsset **out,char **error);
