@@ -3,11 +3,13 @@
 #include "workbook.h"
 #include "cell_range_plan.h"
 #include "objects_asset.h"
+#include "column_widths.h"
 typedef struct { size_t owned,validation_scratch; } MixedRangePlanInfo;
 typedef struct {
     CellSnapshot cells; ObjectSnapshot objects; FormatSnapshot formats;
     uint64_t object_high_water;
-    unsigned effects; /* Truthful subset of Cells2/Objects4/Format8. */
+    ColumnWidthState widths; /* Column axis: complete canonical target only. */
+    unsigned effects; /* Truthful subset of Cells2/Objects4/Format8/Width16. */
 } MixedRangePlan;
 typedef enum { MIXED_RANGE_READY,MIXED_RANGE_NOOP,MIXED_RANGE_INVALID,MIXED_RANGE_PROTECTED,MIXED_RANGE_OCCUPIED,MIXED_RANGE_LIMIT } MixedRangeStatus;
 /* Source-free manual range plus fully contained blank-primary Pivot/Chart
@@ -28,5 +30,11 @@ MixedRangeStatus mixed_range_plan(const Worksheet *sheet,const Analysis *primary
    the worksheet edge. Complete cloned cells/objects/formats; widths unchanged. */
 MixedRangeStatus mixed_rows_measure(const Worksheet *sheet,const Analysis *primary,uint64_t row,uint64_t count,bool insert,MixedRangePlanInfo *info,char **error);
 MixedRangeStatus mixed_rows_plan(const Worksheet *sheet,const Analysis *primary,uint64_t row,uint64_t count,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
+/* Single-column counterpart with the existing whole-object intersection/edge
+   guards. Own canonical target widths, preserving virtual default96 semantics
+   and a truncated nondefault tail through the later complete before/after pair.
+   Names stay at fixed positions. This remains a pure plan, not width adoption. */
+MixedRangeStatus mixed_column_measure(const Worksheet *sheet,const Analysis *primary,size_t column,bool insert,MixedRangePlanInfo *info,char **error);
+MixedRangeStatus mixed_column_plan(const Worksheet *sheet,const Analysis *primary,size_t column,bool insert,size_t reserved,size_t validation_reserved,MixedRangePlan *out,char **error);
 void mixed_range_plan_free(MixedRangePlan *plan);
 #endif

@@ -40,8 +40,39 @@ static void rows(void) {
     CHECK(mixed_rows_measure(s,&s->analysis,0,1,true,&info,NULL)==MIXED_RANGE_INVALID && info.owned==123);
     workbook_free(&b);
 }
+static void column_projection(void) {
+    for (unsigned mode=0;mode<8;mode++) for (unsigned deletion=0;deletion<2;deletion++) {
+        Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets;
+        s->view.column_count=16384; s->view.widths=dx_alloc(16384*sizeof(float)); s->view.columns=dx_alloc(16384*sizeof(char *));
+        for (size_t i=0;i<16384;i++) { s->view.widths[i]=96; s->view.columns[i]=dx_strdup(i==1 ? "Fixed name" : ""); }
+        if (mode&4) { s->view.widths[1]=123; s->view.widths[16383]=333; }
+        Workbook *reference=workbook_snapshot(&b); CHECK(reference); Worksheet before=*s; MixedRangePlan out={0}; MixedRangePlanInfo info={0}; char *error=NULL;
+        CHECK(mixed_column_measure(s,&s->analysis,0,!deletion,&info,&error)==MIXED_RANGE_READY && !error);
+        CHECK(mixed_column_plan(s,&s->analysis,0,!deletion,info.owned-1,info.validation_scratch,&out,&error)==MIXED_RANGE_LIMIT && !out.objects.items && !out.widths.entries); free(error); error=NULL;
+        CHECK(mixed_column_plan(s,&s->analysis,0,!deletion,info.owned,info.validation_scratch,&out,&error)==MIXED_RANGE_READY && !error && !memcmp(&before,s,sizeof(before)));
+        CHECK(out.effects==(4u|((mode&1)?2u:0u)|((mode&2)?8u:0u)|((mode&4)?16u:0u)) && out.object_high_water==s->objects.next_id);
+        CHECK(worksheet_column(reference->sheets,0,!deletion,0,&error) && !error); Worksheet *expected=reference->sheets;
+        CHECK(out.cells.count==expected->cells.count && out.objects.count==expected->objects.count && format_snapshot_matches(&expected->formats,&out.formats));
+        for (size_t i=0;i<out.cells.count;i++) CHECK(out.cells.cells[i].row==expected->cells.cells[i].row && out.cells.cells[i].col==expected->cells.cells[i].col && !strcmp(out.cells.cells[i].text,expected->cells.cells[i].text));
+        for (size_t i=0;i<out.objects.count;i++) CHECK(out.objects.items[i].row==expected->objects.items[i].row && out.objects.items[i].col==expected->objects.items[i].col && out.objects.items[i].id==expected->objects.items[i].id);
+        ColumnWidthState widths={0}; CHECK(column_width_capture(expected->view.widths,expected->view.column_count,SIZE_MAX,&widths)==COLUMN_WIDTH_OK && column_width_equal(column_width_view(&widths),column_width_view(&out.widths)));
+        if (mode&4) CHECK(column_width_at(column_width_view(&out.widths),deletion ? 0 : 2)==column_width_bits(123) && column_width_at(column_width_view(&out.widths),16383)==DX_COLUMN_WIDTH_DEFAULT_BITS);
+        CHECK(!strcmp(s->view.columns[1],"Fixed name") && !strcmp(expected->view.columns[1],"Fixed name")); column_width_free(&widths);
+        MixedRangePlan held=out;
+        CHECK(mixed_column_plan(s,&s->analysis,deletion ? 2 : 3,!deletion,SIZE_MAX,SIZE_MAX,&out,NULL)==MIXED_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+        CHECK(mixed_column_plan(s,&s->analysis,16384,!deletion,SIZE_MAX,SIZE_MAX,&out,NULL)==MIXED_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+        s->view.widths[0]=column_width_value(UINT32_C(0x7fc00000)); CHECK(mixed_column_plan(s,&s->analysis,0,!deletion,SIZE_MAX,SIZE_MAX,&out,NULL)==MIXED_RANGE_INVALID && !memcmp(&held,&out,sizeof(out))); s->view.widths[0]=96;
+        workbook_free(reference); free(reference); workbook_free(&b); CHECK(!strcmp(out.objects.items[0].name,"Template")); mixed_range_plan_free(&out);
+    }
+    Workbook b=fixture(false,false); Worksheet *s=b.sheets; MixedRangePlanInfo info={.owned=123};
+    CHECK(mixed_column_measure(s,&s->analysis,16383,true,&info,NULL)==MIXED_RANGE_NOOP && info.owned==123);
+    s->objects.items[1].col=16384-s->objects.items[1].columns;
+    CHECK(mixed_column_measure(s,&s->analysis,0,true,&info,NULL)==MIXED_RANGE_INVALID && info.owned==123);
+    s->objects.items[1].col=20; CHECK(cells_set(&s->cells,100,16383,"Edge",NULL));
+    CHECK(mixed_column_measure(s,&s->analysis,0,true,&info,NULL)==MIXED_RANGE_INVALID && info.owned==123); workbook_free(&b);
+}
 int main(void) {
-    rows();
+    column_projection(); rows();
     for (unsigned mode=0;mode<4;mode++) {
         Workbook b=fixture(mode&1,mode&2); Worksheet *s=b.sheets; Worksheet before=*s; MixedRangePlanInfo info={0}; MixedRangePlan out={0}; SheetRange r={1,5,1,4}; char *error=NULL;
         CHECK(mixed_range_measure(s,&s->analysis,r,10,10,false,&info,&error)==MIXED_RANGE_READY && !error && info.owned);
