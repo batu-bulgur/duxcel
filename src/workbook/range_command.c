@@ -3,6 +3,8 @@
 #include "mixed_range_plan.h"
 #include <stdlib.h>
 #include <string.h>
+/* Target includes all resolver snapshots; caller accounts captured target bytes.
+   Temporary resolver/extent arrays are bounded stack storage, not hidden clones. */
 typedef char RangeTargetStackBound[(sizeof(RangeCommandTarget)<1536u*1024u) ? 1 : -1];
 static bool fail(char **error,const char *message) { if (error) { free(*error); *error=dx_strdup(message); } return false; }
 static Worksheet *resolve(Workbook *b,uint64_t id) { for (size_t i=0;i<b->count;i++) if (b->sheets[i].id==id) return b->sheets+i; return NULL; }
@@ -18,6 +20,55 @@ static bool source_fence(const RangeCommandContext *c,const RangeCommandTarget *
         *p->rows==t->source_rows && *p->columns==t->source_columns && *p->count_pending==t->count_pending && *p->fetch_failed==t->fetch_failed && *p->ready==t->result_ready;
 }
 static RangeCommandStatus source_status(SourceRangeStatus s) { return s==SOURCE_RANGE_READY ? RANGE_COMMAND_READY : s==SOURCE_RANGE_NOOP ? RANGE_COMMAND_NOOP : s==SOURCE_RANGE_PROTECTED ? RANGE_COMMAND_PROTECTED : s==SOURCE_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; }
+static bool resolve_result(const RangeCommandContext *c,const Worksheet *s,uint64_t id,RangeResultProof *out,char **error) {
+    if (!c->results || !c->results->resolve || !c->results->resolve(c->results->context,id,out) || out->object!=id || !out->owner || !out->definition || !out->page || !out->ready || out->failed || out->page->count_pending || out->request!=*c->command.request_epoch) return fail(error,"Wait for the actual complete result owner before moving this range.");
+    if (out->page->offset>out->page->total || out->page->row_count>out->page->total-out->page->offset) return fail(error,"The result row window exceeds its complete count.");
+    const Analysis *definition=c->primary; uint64_t epoch=*c->primary_epoch;
+    const SheetObject *table=NULL;
+    if (id) { for (size_t i=0;i<s->objects.count;i++) if (s->objects.items[i].id==id && s->objects.items[i].kind==OBJECT_TABLE) table=s->objects.items+i;
+        if (!table) return fail(error,"The Table result owner is missing."); definition=&table->source; epoch=table->revision;
+    }
+    if (out->definition!=definition || out->query_epoch!=epoch || out->source_epoch!=epoch || (out->page->column_count && !out->page->columns) || (out->page->row_count && !out->page->cells)) return fail(error,"The result belongs to another definition or query epoch.");
+    if (id) {
+        if (!out->page->column_count || out->page->column_count>16384 || out->page->total>DX_SHEET_ROWS-2) return fail(error,"The complete Table result does not fit the worksheet.");
+        uint64_t rows=out->page->total+2<5 ? 5 : out->page->total+2; size_t columns=out->page->column_count<3 ? 3 : out->page->column_count;
+        if (table->rows!=rows || table->columns!=columns) return fail(error,"The Table footprint does not match its actual complete result.");
+    } else if (out->page->total!=*c->source->rows || out->page->column_count!=*c->source->columns || out->page->count_pending!=*c->source->count_pending || out->failed!=*c->source->fetch_failed) return fail(error,"The primary result policy differs from its actual owner.");
+    return true;
+}
+static bool result_capture(const RangeCommandContext *c,const Worksheet *s,RangeCommandTarget *out,char **error) {
+    if (!c->results) return true;
+    if (!c->source) return fail(error,"Source result proofs require explicit primary policy.");
+    out->results_authority=c->results; out->results=*c->results;
+    for (size_t i=0;i<=s->objects.count;i++) {
+        uint64_t id=0; if (i) { const SheetObject *o=s->objects.items+i-1; if (o->kind!=OBJECT_TABLE) continue; id=o->id; }
+        RangeResultSnapshot *snapshot=out->result+out->result_count;
+        if (!resolve_result(c,s,id,&snapshot->proof,error)) return false;
+        snapshot->definition=*snapshot->proof.definition; snapshot->page=*snapshot->proof.page; out->result_count++;
+    }
+    return true;
+}
+static bool result_fence(const RangeCommandContext *c,const Worksheet *s,const RangeCommandTarget *t,char **error) {
+    if (c->results!=t->results_authority) return false;
+    if (!c->results) return true;
+    if (c->results->resolve!=t->results.resolve || c->results->context!=t->results.context) return false;
+    for (size_t i=0;i<t->result_count;i++) {
+        const RangeResultSnapshot *old=t->result+i; RangeResultProof now={0};
+        if (!resolve_result(c,s,old->proof.object,&now,error) || now.owner!=old->proof.owner || now.definition!=old->proof.definition || now.page!=old->proof.page || now.request!=old->proof.request || now.query_epoch!=old->proof.query_epoch || now.source_epoch!=old->proof.source_epoch || now.ready!=old->proof.ready || now.failed!=old->proof.failed) return false;
+        if (memcmp(now.definition,&old->definition,sizeof(old->definition)) || memcmp(now.page,&old->page,sizeof(old->page))) return false;
+    }
+    return true;
+}
+static bool move_context(const RangeCommandContext *c,const Worksheet *s,SourceTableExtent *tables,SourceMoveContext *out,char **error) {
+    if (!c->source || !c->results) return fail(error,"Source movement requires explicit actual result proofs.");
+    RangeResultProof primary={0}; if (!resolve_result(c,s,0,&primary,error)) return false;
+    size_t count=0;
+    for (size_t i=0;i<s->objects.count;i++) if (s->objects.items[i].kind==OBJECT_TABLE) {
+        const SheetObject *o=s->objects.items+i; RangeResultProof proof={0}; if (!resolve_result(c,s,o->id,&proof,error)) return false;
+        tables[count++]=(SourceTableExtent){o->id,o->rows,o->columns,true,false,false};
+    }
+    *out=(SourceMoveContext){source_context(c,s),tables,count}; return true;
+}
 static bool eligible(const RangeCommandContext *c,const Worksheet *s) {
     if (c->source) return true;
     if (c->primary->kind!=SOURCE_NONE || s->analysis.kind!=SOURCE_NONE || s->formats.source_aware || s->formats.scope_count || s->objects.count>DX_MAX_OBJECTS || (s->objects.count && !s->objects.items)) return false;
@@ -65,7 +116,7 @@ bool workbook_prepare_range_command(RangeCommandContext *c,size_t sheet,RangeCom
     if (s->formats.scope_count) memcpy(out->scopes,s->formats.scopes,s->formats.scope_count*sizeof(*out->scopes));
     WorkbookWidthContext wc=width_fence_context(c);
     if (!workbook_prepare_width_command(&wc,sheet,&out->widths,error)) return false;
-    return true;
+    return result_capture(c,s,out,error);
 }
 RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,size_t sheet,RangeCommand command,RangeCommandPlanInfo *out,char **error) {
     if (!context_valid(c) || !c->command.book || sheet>=c->command.book->count || !out) { fail(error,"Invalid manual range measurement owner."); return RANGE_COMMAND_INVALID; }
@@ -80,7 +131,20 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,s
         } else if (command.operation==RANGE_OPERATION_CLEAR) {
             if (command.text || command.row || command.row_count || command.column || command.column_count || command.dr || command.dc || command.replace) return RANGE_COMMAND_INVALID;
             status=source_range_clear_measure(source_context(c,s),command.range,&source,error);
-        } else { fail(error,"Source-bearing movement and axes require their complete composite owner."); return RANGE_COMMAND_PROTECTED; }
+        } else {
+            SourceTableExtent tables[DX_MAX_OBJECTS]; SourceMoveContext move={0}; MixedRangePlanInfo mixed={0};
+            if (!move_context(c,s,tables,&move,error)) return RANGE_COMMAND_PROTECTED;
+            if (command.text || (command.operation==RANGE_OPERATION_MOVE && (command.row || command.row_count || command.column || command.column_count)) ||
+                (command.operation!=RANGE_OPERATION_MOVE && (command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1 || command.dr || command.dc || command.replace)) ||
+                (columns(command) && (command.column_count!=1 || command.column>=16384 || command.row || command.row_count)) ||
+                (!columns(command) && command.operation!=RANGE_OPERATION_MOVE && (command.column || command.column_count))) return RANGE_COMMAND_INVALID;
+            status=command.operation==RANGE_OPERATION_MOVE ? source_range_move_measure(move,command.range,command.dr,command.dc,command.replace,&mixed,error) : columns(command) ? source_range_column_measure(move,command.column,insert(command),&mixed,error) :
+                (command.operation==RANGE_OPERATION_INSERT_ROWS || command.operation==RANGE_OPERATION_DELETE_ROWS) ? source_range_rows_measure(move,command.row,command.row_count,insert(command),&mixed,error) : SOURCE_RANGE_INVALID;
+            if (status!=SOURCE_RANGE_READY) return status==SOURCE_RANGE_OCCUPIED ? RANGE_COMMAND_OCCUPIED : source_status(status);
+            ObjectSnapshot before={s->objects.items,s->objects.count}; size_t retained=objects_snapshot_owned_bytes(&before),width_owned=0; if (retained==SIZE_MAX) return RANGE_COMMAND_INVALID;
+            if (columns(command)) { ColumnWidthEntry entries[DX_COLUMN_WIDTH_COLUMNS]; ColumnWidthView shifted={0}; ColumnWidthStatus widths=width_axis((Worksheet *)s,command,entries,&shifted,&width_owned); if (widths!=COLUMN_WIDTH_OK && widths!=COLUMN_WIDTH_NOOP) return widths==COLUMN_WIDTH_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; }
+            *out=(RangeCommandPlanInfo){.owned=mixed.owned+retained+2*s->cells.count*sizeof(CellDelta)+width_owned,.validation_scratch=mixed.validation_scratch}; return RANGE_COMMAND_READY;
+        }
         if (status!=SOURCE_RANGE_READY) return source_status(status);
         *out=(RangeCommandPlanInfo){source.owned+(s->cells.count+source.count)*sizeof(CellDelta),source.validation_scratch,source.rows,source.columns}; return RANGE_COMMAND_READY;
     }
@@ -162,6 +226,7 @@ static RangeCommandResult check(RangeCommandContext *c,const RangeCommandTarget 
         memcmp(&s->cells,&t->cells,sizeof(t->cells)) || memcmp(&s->formats,&t->formats,sizeof(t->formats)) || s->cells.count>DX_MAX_EDIT_CELLS ||
         (s->cells.count && memcmp(s->cells.cells,t->entries,s->cells.count*sizeof(*t->entries))) || s->formats.count>DX_FORMAT_PATCHES ||
         (s->formats.count && memcmp(s->formats.items,t->patches,s->formats.count*sizeof(*t->patches))) || s->formats.scope_count>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS || (s->formats.scope_count && memcmp(s->formats.scopes,t->scopes,s->formats.scope_count*sizeof(*t->scopes)))) { r.status=RANGE_COMMAND_STALE; fail(error,"The manual range or its source/format owner changed; prepare again."); return r; }
+    if (!result_fence(c,s,t,error)) { r.status=RANGE_COMMAND_STALE; if (!error || !*error) fail(error,"The actual result owner changed; prepare the range again."); return r; }
     if (!eligible(c,s)) { r.status=RANGE_COMMAND_PROTECTED; fail(error,"The range now needs a source or analytical composite owner."); }
     return r;
 }
@@ -188,7 +253,15 @@ static bool mixed_kind(unsigned effects,EditKind *kind) {
 }
 static RangeCommandResult apply_mixed(RangeCommandContext *c,const RangeCommandTarget *t,RangeCommand command,RangeCommandPlanInfo info,RangeCommandResult r,const WorkbookHistoryRangeRecorder *recorder,char **error) {
     Workbook *b=c->command.book; Worksheet *s=resolve(b,t->owner.owner.sheet_id); MixedRangePlan plan={0}; CellDelta *changes=NULL; void *ticket=NULL; ColumnWidthCommand *widths=NULL;
-    MixedRangeStatus status=command.operation==RANGE_OPERATION_MOVE ? mixed_range_plan(s,c->primary,command.range,command.dr,command.dc,command.replace,info.owned,c->command.validation_reserved,&plan,error) : columns(command) ? mixed_column_plan(s,c->primary,command.column,insert(command),info.owned,c->command.validation_reserved,&plan,error) : mixed_rows_plan(s,c->primary,command.row,command.row_count,insert(command),info.owned,c->command.validation_reserved,&plan,error);
+    MixedRangeStatus status;
+    if (c->source) {
+        SourceTableExtent tables[DX_MAX_OBJECTS]; SourceMoveContext move={0}; SourceRangeStatus planned;
+        if (!move_context(c,s,tables,&move,error)) { r.status=RANGE_COMMAND_PROTECTED; return r; }
+        planned=command.operation==RANGE_OPERATION_MOVE ? source_range_move_plan(move,command.range,command.dr,command.dc,command.replace,info.owned,c->command.validation_reserved,&plan,error) : columns(command) ? source_range_column_plan(move,command.column,insert(command),info.owned,c->command.validation_reserved,&plan,error) : source_range_rows_plan(move,command.row,command.row_count,insert(command),info.owned,c->command.validation_reserved,&plan,error);
+        status=planned==SOURCE_RANGE_READY ? MIXED_RANGE_READY : planned==SOURCE_RANGE_NOOP ? MIXED_RANGE_NOOP : planned==SOURCE_RANGE_LIMIT ? MIXED_RANGE_LIMIT : MIXED_RANGE_INVALID;
+    } else {
+        status=command.operation==RANGE_OPERATION_MOVE ? mixed_range_plan(s,c->primary,command.range,command.dr,command.dc,command.replace,info.owned,c->command.validation_reserved,&plan,error) : columns(command) ? mixed_column_plan(s,c->primary,command.column,insert(command),info.owned,c->command.validation_reserved,&plan,error) : mixed_rows_plan(s,c->primary,command.row,command.row_count,insert(command),info.owned,c->command.validation_reserved,&plan,error);
+    }
     if (status!=MIXED_RANGE_READY) { r.status=status==MIXED_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==MIXED_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; return r; }
     r.effects=plan.effects; EditKind kind;
     if (r.effects&16) {
@@ -214,7 +287,7 @@ static RangeCommandResult apply_mixed(RangeCommandContext *c,const RangeCommandT
     } else if (r.effects&8) { view.sources=&s->source_versions; view.before_formats=format_delta_store_view(&s->formats); view.after_formats=format_delta_snapshot_view(&plan.formats); }
     if (widths) view.widths=column_width_command_pair(widths);
     RangeEventInfo event={0}; RangeEventStatus encoded=range_event_measure(view,c->command.validation_reserved,&event);
-    if (encoded!=RANGE_EVENT_OK) { r.status=encoded==RANGE_EVENT_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancel; }
+    if (encoded!=RANGE_EVENT_OK) { r.status=encoded==RANGE_EVENT_LIMIT ? RANGE_COMMAND_LIMIT : encoded==RANGE_EVENT_UNSUPPORTED ? RANGE_COMMAND_PROTECTED : RANGE_COMMAND_INVALID; goto cancel; }
     if (c->admit && !c->admit(c->admission_context,&prospective,info.owned,info.validation_scratch,error)) { r.status=RANGE_COMMAND_LIMIT; goto cancel; }
     unsigned effects=r.effects; r=check(c,t,error); r.effects=effects; if (r.status!=RANGE_COMMAND_READY) goto cancel; s=resolve(b,t->owner.owner.sheet_id); view.definitions.sources=(r.effects&4) ? &s->source_versions : NULL; if (view.sources) view.sources=&s->source_versions;
     if (recorder) {
@@ -263,7 +336,7 @@ RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,
     if (!format_valid(&s->formats,error) || !source_versions_valid(&s->source_versions,s->objects.next_id,error) || workbook_history_peek(b,false,NULL).status==WORKBOOK_HISTORY_INVALID) {
         r.status=RANGE_COMMAND_INVALID; if (!error || !*error) fail(error,"The current manual range/history ownership is incomplete."); return r;
     }
-    if (s->objects.count && command.operation!=RANGE_OPERATION_PASTE && command.operation!=RANGE_OPERATION_CLEAR) return apply_mixed(c,t,command,info,r,recorder,error);
+    if ((s->objects.count || c->source) && command.operation!=RANGE_OPERATION_PASTE && command.operation!=RANGE_OPERATION_CLEAR) return apply_mixed(c,t,command,info,r,recorder,error);
     CellSnapshot after={0}; FormatSnapshot formats={0}; CellDelta *changes=NULL; void *ticket=NULL; SheetRange range=command.range;
     ColumnWidthCommand *widths=NULL;
     CellRangeStatus planned=command.operation==RANGE_OPERATION_CLEAR ? clear_plan(c,s,command,info,&after,error) : command.operation==RANGE_OPERATION_PASTE ? paste_plan(c,s,command,info,&after,error) : command.operation==RANGE_OPERATION_MOVE ? cells_range_plan(&s->cells,range.r0,range.r1,range.c0,range.c1,command.dr,command.dc,command.replace,info.owned,&after,error) :

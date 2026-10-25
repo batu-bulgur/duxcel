@@ -14,11 +14,25 @@ typedef struct {
     const uint64_t *rows; const size_t *columns;
     const bool *count_pending,*fetch_failed,*ready;
 } RangeSourcePolicy;
+/* Live result association for source MOVE/axes. The resolver borrows current
+   owners afresh after callbacks. The synchronous resolver is read-only, performs
+   no allocation/IO/event dispatch, and cannot reenter or mutate the command.
+   Captured native pointers are never old owners
+   to dereference. Primary object0 and every Table must be resolved. Page headers
+   are fences only, never event payloads or dataset retention. */
+typedef struct {
+    uint64_t object,request,query_epoch,source_epoch;
+    const void *owner; const Analysis *definition; const Page *page;
+    bool ready,failed;
+} RangeResultProof;
+typedef struct { bool (*resolve)(void *context,uint64_t object,RangeResultProof *out); void *context; } RangeResultContext;
+typedef struct { RangeResultProof proof; Analysis definition; Page page; } RangeResultSnapshot;
 typedef struct {
     ObjectCommandContext command;
     const Analysis *primary; const uint64_t *primary_epoch;
     RangeCommandAdmission admit; void *admission_context;
     const RangeSourcePolicy *source;
+    const RangeResultContext *results;
 } RangeCommandContext;
 typedef struct {
     ObjectCommandTarget owner;
@@ -29,6 +43,8 @@ typedef struct {
     const RangeSourcePolicy *source_authority;
     RangeSourcePolicy source; uint64_t source_rows; size_t source_columns;
     bool source_present,count_pending,fetch_failed,result_ready;
+    const RangeResultContext *results_authority; RangeResultContext results;
+    size_t result_count; RangeResultSnapshot result[DX_MAX_OBJECTS+1];
     WorkbookWidthTarget widths;
 } RangeCommandTarget;
 typedef enum { RANGE_OPERATION_MOVE,RANGE_OPERATION_INSERT_ROWS,RANGE_OPERATION_DELETE_ROWS,RANGE_OPERATION_INSERT_COLUMNS,RANGE_OPERATION_DELETE_COLUMNS,RANGE_OPERATION_PASTE,RANGE_OPERATION_CLEAR } RangeCommandOperation;

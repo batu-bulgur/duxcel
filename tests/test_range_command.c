@@ -459,4 +459,106 @@ static void mixed_columns_command(void) {
         CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
     }
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+typedef struct {
+    Workbook b; Analysis primary; Page primary_page,table_page,alternate;
+    Page *live_primary,*live_table; const void *table_owner;
+    uint64_t request,epoch,table_epoch,table_source_epoch,proof_id; bool pending,failed,ready,table_failed,table_ready;
+    RangeSourcePolicy source; RangeResultContext results,other_results; RangeCommandContext c;
+    unsigned mode,published,cancelled; WorkbookHistoryRangeRecorder inner;
+} ResultFixture;
+static bool result_resolve(void *context,uint64_t object,RangeResultProof *out) {
+    ResultFixture *f=context; Worksheet *s=f->b.sheets;
+    if (!object) *out=(RangeResultProof){0,f->request,f->epoch,f->epoch,f->live_primary,f->c.primary,f->live_primary,f->ready,f->failed};
+    else *out=(RangeResultProof){f->proof_id,f->request,f->table_epoch,f->table_source_epoch,f->table_owner,&s->objects.items[0].source,f->live_table,f->table_ready,f->table_failed};
+    return true;
+}
+static void result_fixture(ResultFixture *f) {
+    *f=(ResultFixture){0}; workbook_init(&f->b); CHECK(workbook_add(&f->b,"Results",&(Analysis){0},NULL)); Worksheet *s=f->b.sheets;
+    f->primary=(Analysis){.kind=SOURCE_CSV,.path=dx_strdup("/primary.csv")}; Analysis table={.kind=SOURCE_CSV,.path="/table.csv"};
+    CHECK(objects_add_table(&s->objects,20,8,"Complete Table",&table,NULL)==0); s->objects.items[0].rows=302; s->objects.items[0].columns=3; s->objects.items[0].revision=33; worksheet_record(s,EDIT_OBJECTS);
+    CHECK(cells_set(&s->cells,12,4,"NULL",NULL)); worksheet_record(s,EDIT_CELLS); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD;
+    CHECK(format_apply(&s->formats,(FormatRange){12,321,4,10},FORMAT_BOLD,bold,NULL)); worksheet_record(s,EDIT_FORMAT); s->formats.source_aware=true;
+    f->primary_page=(Page){.total=10,.column_count=3,.columns=dx_alloc(3*sizeof(Column))};
+    f->table_page=(Page){.total=300,.offset=299,.row_count=1,.column_count=2,.columns=dx_alloc(2*sizeof(Column)),.cells=dx_alloc(2*sizeof(Cell)),.sql=dx_strdup("RUNTIME_QUERY_MUST_NOT_BE_RETAINED")};
+    f->table_page.cells[0].is_null=true; f->table_page.cells[1].text=dx_strdup("RUNTIME_CELL_MUST_NOT_BE_RETAINED");
+    f->request=7; f->epoch=4; f->table_epoch=f->table_source_epoch=33; f->proof_id=s->objects.items[0].id; f->ready=f->table_ready=true; f->live_primary=&f->primary_page; f->live_table=&f->table_page; f->table_owner=&f->table_page;
+    f->source=(RangeSourcePolicy){&f->primary_page.total,&f->primary_page.column_count,&f->primary_page.count_pending,&f->failed,&f->ready};
+    f->results=(RangeResultContext){result_resolve,f}; f->other_results=f->results;
+    f->c=context(&f->b,&f->request,&f->epoch); f->c.primary=&f->primary; f->c.source=&f->source; f->c.results=&f->results; f->b.dirty=false;
+}
+static void result_fixture_free(ResultFixture *f) {
+    if (f->primary_page.column_count && !f->primary_page.columns) f->primary_page.columns=dx_alloc(f->primary_page.column_count*sizeof(Column));
+    if (f->table_page.column_count && !f->table_page.columns) f->table_page.columns=dx_alloc(f->table_page.column_count*sizeof(Column));
+    page_free(&f->primary_page); page_free(&f->table_page); page_free(&f->alternate); analysis_free(&f->primary); workbook_free(&f->b); }
+static bool result_reserve(void *context,const WorkbookHistoryRangeRecord *record,void **ticket,char **error) {
+    ResultFixture *f=context; if (!f->inner.reserve(f->inner.context,record,ticket,error)) return false;
+    switch (f->mode) {
+    case 1: f->table_page.total++; break;
+    case 2: f->table_owner=&f->alternate; break;
+    case 3:
+        f->alternate=f->table_page; f->alternate.columns=dx_alloc(2*sizeof(Column)); f->alternate.cells=NULL; f->alternate.row_count=0; f->alternate.sql=NULL;
+        f->live_table=&f->alternate; free(f->table_page.columns); f->table_page.columns=NULL; break;
+    case 4: f->alternate=f->primary_page; f->alternate.columns=dx_alloc(3*sizeof(Column)); f->live_primary=&f->alternate; free(f->primary_page.columns); f->primary_page.columns=NULL; break;
+    case 5: f->request++; break;
+    case 6: f->table_epoch++; break;
+    case 7: f->table_failed=true; break;
+    case 8: f->c.results=&f->other_results; break;
+    case 9: free(f->b.sheets[0].objects.items[0].source.path); f->b.sheets[0].objects.items[0].source.path=dx_strdup("/replacement.csv"); break;
+    case 10: f->primary_page.count_pending=true; break;
+    case 11: f->table_page.count_pending=true; break;
+    case 12: f->proof_id++; break;
+    case 13: f->table_source_epoch++; break;
+    case 14: f->table_ready=false; break;
+    case 15: {
+        Cell *replacement=dx_alloc(2*sizeof(Cell)); free(f->table_page.cells[1].text); free(f->table_page.cells); f->table_page.cells=replacement;
+        f->table_page.cells[0].is_null=true; f->table_page.cells[1].text=dx_strdup("replacement viewport"); break;
+    }
+    case 16: { Column *replacement=dx_alloc(3*sizeof(Column)); free(f->primary_page.columns); f->primary_page.columns=replacement; break; }
+    }
+    return true;
+}
+static void result_publish(void *context,void *ticket) { ResultFixture *f=context; f->published++; f->inner.publish(f->inner.context,ticket); }
+static void result_cancel(void *context,void *ticket) { ResultFixture *f=context; f->cancelled++; f->inner.cancel(f->inner.context,ticket); }
+static bool contains(const void *data,size_t bytes,const char *text) { size_t n=strlen(text); for (size_t i=0;n<=bytes && i<=bytes-n;i++) if (!memcmp((const char *)data+i,text,n)) return true; return false; }
+static void source_move_controller(void) {
+    for (unsigned mode=0;mode<=16;mode++) {
+        ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); f->mode=mode; Worksheet *s=f->b.sheets; RangeCommandTarget *t=target(&f->c);
+        RangeCommand cmd={.operation=RANGE_OPERATION_MOVE,.range={12,321,4,10},.dr=400,.dc=10}; RangeCommandPlanInfo plan={0};
+        CHECK(workbook_range_command_measure(&f->c,0,cmd,&plan,NULL)==RANGE_COMMAND_READY);
+        f->c.command.plan_reserved=plan.owned+plan.validation_scratch-1;
+        CHECK(workbook_apply_range_command_recorded(&f->c,t,cmd,NULL,NULL).status==RANGE_COMMAND_LIMIT && !f->b.command_revision); f->c.command.plan_reserved=SIZE_MAX;
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={f->b.id.high,f->b.id.low,9,VERSION_WORKING_HEAD},.edit_session=f->b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){1,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); f->inner=workbook_history_stream_range_recorder(queue);
+        WorkbookHistoryRangeRecorder recorder={result_reserve,result_publish,result_cancel,f}; CellStore cells=s->cells; FormatStore formats=s->formats;
+        RangeCommandResult applied=workbook_apply_range_command_recorded(&f->c,t,cmd,&recorder,NULL);
+        if (mode) CHECK(applied.status==RANGE_COMMAND_STALE && f->cancelled==1 && !f->published && !f->b.command_revision && !f->b.dirty && s->objects.items[0].row==20 && !memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&formats,&s->formats,sizeof(formats)) && !workbook_history_stream_state(queue).owned_bytes);
+        else {
+            CHECK(applied.status==RANGE_COMMAND_APPLIED && applied.effects==14 && f->published==1 && !f->cancelled && s->objects.items[0].row==420 && !strcmp(cells_get(&s->cells,412,14),"NULL"));
+            WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+            CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==14 && event.unbound_sources==2 && event.definitions.after_objects.objects.items[0].rows==302);
+            CHECK(!contains(workbook_history_event_payload(held),info->bytes,"RUNTIME_QUERY_MUST_NOT_BE_RETAINED") && !contains(workbook_history_event_payload(held),info->bytes,"RUNTIME_CELL_MUST_NOT_BE_RETAINED"));
+            range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+            mixed_history_transfer(s,false); f->b.command_revision++; CHECK(s->objects.items[0].row==20 && !strcmp(cells_get(&s->cells,12,4),"NULL"));
+            free(t); t=target(&f->c); cmd.dr=cmd.dc=0; f->c.command.plan_reserved=f->c.command.validation_reserved=0;
+            CHECK(workbook_apply_range_command_recorded(&f->c,t,cmd,NULL,NULL).status==RANGE_COMMAND_NOOP && s->redo_actions_count==1);
+            f->table_owner=&f->alternate; CHECK(workbook_apply_range_command_recorded(&f->c,t,cmd,NULL,NULL).status==RANGE_COMMAND_STALE);
+        }
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); result_fixture_free(f); free(f);
+    }
+}
+static bool result_prepares(ResultFixture *f) { RangeCommandTarget *t=dx_alloc(sizeof(*t)); bool ready=workbook_prepare_range_command(&f->c,0,t,NULL); free(t); return ready; }
+static void result_readiness(void) {
+    ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); CHECK(result_prepares(f));
+    f->proof_id++; CHECK(!result_prepares(f)); f->proof_id--;
+    f->table_epoch++; CHECK(!result_prepares(f)); f->table_epoch--;
+    f->table_page.count_pending=true; CHECK(!result_prepares(f)); f->table_page.count_pending=false;
+    f->table_page.total=UINT64_MAX; CHECK(!result_prepares(f)); f->table_page.total=300;
+    f->table_page.column_count=16385; CHECK(!result_prepares(f)); f->table_page.column_count=2;
+    f->primary_page.count_pending=true; CHECK(!result_prepares(f)); f->primary_page.count_pending=false;
+    f->alternate=(Page){.column_count=2,.columns=dx_alloc(2*sizeof(Column))}; f->live_table=&f->alternate; f->table_owner=&f->alternate;
+    f->b.sheets[0].objects.items[0].rows=5; CHECK(result_prepares(f));
+    f->b.sheets[0].objects.items[0].rows=3; CHECK(!result_prepares(f)); f->b.sheets[0].objects.items[0].rows=5;
+    f->b.sheets[0].objects.items[0].columns=2; CHECK(!result_prepares(f)); f->b.sheets[0].objects.items[0].columns=3;
+    result_fixture_free(f); free(f);
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
