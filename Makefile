@@ -1049,6 +1049,7 @@ PARALLEL_NATIVE_GOALS = build/tests/test_column_widths build/tests/test_column_w
 	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/test_fixture build/tests/test_fixture-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_paste_command-gui build/tests/test_mixed_range-gui build/tests/test_clear_range-gui build/tests/test_mixed_rows-gui build/tests/test_mixed_columns-gui build/tests/test_template_cells-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_source_versions_admission build/tests/test_source_versions_admission-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_source_dependency_admission build/tests/test_source_dependency_admission-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2241,3 +2242,12 @@ build/tests/test_source_versions_admission: $(SOURCE_ADMISSION_OBJECTS) | build/
 build/tests/test_source_versions_admission-debug: $(SOURCE_ADMISSION_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(SOURCE_ADMISSION_OBJECTS:.o=.d) $(SOURCE_ADMISSION_SAN_OBJECTS:.o=.d)
+
+SOURCE_DEPENDENCY_ADMISSION_SRC = $(filter-out tests/test_definition_dependencies.c,$(DEFINITION_DEPENDENCIES_SRC)) src/workbook/format.c src/workbook/format_delta_codec.c src/workbook/format_dependencies.c src/workbook/source_versions_admission.c src/workbook/source_dependency_admission.c tests/test_source_dependency_admission.c
+SOURCE_DEPENDENCY_ADMISSION_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(SOURCE_DEPENDENCY_ADMISSION_SRC))))
+SOURCE_DEPENDENCY_ADMISSION_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(SOURCE_DEPENDENCY_ADMISSION_SRC))))
+build/tests/test_source_dependency_admission: $(SOURCE_DEPENDENCY_ADMISSION_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_source_dependency_admission-debug: $(SOURCE_DEPENDENCY_ADMISSION_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(SOURCE_DEPENDENCY_ADMISSION_OBJECTS:.o=.d) $(SOURCE_DEPENDENCY_ADMISSION_SAN_OBJECTS:.o=.d)

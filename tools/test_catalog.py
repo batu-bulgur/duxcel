@@ -124,6 +124,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "source-dependency-admission": Feature(("source_dependency_admission", "source_versions_admission", "definition_dependencies", "format_dependencies"), "",
+        ("python3 tools/test.py feature --feature history-definition",),
+        ("src/workbook/source_dependency_admission.c", "src/workbook/source_dependency_admission.h", "tests/test_source_dependency_admission.c")),
+
     "source-subset-admission": Feature(("source_versions_admission", "source_versions_codec"), "",
         ("python3 tools/test.py feature --feature history-definition",),
         ("src/workbook/source_versions_admission.c", "src/workbook/source_versions_admission.h", "tests/test_source_versions_admission.c")),
