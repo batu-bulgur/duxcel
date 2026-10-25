@@ -142,7 +142,7 @@ static void source_results_test_frame(AppSession *session) {
         SR_CHECK(s->objects.items[0].row==1001 && !strcmp(cells_get(&s->cells,2000,16),"Replace destination") && !strcmp(cells_get(&s->cells,1000,16),"9007199254740993.0123456789"));
         /* Replace remains manual-only while all real matrix owners stay fenced. */
         grid_select_cell(&a->grid,1000,16,false); char *error=NULL; SR_CHECK(!request_range_move(a,1000,0,false,&error) && a->replace_manual_target); free(error);
-        source_move_revision=a->book.command_revision; run_action(a,ACTION_REFRESH); SR_CHECK(!confirm_range_replace(a) && !a->replace_manual_target); break;
+        source_move_revision=a->book.command_revision; request_page(a,true); grid_select_cell(&a->grid,1000,16,false); SR_CHECK(!confirm_range_replace(a) && !a->replace_manual_target); break;
     }
     case 20:
         if (a->page.count_pending || a->count_request_id) return;
