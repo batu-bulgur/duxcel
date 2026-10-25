@@ -290,13 +290,21 @@ SheetPresenceStatus sheet_presence_matches(const SheetPresenceAsset *asset,Sheet
     *out=same; return SHEET_PRESENCE_OK;
 }
 
+static size_t authored_columns(const SheetView *v) {
+    size_t count=v->column_count;
+    while (count && !v->columns[count-1][0] && v->widths[count-1]==96) count--;
+    return count;
+}
 SheetPresenceStatus sheet_presence_matches_authored(const SheetPresenceAsset *asset,SheetPresenceView current,bool *out) {
     if (!asset || !out) return SHEET_PRESENCE_INVALID;
-    /* Validate the ACTUAL view before normalization: malformed pan/selection is
-       not silently repaired. Then exclude only navigation scalars. Physical
-       columns, labels and exact widths remain current authored authority. */
+    /* Validate ACTUAL navigation and capacity before normalization. Only valid
+       navigation and the empty/default96 virtual tail are representation-only.
+       Every nonempty label and exact nondefault physical width remains authored. */
     SheetPresenceMeasure measured; SheetPresenceStatus status=sheet_presence_measure(current,&measured); if (status) return status;
-    Worksheet projected=*current.sheet; projected.view=sheet_presence_view(asset).sheet->view;
-    projected.view.columns=current.sheet->view.columns; projected.view.widths=current.sheet->view.widths; projected.view.column_count=current.sheet->view.column_count;
-    current.sheet=&projected; return sheet_presence_matches(asset,current,out);
+    Worksheet expected=asset->snapshot->sheets[0],projected=*current.sheet;
+    expected.view.column_count=authored_columns(&expected.view);
+    projected.view=expected.view;
+    projected.view.columns=current.sheet->view.columns; projected.view.widths=current.sheet->view.widths; projected.view.column_count=authored_columns(&current.sheet->view);
+    Workbook book=*asset->snapshot; book.sheets=&expected; SheetPresenceAsset borrowed={&book};
+    current.sheet=&projected; return sheet_presence_matches(&borrowed,current,out);
 }

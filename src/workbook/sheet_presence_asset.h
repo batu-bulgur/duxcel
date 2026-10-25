@@ -40,7 +40,10 @@ SheetPresenceStatus sheet_presence_measure(SheetPresenceView view,SheetPresenceM
 SheetPresenceStatus sheet_presence_matches(const SheetPresenceAsset *asset,SheetPresenceView current,bool *matches);
 /* Authored replay comparison: validate current navigation, then exclude only
    row/column selection, pan/fraction and zoom scalars. Physical column names and
-   exact committed widths remain authored and compare strictly. No allocation;
+   exact committed widths remain authored and compare strictly. A trailing run
+   of empty labels/default96 widths is implicit virtual capacity, so it may
+   grow/shrink without an authored difference. Strict DXSP still retains it.
+   No allocation;
    malformed view preserves matches. Strict stored-preference API stays above. */
 SheetPresenceStatus sheet_presence_matches_authored(const SheetPresenceAsset *asset,SheetPresenceView current,bool *matches);
 SheetPresenceStatus sheet_presence_capture(SheetPresenceView view,size_t reserved,SheetPresenceAsset **out,char **error);

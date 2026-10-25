@@ -49,13 +49,17 @@ static void replay(WorkbookSheetOperation operation,bool final_revision) {
     c.reserved=usage.staging; CHECK(sheet_topology_replay_prepare(c,&packet,false,order+1,&p,NULL)==SHEET_REPLAY_STALE && !p);
     CHECK(sheet_topology_replay_prepare(c,&packet,false,order,&p,NULL)==SHEET_REPLAY_READY && p);
     current->view.row=456; current->view.col=22; current->view.anchor_row=400; current->view.anchor_col=20; current->view.end_row=500; current->view.end_col=24; current->view.selection=1; current->view.horizontal=64.5f; current->view.canvas_zoom=2;
+    size_t old=current->view.column_count;
+    current->view.columns=dx_realloc(current->view.columns,(old+52)*sizeof(char *)); current->view.widths=dx_realloc(current->view.widths,(old+52)*sizeof(float));
+    for (size_t i=old;i<old+52;i++) { current->view.columns[i]=dx_strdup(""); current->view.widths[i]=96; }
+    current->view.column_count=old+52;
     CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_READY);
     epoch++; CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE); epoch--;
     c.read_only=true; CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_PROTECTED); c.read_only=false;
     WorkbookLifecyclePresence selected; CHECK(workbook_lifecycle_presence(&b,false,&selected));
     Worksheet *s=(Worksheet *)selected.worksheet; char *table=s->analysis.table; s->analysis.table=NULL;
     CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_PROTECTED); s->analysis.table=table;
-    if (s->view.column_count) { char first=s->view.columns[0][0]; s->view.columns[0][0]='Z'; CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE); s->view.columns[0][0]=first; s->view.widths[0]=96; CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE); s->view.widths[0]=1199.75f; }
+    if (s->view.column_count) { char *label=s->view.columns[0]; s->view.columns[0]=dx_strdup("Changed label"); CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE); free(s->view.columns[0]); s->view.columns[0]=label; float width=s->view.widths[0]; s->view.widths[0]=width==96 ? 120 : 96; CHECK(sheet_topology_replay_check(c,p)==SHEET_REPLAY_STALE); s->view.widths[0]=width; }
     c.adoption_reserved=workbook_lifecycle_presence_staging(&b,false)-1;
     CHECK(sheet_topology_replay_apply(c,&p,NULL)==SHEET_REPLAY_LIMIT && p && !memcmp(&b,&before,sizeof(b)) && worksheet_history_high_water()==order);
     c.adoption_reserved=workbook_lifecycle_presence_staging(&b,false); uint64_t revision=b.command_revision,high=b.sheet_high_water; size_t count=b.count;

@@ -188,4 +188,19 @@ static void empty_wire(void) {
     CHECK(view.sheet->id==b.sheets[0].id && !view.sheet->hidden && view.sheet_high_water==b.sheet_high_water);
     sheet_presence_packet_free(&packet); sheet_presence_free(&decoded); sheet_presence_free(&asset); workbook_free(&b);
 }
-int main(void) { empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }
+static void authored_capacity(void) {
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Capacity",&(Analysis){0},NULL));
+    Worksheet *s=b.sheets; s->view.column_count=2; s->view.columns=dx_alloc(4*sizeof(char *)); s->view.widths=dx_alloc(4*sizeof(float));
+    s->view.columns[0]=dx_strdup("Field"); s->view.columns[1]=dx_strdup(""); s->view.widths[0]=128; s->view.widths[1]=96;
+    SheetPresenceView view={b.id,b.sheet_high_water,s,&s->analysis}; SheetPresenceAsset *asset=NULL; bool same=false;
+    CHECK(sheet_presence_capture(view,SIZE_MAX,&asset,NULL)==SHEET_PRESENCE_OK);
+    s->view.columns[2]=dx_strdup(""); s->view.columns[3]=dx_strdup(""); s->view.widths[2]=s->view.widths[3]=96; s->view.column_count=4;
+    CHECK(sheet_presence_matches(asset,view,&same)==SHEET_PRESENCE_OK && !same);
+    CHECK(sheet_presence_matches_authored(asset,view,&same)==SHEET_PRESENCE_OK && same);
+    s->view.widths[3]=96.00001f; CHECK(sheet_presence_matches_authored(asset,view,&same)==SHEET_PRESENCE_OK && !same); s->view.widths[3]=96;
+    free(s->view.columns[3]); s->view.columns[3]=dx_strdup("New field"); CHECK(sheet_presence_matches_authored(asset,view,&same)==SHEET_PRESENCE_OK && !same);
+    free(s->view.columns[2]); free(s->view.columns[3]); s->view.column_count=1;
+    CHECK(sheet_presence_matches_authored(asset,view,&same)==SHEET_PRESENCE_OK && same);
+    sheet_presence_free(&asset); workbook_free(&b);
+}
+int main(void) { authored_capacity(); empty_wire(); wire(); capture(); CHECK(!sheet_presence_view(NULL).sheet); printf("PASS: %u independent sheet presence ownership checks\n",checks); return 0; }
