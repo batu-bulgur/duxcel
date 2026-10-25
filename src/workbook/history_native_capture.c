@@ -62,6 +62,19 @@ static WorkbookHistoryNativeStatus verify(const WorkbookCorePayload *leaf,Check 
     if (status==CORE_PAYLOAD_READY) return HISTORY_NATIVE_READY;
     return status==CORE_PAYLOAD_CANCELLED ? HISTORY_NATIVE_CANCELLED : status==CORE_PAYLOAD_UNSUPPORTED ? HISTORY_NATIVE_UNSUPPORTED : HISTORY_NATIVE_FAILED;
 }
+static WorkbookHistoryNativeStatus check_inputs(const WorkbookHistoryProfile *profile,const WorkbookVersionCoreSet *roots,
+    const WorkbookCorePayload *head,WorkbookHistoryCapturedPosition captured,WorkbookHistoryNativeControl control,char **error) {
+    WorkbookHistoryNativeMeasure m; WorkbookHistoryNativeCaps caps={UINT64_MAX,SIZE_MAX};
+    WorkbookHistoryNativeStatus status=workbook_history_native_measure(profile,roots,head,captured,caps,NULL,&m); if (status) return status;
+    Check check={.control=control,.root=SIZE_MAX}; status=verify(head,&check,error); if (status) return status;
+    const WorkbookVersionIndex *index=workbook_version_core_set_index(roots);
+    for (size_t i=0;i<index->root_count;i++) { check.root=i; status=verify(workbook_version_core_set_leaf(roots,i),&check,error); if (status) return status; }
+    if (cancelled(&check,0)) return HISTORY_NATIVE_CANCELLED;
+    return workbook_history_native_measure(profile,roots,head,captured,caps,NULL,&m);
+}
+WorkbookHistoryNativeStatus workbook_history_native_check(const WorkbookHistoryNativeCapture *c,WorkbookHistoryNativeControl control,char **error) {
+    return c ? check_inputs(c->profile,c->roots,c->head,c->captured,control,error) : HISTORY_NATIVE_INVALID;
+}
 WorkbookHistoryNativeStatus workbook_history_native_take(WorkbookHistoryProfile **profile,WorkbookVersionCoreSet **roots,
     WorkbookCorePayload **head,WorkbookHistoryCapturedPosition captured,WorkbookHistoryNativeCaps caps,
     WorkbookHistoryNativeControl control,WorkbookHistoryNativeCapture **out,char **error) {
@@ -69,10 +82,7 @@ WorkbookHistoryNativeStatus workbook_history_native_take(WorkbookHistoryProfile 
     if (*out && ((*out)->profile==*profile || (*out)->head==*head)) return HISTORY_NATIVE_INVALID;
     WorkbookHistoryNativeMeasure m;
     WorkbookHistoryNativeStatus status=workbook_history_native_measure(*profile,*roots,*head,captured,caps,*out,&m); if (status) return status;
-    Check check={.control=control,.root=SIZE_MAX}; status=verify(*head,&check,error); if (status) return status;
-    const WorkbookVersionIndex *index=workbook_version_core_set_index(*roots);
-    for (size_t i=0;i<index->root_count;i++) { check.root=i; status=verify(workbook_version_core_set_leaf(*roots,i),&check,error); if (status) return status; }
-    if (cancelled(&check,0)) return HISTORY_NATIVE_CANCELLED;
+    status=check_inputs(*profile,*roots,*head,captured,control,error); if (status) return status;
     /* Inputs are exclusively owned/immutable through the worker call. Recheck
        their typed association after the final progress callback, before taking
        ownership; no callbacks or fallible operations follow the handoff. */

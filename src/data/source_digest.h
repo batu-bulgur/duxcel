@@ -1,6 +1,7 @@
 #ifndef DUXCEL_SOURCE_DIGEST_H
 #define DUXCEL_SOURCE_DIGEST_H
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #define DX_SOURCE_DIGEST_BYTES 32u
 #define DX_SOURCE_DIGEST_BUFFER_BYTES 65536u
@@ -46,6 +47,12 @@ bool source_file_identity_same(const SourceFileIdentity *a,const SourceFileIdent
    separately bind this result to its source/reader/schema/request lifetime;
    hashing alone neither activates styles nor verifies an earlier displayed Page.
    Other platforms (including Wasm) explicitly return UNSUPPORTED without I/O. */
+/* Hash an immutable caller-owned span using the same native SDK streaming
+   SHA256, in fixed 64 KiB steps. No IO, allocation, source identity or readiness
+   claim. Buffer remains immutable/readable across callbacks; true cancels.
+   Failure/cancel preserves all 32 output bytes; unsupported elsewhere. */
+SourceDigestStatus source_digest_bytes(const void *data,size_t bytes,SourceDigestCancel cancelled,void *context,
+    unsigned char out[DX_SOURCE_DIGEST_BYTES],char error[DX_SOURCE_DIGEST_ERROR_BYTES]);
 SourceDigestStatus source_digest_file(const char *path,SourceDigestCancel cancelled,void *context,
     SourceDigest *out,char error[DX_SOURCE_DIGEST_ERROR_BYTES]);
 #endif

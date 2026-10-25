@@ -33,6 +33,9 @@ typedef struct {
    Live R+1 can advance independently; publication still needs its separate live
    owner/index fence. A prospective native16/core15 policy does not certify an
    outer file that has not been written; writer/schema activation is excluded.
+   Exact body/document/revision and typed payload closure do not yet prove that
+   the last after-state equals this head or earlier states match checkpoints.
+   Offline semantic applicability proof remains required for usable retained Undo.
    Input residency and existing disk reservations remain charged by their real
    owners. additional_bytes bounds the new/prior wrapper coexistence; no
    input payload/model is copied. physical_bytes bounds complete head+root
@@ -48,6 +51,10 @@ WorkbookHistoryNativeStatus workbook_history_native_measure(const WorkbookHistor
 WorkbookHistoryNativeStatus workbook_history_native_take(WorkbookHistoryProfile **profile,
     WorkbookVersionCoreSet **roots,WorkbookCorePayload **head,WorkbookHistoryCapturedPosition captured,
     WorkbookHistoryNativeCaps caps,WorkbookHistoryNativeControl control,WorkbookHistoryNativeCapture **out,char **error);
+/* Worker-only recheck of the actual capsule owners/leases before consuming
+   their bytes. Does not allocate, publish or renew arbitrary external trust. */
+WorkbookHistoryNativeStatus workbook_history_native_check(const WorkbookHistoryNativeCapture *capture,
+    WorkbookHistoryNativeControl control,char **error);
 const WorkbookHistoryProfile *workbook_history_native_profile(const WorkbookHistoryNativeCapture *capture);
 const WorkbookVersionCoreSet *workbook_history_native_roots(const WorkbookHistoryNativeCapture *capture);
 const WorkbookCorePayload *workbook_history_native_head(const WorkbookHistoryNativeCapture *capture);

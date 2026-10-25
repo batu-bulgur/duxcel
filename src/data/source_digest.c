@@ -57,6 +57,27 @@ SourceDigestStatus source_file_identity(const char *path,SourceFileIdentity *out
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
+SourceDigestStatus source_digest_bytes(const void *data,size_t bytes,SourceDigestCancel cancelled,void *context,
+    unsigned char out[DX_SOURCE_DIGEST_BYTES],char error[DX_SOURCE_DIGEST_ERROR_BYTES]) {
+    if (error) error[0]=0;
+    if (!out || (bytes && !data)) return failure(SOURCE_DIGEST_ERROR,error,"Choose an immutable byte span and digest output.");
+#if !defined(__APPLE__) || defined(__EMSCRIPTEN__)
+    (void)cancelled; (void)context;
+    return failure(SOURCE_DIGEST_UNSUPPORTED,error,"Byte-content verification requires the native macOS SDK; this platform is unsupported.");
+#else
+    CC_SHA256_CTX state; unsigned char digest[DX_SOURCE_DIGEST_BYTES]; size_t at=0;
+    if (CC_SHA256_Init(&state)!=1) return failure(SOURCE_DIGEST_ERROR,error,"The macOS SHA256 verifier could not initialize.");
+    while (at<bytes) {
+        if (cancelled && cancelled(context,(uint64_t)at)) return failure(SOURCE_DIGEST_CANCELLED,error,"Byte-content verification was cancelled.");
+        size_t count=bytes-at; if (count>DX_SOURCE_DIGEST_BUFFER_BYTES) count=DX_SOURCE_DIGEST_BUFFER_BYTES;
+        if (CC_SHA256_Update(&state,(const unsigned char *)data+at,(CC_LONG)count)!=1) return failure(SOURCE_DIGEST_ERROR,error,"The macOS SHA256 verifier could not read the bytes.");
+        at+=count;
+    }
+    if (cancelled && cancelled(context,(uint64_t)at)) return failure(SOURCE_DIGEST_CANCELLED,error,"Byte-content verification was cancelled.");
+    if (CC_SHA256_Final(digest,&state)!=1) return failure(SOURCE_DIGEST_ERROR,error,"The macOS SHA256 verifier could not finish.");
+    memcpy(out,digest,sizeof(digest)); return SOURCE_DIGEST_OK;
+#endif
+}
 SourceDigestStatus source_digest_file(const char *path,SourceDigestCancel cancelled,void *context,SourceDigest *out,char error[DX_SOURCE_DIGEST_ERROR_BYTES]) {
     if (error) error[0]=0;
     if (!path || !*path || !out) return failure(SOURCE_DIGEST_ERROR,error,"Choose a source path and an owned digest result.");
