@@ -1078,6 +1078,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_sheet_session_chronology build/tests/t
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_slot build/tests/test_sheet_history_slot-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_batch build/tests/test_sheet_history_batch-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_applicability build/tests/test_sheet_history_applicability-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_source_range_plan build/tests/test_source_range_plan-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2430,3 +2431,11 @@ build/tests/test_sheet_history_applicability: $(SHEET_HISTORY_APPLICABILITY_OBJE
 build/tests/test_sheet_history_applicability-debug: $(SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_HISTORY_APPLICABILITY_OBJECTS:.o=.d) $(SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS:.o=.d)
+# Guarded source-range projection uses the existing complete model dependency set.
+SOURCE_RANGE_PLAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_OBJECTS)) build/obj/release/cell-command/src/workbook/source_range_plan.o build/obj/release/cell-command/tests/test_source_range_plan.o
+SOURCE_RANGE_PLAN_SAN_OBJECTS = $(filter-out %/tests/test_cell_command.o,$(CELL_COMMAND_TEST_SAN_OBJECTS)) build/obj/sanitize/cell-command/src/workbook/source_range_plan.o build/obj/sanitize/cell-command/tests/test_source_range_plan.o
+build/tests/test_source_range_plan: $(SOURCE_RANGE_PLAN_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $(SOURCE_RANGE_PLAN_OBJECTS) build/web-tests/platform-model.o,$(THREAD_LIBS) -lm)
+build/tests/test_source_range_plan-debug: $(SOURCE_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(SOURCE_RANGE_PLAN_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include build/obj/release/cell-command/src/workbook/source_range_plan.d build/obj/sanitize/cell-command/src/workbook/source_range_plan.d build/obj/release/cell-command/tests/test_source_range_plan.d build/obj/sanitize/cell-command/tests/test_source_range_plan.d
