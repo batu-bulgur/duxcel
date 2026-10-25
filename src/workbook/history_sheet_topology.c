@@ -1,4 +1,4 @@
-#include "history_sheet_topology.h"
+#include "history_sheet_topology_internal.h"
 #include "history_stream_internal.h"
 #include <stdlib.h>
 #include <string.h>
@@ -30,4 +30,12 @@ const void *workbook_history_topology_payload(const WorkbookHistoryTopologyTicke
 void workbook_history_topology_cancel(WorkbookHistoryTopologyTicket **owned) {
     if (!owned || !*owned) return; WorkbookHistoryTopologyTicket *ticket=*owned;
     workbook_history_stream_cancel(ticket->stream,ticket->reservation); free(ticket); *owned=NULL;
+}
+bool workbook_history_topology_belongs(const WorkbookHistoryTopologyTicket *ticket,const WorkbookHistoryStream *stream) { return ticket && ticket->stream==stream; }
+void workbook_history_topology_publish_adopted(WorkbookHistoryTopologyTicket **owned,const Workbook *book) {
+    if (!owned || !*owned || !book) abort(); WorkbookHistoryTopologyTicket *ticket=*owned;
+    const WorkbookHistoryEventInfo *info=workbook_history_topology_info(ticket);
+    if (!info || info->family!=DX_HISTORY_SHEET_TOPOLOGY_FAMILY || info->encoding!=DX_HISTORY_SHEET_TOPOLOGY_PROFILE ||
+        book->id.high!=info->owner.document_high || book->id.low!=info->owner.document_low || book->edit_session_id!=info->edit_session || book->command_revision!=info->revision) abort();
+    workbook_history_stream_publish(ticket->stream,ticket->reservation); free(ticket); *owned=NULL;
 }

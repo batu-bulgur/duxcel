@@ -1,6 +1,8 @@
 #include "sheet_topology_remove.h"
 #include "definition_baseline.h"
 #include "history.h"
+#include "lifecycle.h"
+#include "history_sheet_topology_internal.h"
 #include <stdlib.h>
 #include <string.h>
 struct SheetTopologyRemovePlan {
@@ -37,7 +39,7 @@ static SheetTopologyRemoveStatus measure(SheetTopologyRemoveContext c,uint64_t i
     SheetTopologyRemoveMeasure usage={.owned=sizeof(SheetTopologyRemovePlan)};
     if (!add(&usage.owned,names) || !add(&usage.owned,wire->owned) || !add(&usage.owned,bytes)) return SHEET_REMOVE_LIMIT;
     usage.staging=usage.owned;
-    if (!add(&usage.staging,wire->bytes) || !add(&usage.staging,wire->owned) || !add(&usage.staging,wire->validation_scratch)) return SHEET_REMOVE_LIMIT;
+    if (!add(&usage.staging,bytes) || !add(&usage.staging,wire->owned) || !add(&usage.staging,wire->validation_scratch)) return SHEET_REMOVE_LIMIT;
     usage.reservation=workbook_history_topology_ticket_allocation();
     if (!add(&usage.reservation,wire->owned) || !add(&usage.reservation,wire->validation_scratch)) return SHEET_REMOVE_LIMIT;
     *out=usage; return SHEET_REMOVE_READY;
@@ -90,6 +92,56 @@ SheetTopologyRemoveStatus sheet_topology_remove_reserve(SheetTopologyRemoveConte
     WorkbookHistoryTopologyRecord record={plan->before.document,plan->document_session,plan->revision,plan->revision+1,&plan->packet};
     if (!workbook_history_topology_reserve(stream,&record,reserved,&plan->ticket,error)) return SHEET_REMOVE_LIMIT;
     status=sheet_topology_remove_check(context,plan); if (status!=SHEET_REMOVE_READY) sheet_topology_remove_cancel(plan); return status;
+}
+static SheetTopologyRemoveStatus refresh_navigation(SheetTopologyRemoveContext c,SheetTopologyRemovePlan *p) {
+    uint64_t active=c.book->sheets[c.book->active].id; if (active==p->before.active) return SHEET_REMOVE_READY;
+    if (c.reserved<p->usage.staging) return SHEET_REMOVE_LIMIT;
+    SheetTopologyInfo info;
+    if (sheet_topology_preflight(p->packet.data,p->packet.bytes,&info)!=SHEET_TOPOLOGY_OK) return SHEET_REMOVE_INVALID;
+    SheetLifecycleState before=p->before,after=p->after; before.active=active; after.active=active;
+    if (active==p->sheet) for (size_t i=0;i<after.count;i++) if (!after.sheets[i].hidden) { after.active=after.sheets[i].id; break; }
+    SheetPresencePacket presence={(unsigned char *)p->packet.data+p->packet.bytes-info.presence_bytes,info.presence_bytes};
+    SheetTopologyView event={SHEET_TOPOLOGY_REMOVE,p->sheet,before,after,&presence};
+    /* Only unpublished navigation fallback descriptors change. An older owned
+       reservation is cancelled before replacement; no stream clock advances. */
+    sheet_topology_remove_cancel(p);
+    SheetTopologyStatus status=sheet_topology_capture(event,info.bytes+info.validation_scratch,&p->packet);
+    if (status!=SHEET_TOPOLOGY_OK) return status==SHEET_TOPOLOGY_LIMIT ? SHEET_REMOVE_LIMIT : SHEET_REMOVE_INVALID;
+    p->before.active=before.active; p->after.active=after.active; return SHEET_REMOVE_READY;
+}
+static bool after_matches(const SheetTopologyRemovePlan *p) {
+    const Workbook *b=p->book;
+    if (b->id.high!=p->before.document.high || b->id.low!=p->before.document.low || b->edit_session_id!=p->document_session || b->command_revision!=p->revision+1 ||
+        b->count!=p->after.count || b->sheet_high_water!=p->after.high_water || locate(b,p->sheet)!=b->count || b->active>=b->count || b->sheets[b->active].hidden || b->sheets[b->active].id!=p->after.active ||
+        b->history_branch!=p->order+1 || workbook_lifecycle_latest(b)!=p->order+1 || worksheet_history_high_water()!=p->order+1) return false;
+    for (size_t i=0;i<b->count;i++) if (b->sheets[i].id!=p->after_rows[i].id || b->sheets[i].hidden!=p->after_rows[i].hidden || strcmp(b->sheets[i].name,p->after_rows[i].name)) return false;
+    WorkbookHistoryResult history=workbook_history_peek(b,false,NULL);
+    return (history.status==WORKBOOK_HISTORY_READY || history.status==WORKBOOK_HISTORY_LIMIT) && history.lifecycle && history.sheet_id==p->sheet && history.order==p->order+1;
+}
+static bool cache_coherent(const SheetTopologyRemovePlan *p) {
+    size_t index=locate(p->book,p->sheet); if (index==p->book->count) return false;
+    const Worksheet *sheet=p->book->sheets+index; bool matches=false;
+    return sheet_presence_matches(p->presence,(SheetPresenceView){p->book->id,p->book->sheet_high_water,sheet,&sheet->analysis},&matches)==SHEET_PRESENCE_OK && matches;
+}
+SheetTopologyRemoveStatus sheet_topology_remove_apply(SheetTopologyRemoveContext context,SheetTopologyRemovePlan **owned,WorkbookHistoryStream *stream,size_t reserved,char **error) {
+    if (!owned || !*owned) return SHEET_REMOVE_INVALID; SheetTopologyRemovePlan *p=*owned;
+    SheetTopologyRemoveStatus status=sheet_topology_remove_check(context,p);
+    if (status!=SHEET_REMOVE_READY) { sheet_topology_remove_cancel(p); return status; }
+    if (!cache_coherent(p)) { sheet_topology_remove_cancel(p); fail(error,"Materialize the actual primary through its ownership handoff before removing the sheet."); return SHEET_REMOVE_PROTECTED; }
+    size_t index=locate(context.book,p->sheet),adoption=workbook_lifecycle_remove_staging(context.book,index);
+    if (adoption==SIZE_MAX || adoption>context.adoption_reserved) { sheet_topology_remove_cancel(p); fail(error,"The real worksheet removal allocation is not admitted."); return SHEET_REMOVE_LIMIT; }
+    if (p->ticket && !workbook_history_topology_belongs(p->ticket,stream)) { sheet_topology_remove_cancel(p); return SHEET_REMOVE_INVALID; }
+    status=refresh_navigation(context,p); if (status!=SHEET_REMOVE_READY) { sheet_topology_remove_cancel(p); return status; }
+    if (stream && !p->ticket) { status=sheet_topology_remove_reserve(context,p,stream,reserved,error); if (status!=SHEET_REMOVE_READY) return status; }
+    status=sheet_topology_remove_check(context,p);
+    if (status!=SHEET_REMOVE_READY || !cache_coherent(p)) { sheet_topology_remove_cancel(p); return status==SHEET_REMOVE_READY ? SHEET_REMOVE_PROTECTED : status; }
+    bool changed=false;
+    if (!workbook_sheet_command(context.book,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=index},&changed,error)) { sheet_topology_remove_cancel(p); return SHEET_REMOVE_INVALID; }
+    /* No callbacks, queries, OS calls, validation allocation or fallible work
+       intervene between closed producer adoption and this release-build proof. */
+    if (!changed || !after_matches(p)) abort();
+    if (p->ticket) workbook_history_topology_publish_adopted(&p->ticket,context.book);
+    sheet_topology_remove_free(owned); return SHEET_REMOVE_APPLIED;
 }
 void sheet_topology_remove_cancel(SheetTopologyRemovePlan *plan) { if (plan) workbook_history_topology_cancel(&plan->ticket); }
 void sheet_topology_remove_free(SheetTopologyRemovePlan **owned) {

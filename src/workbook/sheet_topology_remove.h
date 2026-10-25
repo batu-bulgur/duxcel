@@ -8,10 +8,11 @@ typedef struct {
     uint64_t primary_sheet;
     size_t reserved;
     bool ready,read_only;
+    size_t adoption_reserved; /* Separate real DELETE allocation grant. */
 } SheetTopologyRemoveContext;
 typedef struct SheetTopologyRemovePlan SheetTopologyRemovePlan;
 typedef struct { size_t owned,staging,reservation; } SheetTopologyRemoveMeasure;
-typedef enum { SHEET_REMOVE_READY,SHEET_REMOVE_INVALID,SHEET_REMOVE_STALE,SHEET_REMOVE_PROTECTED,SHEET_REMOVE_LIMIT,SHEET_REMOVE_BUSY } SheetTopologyRemoveStatus;
+typedef enum { SHEET_REMOVE_READY,SHEET_REMOVE_INVALID,SHEET_REMOVE_STALE,SHEET_REMOVE_PROTECTED,SHEET_REMOVE_LIMIT,SHEET_REMOVE_BUSY,SHEET_REMOVE_APPLIED } SheetTopologyRemoveStatus;
 /* Genuine existing document/target sessions are required; caller may establish
    them through workbook_prepare_command_session without creating a user action.
    Measure is allocation-free. Plan owns before/after catalog names, actual full
@@ -29,9 +30,23 @@ SheetTopologyRemoveStatus sheet_topology_remove_prepare(SheetTopologyRemoveConte
    live-string dereferences. False/invalid/read-only preserves every owner. */
 SheetTopologyRemoveStatus sheet_topology_remove_check(SheetTopologyRemoveContext context,const SheetTopologyRemovePlan *plan);
 /* Recheck before and after reserve; stale/budget failure cancels any new ticket.
-   Already-reserved plans reject duplicate reservation. No publication API. The
+   Already-reserved plans reject duplicate reservation. Reserve does not publish. The
    stream must outlive the plan/reservation; free cancels it safely. */
 SheetTopologyRemoveStatus sheet_topology_remove_reserve(SheetTopologyRemoveContext context,SheetTopologyRemovePlan *plan,
+    WorkbookHistoryStream *stream,size_t reserved,char **error);
+/* Actual model-only producer: requires the live sheet cache to match the
+   captured actual primary (typed origin/cache handoff remains with caller).
+   Admit lifecycle_remove_staging BEFORE reservation/eviction; reserve optional
+   stream bytes before genuine SHEET_DELETE. Navigation changed since prepare
+   refreshes only unpublished fallback snapshots (under the staging grant),
+   cancelling/replacing any earlier ticket before actual adoption.
+   Recheck all owners and prove the
+   actual catalog/session/revision/history transition before internal publish.
+   No fallible validation/allocation follows successful model adoption. Only an
+   impossible closed-coordinator invariant aborts, in release and sanitizer too.
+   Success consumes plan. Failure preserves book/plan and cancels its ticket.
+   No App/file/retained Undo activation, source IO or fake worksheet cell action. */
+SheetTopologyRemoveStatus sheet_topology_remove_apply(SheetTopologyRemoveContext context,SheetTopologyRemovePlan **plan,
     WorkbookHistoryStream *stream,size_t reserved,char **error);
 void sheet_topology_remove_cancel(SheetTopologyRemovePlan *plan);
 void sheet_topology_remove_free(SheetTopologyRemovePlan **plan);
