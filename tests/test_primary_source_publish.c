@@ -26,8 +26,9 @@ static void publication(void) {
     CHECK(!memcmp(&b,&before,sizeof(b)) && !memcmp(b.sheets,&old,sizeof(old)));
     CHECK(primary_source_publish_prepare(c,&draft,info.coexisting,&plan,NULL)==PRIMARY_PUBLISH_READY && !draft && plan);
     CHECK(!memcmp(&b,&before,sizeof(b)) && !memcmp(b.sheets,&old,sizeof(old)) && !b.lifecycle);
+    const SheetPresenceAsset *borrowed=primary_source_publish_presence(plan); CHECK(borrowed && sheet_presence_view(borrowed).sheet->id==info.prospective_sheet);
     PrimarySourcePublication out={0}; CHECK(primary_source_publish_apply(c,&plan,info.coexisting-1,&out,NULL)==PRIMARY_PUBLISH_LIMIT && plan && !out.sheet);
-    CHECK(!memcmp(&b,&before,sizeof(b)) && primary_source_publish_check(c,plan,NULL)==PRIMARY_PUBLISH_READY);
+    CHECK(!memcmp(&b,&before,sizeof(b)) && primary_source_publish_check(c,plan,NULL)==PRIMARY_PUBLISH_READY && primary_source_publish_presence(plan)==borrowed);
     CHECK(primary_source_publish_apply(c,&plan,info.coexisting,&out,NULL)==PRIMARY_PUBLISH_ADMITTED && !plan);
     CHECK(b.count==2 && b.active==1 && b.sheet_high_water==2 && b.command_revision==before.command_revision+1 && b.dirty && out.sheet==2);
     CHECK(b.sheets[0].id==old.id && b.sheets[0].analysis.path==old.analysis.path && !strcmp(app.path,"/current.csv"));
@@ -97,4 +98,25 @@ static void file_and_demo_publication(void) {
         primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
     }
 }
-int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); printf("PASS: %u primary publication checks\n",checks); return 0; }
+static void prospective_presence_lifetime(void) {
+    Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=12,epoch=4;
+    PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false}; PrimarySourceDraft *draft=resolved(c); PrimarySourcePublishPlan *plan=NULL;
+    CHECK(!primary_source_publish_presence(NULL));
+    CHECK(primary_source_publish_prepare(c,&draft,SIZE_MAX,&plan,NULL)==PRIMARY_PUBLISH_READY);
+    const SheetPresenceAsset *borrowed=primary_source_publish_presence(plan); CHECK(borrowed);
+    SheetPresenceView view=sheet_presence_view(borrowed); SheetPresenceMeasure info={0};
+    CHECK(view.sheet->id==b.sheet_high_water+1 && view.primary->path!=app.path && !strcmp(view.primary->table,"Sales"));
+    CHECK(sheet_presence_measure(view,&info)==SHEET_PRESENCE_OK);
+    SheetPresenceAsset *independent=NULL;
+    CHECK(sheet_presence_capture(view,info.staging-1,&independent,NULL)==SHEET_PRESENCE_LIMIT && !independent && primary_source_publish_presence(plan)==borrowed);
+    CHECK(sheet_presence_capture(view,info.staging,&independent,NULL)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_view(independent).primary->path!=view.primary->path && sheet_presence_view(independent).sheet->name!=view.sheet->name);
+    request++; CHECK(primary_source_publish_check(c,plan,NULL)==PRIMARY_PUBLISH_STALE);
+    CHECK(primary_source_publish_presence(plan)==borrowed && !strcmp(sheet_presence_view(borrowed).primary->table,"Sales"));
+    PrimarySourcePublication out={0}; CHECK(primary_source_publish_apply(c,&plan,SIZE_MAX,&out,NULL)==PRIMARY_PUBLISH_STALE && !out.sheet && b.count==1);
+    primary_source_publish_cancel(&plan); analysis_free(&app); workbook_free(&b);
+    view=sheet_presence_view(independent);
+    CHECK(view.sheet->id==2 && !strcmp(view.sheet->name,"Current (2)") && !strcmp(view.primary->path,"/next.duckdb") && !strcmp(view.primary->table,"Sales"));
+    sheet_presence_free(&independent); CHECK(!independent);
+}
+int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); prospective_presence_lifetime(); printf("PASS: %u primary publication checks\n",checks); return 0; }

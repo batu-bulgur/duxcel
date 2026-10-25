@@ -33,6 +33,14 @@ PrimarySourcePublishStatus primary_source_publish_measure(PrimarySourceDraftCont
    rejection leaves draft, old plan and book untouched. out must be empty. */
 PrimarySourcePublishStatus primary_source_publish_prepare(PrimarySourceDraftContext context,
     PrimarySourceDraft **draft,size_t reserved,PrimarySourcePublishPlan **out,char **error);
+/* Borrow the independent immutable prospective presence while a prepared plan
+   still owns its source draft. It contains the unpublished prospective ID, not
+   a live assignment. Cancellation/apply ends the borrow. This getter neither
+   checks the current lease nor authorizes publication: a topology controller
+   must independently copy/reserve its event, and both current owners must be
+   rechecked before the actual producer. Stale plans may still be inspected as
+   values; they cannot be adopted or used to reset a changed authored preimage. */
+const SheetPresenceAsset *primary_source_publish_presence(const PrimarySourcePublishPlan *plan);
 PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContext context,
     const PrimarySourcePublishPlan *plan,char **error);
 /* Recheck the exact probe lease and reservation, then take the source immediately

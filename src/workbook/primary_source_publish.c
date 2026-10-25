@@ -54,6 +54,9 @@ PrimarySourcePublishStatus primary_source_publish_prepare(PrimarySourceDraftCont
     PrimarySourcePublishPlan *plan=dx_alloc(sizeof(*plan)); *plan=(PrimarySourcePublishPlan){.draft=*draft,.presence=presence,.info=info,.seal=seal};
     *draft=NULL; *out=plan; return PRIMARY_PUBLISH_READY;
 }
+const SheetPresenceAsset *primary_source_publish_presence(const PrimarySourcePublishPlan *plan) {
+    return plan && plan->draft ? plan->presence : NULL;
+}
 PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContext c,const PrimarySourcePublishPlan *plan,char **error) {
     if (!plan || !plan->draft) return fail(PRIMARY_PUBLISH_INVALID,error,"The unpublished creation plan has no live source lease.");
     return draft_status(primary_source_draft_check(c,plan->draft,error));
