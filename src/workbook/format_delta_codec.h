@@ -14,7 +14,11 @@ typedef struct {
     bool source_aware;
 } FormatSnapshotView;
 typedef struct { uint64_t sheet; FormatSnapshot before,after; } FormatDelta;
-typedef struct { uint64_t sheet; size_t before_bytes,after_bytes,owned,validation_scratch; } FormatDeltaInfo;
+typedef struct {
+    uint64_t sheet;
+    size_t before_bytes,after_bytes,owned,validation_scratch;
+    size_t before_scopes,after_scopes; /* Existing inspector counts for serial dependency scratch. */
+} FormatDeltaInfo;
 typedef enum { FORMAT_DELTA_OK,FORMAT_DELTA_NOOP,FORMAT_DELTA_INVALID,FORMAT_DELTA_LIMIT,FORMAT_DELTA_UNSUPPORTED } FormatDeltaStatus;
 /* The existing DXFD encoding1 snapshot body, exposed for complete owned
    presence components. It is NOT a second archive/event or a changed-pair

@@ -80,7 +80,7 @@ static bool charge(size_t *total,size_t bytes) {
     if (bytes>DX_FORMAT_CURRENT_BYTES-*total) return false;
     *total+=bytes; return true;
 }
-static bool read_snapshot(const void *data,size_t bytes,FormatSnapshot *out,size_t *owned,size_t *scratch) {
+static bool read_snapshot(const void *data,size_t bytes,FormatSnapshot *out,size_t *owned,size_t *scratch,size_t *scope_count) {
     Reader r={data,bytes,0,true}; unsigned mode=(unsigned)get(&r,1); unsigned reserved=(unsigned)get(&r,1);
     size_t count=(size_t)get(&r,2); size_t scopes=(size_t)get(&r,2); reserved|=(unsigned)get(&r,2);
     if (!r.ok || mode>1 || reserved || count>DX_FORMAT_PATCHES || scopes>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS) return false;
@@ -120,6 +120,7 @@ static bool read_snapshot(const void *data,size_t bytes,FormatSnapshot *out,size
     if (!r.ok || r.at!=r.bytes) return false;
     if (owned) *owned=total;
     if (scratch) *scratch=scopes>DX_FORMAT_GUARDS ? scopes*sizeof(const FormatScope *) : 0;
+    if (scope_count) *scope_count=scopes;
     return true;
 }
 void format_delta_free(FormatDelta *delta) {
@@ -135,9 +136,10 @@ FormatDeltaStatus format_delta_preflight(const void *data,size_t bytes,FormatDel
         before>DX_FORMAT_CURRENT_BYTES+DX_FORMAT_SNAPSHOT_HEADER_BYTES || after>DX_FORMAT_CURRENT_BYTES+DX_FORMAT_SNAPSHOT_HEADER_BYTES ||
         before+after!=bytes-DX_FORMAT_DELTA_HEADER_BYTES) return FORMAT_DELTA_INVALID;
     const unsigned char *a=(const unsigned char *)data+DX_FORMAT_DELTA_HEADER_BYTES,*b=a+before;
-    size_t owned_a=0,owned_b=0,scratch_a=0,scratch_b=0;
-    if (!read_snapshot(a,before,NULL,&owned_a,&scratch_a) || !read_snapshot(b,after,NULL,&owned_b,&scratch_b)) return FORMAT_DELTA_INVALID;
-    *out=(FormatDeltaInfo){sheet,before,after,owned_a+owned_b,scratch_a>scratch_b ? scratch_a : scratch_b}; return FORMAT_DELTA_OK;
+    size_t owned_a=0,owned_b=0,scratch_a=0,scratch_b=0,scopes_a=0,scopes_b=0;
+    if (!read_snapshot(a,before,NULL,&owned_a,&scratch_a,&scopes_a) || !read_snapshot(b,after,NULL,&owned_b,&scratch_b,&scopes_b)) return FORMAT_DELTA_INVALID;
+    *out=(FormatDeltaInfo){.sheet=sheet,.before_bytes=before,.after_bytes=after,.owned=owned_a+owned_b,
+        .validation_scratch=scratch_a>scratch_b ? scratch_a : scratch_b,.before_scopes=scopes_a,.after_scopes=scopes_b}; return FORMAT_DELTA_OK;
 }
 FormatDeltaStatus format_delta_decode(const void *data,size_t bytes,size_t reserved,FormatDelta *out) {
     if (!out) return FORMAT_DELTA_INVALID;
@@ -146,7 +148,7 @@ FormatDeltaStatus format_delta_decode(const void *data,size_t bytes,size_t reser
     if (info.owned>reserved || info.validation_scratch>reserved-info.owned) return FORMAT_DELTA_LIMIT;
     const unsigned char *a=(const unsigned char *)data+DX_FORMAT_DELTA_HEADER_BYTES,*b=a+info.before_bytes;
     FormatDelta next={.sheet=info.sheet};
-    if (!read_snapshot(a,info.before_bytes,&next.before,NULL,NULL) || !read_snapshot(b,info.after_bytes,&next.after,NULL,NULL) ||
+    if (!read_snapshot(a,info.before_bytes,&next.before,NULL,NULL,NULL) || !read_snapshot(b,info.after_bytes,&next.after,NULL,NULL,NULL) ||
         !valid(format_delta_snapshot_view(&next.before)) || !valid(format_delta_snapshot_view(&next.after)) ||
         same(format_delta_snapshot_view(&next.before),format_delta_snapshot_view(&next.after))) {
         format_delta_free(&next); return FORMAT_DELTA_INVALID;
@@ -192,7 +194,7 @@ FormatDeltaStatus format_snapshot_body_encode(FormatSnapshotView v,size_t reserv
 }
 FormatDeltaStatus format_snapshot_body_preflight(const void *data,size_t bytes,FormatSnapshotBodyInfo *out) {
     if (!data || !out || bytes<DX_FORMAT_SNAPSHOT_HEADER_BYTES || bytes>DX_FORMAT_CURRENT_BYTES+DX_FORMAT_SNAPSHOT_HEADER_BYTES) return FORMAT_DELTA_INVALID;
-    size_t owned=0,scratch=0; if (!read_snapshot(data,bytes,NULL,&owned,&scratch)) return FORMAT_DELTA_INVALID;
+    size_t owned=0,scratch=0; if (!read_snapshot(data,bytes,NULL,&owned,&scratch,NULL)) return FORMAT_DELTA_INVALID;
     *out=(FormatSnapshotBodyInfo){bytes,owned,scratch}; return FORMAT_DELTA_OK;
 }
 FormatDeltaStatus format_snapshot_body_decode(const void *data,size_t bytes,size_t reserved,FormatSnapshot *out) {
@@ -200,6 +202,6 @@ FormatDeltaStatus format_snapshot_body_decode(const void *data,size_t bytes,size
     FormatSnapshotBodyInfo info; FormatDeltaStatus status=format_snapshot_body_preflight(data,bytes,&info); if (status) return status;
     if (info.owned>reserved || info.validation_scratch>reserved-info.owned) return FORMAT_DELTA_LIMIT;
     FormatSnapshot next={0};
-    if (!read_snapshot(data,bytes,&next,NULL,NULL) || !valid(format_delta_snapshot_view(&next))) { format_snapshot_free(&next); return FORMAT_DELTA_INVALID; }
+    if (!read_snapshot(data,bytes,&next,NULL,NULL,NULL) || !valid(format_delta_snapshot_view(&next))) { format_snapshot_free(&next); return FORMAT_DELTA_INVALID; }
     format_snapshot_free(out); *out=next; return FORMAT_DELTA_OK;
 }

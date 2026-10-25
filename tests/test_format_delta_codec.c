@@ -16,7 +16,7 @@ static unsigned char *encode(uint64_t sheet,const FormatStore *a,const FormatSto
     unsigned char *wire=dx_alloc(*bytes+1); memset(wire,0xa5,*bytes+1); size_t written=0;
     CHECK(format_delta_encode(sheet,format_delta_store_view(a),format_delta_store_view(b),wire,*bytes,&written)==FORMAT_DELTA_OK && written==*bytes && wire[*bytes]==0xa5);
     FormatDeltaInfo info={0}; CHECK(format_delta_preflight(wire,*bytes,&info)==FORMAT_DELTA_OK && info.sheet==sheet &&
-        info.before_bytes+info.after_bytes+DX_FORMAT_DELTA_HEADER_BYTES==*bytes && info.owned==format_owned_bytes(a,false)+format_owned_bytes(b,false));
+        info.before_bytes+info.after_bytes+DX_FORMAT_DELTA_HEADER_BYTES==*bytes && info.owned==format_owned_bytes(a,false)+format_owned_bytes(b,false) && info.before_scopes==a->scope_count && info.after_scopes==b->scope_count);
     FormatDeltaInfo prior=info;
     CHECK(format_delta_preflight(wire,5,&info)==FORMAT_DELTA_INVALID && !memcmp(&prior,&info,sizeof(prior)));
     CHECK(format_delta_preflight(wire,*bytes,NULL)==FORMAT_DELTA_INVALID);
@@ -187,7 +187,25 @@ static void test_complete_body(void) {
     CHECK(format_snapshot_body_decode(body,info.bytes,info.owned+info.validation_scratch,&owned)==FORMAT_DELTA_OK && owned.scope_count==40);
     free(body); format_snapshot_free(&owned); format_free(&current); format_free(&empty);
 }
+static void test_scope_count_bounds(void) {
+    FormatStore empty={0},maximum={.source_aware=true}; const size_t count=DX_FORMAT_PATCHES*DX_FORMAT_GUARDS;
+    maximum.scope_count=count; maximum.scopes=dx_alloc(count*sizeof(*maximum.scopes));
+    for (size_t i=0;i<count;i++) maximum.scopes[i]=(FormatScope){i,dx_strdup("x"),1};
+    CHECK(format_valid(&maximum,NULL));
+    for (unsigned reverse=0;reverse<2;reverse++) {
+        size_t bytes=0; unsigned char *wire=encode(7,reverse ? &maximum : &empty,reverse ? &empty : &maximum,&bytes);
+        FormatDeltaInfo info={0}; CHECK(format_delta_preflight(wire,bytes,&info)==FORMAT_DELTA_OK &&
+            info.before_scopes==(reverse ? count : 0) && info.after_scopes==(reverse ? 0 : count));
+        FormatDelta delta={0}; CHECK(format_delta_decode(wire,bytes,info.owned+info.validation_scratch,&delta)==FORMAT_DELTA_OK &&
+            delta.before.scope_count==info.before_scopes && delta.after.scope_count==info.after_scopes);
+        FormatDeltaInfo prior=info; size_t at=DX_FORMAT_DELTA_HEADER_BYTES+(reverse ? 0 : info.before_bytes)+4;
+        put(wire+at,count+1,2);
+        CHECK(format_delta_preflight(wire,bytes,&info)==FORMAT_DELTA_INVALID && !memcmp(&prior,&info,sizeof(info)));
+        format_delta_free(&delta); free(wire);
+    }
+    format_free(&maximum);
+}
 int main(void) {
-    test_complete_body(); test_oracle(); test_scoped_membership(); test_memory_and_membership_limits();
+    test_scope_count_bounds(); test_complete_body(); test_oracle(); test_scoped_membership(); test_memory_and_membership_limits();
     printf("PASS: %u closed owned scoped-format payload codec checks\n",checks); return 0;
 }
