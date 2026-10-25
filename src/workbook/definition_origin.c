@@ -157,6 +157,159 @@ DefinitionOriginStatus definition_origin_complete(DefinitionOriginContext *c,Def
     Analysis *selected=source(s,c->primary,r->owner); free(selected->schema); selected->schema=schema; selected->table=table; c->book->dirty=true;
     capture(p,c,s); p->epoch++; return DEFINITION_ORIGIN_APPLIED;
 }
+struct DefinitionOriginHandoff {
+    DefinitionOrigin *origin;
+    DefinitionOriginHandoffRequest request;
+    DefinitionOriginHandoffInfo info;
+    Analysis *authority;
+    Analysis before_primary,before_cached,before_destination,candidate;
+    bool cloned;
+};
+static DefinitionOriginHandoffStatus handoff_status(DefinitionOriginStatus status) {
+    switch (status) {
+    case DEFINITION_ORIGIN_READY: return DEFINITION_HANDOFF_READY;
+    case DEFINITION_ORIGIN_STALE: return DEFINITION_HANDOFF_STALE;
+    case DEFINITION_ORIGIN_PROTECTED: return DEFINITION_HANDOFF_PROTECTED;
+    case DEFINITION_ORIGIN_LIMIT: return DEFINITION_HANDOFF_LIMIT;
+    default: return DEFINITION_HANDOFF_INVALID;
+    }
+}
+static bool handoff_add(size_t *value,size_t extra) { if (*value>SIZE_MAX-extra) return false; *value+=extra; return true; }
+static bool handoff_overlap(uintptr_t a,size_t an,uintptr_t b,size_t bn) { return an && bn && (a<=b ? b-a<an : a-b<bn); }
+#define ORIGIN_ANALYSIS_TEXTS (9+2*(DX_ANALYSIS_FILTERS-1)+(DX_ANALYSIS_SORTS-1))
+typedef struct { uintptr_t first; size_t bytes; } OriginTextRange;
+static bool handoff_texts(const Analysis *a,OriginTextRange ranges[3*ORIGIN_ANALYSIS_TEXTS],size_t *count,size_t *owned) {
+    const char *texts[ORIGIN_ANALYSIS_TEXTS]={a->path,a->schema,a->table,a->query,a->filter_column,a->filter_value,a->group_column,a->measure_column,a->sort_column};
+    size_t at=9;
+    for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) { texts[at++]=a->filters[i].column; texts[at++]=a->filters[i].value; }
+    for (size_t i=0;i<DX_ANALYSIS_SORTS-1;i++) texts[at++]=a->sorts[i].column;
+    *owned=sizeof(*a);
+    for (size_t i=0;i<at;i++) if (texts[i]) {
+        size_t bytes=strlen(texts[i])+1; uintptr_t first=(uintptr_t)texts[i];
+        if (first>UINTPTR_MAX-bytes || *count>=3*ORIGIN_ANALYSIS_TEXTS || !handoff_add(owned,bytes) || handoff_overlap(first,bytes,(uintptr_t)a,sizeof(*a))) return false;
+        for (size_t j=0;j<*count;j++) if (handoff_overlap(first,bytes,ranges[j].first,ranges[j].bytes)) return false;
+        ranges[(*count)++]=(OriginTextRange){first,bytes};
+    }
+    return true;
+}
+static bool handoff_external_destination(const Workbook *book,const DefinitionOrigin *p,const Analysis *destination) {
+    uintptr_t at=(uintptr_t)destination;
+    if (!destination || handoff_overlap(at,sizeof(*destination),(uintptr_t)book,sizeof(*book)) ||
+        handoff_overlap(at,sizeof(*destination),(uintptr_t)p,sizeof(*p)) ||
+        handoff_overlap(at,sizeof(*destination),(uintptr_t)book->sheets,book->count*sizeof(Worksheet))) return false;
+    for (size_t i=0;i<book->count;i++) {
+        const ObjectStore *objects=&book->sheets[i].objects;
+        if (objects->count>DX_MAX_OBJECTS || objects->undo_count>32 || objects->redo_count>32 ||
+            handoff_overlap(at,sizeof(*destination),(uintptr_t)objects->items,objects->count*sizeof(SheetObject))) return false;
+        for (size_t h=0;h<2;h++) {
+            const ObjectSnapshot *states=h ? objects->redo : objects->undo; size_t count=h ? objects->redo_count : objects->undo_count;
+            for (size_t j=0;j<count;j++) if (states[j].count>DX_MAX_OBJECTS || handoff_overlap(at,sizeof(*destination),(uintptr_t)states[j].items,states[j].count*sizeof(SheetObject))) return false;
+        }
+    }
+    return true;
+}
+static DefinitionOriginHandoffStatus handoff_measure(DefinitionOriginContext *c,const DefinitionOrigin *p,DefinitionOriginHandoffRequest request,
+    DefinitionOriginHandoffInfo *out,bool *cloned,char **error) {
+    if (!context_valid(c) || !p || !out || !cloned || (unsigned)request.operation>DEFINITION_HANDOFF_RESUME_TO_APP ||
+        (request.operation!=DEFINITION_HANDOFF_RESUME_TO_APP && request.destination)) {
+        fail(error,"Choose a typed Analysis ownership handoff."); return DEFINITION_HANDOFF_INVALID;
+    }
+    if (p->phase==DEFINITION_ORIGIN_ADMITTED) return DEFINITION_HANDOFF_ADMITTED;
+    DefinitionOriginStatus checked=check(c,p,error); if (checked!=DEFINITION_ORIGIN_READY) return handoff_status(checked);
+    if (p->epoch==UINT64_MAX) { fail(error,"The origin handoff epoch is exhausted."); return DEFINITION_HANDOFF_LIMIT; }
+    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); Analysis *cache=&s->analysis;
+    if ((request.operation==DEFINITION_HANDOFF_SUSPEND_TO_SHEET && c->primary==cache) ||
+        (request.operation==DEFINITION_HANDOFF_RESUME_TO_APP && (c->primary!=cache || !request.destination || request.destination==cache || !handoff_external_destination(c->book,p,request.destination)))) {
+        fail(error,"Choose the actual App authority or an independent external App destination."); return DEFINITION_HANDOFF_INVALID;
+    }
+    OriginTextRange ranges[3*ORIGIN_ANALYSIS_TEXTS]; size_t count=0,live=0,cached=0;
+    if (!handoff_texts(c->primary,ranges,&count,&live) || (c->primary!=cache && (!handoff_texts(cache,ranges,&count,&cached) || !handoff_add(&live,cached)))) {
+        fail(error,"Analysis handoff text ownership must be independent."); return DEFINITION_HANDOFF_INVALID;
+    }
+    if (request.destination) {
+        AnalysisAssetMeasure destination={0}; size_t bytes=0;
+        if (!analysis_numbers(request.destination) || analysis_asset_measure(s->id,0,request.destination,s->objects.next_id,&destination)!=ANALYSIS_ASSET_OK ||
+            !handoff_texts(request.destination,ranges,&count,&bytes) || !handoff_add(&live,bytes)) {
+            fail(error,"The external App destination has invalid or shared ownership."); return DEFINITION_HANDOFF_INVALID;
+        }
+    }
+    for (size_t i=0;i<count;i++) if (handoff_overlap(ranges[i].first,ranges[i].bytes,(uintptr_t)c->primary,sizeof(Analysis)) ||
+        handoff_overlap(ranges[i].first,ranges[i].bytes,(uintptr_t)cache,sizeof(Analysis)) ||
+        (request.destination && handoff_overlap(ranges[i].first,ranges[i].bytes,(uintptr_t)request.destination,sizeof(Analysis)))) {
+        fail(error,"Analysis handoff locations overlap owned text."); return DEFINITION_HANDOFF_INVALID;
+    }
+    bool copy=request.operation==DEFINITION_HANDOFF_RESUME_TO_APP ||
+        (request.operation==DEFINITION_HANDOFF_CACHE_SYNC && !definition_analysis_equal(c->primary,cache));
+    size_t text=copy ? analysis_text_bytes(c->primary) : 0;
+    DefinitionOriginHandoffInfo info={.owned=sizeof(DefinitionOriginHandoff),.origin_epoch=p->epoch,.request=*c->request_epoch,.primary_epoch=*c->primary_epoch};
+    if (text==SIZE_MAX || !handoff_add(&info.owned,text) || (copy && (!handoff_add(&info.clone_owned,sizeof(Analysis)) || !handoff_add(&info.clone_owned,text))) ||
+        !handoff_add(&live,info.owned)) { fail(error,"Analysis handoff ownership charge overflow."); return DEFINITION_HANDOFF_LIMIT; }
+    info.coexisting=live; *out=info; *cloned=copy; return DEFINITION_HANDOFF_READY;
+}
+DefinitionOriginHandoffStatus definition_origin_handoff_measure(DefinitionOriginContext *c,const DefinitionOrigin *p,DefinitionOriginHandoffRequest request,DefinitionOriginHandoffInfo *out,char **error) {
+    if (!out) { fail(error,"Choose an Analysis handoff measurement."); return DEFINITION_HANDOFF_INVALID; }
+    DefinitionOriginHandoffInfo info={0}; bool cloned=false; DefinitionOriginHandoffStatus status=handoff_measure(c,p,request,&info,&cloned,error);
+    if (status==DEFINITION_HANDOFF_READY) *out=info; return status;
+}
+DefinitionOriginHandoffStatus definition_origin_handoff_prepare(DefinitionOriginContext *c,DefinitionOrigin *p,DefinitionOriginHandoffRequest request,size_t reserved,DefinitionOriginHandoff **out,char **error) {
+    if (!out || *out) { fail(error,"Choose an empty Analysis handoff ticket."); return DEFINITION_HANDOFF_INVALID; }
+    DefinitionOriginHandoffInfo info={0}; bool cloned=false; DefinitionOriginHandoffStatus status=handoff_measure(c,p,request,&info,&cloned,error);
+    if (status!=DEFINITION_HANDOFF_READY) return status;
+    if (info.owned>reserved) { fail(error,"The Analysis handoff exceeds its admitted ownership budget."); return DEFINITION_HANDOFF_LIMIT; }
+    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); DefinitionOriginHandoff *plan=dx_alloc(sizeof(*plan));
+    *plan=(DefinitionOriginHandoff){.origin=p,.request=request,.info=info,.authority=c->primary,.before_primary=*c->primary,.before_cached=s->analysis,.cloned=cloned};
+    if (request.destination) plan->before_destination=*request.destination;
+    if (cloned) plan->candidate=analysis_copy(c->primary);
+    *out=plan; return DEFINITION_HANDOFF_READY;
+}
+static void handoff_numbers(Analysis *to,const Analysis *from) {
+    to->filter_number=from->filter_number;
+    for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) to->filters[i].number=from->filters[i].number;
+}
+DefinitionOriginHandoffStatus definition_origin_handoff_check(DefinitionOriginContext *c,DefinitionOrigin *p,const DefinitionOriginHandoff *plan,char **error) {
+    if (!context_valid(c) || !p || !plan) { fail(error,"Choose a prepared Analysis handoff."); return DEFINITION_HANDOFF_INVALID; }
+    if (p->phase==DEFINITION_ORIGIN_ADMITTED) return DEFINITION_HANDOFF_ADMITTED;
+    if (plan->origin!=p || plan->info.origin_epoch!=p->epoch || plan->authority!=c->primary || plan->info.request!=*c->request_epoch || plan->info.primary_epoch!=*c->primary_epoch) {
+        fail(error,"The prepared Analysis handoff owner or runtime ticket changed."); return DEFINITION_HANDOFF_STALE;
+    }
+    DefinitionOriginStatus checked=check(c,p,error); if (checked!=DEFINITION_ORIGIN_READY) return handoff_status(checked);
+    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); Analysis empty; memset(&empty,0,sizeof(empty));
+    if (memcmp(c->primary,&plan->before_primary,sizeof(Analysis)) || memcmp(&s->analysis,&plan->before_cached,sizeof(Analysis)) ||
+        (plan->request.destination && memcmp(plan->request.destination,&empty,sizeof(Analysis)) && memcmp(plan->request.destination,&plan->before_destination,sizeof(Analysis)))) {
+        fail(error,"Analysis ownership or inference changed after handoff preparation."); return DEFINITION_HANDOFF_STALE;
+    }
+    if (p->epoch==UINT64_MAX) { fail(error,"The origin handoff epoch is exhausted."); return DEFINITION_HANDOFF_LIMIT; }
+    return DEFINITION_HANDOFF_READY;
+}
+DefinitionOriginHandoffStatus definition_origin_handoff_adopt(DefinitionOriginContext *c,DefinitionOrigin *p,DefinitionOriginHandoff **ticket,char **error) {
+    if (!ticket || !*ticket) { fail(error,"Choose a prepared Analysis handoff."); return DEFINITION_HANDOFF_INVALID; }
+    DefinitionOriginHandoff *plan=*ticket;
+    DefinitionOriginHandoffStatus ready=definition_origin_handoff_check(c,p,plan,error); if (ready!=DEFINITION_HANDOFF_READY) return ready;
+    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); Analysis empty; memset(&empty,0,sizeof(empty));
+    if (plan->request.destination && memcmp(plan->request.destination,&empty,sizeof(Analysis))) {
+        fail(error,"The outgoing App authority must transfer before resume adoption."); return DEFINITION_HANDOFF_BUSY;
+    }
+    switch (plan->request.operation) {
+    case DEFINITION_HANDOFF_CACHE_SYNC:
+        if (plan->cloned) { analysis_free(&s->analysis); s->analysis=plan->candidate; plan->candidate=(Analysis){0}; }
+        else handoff_numbers(&s->analysis,c->primary);
+        break;
+    case DEFINITION_HANDOFF_SUSPEND_TO_SHEET: {
+        Analysis *app=c->primary; analysis_free(&s->analysis); s->analysis=*app; memset(app,0,sizeof(*app)); c->primary=&s->analysis; break;
+    }
+    case DEFINITION_HANDOFF_RESUME_TO_APP:
+        *plan->request.destination=plan->candidate; plan->candidate=(Analysis){0}; c->primary=plan->request.destination; break;
+    }
+    /* Only proven authority/cache materialization moves. The authoritative
+       authored preimage is identical; no recapture of object/format/ledger or
+       action fences can turn a changed model into a fresh origin. */
+    p->before.authority=c->primary==&s->analysis ? NULL : c->primary;
+    p->before.primary=*c->primary; p->before.cached=s->analysis; p->epoch++;
+    definition_origin_handoff_cancel(ticket); return DEFINITION_HANDOFF_APPLIED;
+}
+void definition_origin_handoff_cancel(DefinitionOriginHandoff **ticket) {
+    if (ticket && *ticket) { analysis_free(&(*ticket)->candidate); free(*ticket); *ticket=NULL; }
+}
 static bool unowned_imported_formats(const Worksheet *s,const Analysis *primary) {
     bool imported=primary->kind!=SOURCE_NONE;
     for (size_t i=0;!imported && i<s->objects.count;i++) imported=s->objects.items[i].kind==OBJECT_TABLE;

@@ -60,6 +60,58 @@ DefinitionOriginStatus definition_origin_completion_measure(DefinitionOriginCont
    an otherwise matching completion; callers cannot reopen it by clearing flags. */
 DefinitionOriginStatus definition_origin_complete(DefinitionOriginContext *context,DefinitionOrigin *origin,
     const DefinitionOriginReply *reply,size_t reserved,char **error);
+/* Pre-free Analysis lifecycle handoff. READY proves the current OPEN owner;
+   STALE is explicit non-admission, not permission to reset its preimage. An App
+   without retained activation may continue its ordinary Save/navigation policy
+   for an already stale origin, but cannot reattach it after freeing owners.
+   ADMITTED needs no handoff: its independent arena must never be rebound. */
+typedef enum { DEFINITION_HANDOFF_CACHE_SYNC,DEFINITION_HANDOFF_SUSPEND_TO_SHEET,DEFINITION_HANDOFF_RESUME_TO_APP } DefinitionOriginHandoffOperation;
+typedef enum { DEFINITION_HANDOFF_READY,DEFINITION_HANDOFF_APPLIED,DEFINITION_HANDOFF_STALE,DEFINITION_HANDOFF_ADMITTED,
+    DEFINITION_HANDOFF_PROTECTED,DEFINITION_HANDOFF_INVALID,DEFINITION_HANDOFF_LIMIT,DEFINITION_HANDOFF_BUSY } DefinitionOriginHandoffStatus;
+typedef struct DefinitionOriginHandoff DefinitionOriginHandoff;
+typedef struct {
+    DefinitionOriginHandoffOperation operation;
+    Analysis *destination; /* RESUME only: independent external App location; occupied during prepare is allowed. */
+} DefinitionOriginHandoffRequest;
+typedef struct {
+    size_t owned,clone_owned,coexisting;
+    uint64_t origin_epoch,request,primary_epoch;
+} DefinitionOriginHandoffInfo;
+/* Allocation-free shape/ownership measurement. owned is NEW plan+clone text;
+   clone_owned (Analysis+text) is a subset, not an additional reservation.
+   coexisting includes old actual/cache Analysis ownership plus owned. Existing
+   workbook/owner bytes remain separately charged. No grammar/assets admission.
+   CACHE_SYNC keeps equal authored cache text pointers and copies only valid
+   numeric inference; a lagging cache clones ONLY the proven actual primary.
+   SUSPEND moves actual App ownership into the sheet cache and clears App, with
+   NULL authority encoding so moving the Worksheet allocation is harmless.
+   RESUME clones sheet authority independently; an occupied destination is only
+   observed/charged during prepare. The coordinator clears it after checking
+   both outgoing/incoming tickets, before RESUME adoption. */
+DefinitionOriginHandoffStatus definition_origin_handoff_measure(DefinitionOriginContext *context,const DefinitionOrigin *origin,
+    DefinitionOriginHandoffRequest request,DefinitionOriginHandoffInfo *out,char **error);
+/* Reserve owned BEFORE clone; old/new owners coexist and remain alive. Prepared
+   ticket pins exact current request/primary epoch, actual/cache values, origin
+   epoch and destination. Failure leaves out and every owner unchanged. */
+DefinitionOriginHandoffStatus definition_origin_handoff_prepare(DefinitionOriginContext *context,DefinitionOrigin *origin,
+    DefinitionOriginHandoffRequest request,size_t reserved,DefinitionOriginHandoff **out,char **error);
+/* Read-only paired preflight before either half of a switch transfers ownership.
+   Destination must still equal its prepared snapshot or be empty after the
+   coordinator's outgoing transfer. READY does not assert destination is empty.
+   Same-thread coordinator changes no document/request/primary clock between
+   the checks and adopts; each origin's local epoch advances independently. */
+DefinitionOriginHandoffStatus definition_origin_handoff_check(DefinitionOriginContext *context,DefinitionOrigin *origin,
+    const DefinitionOriginHandoff *ticket,char **error);
+/* Recheck pointer-first while old owners live, then transfer without allocation
+   or fallible work. Update context.primary on SUSPEND/RESUME and refresh ONLY
+   borrowed role/cache descriptors; authored primary/history/ledger/format/IDs
+   and canonical bytes never change. Success consumes ticket; failure preserves
+   ticket and owners, allowing cancel. RESUME returns BUSY until destination is
+   empty; it never disposes its outgoing occupant. Do not free/rebind an origin
+   owner before its own prepared handoff. */
+DefinitionOriginHandoffStatus definition_origin_handoff_adopt(DefinitionOriginContext *context,DefinitionOrigin *origin,
+    DefinitionOriginHandoff **ticket,char **error);
+void definition_origin_handoff_cancel(DefinitionOriginHandoff **ticket);
 /* Before parsing/encoding, admit complete current primary/object grammar plus
    format-scope validation. Seal only resolved primary/Tables and closed source/
    format dependencies. Imported finite formats require source-aware ownership.

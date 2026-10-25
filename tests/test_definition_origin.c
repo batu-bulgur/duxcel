@@ -203,7 +203,137 @@ static void current_reply_epochs(void) {
     CHECK(definition_origin_complete(&c,p,&r,info.owned,NULL)==DEFINITION_ORIGIN_APPLIED);
     analysis_free(&resolved); definition_origin_free(&p); workbook_free(&b);
 }
+static DefinitionOriginHandoff *handoff_prepare(DefinitionOriginContext *c,DefinitionOrigin *p,DefinitionOriginHandoffRequest request) {
+    DefinitionOriginHandoffInfo info={0}; DefinitionOriginHandoff *ticket=NULL;
+    CHECK(definition_origin_handoff_measure(c,p,request,&info,NULL)==DEFINITION_HANDOFF_READY && info.owned && info.coexisting>=info.owned && info.origin_epoch==definition_origin_state(p).epoch);
+    CHECK(definition_origin_handoff_prepare(c,p,request,info.owned,&ticket,NULL)==DEFINITION_HANDOFF_READY && ticket);
+    CHECK(definition_origin_handoff_check(c,p,ticket,NULL)==DEFINITION_HANDOFF_READY); return ticket;
+}
+static void analysis_lifecycle(void) {
+    Workbook b=book(false,false,true); Analysis app=analysis_copy(&b.sheets[0].analysis); app.schema=dx_strdup("main");
+    uint64_t request=10,epoch=20; DefinitionOriginContext c={&b,&app,&request,&epoch,SIZE_MAX,true,false}; DefinitionOrigin *p=begin(&c);
+    uint64_t command=b.command_revision,branch=b.history_branch; size_t undo=b.sheets[0].undo_actions_count;
+    DefinitionOriginHandoffRequest sync={DEFINITION_HANDOFF_CACHE_SYNC,NULL}; DefinitionOriginHandoffInfo info={0}; DefinitionOriginHandoff *ticket=NULL;
+    CHECK(definition_origin_handoff_measure(&c,p,sync,&info,NULL)==DEFINITION_HANDOFF_READY && info.clone_owned==sizeof(Analysis)+analysis_text_bytes(&app));
+    Analysis cached=b.sheets[0].analysis,actual=app;
+    CHECK(definition_origin_handoff_prepare(&c,p,sync,info.owned-1,&ticket,NULL)==DEFINITION_HANDOFF_LIMIT && !ticket && !memcmp(&cached,&b.sheets[0].analysis,sizeof(cached)) && !memcmp(&actual,&app,sizeof(actual)));
+    ticket=handoff_prepare(&c,p,sync); definition_origin_handoff_cancel(&ticket);
+    CHECK(!ticket && !memcmp(&cached,&b.sheets[0].analysis,sizeof(cached)) && !memcmp(&actual,&app,sizeof(actual)));
+    ticket=handoff_prepare(&c,p,sync);
+    CHECK(definition_origin_handoff_adopt(&c,p,&ticket,NULL)==DEFINITION_HANDOFF_APPLIED && !ticket && !strcmp(b.sheets[0].analysis.schema,"main") && !b.sheets[0].analysis.table && b.sheets[0].analysis.path!=app.path);
+    size_t scratch=0; CHECK(definition_origin_scratch(&c,p,&scratch,NULL)==DEFINITION_ORIGIN_READY);
+    /* Default completion can again leave a legitimate lagging cached owner. */
+    Analysis resolved={0}; DefinitionOriginReply r=reply(&c,false,false,&resolved); DefinitionOriginCompletionInfo completion={0};
+    CHECK(definition_origin_completion_measure(&c,p,&r,&completion,NULL)==DEFINITION_ORIGIN_READY);
+    CHECK(definition_origin_complete(&c,p,&r,completion.owned,NULL)==DEFINITION_ORIGIN_APPLIED && !b.sheets[0].analysis.table);
+    ticket=handoff_prepare(&c,p,sync); CHECK(definition_origin_handoff_adopt(&c,p,&ticket,NULL)==DEFINITION_HANDOFF_APPLIED && !strcmp(b.sheets[0].analysis.table,"alpha"));
+    char *cache_path=b.sheets[0].analysis.path,*cache_schema=b.sheets[0].analysis.schema,*cache_table=b.sheets[0].analysis.table;
+    app.filter_number=(NumberType){NUM_DECIMAL,20,2};
+    CHECK(definition_origin_handoff_measure(&c,p,sync,&info,NULL)==DEFINITION_HANDOFF_READY && !info.clone_owned);
+    ticket=handoff_prepare(&c,p,sync); CHECK(definition_origin_handoff_adopt(&c,p,&ticket,NULL)==DEFINITION_HANDOFF_APPLIED);
+    CHECK(b.sheets[0].analysis.path==cache_path && b.sheets[0].analysis.schema==cache_schema && b.sheets[0].analysis.table==cache_table && b.sheets[0].analysis.filter_number.kind==NUM_DECIMAL);
+    Workbook *saved=workbook_snapshot(&b); CHECK(saved && definition_origin_scratch(&c,p,&scratch,NULL)==DEFINITION_ORIGIN_READY);
+    ticket=handoff_prepare(&c,p,sync); CHECK(definition_origin_handoff_adopt(&c,p,&ticket,NULL)==DEFINITION_HANDOFF_APPLIED && b.sheets[0].analysis.path==cache_path);
+    workbook_free(saved); free(saved); /* Save-like capture/snapshot/capture. */
+    char *moved_path=app.path;
+    ticket=handoff_prepare(&c,p,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_SUSPEND_TO_SHEET,NULL});
+    CHECK(definition_origin_handoff_adopt(&c,p,&ticket,NULL)==DEFINITION_HANDOFF_APPLIED && c.primary==&b.sheets[0].analysis && !app.path && b.sheets[0].analysis.path==moved_path);
+    /* Working Head ownership move and Worksheet relocation keep nested owners.
+       NULL authority representation resolves the current sheet allocation. */
+    Workbook held=b; workbook_init(&b); c.book=&held; c.primary=&held.sheets[0].analysis;
+    CHECK(definition_origin_scratch(&c,p,&scratch,NULL)==DEFINITION_ORIGIN_READY);
+    Worksheet *old=held.sheets; held.sheets=dx_alloc(held.count*sizeof(*held.sheets)); memcpy(held.sheets,old,held.count*sizeof(*old)); free(old); c.primary=&held.sheets[0].analysis;
+    CHECK(definition_origin_scratch(&c,p,&scratch,NULL)==DEFINITION_ORIGIN_READY);
+    b=held; workbook_init(&held); c.book=&b; c.primary=&b.sheets[0].analysis;
+    ticket=handoff_prepare(&c,p,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_RESUME_TO_APP,&app});
+    CHECK(definition_origin_handoff_adopt(&c,p,&ticket,NULL)==DEFINITION_HANDOFF_APPLIED && c.primary==&app && app.path!=b.sheets[0].analysis.path && !strcmp(app.table,"alpha"));
+    CHECK(definition_origin_scratch(&c,p,&scratch,NULL)==DEFINITION_ORIGIN_READY && b.command_revision==command && b.history_branch==branch && b.sheets[0].undo_actions_count==undo);
+    CHECK(definition_origin_seal(&c,p,SIZE_MAX,NULL)==DEFINITION_ORIGIN_APPLIED);
+    DefinitionOriginAssets assets=definition_origin_assets(p); unsigned char *immutable=dx_alloc(definition_origin_state(p).asset_bytes); memcpy(immutable,assets.primary,definition_origin_state(p).asset_bytes);
+    CHECK(definition_origin_handoff_measure(&c,p,sync,&info,NULL)==DEFINITION_HANDOFF_ADMITTED);
+    CHECK(definition_origin_handoff_prepare(&c,p,sync,SIZE_MAX,&ticket,NULL)==DEFINITION_HANDOFF_ADMITTED && !ticket);
+    analysis_free(&app); CHECK(!memcmp(immutable,assets.primary,definition_origin_state(p).asset_bytes)); free(immutable);
+    analysis_free(&resolved); definition_origin_free(&p); workbook_free(&b);
+}
+static void handoff_failures(void) {
+    for (unsigned mode=0;mode<8;mode++) {
+        Workbook b=book(false,false,false); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=1,epoch=2;
+        DefinitionOriginContext c={&b,&app,&request,&epoch,SIZE_MAX,true,false}; DefinitionOrigin *p=begin(&c);
+        DefinitionOriginHandoff *ticket=handoff_prepare(&c,p,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_CACHE_SYNC,NULL});
+        if (mode==0) request++;
+        if (mode==1) epoch++;
+        if (mode==2) b.command_revision++;
+        if (mode==3) b.edit_session_id++;
+        if (mode==4) app.unique_rows=true;
+        if (mode==5) { char *old=b.sheets[0].analysis.path; b.sheets[0].analysis.path=dx_strdup(old); free(old); }
+        if (mode==6) app.filter_number=(NumberType){NUM_I64,0,0};
+        if (mode==7) c.ready=false;
+        Analysis before_app=app,before_cache=b.sheets[0].analysis; uint64_t before_epoch=definition_origin_state(p).epoch;
+        DefinitionOriginHandoffStatus expected=mode==7 ? DEFINITION_HANDOFF_PROTECTED : DEFINITION_HANDOFF_STALE;
+        CHECK(definition_origin_handoff_check(&c,p,ticket,NULL)==expected);
+        CHECK(definition_origin_handoff_adopt(&c,p,&ticket,NULL)==expected && ticket && !memcmp(&before_app,&app,sizeof(app)) && !memcmp(&before_cache,&b.sheets[0].analysis,sizeof(before_cache)) && definition_origin_state(p).epoch==before_epoch);
+        definition_origin_handoff_cancel(&ticket); CHECK(!ticket);
+        if (mode==2 || mode==3 || mode==4 || mode==5) {
+            DefinitionOriginHandoffInfo info={0}; CHECK(definition_origin_handoff_measure(&c,p,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_CACHE_SYNC,NULL},&info,NULL)==DEFINITION_HANDOFF_STALE);
+        }
+        definition_origin_free(&p); analysis_free(&app); workbook_free(&b);
+    }
+}
+static void paired_handoff(void) {
+    for (unsigned fail=0;fail<3;fail++) {
+        Workbook b=book(false,false,false); Analysis incoming={.kind=SOURCE_CSV,.path="/incoming.csv"}; CHECK(workbook_add(&b,"Incoming",&incoming,NULL)); b.active=0;
+        uint64_t request=3,epoch=4; Analysis app=analysis_copy(&b.sheets[0].analysis);
+        DefinitionOriginContext outgoing={&b,&app,&request,&epoch,SIZE_MAX,true,false},next={&b,&b.sheets[1].analysis,&request,&epoch,SIZE_MAX,true,false};
+        DefinitionOrigin *first=begin(&outgoing),*second=NULL;
+        CHECK(definition_origin_begin(&next,1,definition_origin_owner_bytes(),&second,NULL)==DEFINITION_ORIGIN_READY);
+        DefinitionOriginHandoff *leave=handoff_prepare(&outgoing,first,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_SUSPEND_TO_SHEET,NULL});
+        DefinitionOriginHandoff *enter=NULL;
+        Analysis before=app,cache=b.sheets[0].analysis;
+        if (fail==2) {
+            DefinitionOriginHandoffInfo info={0}; DefinitionOriginHandoffRequest resume={DEFINITION_HANDOFF_RESUME_TO_APP,&app};
+            CHECK(definition_origin_handoff_measure(&next,second,resume,&info,NULL)==DEFINITION_HANDOFF_READY && info.clone_owned && info.coexisting>info.owned);
+            CHECK(definition_origin_handoff_prepare(&next,second,resume,info.owned-1,&enter,NULL)==DEFINITION_HANDOFF_LIMIT && !enter);
+            CHECK(definition_origin_handoff_check(&outgoing,first,leave,NULL)==DEFINITION_HANDOFF_READY && !memcmp(&before,&app,sizeof(app)) && !memcmp(&cache,&b.sheets[0].analysis,sizeof(cache)));
+            definition_origin_handoff_cancel(&leave); definition_origin_free(&first); definition_origin_free(&second); analysis_free(&app); workbook_free(&b); continue;
+        }
+        enter=handoff_prepare(&next,second,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_RESUME_TO_APP,&app});
+        CHECK(definition_origin_handoff_adopt(&next,second,&enter,NULL)==DEFINITION_HANDOFF_BUSY && enter && !memcmp(&before,&app,sizeof(app)));
+        if (fail) epoch++;
+        DefinitionOriginHandoffStatus expected=fail ? DEFINITION_HANDOFF_STALE : DEFINITION_HANDOFF_READY;
+        CHECK(definition_origin_handoff_check(&outgoing,first,leave,NULL)==expected && definition_origin_handoff_check(&next,second,enter,NULL)==expected);
+        if (!fail) {
+            CHECK(definition_origin_handoff_adopt(&outgoing,first,&leave,NULL)==DEFINITION_HANDOFF_APPLIED && !app.path);
+            CHECK(definition_origin_handoff_check(&next,second,enter,NULL)==DEFINITION_HANDOFF_READY);
+            CHECK(definition_origin_handoff_adopt(&next,second,&enter,NULL)==DEFINITION_HANDOFF_APPLIED && next.primary==&app && !strcmp(app.path,"/incoming.csv") && app.path!=b.sheets[1].analysis.path);
+            size_t scratch=0; CHECK(definition_origin_scratch(&outgoing,first,&scratch,NULL)==DEFINITION_ORIGIN_READY && definition_origin_scratch(&next,second,&scratch,NULL)==DEFINITION_ORIGIN_READY);
+        } else CHECK(!memcmp(&before,&app,sizeof(app)) && !memcmp(&cache,&b.sheets[0].analysis,sizeof(cache)));
+        definition_origin_handoff_cancel(&leave); definition_origin_handoff_cancel(&enter);
+        definition_origin_free(&first); definition_origin_free(&second); analysis_free(&app); workbook_free(&b);
+    }
+}
+static void handoff_alias_and_epoch(void) {
+    Workbook b=book(true,false,false); uint64_t request=1,epoch=2;
+    DefinitionOriginContext c={&b,&b.sheets[0].analysis,&request,&epoch,SIZE_MAX,true,false}; DefinitionOrigin *p=begin(&c);
+    DefinitionOriginHandoffInfo info={0},unchanged=info;
+    CHECK(definition_origin_handoff_measure(&c,p,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_RESUME_TO_APP,&b.sheets[0].objects.items[0].source},&info,NULL)==DEFINITION_HANDOFF_INVALID && !memcmp(&info,&unchanged,sizeof(info)));
+    CHECK(definition_origin_handoff_measure(&c,p,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_RESUME_TO_APP,&b.sheets[0].analysis},&info,NULL)==DEFINITION_HANDOFF_INVALID);
+    DefinitionOriginHandoffRequest sync={DEFINITION_HANDOFF_CACHE_SYNC,NULL};
+    DefinitionOriginHandoff *first=handoff_prepare(&c,p,sync),*second=handoff_prepare(&c,p,sync);
+    CHECK(definition_origin_handoff_adopt(&c,p,&second,NULL)==DEFINITION_HANDOFF_APPLIED);
+    CHECK(definition_origin_handoff_check(&c,p,first,NULL)==DEFINITION_HANDOFF_STALE);
+    definition_origin_handoff_cancel(&first); definition_origin_free(&p); workbook_free(&b);
+    b=book(false,false,false); c=(DefinitionOriginContext){&b,&b.sheets[0].analysis,&request,&epoch,SIZE_MAX,true,false}; p=begin(&c);
+    Analysis alias=b.sheets[0].analysis;
+    CHECK(definition_origin_handoff_measure(&c,p,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_RESUME_TO_APP,&alias},&info,NULL)==DEFINITION_HANDOFF_INVALID);
+    definition_origin_free(&p); workbook_free(&b);
+    b=book(false,false,false); Analysis app=analysis_copy(&b.sheets[0].analysis); app.schema=dx_strdup("main");
+    c=(DefinitionOriginContext){&b,&app,&request,&epoch,SIZE_MAX,true,false}; p=begin(&c);
+    first=handoff_prepare(&c,p,sync); Analysis before=app,cache=b.sheets[0].analysis;
+    definition_origin_free(&p); definition_origin_handoff_cancel(&first);
+    CHECK(!first && !memcmp(&before,&app,sizeof(app)) && !memcmp(&cache,&b.sheets[0].analysis,sizeof(cache)));
+    analysis_free(&app); workbook_free(&b);
+}
 int main(void) {
-    basics(false,false,false); basics(false,false,true); basics(true,false,false); basics(true,true,false); fences(false); fences(true); validation_and_formats(); explicit_schema(); derived_growth(); authored_and_shape(); borrowed_lifetimes(); current_reply_epochs();
+    basics(false,false,false); basics(false,false,true); basics(true,false,false); basics(true,true,false); fences(false); fences(true); validation_and_formats(); explicit_schema(); derived_growth(); authored_and_shape(); borrowed_lifetimes(); current_reply_epochs(); analysis_lifecycle(); handoff_failures(); paired_handoff(); handoff_alias_and_epoch();
     definition_origin_free(NULL); printf("PASS: %u immutable working definition origin checks\n",checks); return 0;
 }
