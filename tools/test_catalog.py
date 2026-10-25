@@ -140,6 +140,9 @@ FEATURES = {
         ("python3 tools/test.py feature --feature history-definition", "python3 tools/test.py feature --feature history-format"),
         ("src/workbook/source_history_payload.c", "src/workbook/source_history_payload.h", "tests/test_source_history_payload.c")),
 
+    "sheet-history-applicability": Feature(("sheet_history_applicability", "sheet_history_payload", "sheet_presence_asset"), "",
+        ("python3 tools/test.py feature --feature sheet-topology-app",),
+        ("src/workbook/sheet_history_applicability.c", "src/workbook/sheet_history_applicability.h", "tests/test_sheet_history_applicability.c")),
     "history-event-frame": Feature(("history_event_frame",), "",
         ("python3 tools/test.py feature --feature history-stream",),
         ("src/workbook/history_event_frame.c", "src/workbook/history_event_frame.h", "tests/test_history_event_frame.c")),

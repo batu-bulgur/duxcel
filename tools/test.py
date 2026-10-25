@@ -25,6 +25,8 @@ FAST_MODULES = (
     "source_history_slot",
     "history_event_slot",
     "source_history_payload",
+    "sheet_history_applicability",
+    "source_versions_admission",
     "history_event_frame",
     "source_dependency_admission",
     "source_versions_admission",

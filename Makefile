@@ -2421,3 +2421,12 @@ build/tests/test_sheet_history_batch: $(SHEET_HISTORY_BATCH_OBJECTS) build/web-t
 build/tests/test_sheet_history_batch-debug: $(SHEET_HISTORY_BATCH_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_HISTORY_BATCH_OBJECTS:.o=.d) $(SHEET_HISTORY_BATCH_SAN_OBJECTS:.o=.d)
+SHEET_HISTORY_APPLICABILITY_SRC = $(filter-out tests/test_sheet_history_payload.c,$(SHEET_HISTORY_PAYLOAD_SRC)) src/workbook/sheet_history_applicability.c tests/test_sheet_history_applicability.c
+SHEET_HISTORY_APPLICABILITY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_APPLICABILITY_SRC))))
+SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_APPLICABILITY_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_applicability build/tests/test_sheet_history_applicability-debug
+build/tests/test_sheet_history_applicability: $(SHEET_HISTORY_APPLICABILITY_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_history_applicability-debug: $(SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_HISTORY_APPLICABILITY_OBJECTS:.o=.d) $(SHEET_HISTORY_APPLICABILITY_SAN_OBJECTS:.o=.d)
