@@ -1,5 +1,6 @@
 #include "workbook/history.h"
 #include "workbook/cell_command.h"
+#include "workbook/workbook_width_command.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -137,7 +138,68 @@ static void bounds_and_failures(void) {
     uint64_t id=b.sheets[1].id; b.sheets[1].id=b.sheets[0].id; reject(&b,false,WORKBOOK_HISTORY_INVALID); b.sheets[1].id=id;
     workbook_free(&b);
 }
+static WorkbookWidthResult width(Workbook *b,size_t sheet,float value) {
+    uint64_t request=17; WorkbookWidthContext c={.book=b,.request_epoch=&request,.reserved=SIZE_MAX,.ready=true};
+    WorkbookWidthTarget target; CHECK(workbook_prepare_width_command(&c,sheet,&target,NULL));
+    ColumnWidthEntry entry={16383,column_width_bits(value)};
+    return workbook_apply_width_command_recorded(&c,&target,(ColumnWidthView){&entry,1},NULL,NULL);
+}
+static bool denied(void *context,size_t staging,size_t retained,char **error) { (void)context; (void)error; CHECK(staging && retained); return false; }
+static bool relocate(void *context,size_t staging,size_t retained,char **error) {
+    (void)staging; (void)retained; (void)error; Workbook *b=context; Worksheet *s=dx_alloc(b->count*sizeof(*s)); memcpy(s,b->sheets,b->count*sizeof(*s)); free(b->sheets); b->sheets=s; return true;
+}
+static unsigned cancelled;
+static bool reserve_relocate(void *context,const WorkbookHistoryRangeRecord *record,void **ticket,char **error) {
+    CHECK(record->view.effects==16 && column_width_valid(record->view.widths.before) && column_width_valid(record->view.widths.after));
+    relocate(context,0,0,error); *ticket=dx_alloc(1); return true;
+}
+static void publish_unexpected(void *context,void *ticket) { (void)context; free(ticket); CHECK(false); }
+static void cancel_relocated(void *context,void *ticket) { (void)context; free(ticket); cancelled++; }
+static void widths(void) {
+    Workbook b; workbook_init(&b); add(&b,"Physical"); add(&b,"Other");
+    CHECK(width(&b,0,1200).status==COLUMN_WIDTH_OK && b.sheets[0].width_revision==1);
+    CHECK(b.sheets[0].view.column_count==16384 && b.sheets[0].view.widths[16383]==1200);
+    edit(&b,1,"Other edit"); CHECK(width(&b,0,1199).status==COLUMN_WIDTH_OK);
+    CHECK(workbook_history_peek(&b,false,NULL).kind==EDIT_WIDTHS);
+    step(&b,false,0); CHECK(b.sheets[0].view.widths[16383]==1200 && b.sheets[0].width_revision==3);
+    step(&b,false,1); step(&b,false,0); CHECK(b.sheets[0].view.widths[16383]==96 && b.sheets[0].width_revision==4);
+    step(&b,true,0); step(&b,true,1); step(&b,true,0);
+    step(&b,false,0); uint64_t revision=b.command_revision;
+    CHECK(width(&b,0,1200).status==COLUMN_WIDTH_NOOP && b.command_revision==revision && column_width_history_info(b.sheets[0].width_history).redo==1);
+    edit(&b,1,"Branch"); CHECK(!column_width_history_info(b.sheets[0].width_history).redo && workbook_history_peek(&b,true,NULL).status==WORKBOOK_HISTORY_EMPTY);
+    WorkbookFormatUsage usage; CHECK(workbook_format_usage(&b,NULL,0,&usage)==FORMAT_BUDGET_OK && usage.retained>=column_width_history_allocation()+column_width_history_info(b.sheets[0].width_history).owned_bytes);
+    Workbook *copy=workbook_snapshot(&b); CHECK(copy && !copy->sheets[0].width_history && !copy->sheets[0].width_revision && copy->sheets[0].view.widths!=b.sheets[0].view.widths && copy->sheets[0].view.widths[16383]==1200); workbook_free(copy); free(copy);
+    uint64_t request=17; WorkbookWidthContext c={.book=&b,.request_epoch=&request,.reserved=SIZE_MAX,.ready=true,.admit=denied};
+    WorkbookWidthTarget target; CHECK(workbook_prepare_width_command(&c,0,&target,NULL));
+    ColumnWidthEntry entry={16383,column_width_bits(1000)}; ColumnWidthView next={&entry,1};
+    ColumnWidthHistoryInfo before=column_width_history_info(b.sheets[0].width_history); revision=b.command_revision;
+    CHECK(workbook_apply_width_command_recorded(&c,&target,next,NULL,NULL).status==COLUMN_WIDTH_LIMIT && b.command_revision==revision && column_width_history_info(b.sheets[0].width_history).generation==before.generation);
+    c.admit=relocate; c.admission_context=&b;
+    CHECK(workbook_apply_width_command_recorded(&c,&target,next,NULL,NULL).status==COLUMN_WIDTH_OK && b.sheets[0].view.widths[16383]==1000);
+    c.admit=NULL; CHECK(workbook_prepare_width_command(&c,0,&target,NULL));
+    entry.bits=column_width_bits(999); revision=b.command_revision;
+    WorkbookHistoryRangeRecorder recorder={reserve_relocate,publish_unexpected,cancel_relocated,&b};
+    CHECK(workbook_apply_width_command_recorded(&c,&target,next,&recorder,NULL).status==COLUMN_WIDTH_STALE && cancelled==1 && b.command_revision==revision && b.sheets[0].view.widths[16383]==1000);
+    CHECK(workbook_prepare_width_command(&c,0,&target,NULL)); ColumnWidthHistory *old=b.sheets[0].width_history,*replacement=NULL;
+    CHECK(column_width_history_new((ColumnWidthHistoryOptions){32,DX_COLUMN_WIDTH_HISTORY_BYTES},column_width_history_allocation(),&replacement)==COLUMN_WIDTH_OK);
+    b.sheets[0].width_history=replacement; CHECK(workbook_apply_width_command_recorded(&c,&target,next,NULL,NULL).status==COLUMN_WIDTH_STALE); b.sheets[0].width_history=old; column_width_history_free(&replacement);
+    for (unsigned i=0;i<40;i++) CHECK(width(&b,0,100+i).status==COLUMN_WIDTH_OK);
+    CHECK(b.sheets[0].history_floor && column_width_history_info(b.sheets[0].width_history).undo==32);
+    for (unsigned i=0;i<32;i++) step(&b,false,0);
+    CHECK(workbook_history_peek(&b,false,NULL).status==WORKBOOK_HISTORY_EMPTY);
+    workbook_free(&b);
+    workbook_init(&b); add(&b,"Columns");
+    CHECK(width(&b,0,1200).status==COLUMN_WIDTH_OK);
+    CHECK(worksheet_column(b.sheets,0,true,0,NULL)); workbook_history_note_edit(&b);
+    CHECK(b.sheets[0].view.widths[16383]==96 && !b.sheets[0].undo_columns[b.sheets[0].undo_actions_count-1].active);
+    CHECK(workbook_history_peek(&b,false,NULL).kind==EDIT_CELLS_WIDTHS);
+    step(&b,false,0); CHECK(b.sheets[0].view.widths[16383]==1200);
+    step(&b,true,0); CHECK(b.sheets[0].view.widths[16383]==96);
+    CHECK(worksheet_column(b.sheets,0,false,0,NULL)); workbook_history_note_edit(&b);
+    CHECK(workbook_history_peek(&b,false,NULL).status==WORKBOOK_HISTORY_READY);
+    workbook_free(&b);
+}
 int main(void) {
-    chronology(); branching_and_identity(); mixed_history_and_legacy_branch(); composite_and_abandoned_styles(); missing_future_barrier(); bounds_and_failures();
+    widths(); chronology(); branching_and_identity(); mixed_history_and_legacy_branch(); composite_and_abandoned_styles(); missing_future_barrier(); bounds_and_failures();
     printf("PASS: %u workbook chronology checks\n",checks); return 0;
 }

@@ -99,6 +99,7 @@ ColumnWidthStatus column_width_command_retain_undo(ColumnWidthCommand *p,size_t 
     if (!p) return COLUMN_WIDTH_INVALID;
     ColumnWidthStatus status=column_width_command_check(p->owner,p); return status ? status : column_width_plan_retain_undo(p->operation,keep);
 }
+ColumnWidthPair column_width_command_pair(const ColumnWidthCommand *p) { return p ? (ColumnWidthPair){column_width_view(&p->canonical),column_width_plan_target(p->operation)} : (ColumnWidthPair){0}; }
 const ColumnWidthPacket *column_width_command_packet(const ColumnWidthCommand *p) { return p ? column_width_plan_packet(p->operation) : NULL; }
 ColumnWidthStatus column_width_command_adopt(ColumnWidthCommandContext c,ColumnWidthCommand **out) {
     if (!out || !*out) return COLUMN_WIDTH_INVALID; ColumnWidthCommand *p=*out;

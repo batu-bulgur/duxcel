@@ -9,7 +9,7 @@
 #define DX_MAX_SHEETS 64
 #define DX_HISTORY 32
 #define DX_ANALYSIS_HISTORY_BYTES (8u*1024u*1024u)
-typedef enum { EDIT_ANALYSIS,EDIT_CELLS,EDIT_OBJECTS,EDIT_RANGE,EDIT_FORMAT,EDIT_CELLS_FORMAT,EDIT_OBJECTS_FORMAT,EDIT_RANGE_FORMAT,EDIT_ANALYSIS_FORMAT } EditKind;
+typedef enum { EDIT_ANALYSIS,EDIT_CELLS,EDIT_OBJECTS,EDIT_RANGE,EDIT_FORMAT,EDIT_CELLS_FORMAT,EDIT_OBJECTS_FORMAT,EDIT_RANGE_FORMAT,EDIT_ANALYSIS_FORMAT,EDIT_WIDTHS,EDIT_CELLS_WIDTHS,EDIT_FORMAT_WIDTHS,EDIT_CELLS_FORMAT_WIDTHS,EDIT_OBJECTS_WIDTHS,EDIT_RANGE_WIDTHS,EDIT_OBJECTS_FORMAT_WIDTHS,EDIT_RANGE_FORMAT_WIDTHS } EditKind;
 typedef struct { bool active,insert; size_t column; float width; } ColumnEdit;
 /* View units are logical/unscaled, never framebuffer pixels. No raylib types here. */
 typedef struct {
@@ -34,6 +34,8 @@ typedef struct {
     CellStore cells;
     ObjectStore objects;
     FormatStore formats;
+    struct ColumnWidthHistory *width_history; /* Owned session constituent; SheetView is committed authority. */
+    uint64_t width_revision; /* Monotonic physical-width clock, outside Undo. */
     SourceVersions source_versions; /* Owned immutable bindings/high-water, outside Undo. */
     Analysis undo[DX_HISTORY],redo[DX_HISTORY];
     size_t undo_count,redo_count;
@@ -84,8 +86,10 @@ size_t workbook_visible_count(const Workbook *book);
 /* Display position to physical sheet index; count means no such visible sheet. */
 size_t workbook_visible_sheet(const Workbook *book,size_t position);
 void worksheet_record(Worksheet *sheet,EditKind kind);
-unsigned worksheet_edit_effects(EditKind kind); /* analysis=1, cells=2, objects=4, formats=8 */
+unsigned worksheet_edit_effects(EditKind kind); /* analysis=1, cells=2, objects=4, formats=8, widths=16 */
 void worksheet_transfer_history(Worksheet *sheet,bool redo);
+/* Exact supported width composite; false leaves out untouched. */
+bool worksheet_width_edit_kind(unsigned effects,EditKind *out);
 /* Pre-import zero-owner proof for making existing formats manual-only before a
    FIRST Table is introduced: live, save-cache and every retained Analysis must
    be SOURCE_NONE; current and all retained object states may contain only

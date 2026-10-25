@@ -1,4 +1,6 @@
 #include "workbook.h"
+#include "column_width_history.h"
+#include "column_width_command.h"
 #include "workbook_codec.h"
 #include "history.h"
 #include "lifecycle.h"
@@ -41,21 +43,35 @@ static void action_push(Worksheet *s,EditKind *actions,ColumnEdit *columns,uint6
     if (*count==DX_HISTORY) { history_lost(s,orders==s->redo_order,orders[0]); memmove(orders,orders+1,(DX_HISTORY-1)*sizeof(*orders)); memmove(actions,actions+1,(DX_HISTORY-1)*sizeof(*actions)); memmove(columns,columns+1,(DX_HISTORY-1)*sizeof(*columns)); --*count; }
     orders[*count]=order; columns[*count]=column; actions[(*count)++]=kind;
 }
-unsigned worksheet_edit_effects(EditKind kind) { static const unsigned effects[]={1,2,4,6,8,10,12,14,9}; return (unsigned)kind<sizeof(effects)/sizeof(*effects) ? effects[kind] : 0; }
+unsigned worksheet_edit_effects(EditKind kind) { static const unsigned effects[]={1,2,4,6,8,10,12,14,9,16,18,24,26,20,22,28,30}; return (unsigned)kind<sizeof(effects)/sizeof(*effects) ? effects[kind] : 0; }
+bool worksheet_width_edit_kind(unsigned effects,EditKind *out) {
+    if (!out) return false;
+    switch (effects) {
+    case 16: *out=EDIT_WIDTHS; return true;
+    case 18: *out=EDIT_CELLS_WIDTHS; return true;
+    case 24: *out=EDIT_FORMAT_WIDTHS; return true;
+    case 26: *out=EDIT_CELLS_FORMAT_WIDTHS; return true;
+    case 20: *out=EDIT_OBJECTS_WIDTHS; return true;
+    case 22: *out=EDIT_RANGE_WIDTHS; return true;
+    case 28: *out=EDIT_OBJECTS_FORMAT_WIDTHS; return true;
+    case 30: *out=EDIT_RANGE_FORMAT_WIDTHS; return true;
+    default: return false;
+    }
+}
 static EditKind range_edit(bool cells,bool objects,bool formats) {
     return formats ? cells ? objects ? EDIT_RANGE_FORMAT : EDIT_CELLS_FORMAT : objects ? EDIT_OBJECTS_FORMAT : EDIT_FORMAT : cells ? objects ? EDIT_RANGE : EDIT_CELLS : EDIT_OBJECTS;
 }
 static void action_prune(Worksheet *s,bool redo) {
     ColumnEdit *columns=redo ? s->redo_columns : s->undo_columns;
     EditKind *actions=redo ? s->redo_actions : s->undo_actions; size_t *n=redo ? &s->redo_actions_count : &s->undo_actions_count;
-    size_t available[]={redo ? s->redo_count : s->undo_count,redo ? s->cells.redo_count : s->cells.undo_count,redo ? s->objects.redo_count : s->objects.undo_count,redo ? s->formats.redo_count : s->formats.undo_count};
-    size_t required[4]={0};
-    for (size_t i=0;i<*n;i++) for (int k=0;k<4;k++) required[k]+=!!(worksheet_edit_effects(actions[i]) & (1u<<k));
+    size_t available[]={redo ? s->redo_count : s->undo_count,redo ? s->cells.redo_count : s->cells.undo_count,redo ? s->objects.redo_count : s->objects.undo_count,redo ? s->formats.redo_count : s->formats.undo_count,redo ? column_width_history_info(s->width_history).redo : column_width_history_info(s->width_history).undo};
+    size_t required[5]={0};
+    for (size_t i=0;i<*n;i++) for (int k=0;k<5;k++) required[k]+=!!(worksheet_edit_effects(actions[i]) & (1u<<k));
     /* A composite edit must stay aligned with both snapshot stacks. Discard a
        chronological prefix, then release orphaned snapshots in every stack. */
     size_t drop=0;
-    while (drop<*n && (required[0]>available[0] || required[1]>available[1] || required[2]>available[2] || required[3]>available[3])) {
-        for (int k=0;k<4;k++) required[k]-=!!(worksheet_edit_effects(actions[drop]) & (1u<<k)); drop++;
+    while (drop<*n && (required[0]>available[0] || required[1]>available[1] || required[2]>available[2] || required[3]>available[3] || required[4]>available[4])) {
+        for (int k=0;k<5;k++) required[k]-=!!(worksheet_edit_effects(actions[drop]) & (1u<<k)); drop++;
     }
     uint64_t *orders=redo ? s->redo_order : s->undo_order;
     for (size_t i=0;i<drop;i++) history_lost(s,redo,orders[i]);
@@ -66,6 +82,7 @@ static void action_prune(Worksheet *s,bool redo) {
     memmove(stack,stack+drop,required[0]*sizeof(*stack)); memset(stack+required[0],0,drop*sizeof(*stack)); *count=required[0];
     cells_trim_history(&s->cells,redo,required[1]); objects_trim_history(&s->objects,redo,required[2]);
     format_trim_history(&s->formats,redo,required[3]);
+    if (s->width_history) column_width_history_trim(s->width_history,redo ? column_width_history_info(s->width_history).undo : required[4],redo ? required[4] : column_width_history_info(s->width_history).redo);
 }
 void worksheet_record(Worksheet *s,EditKind kind) {
     s->history_last=worksheet_history_issue_order();
@@ -145,10 +162,10 @@ static bool analysis_journal_valid(const Worksheet *s,AnalysisOwnership *owned,c
     if (!s || s->undo_count>DX_HISTORY || s->redo_count>DX_HISTORY || s->undo_actions_count>DX_HISTORY || s->redo_actions_count>DX_HISTORY || s->cells.undo_count>DX_HISTORY || s->cells.redo_count>DX_HISTORY || s->objects.undo_count>DX_HISTORY || s->objects.redo_count>DX_HISTORY || s->formats.undo_count>DX_HISTORY || s->formats.redo_count>DX_HISTORY) return range_fail(error,"Invalid bounded worksheet history counts.");
     if (!analysis_location(s,owned->live,true,error) || (owned->next && (!analysis_location(s,owned->next,false,error) || owned_overlap((uintptr_t)owned->live,sizeof(*owned->live),(uintptr_t)owned->next,sizeof(*owned->next))))) return range_fail(error,"Prepared Analysis and live ownership must be independent.");
     for (size_t h=0;h<2;h++) {
-        const EditKind *actions=h ? s->redo_actions : s->undo_actions; size_t count=h ? s->redo_actions_count : s->undo_actions_count,required[4]={0};
-        size_t available[]={h ? s->redo_count : s->undo_count,h ? s->cells.redo_count : s->cells.undo_count,h ? s->objects.redo_count : s->objects.undo_count,h ? s->formats.redo_count : s->formats.undo_count};
-        for (size_t i=0;i<count;i++) { unsigned effects=worksheet_edit_effects(actions[i]); if (!effects) return range_fail(error,"Unknown worksheet history action."); for (size_t k=0;k<4;k++) required[k]+=!!(effects&(1u<<k)); }
-        for (size_t k=0;k<4;k++) if (required[k]!=available[k]) return range_fail(error,"Worksheet journal and owned histories are not aligned.");
+        const EditKind *actions=h ? s->redo_actions : s->undo_actions; size_t count=h ? s->redo_actions_count : s->undo_actions_count,required[5]={0};
+        size_t available[]={h ? s->redo_count : s->undo_count,h ? s->cells.redo_count : s->cells.undo_count,h ? s->objects.redo_count : s->objects.undo_count,h ? s->formats.redo_count : s->formats.undo_count,h ? column_width_history_info(s->width_history).redo : column_width_history_info(s->width_history).undo};
+        for (size_t i=0;i<count;i++) { unsigned effects=worksheet_edit_effects(actions[i]); if (!effects) return range_fail(error,"Unknown worksheet history action."); for (size_t k=0;k<5;k++) required[k]+=!!(effects&(1u<<k)); }
+        for (size_t k=0;k<5;k++) if (required[k]!=available[k]) return range_fail(error,"Worksheet journal and owned histories are not aligned.");
         const Analysis *states=h ? s->redo : s->undo; size_t bytes=0;
         for (size_t i=0;i<available[0];i++) { size_t entry=0; if (!analysis_owned_valid(owned,states+i,&entry,error)) return false; if (entry>DX_ANALYSIS_HISTORY_BYTES-bytes) return range_fail(error,"Analysis history exceeds its 8 MiB owned limit."); bytes+=entry; }
     }
@@ -337,7 +354,8 @@ FormatBudgetStatus workbook_format_usage(const Workbook *book,const WorkbookForm
         size_t current=format_owned_bytes(formats[i],false),retained=format_owned_bytes(formats[i],true),analysis=0,object_history=0;
         FormatBudgetStatus status=format_budget_analysis_history(book->sheets+i,&analysis); if (status!=FORMAT_BUDGET_OK) return status;
         status=format_budget_object_history(book->sheets+i,objects[i],&object_history); if (status!=FORMAT_BUDGET_OK) return status;
-        if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&retained,analysis) || !format_budget_add(&retained,object_history) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
+        size_t widths=book->sheets[i].width_history ? column_width_history_allocation()+column_width_history_info(book->sheets[i].width_history).owned_bytes : 0;
+        if (current==SIZE_MAX || retained==SIZE_MAX || !format_budget_add(&retained,widths) || !format_budget_add(&current,versions[i]->bytes) || !format_budget_add(&retained,versions[i]->bytes) || !format_budget_add(&retained,analysis) || !format_budget_add(&retained,object_history) || !format_budget_add(&usage.current,current) || !format_budget_add(&usage.retained,retained)) return FORMAT_BUDGET_OVERFLOW;
         if (current>usage.max_sheet_current) { usage.max_sheet_current=current; usage.max_sheet=i; }
     }
     size_t detached=0; FormatBudgetStatus status=workbook_lifecycle_format_usage(book,&detached);
@@ -433,11 +451,24 @@ bool worksheet_column(Worksheet *s,size_t col,bool insert,size_t source_columns,
             return range_fail(error,"Insert would move a pivot or chart beyond the last column.");
         if (insert ? o->col>=col : o->col>col) mask|=UINT32_C(1)<<i;
     }
-    FormatSnapshot formats={0}; if (!format_plan_axis(&s->formats,false,col,1,insert,&formats,error)) return false;
-    if (!cells_column(&s->cells,col,insert,error)) { format_snapshot_free(&formats); return false; }
+    ColumnWidthState before_widths={0},after_widths={0}; ColumnWidthCommand *widths=NULL;
+    ColumnWidthCommandContext width_context={&s->view,&s->width_history,&s->width_revision,SIZE_MAX};
+    ColumnWidthStatus status=column_width_capture(s->view.widths,s->view.column_count,SIZE_MAX,&before_widths);
+    if (!status) status=column_width_shift(column_width_view(&before_widths),col,insert,SIZE_MAX,&after_widths);
+    if (!status) status=column_width_command_prepare(width_context,column_width_view(&after_widths),&widths);
+    column_width_free(&before_widths); column_width_free(&after_widths);
+    if (status!=COLUMN_WIDTH_OK && status!=COLUMN_WIDTH_NOOP) return range_fail(error,"The complete physical column width history is unavailable.");
+    FormatSnapshot formats={0};
+    if (!format_plan_axis(&s->formats,false,col,1,insert,&formats,error)) { column_width_command_cancel(&widths); return false; }
+    if (!cells_column(&s->cells,col,insert,error)) { format_snapshot_free(&formats); column_width_command_cancel(&widths); return false; }
     objects_translate_mask(&s->objects,mask,0,insert ? 1 : -1);
-    bool format_changed=format_commit(&s->formats,&formats);
-    worksheet_record(s,range_edit(true,mask!=0,format_changed)); s->undo_columns[s->undo_actions_count-1]=(ColumnEdit){.active=true,.insert=insert,.column=col,.width=96}; return true;
+    bool format_changed=format_commit(&s->formats,&formats),width_changed=widths!=NULL;
+    /* Closed synchronous coordinator: all external validation/reservation was
+       completed before cells_column. No callbacks or width writes intervened. */
+    if (widths && column_width_command_adopt(width_context,&widths)!=COLUMN_WIDTH_OK) abort();
+    EditKind kind=range_edit(true,mask!=0,format_changed);
+    if (width_changed && !worksheet_width_edit_kind(worksheet_edit_effects(kind)|16,&kind)) abort();
+    worksheet_record(s,kind); return true;
 }
 bool worksheet_row(Worksheet *s,uint64_t row,bool insert,uint64_t source_rows,char **error) {
     return worksheet_rows(s,row,1,insert,source_rows,error);
@@ -463,6 +494,7 @@ bool worksheet_rows(Worksheet *s,uint64_t row,uint64_t count,bool insert,uint64_
     return true;
 }
 void worksheet_free(Worksheet *s) {
+    column_width_history_free(&s->width_history);
     free(s->name); analysis_free(&s->analysis); view_free(&s->view); cells_free(&s->cells); objects_free(&s->objects); format_free(&s->formats); source_versions_free(&s->source_versions);
     for (size_t j=0;j<s->undo_count;j++) analysis_free(&s->undo[j]);
     for (size_t j=0;j<s->redo_count;j++) analysis_free(&s->redo[j]);

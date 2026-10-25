@@ -20,6 +20,7 @@ ColumnWidthStatus column_width_command_replay(ColumnWidthCommandContext context,
 ColumnWidthStatus column_width_command_check(ColumnWidthCommandContext context,const ColumnWidthCommand *plan);
 ColumnWidthStatus column_width_command_history(const ColumnWidthCommand *plan,ColumnWidthHistoryInfo *out);
 ColumnWidthStatus column_width_command_retain_undo(ColumnWidthCommand *plan,size_t keep);
+ColumnWidthPair column_width_command_pair(const ColumnWidthCommand *plan);
 const ColumnWidthPacket *column_width_command_packet(const ColumnWidthCommand *plan);
 /* Independent arrays are prepared before eviction. Existing column-name strings
    move with adoption; newly materialized columns own empty names. Navigation is
