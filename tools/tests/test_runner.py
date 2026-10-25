@@ -513,12 +513,15 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(standalone_gui_check.call_args_list, [mock.call(name) for name in runner.STANDALONE_GUI])
             engines = [runner.test_binary(module, config) for config in ("release", "sanitize")
                        for module in runner.ENGINE_MODULES]
-            self.assertTrue(set(engines).issubset(command.call_args_list[4].args[1]))
             expected=[[runner.sys.executable, "tools/create_workbook.py", "--journal-paste-only"],
                       [runner.sys.executable, "tools/create_workbook.py", "--source-connections-only"],
+                      [runner.sys.executable, "tools/create_workbook.py", "--source-origins-only"],
                       [runner.sys.executable, "tools/create_workbook.py"],
                       [runner.sys.executable, "tools/create_workbook.py", "--large"]]
-            self.assertEqual([call.args[1] for call in command.call_args_list[:4]],expected)
+            build_index=next(i for i,call in enumerate(command.call_args_list) if call.args[0]=="build-integration")
+            self.assertEqual(build_index,len(expected))
+            self.assertTrue(set(engines).issubset(command.call_args_list[build_index].args[1]))
+            self.assertEqual([call.args[1] for call in command.call_args_list[:build_index]],expected)
             expected=[]
             for binary in engines:
                 module=pathlib.Path(binary).name.removeprefix("test_").removesuffix("-debug")
@@ -548,7 +551,7 @@ class RunnerTests(unittest.TestCase):
                     extra=["--output",str(instance.log_dir / f"{module}-{config}-metrics.json")] if check.primary else []
                     process_binary = instance.pin_test_binary(binary) if module == "recovery_process" else binary
                     expected.append([runner.sys.executable,check.script,"--binary",process_binary,*check.arguments,*extra])
-            self.assertEqual([call.args[1] for call in command.call_args_list[5:-1]],expected)
+            self.assertEqual([call.args[1] for call in command.call_args_list[build_index+1:-1]],expected)
 
     def test_engines_runs_complete_inventory_after_fixtures_without_app_scenarios(self):
         args=runner.parser().parse_args(["engines", "--config", "both"])
