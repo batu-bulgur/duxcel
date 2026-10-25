@@ -70,6 +70,8 @@ const SheetView *primary_source_publish_initial_view(const PrimarySourcePublishP
    proof. A compound preparation owner adds its own resident/serialization/stream
    charges to coexisting and rechecks the source plan before transfer. */
 PrimarySourcePublishInfo primary_source_publish_usage(const PrimarySourcePublishPlan *plan);
+/* Actual resident owned payload only; excludes future CREATE/origin/parser peaks. */
+size_t primary_source_publish_owned(const PrimarySourcePublishPlan *plan);
 const SheetPresenceAsset *primary_source_publish_presence(const PrimarySourcePublishPlan *plan);
 PrimarySourcePublishStatus primary_source_publish_check(PrimarySourceDraftContext context,
     const PrimarySourcePublishPlan *plan,char **error);

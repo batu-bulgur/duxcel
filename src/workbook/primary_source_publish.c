@@ -85,6 +85,18 @@ const SheetView *primary_source_publish_initial_view(const PrimarySourcePublishP
     return !plan ? NULL : plan->initial ? sheet_source_view_get(plan->initial) : plan->staged_view.columns ? &plan->staged_view : NULL;
 }
 PrimarySourcePublishInfo primary_source_publish_usage(const PrimarySourcePublishPlan *plan) { return plan ? plan->info : (PrimarySourcePublishInfo){0}; }
+size_t primary_source_publish_owned(const PrimarySourcePublishPlan *plan) {
+    if (!plan) return 0;
+    size_t bytes=sizeof(*plan); SheetPresenceMeasure presence={0};
+    if (plan->presence && sheet_presence_measure(sheet_presence_view(plan->presence),&presence)!=SHEET_PRESENCE_OK) return SIZE_MAX;
+    if (!add(&bytes,primary_source_draft_owned(plan->draft)) || !add(&bytes,presence.owned) || !add(&bytes,sheet_source_view_owned(plan->initial)) ||
+        !add(&bytes,analysis_text_bytes(&plan->candidate.source)) || (plan->candidate.name && !add(&bytes,strlen(plan->candidate.name)+1))) return SIZE_MAX;
+    if (plan->staged_view.column_count) {
+        if (!add(&bytes,plan->staged_view.column_count*(sizeof(char *)+sizeof(float)))) return SIZE_MAX;
+        for (size_t i=0;i<plan->staged_view.column_count;i++) if (!add(&bytes,strlen(plan->staged_view.columns[i])+1)) return SIZE_MAX;
+    }
+    return bytes;
+}
 const SheetPresenceAsset *primary_source_publish_presence(const PrimarySourcePublishPlan *plan) {
     return plan && plan->draft ? plan->presence : NULL;
 }

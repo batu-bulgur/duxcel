@@ -36,10 +36,12 @@ static PrimarySourceTopologyPlan *prepare(PrimarySourceDraftContext c) {
     PrimarySourcePublishPlan *candidate=source(c); PrimarySourceTopologyUsage usage={0};
     CHECK(primary_source_topology_measure(c,candidate,&usage,NULL)==PRIMARY_TOPOLOGY_READY && usage.event_bytes && usage.prospective_sheet==3);
     CHECK(usage.total==usage.source+usage.preparation+usage.reservation && usage.source==primary_source_publish_usage(candidate).coexisting);
+    CHECK(primary_source_publish_owned(candidate)>0 && primary_source_publish_owned(candidate)<usage.source);
     Workbook before=*c.book; Worksheet sheet=c.book->sheets[0]; PrimarySourceTopologyPlan *out=NULL;
     CHECK(primary_source_topology_prepare(c,&candidate,usage.total-1,&out,NULL)==PRIMARY_TOPOLOGY_LIMIT && candidate && !out);
     CHECK(!memcmp(&before,c.book,sizeof(before)) && !memcmp(&sheet,c.book->sheets,sizeof(sheet)));
     CHECK(primary_source_topology_prepare(c,&candidate,usage.total,&out,NULL)==PRIMARY_TOPOLOGY_READY && !candidate);
+    CHECK(primary_source_topology_owned(out)>usage.owned && primary_source_topology_owned(out)<usage.total);
     CHECK(primary_source_topology_check(c,out,NULL)==PRIMARY_TOPOLOGY_READY && !memcmp(&before,c.book,sizeof(before)));
     return out;
 }
@@ -62,10 +64,11 @@ static void prepare_and_reserve(void) {
     CHECK(primary_source_topology_reserve(c,plan,history,usage.total,NULL)==PRIMARY_TOPOLOGY_READY && primary_source_topology_reserved(plan));
     WorkbookHistoryStreamState held=workbook_history_stream_state(history); CHECK(held.reserved && held.current.cursor==3 && held.current.tail==5 && held.current.action_high_water==5 && held.current.lineage_high_water==1);
     CHECK(held.owned_bytes-before.owned_bytes==workbook_history_stream_event_allocation(packet->bytes,0));
+    size_t resident_with_ticket=primary_source_topology_owned(plan);
     CHECK(primary_source_topology_reserve(c,plan,history,SIZE_MAX,NULL)==PRIMARY_TOPOLOGY_BUSY && same_state(held,workbook_history_stream_state(history)));
     CHECK(workbook_history_stream_free(&history,false)==HISTORY_STREAM_BUSY && history);
     CHECK(!b.dirty && b.count==2 && b.command_revision==0 && worksheet_history_high_water()==order && !b.sheets[1].edit_session_id);
-    primary_source_topology_cancel(plan); CHECK(!primary_source_topology_reserved(plan) && same_state(before,workbook_history_stream_state(history)));
+    primary_source_topology_cancel(plan); CHECK(primary_source_topology_owned(plan)+workbook_history_topology_ticket_allocation()==resident_with_ticket); CHECK(!primary_source_topology_reserved(plan) && same_state(before,workbook_history_stream_state(history)));
     CHECK(primary_source_topology_reserve(c,plan,history,usage.total,NULL)==PRIMARY_TOPOLOGY_READY);
     primary_source_topology_free(&plan); CHECK(!plan && same_state(before,workbook_history_stream_state(history)));
     CHECK(workbook_history_stream_free(&history,false)==HISTORY_STREAM_OK); analysis_free(&app); workbook_free(&b);

@@ -160,3 +160,12 @@ const SheetTopologyPacket *primary_source_topology_packet(const PrimarySourceTop
 const SheetPresenceAsset *primary_source_topology_presence(const PrimarySourceTopologyPlan *plan) { return plan ? primary_source_publish_presence(plan->source) : NULL; }
 PrimarySourceTopologyUsage primary_source_topology_usage(const PrimarySourceTopologyPlan *plan) { return plan ? plan->usage : (PrimarySourceTopologyUsage){0}; }
 bool primary_source_topology_reserved(const PrimarySourceTopologyPlan *plan) { return plan && plan->ticket; }
+
+size_t primary_source_topology_owned(const PrimarySourceTopologyPlan *plan) {
+    if (!plan) return 0;
+    size_t bytes=sizeof(*plan);
+    if (!add(&bytes,primary_source_publish_owned(plan->source)) || !add(&bytes,plan->packet.bytes) ||
+        (plan->ticket && !add(&bytes,workbook_history_topology_ticket_allocation()))) return SIZE_MAX;
+    for (size_t i=0;i<plan->before.count;i++) if (!add(&bytes,strlen(plan->before_rows[i].name)+1)) return SIZE_MAX;
+    return bytes;
+}

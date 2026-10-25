@@ -60,5 +60,8 @@ void primary_source_topology_free(PrimarySourceTopologyPlan **plan);
 const SheetTopologyPacket *primary_source_topology_packet(const PrimarySourceTopologyPlan *plan);
 const SheetPresenceAsset *primary_source_topology_presence(const PrimarySourceTopologyPlan *plan);
 PrimarySourceTopologyUsage primary_source_topology_usage(const PrimarySourceTopologyPlan *plan);
+/* Resident bridge/source/catalog/packet and ticket wrapper only. Existing stream
+   event/payload residency remains charged by the stream owner, never twice. */
+size_t primary_source_topology_owned(const PrimarySourceTopologyPlan *plan);
 bool primary_source_topology_reserved(const PrimarySourceTopologyPlan *plan);
 #endif
