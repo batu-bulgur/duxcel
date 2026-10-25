@@ -318,6 +318,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.5.6 · P1 · Complete | Guarded session replay and native adapters; W12c.5.5. | Replay genuine selected actions with current owners, preserve Redo and counters, retain same-active Analysis/Grid/Page on metadata changes and keep unresolved-source session behavior. No new traversal event or retained writer. |
 | W12c.5.7 · P1 · Complete | Authored matching versus immutable enrichment; W12c.5.6. | Navigation/default tail capacity and proven ledger completion/allocator growth cannot block valid sheet Undo. Exact authored data remains checked; current counters/RAW are never rewound or promoted to readiness. |
 | W12c.5.8 · P1 · Complete | Read-only typed sheet slot/batch/applicability prerequisites; W12c.5.7. | Bind only supplied current frame/path slots, cap aggregate ownership before decode, preserve prior output on late failure and expose pending/unbound observations without activation. Full file profile/publication remains W12b.2c/W12d. |
+| W12c.5.9 · P1 · Complete | Native source CREATE publication; W12c.5.6–W12c.5.8 and source draft/origin admission. | Resolve actual Database/CSV/Parquet/demo probe, own the full initial view and original topology packet, then publish one genuine CREATE. Cancel/stale/pressure preserve the prior sheet; keyboard replay preserves authored widths/navigation and monotonic identities. |
 | W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
@@ -2658,3 +2659,18 @@ Read-only family4 admission integrates `a739e729`/`6f9bebe9`, with focused plan
 configurations (receipts `20261025T231640-feature-49791` and
 `231647-feature-50239`; exact elapsed values in their ignored summaries). This
 closes the range leaf only; the combined durable profile and writer stay open.
+
+Native source publication integrates `d29ce2b1` through `3be141e5`; source
+models match the prepared shared owners. Main actual DB/edit/cancel/ABA23
+stages pass23.753s and file kinds9 stages15.299s (`20261025T231826-feature-52476`,
+`231850-feature-53483`). CREATE Undo/Redo/Save/Open8 passes20.485s at
+`0270716a` (`232150-feature-56866`). Fixture corrections26856242/aed2b5ee
+preserve full authored prefixes, exact viewport/zoom and every unnamed96 tail
+column while allowing virtual capacity growth; initial CREATE still requires
+exact56 columns. Original failed diagnostic reports remain failed.
+
+The original topology-packet guard (`0270716a`, source568e1be2) rejects replaced,
+freed or altered selected packet bytes before mutation, without another wire
+copy. Focused owner/codec plans pass both modes8.121s/5.615s, and real topology
+25 stages18.272s (`232136-feature-56080`, `232144-feature-56609`,
+`232211-feature-57538`). Durable profile/writer/traversal remain open.
