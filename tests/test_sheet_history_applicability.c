@@ -1,6 +1,7 @@
 #include "workbook/sheet_history_applicability.h"
 #include "workbook/sheet_lifecycle_command.h"
 #include "workbook/sheet_topology_duplicate.h"
+#include "workbook/sheet_topology_remove.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +41,20 @@ static void pending_observation(void) {
     const SheetTopologyEvent *event=workbook_sheet_payload_topology(payload); SheetPresenceAsset *captured=NULL;
     CHECK(sheet_presence_decode(event->presence.data,event->presence.bytes,SIZE_MAX,&captured,NULL)==SHEET_PRESENCE_OK && !sheet_presence_view(captured).sheet->source_versions.items[0].raw.bytes);
     CHECK(sheet->analysis.source_version==1 && sheet->source_versions.items[0].raw.bytes);
-    workbook_sheet_applicability_free(&plan); workbook_sheet_payload_free(&payload); sheet_presence_free(&captured);
+    /* REMOVE uses the caller's actual detached owner; applicability never
+       invents an absent sheet or performs the lifecycle transfer itself. */
+    CHECK(workbook_prepare_command_session(&b,b.active,NULL));
+    SheetTopologyRemoveContext rc={&b,&epoch,&sheet->analysis,id,SIZE_MAX,true,false,SIZE_MAX}; SheetTopologyRemovePlan *remove=NULL;
+    CHECK(sheet_topology_remove_prepare(rc,id,&remove,NULL)==SHEET_REMOVE_READY);
+    CHECK(sheet_topology_remove_apply(rc,&remove,stream,SIZE_MAX,NULL)==SHEET_REMOVE_APPLIED);
+    WorkbookSheetPayload *removed=decode(stream,id,SHEET_DELETE);
+    CHECK(workbook_sheet_applicability_prepare(removed,SIZE_MAX,&plan)==SHEET_APPLICABILITY_OK);
+    WorkbookLifecyclePresence selected; CHECK(workbook_lifecycle_presence(&b,false,&selected) && selected.detached && selected.sheet==id);
+    actual=(SheetPresenceView){b.id,b.sheet_high_water,selected.worksheet,&selected.worksheet->analysis};
+    CHECK(sheet_lifecycle_from_workbook(&b,rows,&state)==SHEET_LIFECYCLE_OK);
+    CHECK(workbook_sheet_applicability_check(plan,state,&actual,false,&result)==SHEET_APPLICABILITY_OK && result.target.count==3 && result.presence.sources.exact==1 && !result.presence.sources.captured_pending);
+    CHECK(workbook_sheet_applicability_check(plan,result.target,&actual,true,&result)==SHEET_APPLICABILITY_OK && result.target.count==2);
+    workbook_sheet_applicability_free(&plan); workbook_sheet_payload_free(&removed); workbook_sheet_payload_free(&payload); sheet_presence_free(&captured);
     CHECK(workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK); workbook_free(&b);
 }
 int main(void) {
