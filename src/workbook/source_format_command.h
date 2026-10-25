@@ -88,5 +88,19 @@ bool workbook_prepare_source_aware_spatial_format(SourceFormatCommandContext *co
 SourceFormatCommandResult workbook_apply_source_aware_spatial_format_recorded(SourceFormatCommandContext *context,
     const SourceFormatCommandTarget *target,FormatSnapshot *owned,
     const WorkbookHistoryFormatRecorder *recorder,char **error);
+/* Current manual-first spatial transition on an imported worksheet. Every
+   source-unaware current/retained state must contain broad defaults only;
+   already-source-aware retained states keep their exact finite/RAW/RESULT/
+   GUARDED semantics, including legitimate Redo. App proves the edited range
+   manual before calling. The independent spatial candidate retains false mode
+   until atomic publication; ONLY the new current state becomes source-aware.
+   No historical flag, immutable ledger row or source binding is rewritten.
+   Unsupported ownership profiles return PROTECTED; failure keeps the candidate
+   and all before-mode flags unchanged. One effect8 event owns the transition. */
+bool workbook_prepare_manual_source_format(SourceFormatCommandContext *context,size_t sheet,
+    SourceFormatCommandTarget *out,char **error);
+SourceFormatCommandResult workbook_apply_manual_source_format_recorded(SourceFormatCommandContext *context,
+    const SourceFormatCommandTarget *target,FormatSnapshot *owned,
+    const WorkbookHistoryFormatRecorder *recorder,char **error);
 void source_format_command_plan_free(SourceFormatCommandPlan *plan);
 #endif

@@ -380,7 +380,90 @@ static void spatial_callbacks(void) {
         format_snapshot_free(&p); source_format_command_plan_free(&first); workbook_free(&b);
     }
 }
+static bool manual_replay(SourceFormatCommandContext *c,bool redo) {
+    WorkbookHistoryResult result=workbook_history_step(c->book,redo,NULL);
+    if (result.status==WORKBOOK_HISTORY_APPLIED) return true;
+    if (result.status!=WORKBOOK_HISTORY_DELEGATE || result.kind!=EDIT_ANALYSIS_FORMAT) return false;
+    /* The genuine mixed Analysis/Format session event delegates its existing
+       constituent handoff to App; use that same public model sequence here. */
+    Worksheet *s=c->book->sheets+result.sheet;
+    if (!worksheet_analysis_history_preflight(s,c->primary,redo,NULL)) return false;
+    worksheet_analysis_history_adopt(s,c->primary,redo);
+    if (!format_history(&s->formats,redo)) return false;
+    worksheet_transfer_history(s,redo); c->book->command_revision++; c->book->dirty=true; return true;
+}
+static void manual_first(void) {
+    Workbook b=book(false); Worksheet *s=b.sheets; uint64_t epoch=1;
+    SourceFormatCommandContext c={&b,&s->analysis,&epoch,SIZE_MAX,true,false};
+    CellFormat style=format_default(); style.align=FORMAT_RIGHT; style.color=2;
+    CHECK(format_apply(&s->formats,(FormatRange){0,DX_SHEET_ROWS-1,0,0},FORMAT_ALIGN,style,NULL));
+    worksheet_record(s,EDIT_FORMAT); b.command_revision++; workbook_history_note_edit(&b);
+    FormatSnapshot retained[DX_FORMAT_HISTORY]; size_t count=s->formats.undo_count;
+    memcpy(retained,s->formats.undo,count*sizeof(*retained));
+    FormatSnapshot p={0}; CHECK(format_plan_spatial(&s->formats,(FormatRange){20,20,20,20},FORMAT_COLOR,style,&p,NULL) && !p.source_aware);
+    SourceFormatCommandTarget t; CHECK(workbook_prepare_manual_source_format(&c,0,&t,NULL));
+    WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,99,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id,.command_revision=b.command_revision};
+    WorkbookHistoryStream *stream=NULL; CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&stream)==HISTORY_STREAM_OK);
+    WorkbookHistoryFormatRecorder recorder=workbook_history_stream_format_recorder(stream);
+    CHECK(workbook_apply_manual_source_format_recorded(&c,&t,&p,&recorder,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && !p.items && s->formats.source_aware && b.command_revision==2);
+    CHECK(!memcmp(retained,s->formats.undo,count*sizeof(*retained)) && !s->formats.undo[s->formats.undo_count-1].source_aware && format_at(&s->formats,20,20).color==2 && !s->source_versions.count);
+    WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK);
+    FormatDelta delta={0}; CHECK(format_delta_decode(workbook_history_event_payload(event),workbook_history_event_info(event)->bytes,SIZE_MAX,&delta)==FORMAT_DELTA_OK);
+    CHECK(!delta.before.source_aware && delta.after.source_aware);
+    format_delta_free(&delta); CHECK(workbook_history_stream_complete(stream,&event)==HISTORY_STREAM_OK && workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK);
+    t=target(&c,false); SourceFormatCommandPlan first=plan(&c,false);
+    CHECK(workbook_apply_source_format_recorded(&c,&t,&first,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && s->analysis.source_version==1);
+    p=bound_plan(&c,false,true); t=target(&c,false);
+    CHECK(workbook_apply_bound_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED);
+    const SourceVersion *entry=s->source_versions.items; SourceVersions ledger=s->source_versions; SourcePacket result={0};
+    CHECK(source_scope_result_build(&entry->raw,&s->analysis,&result,NULL)); FormatScopeView view={0,result.data,result.bytes}; style.align=FORMAT_CENTER;
+    CHECK(format_apply_scoped(&s->formats,(FormatRange){0,0,0,0},FORMAT_ALIGN,style,&view,1,false,NULL)); worksheet_record(s,EDIT_FORMAT); b.command_revision++; workbook_history_note_edit(&b);
+    style.color=1; CHECK(format_apply_scoped(&s->formats,(FormatRange){30,30,0,0},FORMAT_COLOR,style,&view,1,true,NULL)); worksheet_record(s,EDIT_FORMAT); b.command_revision++; workbook_history_note_edit(&b);
+    for (unsigned replay=0;replay<2;replay++) {
+        size_t raw=format_scope_token(&s->formats,&(FormatScopeView){0,entry->raw.data,entry->raw.bytes}),token=format_scope_token(&s->formats,&view);
+        CellFormat exact=format_resolve_record_token(&s->formats,0,0,token,raw,1,0),wrong=format_resolve_record_token(&s->formats,1,0,SIZE_MAX,raw,2,0);
+        CHECK(exact.flags==(FORMAT_BOLD|FORMAT_ITALIC) && exact.align==FORMAT_CENTER && !wrong.flags && wrong.align==FORMAT_RIGHT && format_at(&s->formats,30,0).color==1 && format_at(&s->formats,20,20).color==2);
+        if (replay) break;
+        for (unsigned i=0;i<4;i++) CHECK(manual_replay(&c,false));
+        CHECK(s->formats.source_aware && !s->analysis.source_version && format_at(&s->formats,20,20).color==2 && !memcmp(&ledger,&s->source_versions,sizeof(ledger)));
+        CHECK(manual_replay(&c,false) && !s->formats.source_aware && format_at(&s->formats,20,20).color==0);
+        for (unsigned i=0;i<5;i++) CHECK(manual_replay(&c,true));
+    }
+    /* A new manual branch after Undo keeps valid source-aware Redo metadata,
+       then abandons it without rewriting any earlier false-mode snapshot. */
+    for (unsigned i=0;i<5;i++) CHECK(manual_replay(&c,false));
+    CHECK(!s->formats.source_aware && s->formats.redo_count==5);
+    CHECK(workbook_prepare_manual_source_format(&c,0,&t,NULL));
+    style.color=3; CHECK(format_plan_spatial(&s->formats,(FormatRange){40,40,20,20},FORMAT_COLOR,style,&p,NULL));
+    CHECK(workbook_apply_manual_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_APPLIED && s->formats.source_aware && !s->formats.redo_count && format_at(&s->formats,40,20).color==3 && !format_at(&s->formats,20,20).color);
+    for (size_t i=0;i<s->formats.undo_count;i++) CHECK(!s->formats.undo[i].source_aware);
+    source_packet_free(&result); source_format_command_plan_free(&first); workbook_free(&b);
+}
+static void manual_first_rejection(void) {
+    for (unsigned mode=0;mode<5;mode++) {
+        Workbook b=book(false); Worksheet *s=b.sheets; uint64_t epoch=1; SourceFormatCommandContext c={&b,&s->analysis,&epoch,SIZE_MAX,true,false};
+        SourceFormatCommandTarget t; CHECK(workbook_prepare_manual_source_format(&c,0,&t,NULL));
+        FormatSnapshot p=spatial_plan(s,false),owned=p; Workbook before=b; Worksheet sheet=*s;
+        BoundProbe probe={&c,mode,0,0,0}; WorkbookHistoryFormatRecorder recorder={bound_reserve,bound_publish,bound_cancel,&probe};
+        if (mode==0) {
+            epoch++; CHECK(workbook_apply_manual_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_STALE);
+        } else if (mode==1 || mode==2) {
+            CHECK(workbook_apply_manual_source_format_recorded(&c,&t,&p,&recorder,NULL).status==(mode==1 ? SOURCE_FORMAT_COMMAND_LIMIT : SOURCE_FORMAT_COMMAND_INVALID));
+        } else {
+            /* Unsupported source-unaware finite current/retained profiles are
+               never converted, even when the new candidate is independent. */
+            CellFormat style=format_default(); style.flags=FORMAT_BOLD;
+            CHECK(format_apply(&s->formats,(FormatRange){1,1,1,1},FORMAT_BOLD,style,NULL));
+            if (mode==4) CHECK(format_history(&s->formats,false));
+            before=b; sheet=*s; t.format_revision=s->formats.revision;
+            CHECK(workbook_apply_manual_source_format_recorded(&c,&t,&p,NULL,NULL).status==SOURCE_FORMAT_COMMAND_PROTECTED);
+        }
+        CHECK(!memcmp(&before,&b,sizeof(b)) && !memcmp(&sheet,s,sizeof(sheet)) && !memcmp(&owned,&p,sizeof(p)) && !p.source_aware);
+        format_snapshot_free(&p); workbook_free(&b);
+    }
+}
 int main(void) {
+    manual_first(); manual_first_rejection();
     spatial(false); spatial(true); spatial_scoped(); spatial_rejections(); spatial_callbacks();
     fences(false); fences(true); callbacks(false); callbacks(true); history(false); history(true); retained_sources(false); retained_sources(true); manual_policy(); stream_handoff(false); stream_handoff(true); bound(false); bound(true); bound_callbacks(false); bound_callbacks(true); limits();
     source_format_command_plan_free(NULL); printf("PASS: %u atomic source format command checks\n",checks); return 0;
