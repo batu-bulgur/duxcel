@@ -123,6 +123,33 @@ def create_source_connections(output, *, duckdb=None):
     return targets
 
 
+def create_source_origins(output, *, duckdb=None):
+    """Loaded NULL defaults, typed count and unrelated ready-primary fixture."""
+    executable = duckdb or shutil.which("duckdb")
+    if not executable:
+        raise RuntimeError("The existing DuckDB CLI is required to generate fixtures")
+    connections = create_source_connections(output, duckdb=executable)
+    with tempfile.TemporaryDirectory(prefix=".source-origins-", dir=output) as temporary:
+        stage = Path(temporary)
+        core, book = stage / "core.dxls", stage / "source-origins.dxls"
+        primary = ROOT / "tests/fixtures/duplicates.csv"
+        schema = TEMPLATE.read_text().replace("'__TRANSACTIONS_SOURCE__'", quote(primary))
+        schema = schema.replace("__DOCUMENT_LOW__", "33")
+        data = (ROOT / "tests/fixtures/workbook/source-origins.sql").read_text()
+        data = data.replace("@PRIMARY@", quote(primary)).replace("@DATABASE@", quote(connections[0]))
+        execute(executable, core, schema + "\n" + data)
+        payload = core.read_bytes()
+        shutil.copyfile(core, book)
+        container = (ROOT / "tests/fixtures/workbook/current-container.sql").read_text()
+        container = container.replace("__ROOT_SHA256__", hashlib.sha256(payload).hexdigest())
+        container = container.replace("__ROOT_BYTES__", str(len(payload)))
+        container = container.replace("__ROOT_CHUNKS__", str((len(payload) + 65535) // 65536))
+        execute(executable, book, container.replace("'__CORE_PATH__'", quote(core)))
+        target = output / book.name
+        os.replace(book, target)
+    return target
+
+
 def create(output, *, large=False, duckdb=None):
     executable = duckdb or shutil.which("duckdb")
     if not executable:
@@ -165,9 +192,14 @@ def main():
     mode.add_argument("--large", action="store_true")
     mode.add_argument("--journal-paste-only", action="store_true")
     mode.add_argument("--source-connections-only", action="store_true")
+    mode.add_argument("--source-origins-only", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/tests/generated")
     options = parser.parse_args()
     with FileLock(ROOT / "build/locks/fixture-inputs.lock", "Fixture generation"):
+        if options.source_origins_only:
+            target = create_source_origins(options.output_dir.resolve())
+            print(f"PASS: source origin fixture: {target}")
+            return
         if options.source_connections_only:
             targets = create_source_connections(options.output_dir.resolve())
             print(f"PASS: source connection fixtures: {targets[0]}, {targets[1]}")

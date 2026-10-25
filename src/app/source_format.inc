@@ -815,9 +815,32 @@ static DefinitionOriginStatus app_definition_origin_seal(App *a,AppDefinitionOri
     if (!source_format_add(&scratch,info.asset_bytes) || !source_format_budget(a,NULL,0,scratch,reply_owned,0,0)) return app_definition_origin_limit(a,error);
     return definition_origin_seal(&context,node->owner,info.asset_bytes,error);
 }
-static DefinitionOriginStatus app_definition_origin_reply(App *a,const QueryReply *reply,char **error) {
-    if (reply->kind!=JOB_PAGE || history_locked(a) || a->analysis.kind!=SOURCE_DATABASE) return DEFINITION_ORIGIN_READY;
-    bool completion=!a->analysis.table && reply->analysis.table;
+/* One accepted reply owns source metadata regardless of its result kind.
+   Viewport/count/cache geometry and numeric inference remain ordinary derived
+   state; only NULL DATABASE default strings enter the atomic origin transfer. */
+static DefinitionOriginStatus app_definition_origin_reply_owner(App *a,const QueryReply *reply,uint64_t owner,char **error) {
+    if (history_locked(a)) return DEFINITION_ORIGIN_READY;
+    const Analysis *source=&a->analysis;
+    if (reply->id!=a->request_id) {
+        if (error) { free(*error); *error=dx_strdup("The source reply belongs to an earlier request."); } return DEFINITION_ORIGIN_STALE;
+    }
+    if (owner) {
+        Worksheet *sheet=active_sheet(a); const SheetObject *table=NULL,*route=NULL;
+        if (sheet) for (size_t i=0;i<sheet->objects.count;i++) {
+            if (sheet->objects.items[i].id==owner && sheet->objects.items[i].kind==OBJECT_TABLE) table=&sheet->objects.items[i];
+            if (sheet->objects.items[i].id==reply->object_id) route=&sheet->objects.items[i];
+        }
+        if (!table || !route || route->revision!=reply->revision || objects_source(&sheet->objects,route)!=table) {
+            if (error) { free(*error); *error=dx_strdup("The source reply belongs to a different Table route or revision."); } return DEFINITION_ORIGIN_STALE;
+        }
+        source=&table->source;
+    } else {
+        if (reply->kind!=JOB_PAGE) return DEFINITION_ORIGIN_READY;
+        if (reply->object_id || reply->revision!=a->analysis_revision) {
+            if (error) { free(*error); *error=dx_strdup("The source reply belongs to an earlier primary revision."); } return DEFINITION_ORIGIN_STALE;
+        }
+    }
+    bool completion=source->kind==SOURCE_DATABASE && !source->table && reply->analysis.table;
     AppDefinitionOrigin *node=app_definition_origin_find(a);
     /* Already resolved replies may retry sealing the SAME current OPEN owner;
        they cannot replace an immutable arena or invent an absent preimage. */
@@ -828,7 +851,7 @@ static DefinitionOriginStatus app_definition_origin_reply(App *a,const QueryRepl
         DefinitionOriginStatus result=app_definition_origin_open(a,reply_owned,&node,error);
         if (result!=DEFINITION_ORIGIN_READY) return result;
         DefinitionOriginContext context=app_definition_origin_context(a);
-        DefinitionOriginReply completed={reply->id,0,reply->object_id,reply->revision,&reply->analysis}; DefinitionOriginCompletionInfo info={0};
+        DefinitionOriginReply completed={reply->id,owner,reply->object_id,reply->revision,&reply->analysis}; DefinitionOriginCompletionInfo info={0};
         result=definition_origin_completion_measure(&context,node->owner,&completed,&info,error);
         if (result!=DEFINITION_ORIGIN_READY) return result;
         size_t reserve=info.owned;
@@ -842,4 +865,8 @@ static DefinitionOriginStatus app_definition_origin_reply(App *a,const QueryRepl
        remains pending. Never waive its exact request fence to seal it. */
     if (!completion && sealed==DEFINITION_ORIGIN_STALE) { if (error) { free(*error); *error=NULL; } return DEFINITION_ORIGIN_READY; }
     return sealed;
+}
+
+static DefinitionOriginStatus app_definition_origin_reply(App *a,const QueryReply *reply,char **error) {
+    return app_definition_origin_reply_owner(a,reply,0,error);
 }

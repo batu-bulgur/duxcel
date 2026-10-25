@@ -2259,14 +2259,30 @@ static void poll_query(App *a) {
     if (r->object_id) {
         ObjectStore *store=&active_sheet(a)->objects;
         for (size_t i=0;i<store->count;i++) if (store->items[i].id==r->object_id) {
+#ifndef DUXCEL_BROWSER_HOST
+            if (store->items[i].revision!=r->revision) {
+                if (!r->error) r->error=dx_strdup("The source reply belongs to an earlier object revision.");
+                break;
+            }
+#endif
             const SheetObject *table=objects_source(store,&store->items[i]);
             if (table) {
                 size_t index=(size_t)(table-store->items); char *error=NULL;
+#ifndef DUXCEL_BROWSER_HOST
+                if (!r->error) {
+                    DefinitionOriginStatus admitted=app_definition_origin_reply_owner(a,r,table->id,&error);
+                    if (admitted==DEFINITION_ORIGIN_READY || admitted==DEFINITION_ORIGIN_APPLIED || admitted==DEFINITION_ORIGIN_LIMIT || admitted==DEFINITION_ORIGIN_UNRESOLVED) {
+                        if (error) status(a,error);
+                    } else { r->error=error ? error : dx_strdup("The source default reply no longer matches its Table owner."); error=NULL; }
+                }
+                free(error); if (!r->error) analysis_merge_types(&store->items[index].source,&r->analysis);
+#else
                 if (!r->error && table->source.kind==SOURCE_DATABASE && !table->source.table && r->analysis.table) {
                     if (objects_resolve_source(store,index,&r->analysis,&error)) a->book.dirty=true;
                     else { r->error=error; error=NULL; }
                 }
                 free(error); analysis_merge_types(&store->items[index].source,&r->analysis);
+#endif
             }
             else analysis_merge_types(&a->analysis,&r->analysis);
             break;
@@ -3059,7 +3075,7 @@ static void request_values(App *a,uint64_t offset) {
     j->analysis=analysis_copy(object_source(a,object)); j->column=dx_strdup(fields->columns[a->field].name); j->search=dx_strdup(a->input.text);
     j->expected_source_stamp=object_fields(a,object)->records.stamp;
     j->date_level=a->date_level; j->offset=offset; j->known_total=a->values_total;
-    if (object) { j->pivot=pivot_copy(&object->pivot); j->object_id=object->id; j->is_table=object->kind==OBJECT_TABLE; }
+    if (object) { j->pivot=pivot_copy(&object->pivot); j->object_id=object->id; j->revision=object->revision; j->is_table=object->kind==OBJECT_TABLE; }
     if (a->date_level>0) { j->date_start=dx_strdup(a->date_starts[a->date_level-1]); j->date_end=dx_strdup(a->date_ends[a->date_level-1]); }
     a->values_loading=true; a->pending_kind=JOB_DISTINCT; app_worker_submit(a,j);
 }
@@ -15693,6 +15709,9 @@ static void range_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_COLUMN_WIDTH
 static void column_width_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_TABLE_ORIGIN
+static void table_origin_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
 static void definition_origin_test_frame(AppSession *session);
 #endif
@@ -16598,6 +16617,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_COLUMN_WIDTH
     column_width_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_TABLE_ORIGIN
+    table_origin_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
     definition_origin_test_frame(session);
 #endif
@@ -16960,6 +16982,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_move_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_TABLE_ORIGIN
+#include "../../tests/support/table_origin_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_DEFINITION_ORIGIN
 #include "../../tests/support/definition_origin_app.inc"
 #endif

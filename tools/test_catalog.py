@@ -19,6 +19,8 @@ class Feature:
 STANDALONE_GUI = {
     "column-width": ("build/tests/test_column_width-gui", "PASS: native column width workflow",
                      r"^PASS: native column width workflow \(21 stages, [1-9]\d* checks\)$", 21),
+    "table-origin": ("build/tests/test_table_origin-gui", "PASS: native loaded Table origin workflow",
+                     r"^PASS: native loaded Table origin workflow \(12 stages, [1-9]\d* checks\)$", 12),
     "definition-origin": ("build/tests/test_definition_origin-gui", "PASS: native primary origin workflow",
                           r"^PASS: native primary origin workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "range-command": ("build/tests/test_range_command-gui", "PASS: native manual range workflow",
@@ -202,6 +204,10 @@ FEATURES = {
     "analysis-command": Feature(("analysis_command", "history_definition", "workbook_history"), "analysis-command",
         ("python3 tools/test.py native --scenario unique", "python3 tools/test.py feature --feature source-result-format"),
         ("src/workbook/analysis_command.c", "src/workbook/analysis_command.h", "src/app/app.c: primary Remove duplicates adapter", "tests/test_analysis_command.c", "tests/support/analysis_command_app.inc", "tests/test_journal_session.c: primary transform checkpoint rotation"), ("journal_session",)),
+    "table-origin": Feature(("definition_origin", "definition_baseline"), "table-origin",
+        ("python3 tools/test.py feature --feature definition-origin", "python3 tools/test.py native --scenario table"),
+        ("src/app/source_format.inc: actual primary/Table source owner completion", "src/app/app.c: central Table reply and distinct query revision",
+         "tests/support/table_origin_app.inc", "tools/create_workbook.py: source-origins", "tests/fixtures/workbook/source-origins.sql"), fixtures=("source-origins",)),
     "definition-origin": Feature(("definition_origin", "definition_baseline"), "definition-origin",
         ("python3 tools/test.py native --scenario table",),
         ("src/workbook/definition_origin.c", "src/workbook/definition_origin.h", "tests/test_definition_origin.c", "src/app/source_format.inc: primary origin reply/governor/retirement", "tests/support/definition_origin_app.inc"), fixtures=("source-connections",)),
@@ -589,4 +595,4 @@ def plan(name):
             "limits": "A focused pass covers this boundary; it does not establish whole-application or browser acceptance."}
 
 
-FEATURE_FIXTURES = {"transactions": (("tools/create_workbook.py",), "PASS: Python transaction fixture,", "build/tests/generated/design-definition.dxls"), "transactions-large": (("tools/create_workbook.py", "--large"), "PASS: Python transaction fixture,", "build/tests/generated/design-large.dxls"), "source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}
+FEATURE_FIXTURES = {"source-origins": (("tools/create_workbook.py", "--source-origins-only"), "PASS: source origin fixture:", "build/tests/generated/source-origins.dxls"), "transactions": (("tools/create_workbook.py",), "PASS: Python transaction fixture,", "build/tests/generated/design-definition.dxls"), "transactions-large": (("tools/create_workbook.py", "--large"), "PASS: Python transaction fixture,", "build/tests/generated/design-large.dxls"), "source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}
