@@ -13,6 +13,11 @@ CellRangeStatus cells_range_plan(const CellStore *store,uint64_t r0,uint64_t r1,
    constituent. Delete retains exact removed text in the outer before-event. */
 CellRangeStatus cells_rows_measure(const CellStore *store,uint64_t row,uint64_t count,bool insert,CellRangePlanInfo *info,char **error);
 CellRangeStatus cells_rows_plan(const CellStore *store,uint64_t row,uint64_t count,bool insert,size_t reserved,CellSnapshot *out,char **error);
+/* Independent sparse column insertion/deletion. Populated right-edge loss is
+   rejected; presentation-width truncation is a separate complete constituent.
+   No live mutation, history eviction or source/object admission. */
+CellRangeStatus cells_columns_measure(const CellStore *store,size_t column,size_t count,bool insert,CellRangePlanInfo *info,char **error);
+CellRangeStatus cells_columns_plan(const CellStore *store,size_t column,size_t count,bool insert,size_t reserved,CellSnapshot *out,char **error);
 /* Nonfallible transfer AFTER complete command/constituent reservation and
    owner recheck. Independent changed canonical snapshot replaces current; prior
    current ownership moves to bounded Undo, Redo clears, cell revision advances.
