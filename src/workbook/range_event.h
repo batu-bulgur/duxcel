@@ -3,32 +3,37 @@
 #include "cell_delta_codec.h"
 #include "format_delta_codec.h"
 #include "column_widths.h"
-#define DX_RANGE_EVENT_ENCODING 2u
-#define DX_RANGE_EVENT_HEADER_BYTES 32u
+#include "definition_event.h"
+#define DX_RANGE_EVENT_ENCODING 3u
+#define DX_RANGE_EVENT_HEADER_BYTES 40u
 #define DX_RANGE_EVENT_CELLS 40000u
-#define DX_RANGE_EVENT_MAX_BYTES (12u*1024u*1024u)
+#define DX_RANGE_EVENT_MAX_BYTES (30u*1024u*1024u)
 typedef struct {
     uint64_t sheet;
-    unsigned effects; /* Nonzero subset of 2 Cells,8 Format,16 Width; every part changes. */
+    unsigned effects; /* Nonzero subset of 2 Cells,4 Objects,8 Format,16 Width; every part changes. */
     const CellDelta *cells;
     size_t count;
     FormatSnapshotView before_formats,after_formats;
     ColumnWidthPair widths;
+    DefinitionEventView definitions; /* Objects bit: exact DXDE4/12, source-free. */
 } RangeEventView;
-typedef struct { uint64_t sheet; unsigned effects; size_t count,bytes,owned,validation_scratch,format_bytes,width_bytes,width_owned; } RangeEventInfo;
+typedef struct { uint64_t sheet; unsigned effects; size_t count,bytes,owned,validation_scratch,format_bytes,width_bytes,width_owned,definition_bytes,definition_owned; } RangeEventInfo;
 typedef struct {
     uint64_t sheet; unsigned effects;
     void *data; size_t bytes;
     CellDelta *cells; size_t count; /* Spans borrow ONLY this event's owned data. */
     FormatDelta formats; /* Independent owned graphs; no packet/string aliases. */
+    DefinitionEvent definitions; /* Owns Objects and optional formats when bit4. */
     ColumnWidthDelta widths; /* Complete independent sparse virtual states. */
 } RangeEvent;
 typedef enum { RANGE_EVENT_OK,RANGE_EVENT_NOOP,RANGE_EVENT_INVALID,RANGE_EVENT_LIMIT,RANGE_EVENT_UNSUPPORTED } RangeEventStatus;
-/* Closed source/object-free range compound: DXRE/u16 encoding/u16 zero/u64
-   sheet/u32 effects/u32 changed-cell count/u32 format bytes/u32 width bytes;
+/* Closed source-free range compound: DXRE/u16 encoding/u16 zero/u64
+   sheet/u32 effects/u32 changed-cell count/u32 format bytes/u32 width bytes/
+   u32 definition bytes/u32 zero;
    repeated u32 byte length + canonical DXCD, then optional complete canonical
-   DXFD and DXCW before/after pair.
-   Only current encoding2 is admitted; no encoding1 compatibility reader.
+   DXFD, DXCW and DXDE before/after pairs. Objects require DXDE4/12 and
+   prohibit a separate DXFD. Tables/source links/Analysis are outside this owner.
+   Only current encoding3 is admitted; older encodings are unsupported.
    Sorted unique coordinates, same sheet, changed values and truthful effects
    reject partial/duplicate/no-op constituents. Sparse clear is an empty span;
    exact text bytes are retained. NULL/empty source values are outside this owner.

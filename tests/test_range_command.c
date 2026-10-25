@@ -152,7 +152,7 @@ static void columns_compound(void) {
         if (expected&8) CHECK(format_at(&s->formats,1,2).flags&FORMAT_BOLD);
         WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); RangeEvent event={0};
         const WorkbookHistoryEventInfo *info=workbook_history_event_info(held);
-        CHECK(info->encoding==2 && range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==expected);
+        CHECK(info->encoding==DX_RANGE_EVENT_ENCODING && range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==expected);
         if (expected&16) CHECK(event.widths.before.entries[1].column==16383 && event.widths.before.entries[1].bits==column_width_bits(333));
         range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
         CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED);
@@ -225,7 +225,7 @@ static void paste_compound(void) {
     WorkbookHistoryRangeRecorder recorder=workbook_history_stream_range_recorder(queue);
     CHECK(workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL).status==RANGE_COMMAND_APPLIED); free(owned);
     WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
-    CHECK(info->encoding==2 && range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==2 && event.count==2);
+    CHECK(info->encoding==DX_RANGE_EVENT_ENCODING && range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==2 && event.count==2);
     CHECK(event.cells[0].before_bytes==4 && !memcmp(event.cells[0].before,"NULL",4) && event.cells[0].after_bytes==3 && !memcmp(event.cells[0].after,"New",3) && !event.cells[1].before_bytes && event.cells[1].after_bytes==1 && event.cells[1].after[0]=='x');
     range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK && workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK);
     free(t); workbook_free(&b);
