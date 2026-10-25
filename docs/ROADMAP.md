@@ -2655,6 +2655,6 @@ encoding; no durable history or browser file activation is claimed.
 
 Read-only family4 admission integrates `a739e729`/`6f9bebe9`, with focused plan
 `efce6355`. Both registered payload/slot plans pass optimized and sanitizer
-configurations (receipts `20261025T231643-feature-49979` and
+configurations (receipts `20261025T231640-feature-49791` and
 `231647-feature-50239`; exact elapsed values in their ignored summaries). This
 closes the range leaf only; the combined durable profile and writer stay open.
