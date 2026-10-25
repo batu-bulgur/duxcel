@@ -1185,6 +1185,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_profile_codec build/tests/test
 PARALLEL_NATIVE_GOALS += build/tests/test_history_component build/tests/test_history_component-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_after_save build/tests/test_history_after_save-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_version_publication build/tests/test_version_publication-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_sourceview build/tests/test_sourceview-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2751,3 +2752,8 @@ build/tests/test_version_publication: $(VERSION_PUBLICATION_OBJECTS) | build/tes
 build/tests/test_version_publication-debug: $(VERSION_PUBLICATION_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(VERSION_PUBLICATION_OBJECTS:.o=.d) $(VERSION_PUBLICATION_SAN_OBJECTS:.o=.d)
+SOURCEVIEW_SRC = src/ui/sourceview.c tests/test_sourceview.c
+build/tests/test_sourceview: $(SOURCEVIEW_SRC) src/ui/sourceview.h src/transforms/analysis.h src/common.h | build/tests
+	$(CC) -Isrc $(CFLAGS) $(WARN) $(SOURCEVIEW_SRC) -o $@
+build/tests/test_sourceview-debug: $(SOURCEVIEW_SRC) src/ui/sourceview.h src/transforms/analysis.h src/common.h | build/tests
+	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(SOURCEVIEW_SRC) -o $@ $(SANFLAGS)

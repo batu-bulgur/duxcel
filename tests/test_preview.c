@@ -17,11 +17,11 @@ static void named_previews(void) {
     CHECK(analysis_sort_set(&source,"Amount",true,false,&error));
     char *display=dx_strdup("import-7-O'Brien-İstanbul-表.csv");
     CHECK(step_preview_start_named(&preview,&source,0,81,17,NULL,display));
-    CHECK(!strcmp(preview.title,"Import import-7-O'Brien-İstanbul-表.csv") && preview.title!=display);
+    CHECK(!strcmp(preview.title,"Connect import-7-O'Brien-İstanbul-表.csv") && preview.title!=display);
     CHECK(preview.source.path!=path && !strcmp(preview.source.path,path) && preview.source.source_version==31 && !preview.source.filter_column && !preview.source.sort_column);
     CHECK(preview.source_id==81 && preview.source_revision==17 && preview.step==0 && preview.active && preview.initialized);
     memset(display,'x',strlen(display)); free(display);
-    CHECK(!strcmp(preview.title,"Import import-7-O'Brien-İstanbul-表.csv"));
+    CHECK(!strcmp(preview.title,"Connect import-7-O'Brien-İstanbul-表.csv"));
     QueryJob *job=step_preview_job(&preview,91,false);
     CHECK(job && job->kind==JOB_STEP_PREVIEW && job->analysis.path!=preview.source.path && !strcmp(job->analysis.path,path) && job->analysis.source_version==31);
     CHECK(!job->analysis.filter_column && !job->analysis.sort_column && job->is_preview); analysis_free(&job->analysis); free(job);
@@ -29,10 +29,10 @@ static void named_previews(void) {
     CHECK(!step_preview_start_named(&preview,&source,99,81,18,NULL,"different.csv"));
     CHECK(preview.title==title && preview.source.path==prefix_path && preview.source_revision==17 && preview.request==91 && preview.loading);
     /* A presentation pointer may borrow text from the preview being replaced. */
-    CHECK(step_preview_start_named(&preview,&source,0,81,18,NULL,preview.title+7));
-    CHECK(!strcmp(preview.title,"Import import-7-O'Brien-İstanbul-表.csv") && !strcmp(preview.source.path,path));
+    CHECK(step_preview_start_named(&preview,&source,0,81,18,NULL,preview.title+8));
+    CHECK(!strcmp(preview.title,"Connect import-7-O'Brien-İstanbul-表.csv") && !strcmp(preview.source.path,path));
     CHECK(step_preview_start(&preview,&source,0,81,19,NULL));
-    CHECK(!strcmp(preview.title,"Import import-1-import-7-O'Brien-İstanbul-表.csv"));
+    CHECK(!strcmp(preview.title,"Connect import-1-import-7-O'Brien-İstanbul-表.csv"));
     CHECK(step_preview_start_named(&preview,&source,1,81,20,NULL,"friendly.csv") && !strcmp(preview.title,"Filter City = İstanbul"));
     CHECK(preview.source.filter_column && !preview.source.sort_column && source.sort_column && source.path==path);
     source.query=dx_strdup("SELECT * FROM read_csv_auto('import-1-import-7-O''Brien-İstanbul-表.csv')");
@@ -47,11 +47,11 @@ static void named_previews(void) {
         while (bytes+4<sizeof(long_name)) { memcpy(long_name+bytes,"🦆",4); bytes+=4; }
         long_name[bytes]=0;
         CHECK(step_preview_start_named(&preview,&source,0,81,22,NULL,long_name));
-        size_t expected=7+offset+4*((sizeof(((UIStep *)0)->title)-1-7-offset)/4);
-        CHECK(strlen(preview.title)==expected && !strncmp(preview.title,"Import ",7) && !memcmp(preview.title+7,long_name,expected-7));
+        size_t expected=8+offset+4*((sizeof(((UIStep *)0)->title)-1-8-offset)/4);
+        CHECK(strlen(preview.title)==expected && !strncmp(preview.title,"Connect ",8) && !memcmp(preview.title+8,long_name,expected-8));
     }
     Analysis native={.kind=SOURCE_PARQUET,.path=dx_strdup("/native/O'Brien-İstanbul.parquet")};
-    CHECK(step_preview_start_named(&preview,&native,0,0,0,NULL,NULL) && !strcmp(preview.title,"Import O'Brien-İstanbul.parquet"));
+    CHECK(step_preview_start_named(&preview,&native,0,0,0,NULL,NULL) && !strcmp(preview.title,"Connect O'Brien-İstanbul.parquet"));
     CHECK(!strcmp(preview.source.path,native.path) && preview.source.path!=native.path);
     step_preview_free(&preview); CHECK(!preview.title && !preview.source.path && !preview.active);
     analysis_free(&native); analysis_free(&source); free(error);

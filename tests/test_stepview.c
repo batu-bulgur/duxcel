@@ -27,17 +27,17 @@ static void named_steps(void) {
     CHECK(ui_source_steps_named(&source,6,NULL,named)==count && !memcmp(ordinary,named,sizeof(named)));
     const char *filename="import-7-O'Brien-İstanbul-表.csv";
     CHECK(ui_source_steps_named(&source,6,filename,named)==count);
-    CHECK(!strcmp(named[0].title,"Import import-7-O'Brien-İstanbul-表.csv"));
+    CHECK(!strcmp(named[0].title,"Connect import-7-O'Brien-İstanbul-表.csv"));
     CHECK(!strcmp(named[0].detail,ordinary[0].detail) && !memcmp(named+1,ordinary+1,(DX_UI_STEPS-1)*sizeof(*named)));
     CHECK(source.path==path && !strcmp(path,"import-1-import-7-O'Brien-İstanbul-表.csv") && source.source_version==19);
     CHECK(ui_step_source(&source,0,&prefix));
     CHECK(prefix.path!=path && !strcmp(prefix.path,path) && prefix.source_version==19 && !prefix.filter_column && !prefix.sort_column);
     Analysis another={.kind=SOURCE_CSV,.path=dx_strdup("import-2-import-7-O'Brien-İstanbul-表.csv")};
-    CHECK(ui_source_steps_named(&another,6,filename,named)==1 && !strcmp(named[0].title,"Import import-7-O'Brien-İstanbul-表.csv"));
+    CHECK(ui_source_steps_named(&another,6,filename,named)==1 && !strcmp(named[0].title,"Connect import-7-O'Brien-İstanbul-表.csv"));
     CHECK(strcmp(source.path,another.path) && !strcmp(another.path,"import-2-import-7-O'Brien-İstanbul-表.csv"));
-    CHECK(ui_source_steps_named(&source,6,"literal/path\\name.csv",named)==count && !strcmp(named[0].title,"Import literal/path\\name.csv"));
-    CHECK(ui_source_steps_named(&source,6,"",named)==count && !strcmp(named[0].title,"Import "));
-    CHECK(ui_source_steps_named(&source,6,"one\ntwo\tthree.csv",named)==count && !strcmp(named[0].title,"Import one two three.csv"));
+    CHECK(ui_source_steps_named(&source,6,"literal/path\\name.csv",named)==count && !strcmp(named[0].title,"Connect literal/path\\name.csv"));
+    CHECK(ui_source_steps_named(&source,6,"",named)==count && !strcmp(named[0].title,"Connect "));
+    CHECK(ui_source_steps_named(&source,6,"one\ntwo\tthree.csv",named)==count && !strcmp(named[0].title,"Connect one two three.csv"));
     source.query=dx_strdup("SELECT * FROM read_csv_auto('import-1-import-7-O''Brien-İstanbul-表.csv')"); char *query=source.query;
     CHECK(ui_source_steps_named(&source,6,filename,named)==count && !strcmp(named[0].title,"Source query"));
     CHECK(!strcmp(named[0].detail,"SELECT over import-7-O'Brien-İstanbul-表.csv"));
@@ -51,7 +51,7 @@ static void named_steps(void) {
         CHECK(ui_source_steps_named(&source,6,long_name,named)==count && strlen(named[0].detail)<sizeof(named[0].detail) && valid_utf8(named[0].detail));
         free(source.query); source.query=NULL;
         CHECK(ui_source_steps_named(&source,6,long_name,named)==count && strlen(named[0].title)<sizeof(named[0].title) && valid_utf8(named[0].title));
-        CHECK(!strncmp(named[0].title,"Import ",7) && !strncmp(named[0].title+7,long_name,strlen(named[0].title)-7));
+        CHECK(!strncmp(named[0].title,"Connect ",8) && !strncmp(named[0].title+8,long_name,strlen(named[0].title)-8));
         source.query=dx_strdup("SELECT * FROM source");
     }
     Analysis blank={0},demo={.kind=SOURCE_DEMO},database={.kind=SOURCE_DATABASE,.path=dx_strdup("/native/data.duckdb"),.table=dx_strdup("items")};
@@ -66,7 +66,7 @@ int main(void) {
     Analysis source={.kind=SOURCE_PARQUET,.path=dx_strdup("/data/transactions.parquet")},preview={0}; UIStep steps[DX_UI_STEPS]; char *error=NULL;
     CHECK(analysis_filter_set(&source,"Status",FILTER_IN,"[\"Posted\"]",&error)); CHECK(analysis_filter_set(&source,"Currency",FILTER_EQUAL,"USD",&error));
     CHECK(analysis_sort_set(&source,"Transaction ID",false,false,&error));
-    CHECK(ui_source_steps(&source,12,steps)==4); CHECK(!strcmp(steps[0].title,"Import transactions.parquet")); CHECK(!strcmp(steps[0].detail,"Parquet · 12 fields"));
+    CHECK(ui_source_steps(&source,12,steps)==4); CHECK(!strcmp(steps[0].title,"Connect transactions.parquet")); CHECK(!strcmp(steps[0].detail,"Parquet · 12 fields"));
     CHECK(!strcmp(steps[1].title,"Filter Status = Posted")); CHECK(!strcmp(steps[1].detail,"Status equals 'Posted'")); CHECK(!strcmp(steps[2].title,"Filter Currency = USD"));
     CHECK(steps[3].kind==UI_STEP_SORT && !strcmp(steps[3].title,"Sort Transaction ID ascending"));
     CHECK(ui_step_source(&source,1,&preview)); CHECK(preview.filter_column && !preview.filter_count && !preview.sort_column && strcmp(preview.filter_column,"Status")==0);

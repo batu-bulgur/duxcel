@@ -37,7 +37,7 @@ size_t ui_source_steps_named(const Analysis *source,size_t fields,const char *di
     if (!name && source->kind!=SOURCE_NONE && (source->query || source->kind!=SOURCE_DEMO)) name=dx_basename(source->path ? source->path : "source");
     if (source->kind==SOURCE_NONE) { label(first->title,sizeof(first->title),"Blank worksheet"); label(first->detail,sizeof(first->detail),"Enter cells or open a data file"); }
     else if (source->query) { label(first->title,sizeof(first->title),"Source query"); label(first->detail,sizeof(first->detail),"SELECT over %s",name); }
-    else { label(first->title,sizeof(first->title),"%s %s",source->kind==SOURCE_DATABASE ? "Connect" : "Import",source->kind==SOURCE_DEMO ? "sample data" : name);
+    else { label(first->title,sizeof(first->title),"%s %s",source->kind==SOURCE_DEMO ? "Import" : "Connect",source->kind==SOURCE_DEMO ? "sample data" : name);
         if (source->kind==SOURCE_DATABASE) label(first->detail,sizeof(first->detail),"%s.%s · %zu fields",source->schema ? source->schema : "main",source->table ? source->table : "Choose table",fields);
         else label(first->detail,sizeof(first->detail),"%s · %zu fields",source->kind==SOURCE_PARQUET ? "Parquet" : source->kind==SOURCE_CSV ? "Delimited text" : "Generated data",fields);
     }

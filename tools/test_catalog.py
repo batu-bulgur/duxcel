@@ -900,6 +900,11 @@ FEATURES = {
 }
 
 
+FEATURES["source-provenance"] = Feature(("sourceview", "stepview", "preview"), "",
+    ("python3 tools/test.py native --scenario layout --config sanitize",),
+    ("src/ui/sourceview.c", "src/ui/stepview.c"))
+
+
 def plan(name):
     feature = FEATURES[name]
     return {"feature": name, "modules": list(feature.modules), "gui": feature.gui or None,
