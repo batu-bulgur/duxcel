@@ -56,7 +56,34 @@ static void source_cells_test_frame(AppSession *session) {
         SC_CHECK(a->book.command_revision==source_cells_base+6 && !s->cells.count);
         column_action(a,COLUMN_CLEAR);
         SC_CHECK(a->book.command_revision==source_cells_base+6 && !s->cells.count && s->objects.next_id==source_cells_high && a->page.cells==source_cells_primary_page && a->objects[0].page.cells==source_cells_table_page && a->request_id==source_cells_request && (format_at(&s->formats,0,4).flags&FORMAT_BOLD) && !a->busy && !a->io_busy);
-        source_cells_result=1; printf("PASS: native source manual cell workflow (12 stages, %u checks)\n",source_cells_checks); break;
+#ifndef DUXCEL_FEATURE_CLEAR_KEYS
+        source_cells_result=1; printf("PASS: native source manual cell workflow (12 stages, %u checks)\n",source_cells_checks);
+#endif
+        break;
+#ifdef DUXCEL_FEATURE_CLEAR_KEYS
+    case 12: source_cells_paste(a,0,4,"NULL\t\"\"\n\"two\tparts\"\t9007199254740993.0123456789"); break;
+    case 13:
+        SC_CHECK(a->book.command_revision==source_cells_base+7 && !strcmp(cells_get(&s->cells,1,5),"9007199254740993.0123456789"));
+        grid_select_cell(&a->grid,0,20,false); a->grid.end_row=40; a->grid.end_col=0; a->chrome_focus=a->pivot_focus=0; ui_note_key_press(KEY_DELETE,0); break;
+    case 14:
+        SC_CHECK(a->book.command_revision==source_cells_base+8 && !s->cells.count && s->undo_actions[s->undo_actions_count-1]==EDIT_CELLS); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 15:
+        SC_CHECK(a->book.command_revision==source_cells_base+9 && !strcmp(cells_get(&s->cells,0,4),"NULL") && !*cells_get(&s->cells,0,5) && !strcmp(cells_get(&s->cells,1,5),"9007199254740993.0123456789")); ui_note_key_press(KEY_BACKSPACE,0); break;
+    case 16:
+        SC_CHECK(a->book.command_revision==source_cells_base+10 && !s->cells.count); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 17:
+        SC_CHECK(a->book.command_revision==source_cells_base+11 && !strcmp(cells_get(&s->cells,0,4),"NULL") && s->redo_actions_count==1); grid_select_cell(&a->grid,0,20,false); ui_note_key_press(KEY_DELETE,0); break;
+    case 18:
+        SC_CHECK(a->book.command_revision==source_cells_base+11 && s->redo_actions_count==1 && !strcmp(cells_get(&s->cells,1,4),"two\tparts")); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 19:
+        SC_CHECK(a->book.command_revision==source_cells_base+12 && !s->cells.count); grid_select_cell(&a->grid,0,0,false); ui_note_key_press(KEY_DELETE,0); break;
+    case 20:
+        SC_CHECK(a->book.command_revision==source_cells_base+12 && !s->cells.count && s->objects.next_id==source_cells_high && a->page.cells==source_cells_primary_page && a->objects[0].page.cells==source_cells_table_page && a->request_id==source_cells_request && (format_at(&s->formats,0,4).flags&FORMAT_BOLD));
+        grid_select_cell(&a->grid,0,4,false); ui_note_key_press(KEY_F2,0); break;
+    case 21:
+        SC_CHECK(a->modal==MODAL_CELL && a->book.command_revision==source_cells_base+12 && !s->cells.count); a->modal=MODAL_NONE;
+        source_cells_result=1; printf("PASS: native sparse keyboard clear workflow (22 stages, %u checks)\n",source_cells_checks); break;
+#endif
     }
     source_cells_stage++;
 }

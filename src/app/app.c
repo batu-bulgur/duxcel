@@ -8306,11 +8306,7 @@ static void shortcuts(App *a) {
     /* Modified Space belongs to grid selection, even on editable blank cells. */
     if (ui_pressed(KEY_SPACE) && (ui_key_shift(KEY_SPACE) || ui_key_shortcut(KEY_SPACE))) { while (GetCharPressed()) {} return; }
     if (!a->step_preview.active && manual_cell(a)) {
-        Worksheet *sheet=active_sheet(a);
-        if (ui_pressed(KEY_DELETE)||ui_pressed(KEY_BACKSPACE)) {
-            uint64_t r0,r1; size_t c0,c1; grid_bounds(&a->grid,&r0,&r1,&c0,&c1);
-            if (cells_clear(&sheet->cells,r0,r1,c0,c1)) { worksheet_record(sheet,EDIT_CELLS); a->book.dirty=true; }
-        }
+        if (ui_pressed(KEY_DELETE)||ui_pressed(KEY_BACKSPACE)) column_action(a,COLUMN_CLEAR);
         if (ui_pressed(KEY_F2)) { open_modal(a,MODAL_CELL); return; }
         if (!ui_shortcut()) {
             int cp=GetCharPressed(); if (cp>=32) {

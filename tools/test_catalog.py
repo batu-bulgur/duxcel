@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "clear-keys": ("build/tests/test_clear_keys-gui", "PASS: native sparse keyboard clear workflow",
+                    r"^PASS: native sparse keyboard clear workflow \(22 stages, [1-9]\d* checks\)$", 22),
     "source-columns": ("build/tests/test_source_columns-gui", "PASS: native source mixed column workflow",
                     r"^PASS: native source mixed column workflow \(26 stages, [1-9]\d* checks\)$", 26),
     "source-rows": ("build/tests/test_source_rows-gui", "PASS: native source mixed row workflow",
@@ -228,6 +230,9 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
+    "clear-keys-app": Feature(("source_range_plan", "range_command", "history_range"), "clear-keys",
+        ("python3 tools/test.py feature --feature source-cells-app",),
+        ("src/app/app.c: Delete/Backspace sparse CLEAR producer", "tests/support/source_cells_app.inc: actual keys")),
     "source-columns-app": Feature(("source_range_plan", "range_event", "range_command", "history_range"), "source-columns",
         ("python3 tools/test.py feature --feature source-rows-app",),
         ("src/app/app.c: source complete column/width routing", "tests/support/source_results_app.inc: source columns"), fixtures=("transactions",)),
