@@ -138,6 +138,10 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "source-initial-view": Feature(("sheet_source_view",), "",
+        ("python3 tools/test.py feature --feature primary-source-publication", "python3 tools/test.py feature --feature primary-source-kinds"),
+        ("src/workbook/sheet_source_view.c", "src/workbook/sheet_source_view.h", "tests/test_sheet_source_view.c")),
+
     "primary-source-kinds": Feature(("primary_source_draft", "primary_source_publish"), "",
         ("python3 tools/test.py feature --feature primary-source-publication",),
         ("src/workbook/primary_source_draft.c: exact closed file/demo reply grammar", "tests/test_primary_source_draft.c: source kinds and authored rejection", "tests/test_primary_source_publish.c: shared actual CREATE")),
