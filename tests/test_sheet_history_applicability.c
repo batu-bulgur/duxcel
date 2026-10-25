@@ -38,6 +38,10 @@ static void pending_observation(void) {
     CHECK(source_versions_plan(&sheet->source_versions,&row,false,&next,NULL)); source_versions_free(&sheet->source_versions); sheet->source_versions=next; source_packet_free(&raw);
     CHECK(workbook_sheet_applicability_check(plan,state,&actual,false,&result)==SHEET_APPLICABILITY_OK && result.presence.sources.refined==1 && result.presence.sources.captured_pending==1);
     /* Compatible current completion never changes the captured observation. */
+    const SheetPresenceAsset *borrowed=workbook_sheet_applicability_presence(plan); size_t scratch=0; SheetPresenceObservations observation;
+    CHECK(borrowed && sheet_presence_observation_scratch(borrowed,&scratch)==SHEET_PRESENCE_OK);
+    CHECK(sheet_presence_observe(borrowed,scratch,&observation)==SHEET_PRESENCE_OK && observation.pending_rows==1 && observation.referenced_pending_rows==1 && !observation.unbound_definitions);
+    CHECK(workbook_sheet_applicability_presence(plan)==borrowed && !sheet_presence_view(borrowed).sheet->source_versions.items[0].raw.bytes);
     const SheetTopologyEvent *event=workbook_sheet_payload_topology(payload); SheetPresenceAsset *captured=NULL;
     CHECK(sheet_presence_decode(event->presence.data,event->presence.bytes,SIZE_MAX,&captured,NULL)==SHEET_PRESENCE_OK && !sheet_presence_view(captured).sheet->source_versions.items[0].raw.bytes);
     CHECK(sheet->analysis.source_version==1 && sheet->source_versions.items[0].raw.bytes);
@@ -70,6 +74,7 @@ int main(void) {
     CHECK(workbook_sheet_applicability_measure(metadata,NULL,&measure)==SHEET_APPLICABILITY_OK && !measure.validation_scratch && !measure.prior_owned && measure.owned==measure.staging);
     CHECK(workbook_sheet_applicability_prepare(metadata,measure.staging-1,&plan)==SHEET_APPLICABILITY_LIMIT && !plan);
     CHECK(workbook_sheet_applicability_prepare(metadata,measure.staging,&plan)==SHEET_APPLICABILITY_OK);
+    CHECK(!workbook_sheet_applicability_presence(plan) && !workbook_sheet_applicability_presence(NULL));
     SheetLifecycleEntry rows[DX_MAX_SHEETS]; SheetLifecycleState current; CHECK(sheet_lifecycle_from_workbook(&b,rows,&current)==SHEET_LIFECYCLE_OK);
     current.active=b.sheets[1].id; current.high_water=90; WorkbookSheetApplicabilityResult result;
     CHECK(workbook_sheet_applicability_check(plan,current,NULL,false,&result)==SHEET_APPLICABILITY_OK && result.target.active==current.active && result.target.high_water==90 && !strcmp(result.target.sheets[0].name,"A"));

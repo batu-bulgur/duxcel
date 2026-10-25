@@ -47,3 +47,5 @@ WorkbookSheetApplicabilityStatus workbook_sheet_applicability_check(const Workbo
 void workbook_sheet_applicability_free(WorkbookSheetApplicability **owned) {
     if (!owned || !*owned) return; WorkbookSheetApplicability *plan=*owned; sheet_presence_free(&plan->presence); free(plan); *owned=NULL;
 }
+
+const SheetPresenceAsset *workbook_sheet_applicability_presence(const WorkbookSheetApplicability *plan) { return plan ? plan->presence : NULL; }

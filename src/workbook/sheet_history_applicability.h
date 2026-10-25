@@ -25,5 +25,10 @@ WorkbookSheetApplicabilityStatus workbook_sheet_applicability_prepare(const Work
    payload arrays/names and preserves visible active navigation and high-water.
    All inputs and output storage are disjoint; invalid/mismatch preserves out. */
 WorkbookSheetApplicabilityStatus workbook_sheet_applicability_check(const WorkbookSheetApplicability *plan,SheetLifecycleState current,const SheetPresenceView *actual,bool redo,WorkbookSheetApplicabilityResult *out);
+/* Borrow the existing closed topology asset for scalar observation/reporting.
+   NULL for metadata/NULL plan; no clone, lease, readiness or transfer authority.
+   It remains immutable and readable only until plan replacement/free. The caller
+   reserves observation scratch separately while this plan remains resident. */
+const SheetPresenceAsset *workbook_sheet_applicability_presence(const WorkbookSheetApplicability *plan);
 void workbook_sheet_applicability_free(WorkbookSheetApplicability **plan);
 #endif
