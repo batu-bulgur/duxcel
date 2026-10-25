@@ -254,7 +254,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3a.2c · P1 · In progress | Native default-reply and origin adapters; W12c.3c.3a.2b. | Charge every live OPEN/ADMITTED origin, including suspended Working Head ownership, and route primary/loaded-Table completions through the actual typed owner before sealing. New-primary pending publication remains separate. |
 | W12c.3c.3a.2c.1 · P1 · Complete | Current primary DATABASE default-reply and origin ownership; W12c.3c.3a.2b. | Exact accepted request/default-table completion, bounded OPEN/ADMITTED registry and background retirement; no authored action/clock or sealed-root mutation. Table completion and new-primary publication remain separate. |
 | W12c.3c.3a.2c.1a · P1 · Complete | Authored origin projection; W12c.3c.3a.2c.1. | Check borrowed owners before semantic reads; preserve origins through valid derived Table/Pivot extents, numeric inference and query epochs, while actual replies require current request/route revision. Exact Saved/layout/event fences remain unchanged. |
-| W12c.3c.3a.2c.1b · P1 · In progress | Pending-origin Analysis lifetime; W12c.3c.3a.2c.1a. | Typed before-free cache synchronization and sheet authority suspend/resume preserve a valid OPEN owner across Save/refused Save, navigation and Working Head inspection. Prepare all ownership/budget transfers before destructive publication; never rebind freed pointers or reopen an authored preimage. Required before loaded-Table completion and final milestone replay. |
+| W12c.3c.3a.2c.1b · P1 · Complete | Pending-origin Analysis lifetime; W12c.3c.3a.2c.1a. | Typed before-free cache synchronization and sheet authority suspend/resume preserve a valid OPEN owner across Save/refused Save, navigation and Working Head inspection. Prepare all ownership/budget transfers before destructive publication; never rebind freed pointers or reopen an authored preimage. Post-publication load/structural adoption retains its existing nonfallible copy; denied cross-sheet navigation cannot apply Undo. |
 | W12c.3c.3a.2c.2 · P1 · Planned | Existing loaded-Table default-reply adapter; W12c.3c.3a.2c.1b. | Central owner-aware actual-reply completion handles Table and bound analytical routes, carries distinct-job revision, preserves result/count/cache publication and proves real pressure/retry plus lifecycle continuity. New-primary publication and retained replay remain separate. |
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
@@ -2423,5 +2423,28 @@ and5 hidden App stages (3.690s). Receipt
 Read-only lifecycle audit found capture/activation still free borrowed Analysis
 owners while an origin may be OPEN under admission pressure. This can reject a
 later valid primary reply or leave sealing pending; Saved bytes are unaffected.
-Close .1b before the final all-scenario native replay and delivery. Previous
-engine/browser/UI evidence stays source-scoped; no full milestone is claimed.
+The .1b closure below precedes the final all-scenario native replay and delivery.
+Previous engine/browser/UI evidence stays source-scoped; no full milestone is claimed.
+
+Pending-origin lifetime .1b is complete: pure typed handoff `d00eceb` integrated
+as `ab7e0b0`,703 assertions per optimized/sanitizer configuration. App capture
+preserves equal-definition pointers or adopts a proven cache handoff; normal
+navigation prepares/checks both sides before ownership/UI/clock publication.
+Already stale origins are never rebound. Existing load/structural postcommit
+copies cannot encounter a new governor refusal. Cross-sheet Undo prepares
+navigation first and stops on denial. The real capture regression failed before
+the fix (`20261025T184201-feature-55889`); final registered gate passes16.318s,
+11 hidden App stages/6.381s GUI at `20261025T185853-feature-61101`.
+It covers refused/successful Save, both capture points, failed navigation,
+suspend/resume under real governor pressure, Saved inspection/Working Head
+return, same-owner actual reply completion, denied cross-sheet Undo with exact
+order/value/revision preservation, successful Undo/Redo and postcommit New.
+Focused chronology21 stages passes20.254s and lifecycle28 stages19.006s;
+runner/catalog59 contracts pass4.863s. Evidence is under ignored run receipts.
+Loaded-Table completion, new-primary publication and retained replay stay open.
+
+Remote backup: `codex/roadmap-checkpoint-20261025` points to `78c89ea`;
+Web build/browser smoke and web tests/sanitizers pass in
+[run40222893017](https://github.com/batu-bulgur/duxcel/actions/runs/40222893017).
+Pages deployment is intentionally skipped for that checkpoint branch. Main
+delivery remains gated on the coherent local native/Wasm milestone and matching CI.

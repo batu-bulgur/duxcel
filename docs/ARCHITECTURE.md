@@ -591,7 +591,7 @@ Sources: [grid.c](../src/grid/grid.c), [sparse cells](../src/workbook/cells.c), 
 | Undo and document version history | Undo/Redo are bounded RAM snapshots. `workbook_snapshot` excludes them and Pages; reopening does not restore the previous session's undo history. |
 | External source data | CSV/Parquet/DuckDB contents are not automatically embedded in the workbook. Source references and supported identity proofs are saved; moving/changing a file requires relinking or reverification. |
 
-`.dxls` schema versions 1–15 represent file-format compatibility. The `SourceVersions` ledger binds source/owner/reader/schema/content proofs; it does not retain old Parquet bytes for time travel. Displayed row position is not durable source-record identity. Supported raw CSV/Parquet paths can carry original record ordinals; universal lineage is absent for custom SQL, DISTINCT, aggregates and the browser. Extending this formatting foundation into an editing model needs separate design and validation.
+The current native `.dxls` container16 embeds current core15; both are current layers, with no prerelease older-format migration responsibility. The `SourceVersions` ledger binds source/owner/reader/schema/content proofs; it does not retain old Parquet bytes for time travel. Displayed row position is not durable source-record identity. Supported raw CSV/Parquet paths can carry original record ordinals; universal lineage is absent for custom SQL, DISTINCT, aggregates and the browser. Extending this formatting foundation into an editing model needs separate design and validation.
 
 The user confirmed the compact dirty guard and Command-Q on the current Mac. Scoped native tests cover Save/cancel/failure and pending close with newer edits. Startup recovery now offers verified committed manual-cell tails or a checkpoint copy; persistent Undo and broader command journal coverage remain separate.
 
@@ -1202,11 +1202,23 @@ rows/results are not fabricated, and selected-history export remains W14.
 
 
 `definition_origin.c` provides a runtime-only OPEN→ADMITTED owner, separate from
-Saved/recovery roots. Exact document/sheet/session/request/source descriptors
-fence DATABASE default-relation completion. Completion preserves user history
+Saved/recovery roots. Exact document/sheet/session/authored source ownership
+fences DATABASE default-relation completion; actual replies must match the
+current request and route revision. Valid result extents, numeric inference and
+query epochs do not change authored identity. Borrowed pointers are checked
+before semantic reads. Completion preserves user history
 and clocks; sealing owns one independent canonical Analysis/Object/source-ledger/
 format arena. Terminal assets cannot be patched or reopened by clearing an App
-flag. The model is verified; App reply/baseline activation remains separate.
+flag. Typed pre-free Analysis handoffs synchronize a lagging cache, suspend App
+authority into sheet ownership and resume it through an independent App copy.
+Captured navigation reserves and checks both owners before either transfer;
+Save refusal and navigation denial preserve the old owners. Post-publication
+load/structural adoption retains its existing nonfallible model copy, because
+those operations already retire origins or advance the document action fence.
+Cross-sheet history stops before replay if navigation is refused. Native primary
+reply/capture/navigation integration is verified; loaded-Table/new-primary and
+retained-history activation remain separate. No sealed arena or Saved root is
+patched to follow runtime layout changes.
 
 `sheet_lifecycle.c` encodes complete ordered metadata pairs for one unchanged
 stable sheet-ID set. Preflight/decode/admission preserve exact names/order/hidden

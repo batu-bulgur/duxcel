@@ -79,6 +79,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
 typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
@@ -735,7 +736,7 @@ static void list_scrollbar(App *a,Rectangle r,int count,int visible,int *offset,
 static void smoke_snapshot(const char *path);
 #endif
 static void workspace_job(App *a,JobKind kind,const char *path);
-static void activate_sheet(App *a,size_t index,bool capture);
+static bool activate_sheet(App *a,size_t index,bool capture);
 static void new_sheet(App *a);
 static void statistics_cancel(App *a);
 static void clear_object_views(App *a);
@@ -809,6 +810,8 @@ static void source_format_table_navigation(App *a);
 static size_t source_format_owner_token(App *a,uint64_t owner);
 static bool source_format_reply(App *a,QueryReply *reply);
 static bool source_format_try(App *a,FormatRange range,unsigned mask,CellFormat value,bool *handled);
+static bool app_definition_capture(App *a);
+static bool app_definition_activate_analysis(App *a,size_t index,bool capture);
 static size_t source_format_token(App *a);
 static CellFormat source_format_value(App *a,uint64_t row,size_t column);
 #define SOURCE_FORMAT_CANCEL(a,message) source_format_cancel(a,message)
@@ -1372,10 +1375,8 @@ static uint64_t workbook_history_stamp(const Workbook *book) {
 #else
 #define close_journal(a,discard) ((void)0)
 #endif
-static void capture_sheet(App *a) {
-    if (historical(a)) return;
+static void capture_sheet_view(App *a) {
     Worksheet *sheet=active_sheet(a); if (!sheet) return;
-    analysis_free(&sheet->analysis); sheet->analysis=analysis_copy(&a->analysis);
     if (!a->restore_view) {
         SheetView *v=&sheet->view; view_free(v); Grid *g=&a->grid;
         *v=(SheetView){.row=g->row,.col=g->col,.anchor_row=g->anchor_row,.anchor_col=g->anchor_col,
@@ -1385,6 +1386,15 @@ static void capture_sheet(App *a) {
     }
     a->book.user_scale=a->ui.scale;
     a->book.reduced_motion=a->reduced_motion;
+}
+static bool capture_sheet(App *a) {
+    if (historical(a) || !active_sheet(a)) return true;
+#ifndef DUXCEL_BROWSER_HOST
+    if (!app_definition_capture(a)) return false;
+#else
+    Worksheet *sheet=active_sheet(a); analysis_free(&sheet->analysis); sheet->analysis=analysis_copy(&a->analysis);
+#endif
+    capture_sheet_view(a); return true;
 }
 static void cache_pipeline(App *a) {
     a->pipeline_rows_valid=false;
@@ -1544,18 +1554,35 @@ static void restore_sheet_view(App *a) {
     g->selection=(SelectionMode)v->selection; grid_schema(g,&a->page,false); a->restore_view=false;
     a->selected_object=objects_hit(&sheet->objects,g->row,g->col);
 }
-static void activate_sheet(App *a,size_t index,bool capture) {
+static bool activate_sheet(App *a,size_t index,bool capture) {
     end_step_preview(a);
-    if (index>=a->book.count || a->book.sheets[index].hidden || a->io_busy) return;
+    if (index>=a->book.count || a->book.sheets[index].hidden || a->io_busy) return false;
+#ifndef DUXCEL_BROWSER_HOST
+    if (capture) {
+        if (!app_definition_activate_analysis(a,index,true)) return false;
+        capture_sheet_view(a);
+    } else {
+        /* Load and structural commands have already published their owner.
+           Preserve their existing nonfallible model-copy adoption; never add
+           a new governor rejection after document/topology publication. Those
+           commands retire the registry or advance the document action fence. */
+        Analysis next=analysis_copy(&a->book.sheets[index].analysis);
+        analysis_free(&a->analysis); a->analysis=next;
+    }
+#else
+    if (capture && !capture_sheet(a)) return false;
+#endif
     SOURCE_FORMAT_RESET(a);
-    if (capture) capture_sheet(a);
     memset(a->source_locations,0,sizeof(a->source_locations));
     a->active_readout.value.valid=false;
     clear_object_views(a); a->selected_object=-1; a->filter_object=-1; a->pivot_focus=0; a->pivot_search_focus=false;
     a->analysis_revision++; a->book.active=index; Worksheet *s=&a->book.sheets[index];
     a->workbook_focus_index=0; for (size_t i=0;i<index;i++) a->workbook_focus_index+=!a->book.sheets[i].hidden;
     a->reveal_tab=true;
-    analysis_free(&a->analysis); a->analysis=analysis_copy(&s->analysis); page_free(&a->page); page_free(&a->spare); a->page_stale=a->waiting_count_page=false;
+#ifdef DUXCEL_BROWSER_HOST
+    analysis_free(&a->analysis); a->analysis=analysis_copy(&s->analysis);
+#endif
+    page_free(&a->page); page_free(&a->spare); a->page_stale=a->waiting_count_page=false;
     a->known_total=-1; a->observed_rows=0; a->count_request_id=0; a->count_paused=a->count_deferred=false; a->new_schema=true; a->restore_view=true; a->modal=MODAL_NONE;
     a->grid.top=s->view.top; a->grid.fraction=s->view.fraction; a->grid.horizontal=s->view.horizontal;
     cache_pipeline(a);
@@ -1563,6 +1590,7 @@ static void activate_sheet(App *a,size_t index,bool capture) {
         worker_cancel(&a->worker); a->request_id++; a->busy=false; a->fetch_failed=false;
         grid_schema(&a->grid,&a->page,true); restore_sheet_view(a); status(a,"Ready");
     } else { request_page(a,false); status(a,"Loading worksheet…"); }
+    return true;
 }
 static void workspace_job_context(App *a,JobKind kind,const char *path,const WorkbookVersionText *tag,bool replace) {
 #ifdef DUXCEL_BROWSER_HOST
@@ -1591,7 +1619,8 @@ static void workspace_job_context(App *a,JobKind kind,const char *path,const Wor
 #endif
     QueryJob *j=dx_alloc(sizeof(*j)); j->id=a->request_id+1; j->kind=kind; j->path=absolute;
     if (kind==JOB_SAVE) {
-        capture_sheet(a); j->workbook=workbook_snapshot(&a->book);
+        if (!capture_sheet(a)) { worker_job_free(j); return; }
+        j->workbook=workbook_snapshot(&a->book);
 #ifndef DUXCEL_BROWSER_HOST
         a->save_document=a->book.id; a->save_revision=a->book.command_revision; a->save_history=workbook_history_stamp(&a->book);
 #endif
@@ -1661,7 +1690,7 @@ static void open_source(App *a,const char *path,bool demo) {
 #ifndef DUXCEL_BROWSER_HOST
     if (recovery_managed_path(a,absolute)) { free(absolute); status(a,"Local backup files are managed by Duxcel. Choose a saved workbook or data source."); return; }
 #endif
-    capture_sheet(a);
+    if (!capture_sheet(a)) { free(absolute); return; }
     Analysis source={.kind=kind,.path=absolute}; char *error=NULL;
     char *name=workbook_unique_sheet_name(&a->book,demo ? "Million-row demo" : dx_basename(path),&error);
     if (!name) { status(a,error); free(error); free(absolute); return; }
@@ -2372,8 +2401,8 @@ static void poll_query(App *a) {
 #endif
             free(a->book.path); a->book.path=r->path; r->path=NULL;
 #ifndef DUXCEL_BROWSER_HOST
-            capture_sheet(a);
-            bool same=workbook_save_matches(&a->book,r->workbook) && a->book.id.high==a->save_document.high && a->book.id.low==a->save_document.low && a->book.command_revision==a->save_revision && workbook_history_stamp(&a->book)==a->save_history;
+            bool captured=capture_sheet(a);
+            bool same=captured && workbook_save_matches(&a->book,r->workbook) && a->book.id.high==a->save_document.high && a->book.id.low==a->save_document.low && a->book.command_revision==a->save_revision && workbook_history_stamp(&a->book)==a->save_history;
             a->book.dirty=!same; if (same) close_journal(a,true); status(a,same ? "Workspace saved." : "An earlier state was saved. New changes still need saving.");
             if (same) recovery_resolve(a,true);
             else {
@@ -2524,21 +2553,27 @@ static void history(App *a,bool redo) {
     }
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo."); end_step_preview(a);
     if (target.lifecycle) {
-        capture_sheet(a);
+        if (!capture_sheet(a)) { free(error); return; }
         WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
         if (applied.status==WORKBOOK_HISTORY_APPLIED) activate_sheet(a,a->book.active,false);
         else if (error) status(a,error);
     } else if (target.kind==EDIT_CELLS || target.kind==EDIT_FORMAT || target.kind==EDIT_CELLS_FORMAT) {
+        bool hidden=a->book.sheets[target.sheet].hidden;
+        a->book.sheets[target.sheet].hidden=false;
+        if (target.sheet!=a->book.active && !activate_sheet(a,target.sheet,true)) {
+            a->book.sheets[target.sheet].hidden=hidden; free(error); return;
+        }
         WorkbookHistoryResult applied=workbook_history_step(&a->book,redo,&error);
         if (applied.status!=WORKBOOK_HISTORY_APPLIED) { if (error) status(a,error); free(error); return; }
-        a->book.sheets[target.sheet].hidden=false;
-        if (target.sheet!=a->book.active) activate_sheet(a,target.sheet,true);
         restore_column_widths(a,target.column,redo);
         if (worksheet_edit_effects(target.kind)&2) validate_history_layout(a);
     } else {
-        workbook_history_sync(&a->book);
+        bool hidden=a->book.sheets[target.sheet].hidden;
         a->book.sheets[target.sheet].hidden=false;
-        if (target.sheet!=a->book.active) activate_sheet(a,target.sheet,true);
+        if (target.sheet!=a->book.active && !activate_sheet(a,target.sheet,true)) {
+            a->book.sheets[target.sheet].hidden=hidden; free(error); return;
+        }
+        workbook_history_sync(&a->book);
         history_sheet(a,redo);
         Worksheet *sheet=active_sheet(a); size_t count=redo ? sheet->undo_actions_count : sheet->redo_actions_count;
         const uint64_t *orders=redo ? sheet->undo_order : sheet->redo_order;
@@ -2616,7 +2651,8 @@ static void open_modal(App *a,Modal modal) {
 static void new_sheet(App *a) {
     end_step_preview(a);
     if (a->io_busy) return;
-    capture_sheet(a); char *error=NULL,*base=dx_printf("Sheet %zu",a->book.count+1);
+    if (!capture_sheet(a)) return;
+    char *error=NULL,*base=dx_printf("Sheet %zu",a->book.count+1);
     char *name=workbook_unique_sheet_name(&a->book,base,&error); free(base);
     if (!name) { status(a,error); free(error); return; }
     Analysis blank={.kind=SOURCE_NONE,.path=""};
@@ -5195,8 +5231,8 @@ static bool commit_cell(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
     result=workbook_check_cell_edit(&a->book,&command,policy,&error);
     if (result.status==CELL_EDIT_READY) {
-        capture_sheet(a);
-        if (!ensure_journal(a,&error)) result.status=CELL_EDIT_LIMIT;
+        if (!capture_sheet(a)) { result.status=CELL_EDIT_LIMIT; error=dx_strdup(a->message ? a->message : "The current worksheet could not be captured."); }
+        else if (!ensure_journal(a,&error)) result.status=CELL_EDIT_LIMIT;
         else {
             FormatBudgetStatus budget=FORMAT_BUDGET_OK;
             if (workbook_journal_session_needs_checkpoint(a->journal,&a->book)) {
@@ -5946,7 +5982,7 @@ static void process_sheet_action(App *a) {
     size_t index=a->sheet_menu_index; if (action==SHEET_ACTION_NONE || a->io_busy || index>=a->book.count) return;
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by worksheet navigation.");
     char *error=NULL; size_t previous=a->book.active; bool ok=false;
-    capture_sheet(a);
+    if (!capture_sheet(a)) return;
     if (action==SHEET_ACTION_DUPLICATE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=index},NULL,&error);
     else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=apply_sheet_metadata(a,index,action==SHEET_ACTION_HIDE ? SHEET_METADATA_HIDE : SHEET_METADATA_SHOW,0,NULL,&error);
     else if (action==SHEET_ACTION_DELETE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=index},NULL,&error);

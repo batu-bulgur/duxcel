@@ -17,6 +17,12 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 | Review/feedback | Native and Wasm use the development-only C semantic registry and persistent external queue. Automatic triage is separate from implementing/verifying a report. All review code/commands/bridges are excluded from production. Services start only on explicit developer commands. |
 | Web publication | GitHub Pages builds the real shared-C Wasm app. Web tests run independently; publication requires build/package/browser smoke. Hosted native CI is manual/paused; no native Linux/Windows execution claim. |
 
+Valid pending native definition owners now survive Save capture, refused Save,
+sheet suspend/resume and Saved inspection/Working Head return through typed
+ownership transfers. Failed navigation cannot apply Undo to another sheet.
+This closes primary-origin lifetime continuity; loaded-Table completion and
+retained-history activation remain open.
+
 ## Workbook TRD demo slices
 
 [ROADMAP.md](ROADMAP.md#workbook-trd-implementation-slices) decomposes the accepted workbook TRD into prioritized dependency slices. W01 implements manual-range Option/Alt-interior movement through the existing move/Undo command, retaining border movement and protected-area guards. Escape/no-op leaves data unchanged, releasing Option after capture preserves the move, and multi-cell paint retains one outer active outline with the logical active cell unchanged. General formulas, floating object movement, global durable history and refresh/Data Model remain planned capabilities.

@@ -18,7 +18,7 @@ class Feature:
 
 STANDALONE_GUI = {
     "definition-origin": ("build/tests/test_definition_origin-gui", "PASS: native primary origin workflow",
-                          r"^PASS: native primary origin workflow \(5 stages, [1-9]\d* checks\)$", 5),
+                          r"^PASS: native primary origin workflow \(11 stages, [1-9]\d* checks\)$", 11),
     "range-command": ("build/tests/test_range_command-gui", "PASS: native manual range workflow",
                       r"^PASS: native manual range workflow \(23 stages, [1-9]\d* checks\)$", 23),
     "object-create-command": ("build/tests/test_object_create_command-gui", "PASS: native object create workflow",

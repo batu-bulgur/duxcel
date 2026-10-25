@@ -35,7 +35,8 @@ static void history_open(App *a) {
         const WorkbookVersionTag *tag=index->tags+selected; root=tag->root;
         memcpy(a->history_pending_label,tag->label.data,tag->label.bytes); a->history_pending_label[tag->label.bytes]=0;
     } else return;
-    capture_sheet(a); if (!historical(a)) workbook_history_sync(&a->book);
+    if (!capture_sheet(a)) { snprintf(a->version_message,sizeof(a->version_message),"%s",a->message ? a->message : "The current worksheet could not be captured."); return; }
+    if (!historical(a)) workbook_history_sync(&a->book);
     QueryJob *job=dx_alloc(sizeof(*job)); job->id=a->request_id+1; job->kind=JOB_LOAD; job->path=dx_strdup("Retained historical version"); char *error=NULL;
     if (!app_preview_job(&a->history,history_context(a),job,root,&error)) {
         snprintf(a->version_message,sizeof(a->version_message),"%s",error ? error : "Historical read could not start."); free(error); worker_job_free(job); return;

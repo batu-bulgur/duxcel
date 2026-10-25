@@ -269,7 +269,7 @@ static size_t source_format_page_bytes(const Page *page) {
 struct AppDefinitionOrigin {
     AppDefinitionOrigin *next;
     WorkbookId document;
-    uint64_t session,sheet,request;
+    uint64_t session,sheet;
     DefinitionOrigin *owner;
     WorkerNativeRetirement retirement; /* Intrusive whole-list owner, used only on the head. */
 };
@@ -679,11 +679,112 @@ static DefinitionOriginStatus app_definition_origin_limit(App *a,char **error) {
     if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Source origin admission exceeds the current memory budget."); }
     return DEFINITION_ORIGIN_LIMIT;
 }
-static AppDefinitionOrigin *app_definition_origin_find(App *a) {
-    Worksheet *s=active_sheet(a); if (!s) return NULL;
+static AppDefinitionOrigin *app_definition_origin_for_sheet(App *a,const Worksheet *s) {
+    if (!s) return NULL;
     for (AppDefinitionOrigin *n=a->definition_origins;n;n=n->next)
         if (n->document.high==a->book.id.high && n->document.low==a->book.id.low && n->session==a->book.edit_session_id && n->sheet==s->id) return n;
     return NULL;
+}
+static AppDefinitionOrigin *app_definition_origin_find(App *a) { return app_definition_origin_for_sheet(a,active_sheet(a)); }
+typedef struct {
+    AppDefinitionOrigin *node;
+    DefinitionOriginContext context;
+    DefinitionOriginHandoff *ticket;
+    size_t charge;
+} AppAnalysisHandoff;
+static bool app_analysis_budget(App *a,size_t charge,char **error) {
+    if (source_format_budget(a,NULL,0,charge,0,0,0)) return true;
+    if (error) { free(*error); *error=dx_strdup(a->message ? a->message : "Analysis ownership exceeds the current memory budget."); }
+    return false;
+}
+static bool app_analysis_handoff_prepare(App *a,Worksheet *s,Analysis *authority,DefinitionOriginHandoffRequest request,
+    size_t extra,AppAnalysisHandoff *out,char **error) {
+    AppDefinitionOrigin *node=app_definition_origin_for_sheet(a,s);
+    if (!node || definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) return true;
+    DefinitionOriginContext context=app_definition_origin_context(a); context.primary=authority;
+    DefinitionOriginHandoffInfo info={0};
+    DefinitionOriginHandoffStatus result=definition_origin_handoff_measure(&context,node->owner,request,&info,error);
+    /* Authored edits can already have invalidated an origin while retained
+       history is inactive. Continue ordinary capture without reattaching it. */
+    if (result==DEFINITION_HANDOFF_STALE || result==DEFINITION_HANDOFF_ADMITTED) {
+        if (error) { free(*error); *error=NULL; } return true;
+    }
+    if (result!=DEFINITION_HANDOFF_READY) return false;
+    size_t charge=info.coexisting;
+    if (!source_format_add(&charge,extra) || !app_analysis_budget(a,charge,error)) return false;
+    DefinitionOriginHandoff *ticket=NULL;
+    result=definition_origin_handoff_prepare(&context,node->owner,request,info.owned,&ticket,error);
+    if (result!=DEFINITION_HANDOFF_READY) return false;
+    *out=(AppAnalysisHandoff){node,context,ticket,info.coexisting}; return true;
+}
+static bool app_analysis_handoff_check(AppAnalysisHandoff *p,char **error) {
+    return !p->ticket || definition_origin_handoff_check(&p->context,p->node->owner,p->ticket,error)==DEFINITION_HANDOFF_READY;
+}
+static void app_analysis_handoff_adopt(AppAnalysisHandoff *p) {
+    if (!p->ticket) return;
+    /* Both owners were checked while alive. The coordinator changes no global
+       clock between transfers; adoption has no allocation or late admission. */
+    DefinitionOriginHandoffStatus result=definition_origin_handoff_adopt(&p->context,p->node->owner,&p->ticket,NULL);
+    assert(result==DEFINITION_HANDOFF_APPLIED); (void)result;
+}
+static bool app_analysis_clone(App *a,const Analysis *from,size_t extra,Analysis *out,size_t *charge,char **error) {
+    size_t bytes=analysis_text_bytes(from),live=analysis_text_bytes(&a->analysis),reserved=sizeof(Analysis)*3;
+    if (bytes==SIZE_MAX || live==SIZE_MAX || !source_format_add(&reserved,bytes) || !source_format_add(&reserved,bytes) ||
+        !source_format_add(&reserved,live) || !source_format_add(&reserved,extra)) {
+        if (error) { free(*error); *error=dx_strdup("Analysis ownership accounting overflowed."); } return false;
+    }
+    if (!app_analysis_budget(a,reserved,error)) return false;
+    *out=analysis_copy(from); *charge=reserved-extra; return true;
+}
+static bool app_definition_capture(App *a) {
+    Worksheet *s=active_sheet(a); if (!s) return true;
+    if (definition_analysis_equal(&s->analysis,&a->analysis)) { analysis_merge_types(&s->analysis,&a->analysis); return true; }
+    char *error=NULL; AppAnalysisHandoff plan={0}; Analysis candidate={0}; size_t charge=0;
+    bool ok=app_analysis_handoff_prepare(a,s,&a->analysis,(DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_CACHE_SYNC,NULL},0,&plan,&error);
+    if (ok && !plan.ticket) {
+        size_t cached=analysis_text_bytes(&s->analysis);
+        ok=cached!=SIZE_MAX && source_format_add(&cached,sizeof(Analysis)) && app_analysis_clone(a,&a->analysis,cached,&candidate,&charge,&error);
+    }
+    if (ok) ok=app_analysis_handoff_check(&plan,&error);
+    if (ok) {
+        if (plan.ticket) app_analysis_handoff_adopt(&plan);
+        else { analysis_free(&s->analysis); s->analysis=candidate; candidate=(Analysis){0}; }
+    } else status(a,error ? error : "The current worksheet could not be captured.");
+    definition_origin_handoff_cancel(&plan.ticket); analysis_free(&candidate); free(error); return ok;
+}
+static bool app_definition_activate_analysis(App *a,size_t index,bool capture) {
+    if (capture && index==a->book.active) return app_definition_capture(a);
+    Worksheet *outgoing=active_sheet(a),*incoming=a->book.sheets+index;
+    AppAnalysisHandoff leave={0},enter={0}; Analysis cached={0},next={0}; size_t extra=0,plain=0; char *error=NULL;
+    bool replace_cache=capture && outgoing && !definition_analysis_equal(&outgoing->analysis,&a->analysis);
+    bool ok=!capture || !outgoing || app_analysis_handoff_prepare(a,outgoing,&a->analysis,
+        (DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_SUSPEND_TO_SHEET,NULL},0,&leave,&error);
+    extra=leave.charge;
+    if (ok && replace_cache && !leave.ticket) {
+        size_t old=analysis_text_bytes(&outgoing->analysis);
+        ok=old!=SIZE_MAX && source_format_add(&old,sizeof(Analysis)) && source_format_add(&extra,old) && app_analysis_clone(a,&a->analysis,extra,&cached,&plain,&error);
+        if (ok) ok=source_format_add(&extra,plain);
+    }
+    if (ok) ok=app_analysis_handoff_prepare(a,incoming,&incoming->analysis,
+        (DefinitionOriginHandoffRequest){DEFINITION_HANDOFF_RESUME_TO_APP,&a->analysis},extra,&enter,&error);
+    if (ok && !enter.ticket) ok=app_analysis_clone(a,&incoming->analysis,extra,&next,&plain,&error);
+    if (ok) ok=app_analysis_handoff_check(&leave,&error) && app_analysis_handoff_check(&enter,&error);
+    if (ok) {
+        Analysis previous={0};
+        if (leave.ticket) app_analysis_handoff_adopt(&leave);
+        else {
+            if (capture && outgoing) {
+                if (replace_cache) { analysis_free(&outgoing->analysis); outgoing->analysis=cached; cached=(Analysis){0}; }
+                else analysis_merge_types(&outgoing->analysis,&a->analysis);
+            }
+            previous=a->analysis; a->analysis=(Analysis){0};
+        }
+        if (enter.ticket) app_analysis_handoff_adopt(&enter);
+        else { a->analysis=next; next=(Analysis){0}; }
+        analysis_free(&previous);
+    } else status(a,error ? error : "The worksheet switch could not be prepared.");
+    definition_origin_handoff_cancel(&leave.ticket); definition_origin_handoff_cancel(&enter.ticket);
+    analysis_free(&cached); analysis_free(&next); free(error); return ok;
 }
 static DefinitionOriginStatus app_definition_origin_open(App *a,size_t reply_owned,AppDefinitionOrigin **out,char **error) {
     DefinitionOriginContext context=app_definition_origin_context(a); AppDefinitionOrigin *node=app_definition_origin_find(a);
@@ -691,26 +792,16 @@ static DefinitionOriginStatus app_definition_origin_open(App *a,size_t reply_own
         if (definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) { *out=node; return DEFINITION_ORIGIN_READY; }
         size_t scratch=0; DefinitionOriginStatus result=definition_origin_scratch(&context,node->owner,&scratch,error);
         if (result==DEFINITION_ORIGIN_READY) { *out=node; return result; }
-        if (result!=DEFINITION_ORIGIN_STALE) return result;
-        /* Superseding an untouched request is permitted; a changed authored
-           definition/history/model cannot silently acquire a fresh preimage. */
-        DefinitionOriginContext previous=context; previous.request_epoch=&node->request;
-        result=definition_origin_scratch(&previous,node->owner,&scratch,error);
-        if (result!=DEFINITION_ORIGIN_READY) return result;
-        if (error) { free(*error); *error=NULL; }
+        return result;
     }
     size_t reserve=definition_origin_owner_bytes();
-    if ((!node && !source_format_add(&reserve,sizeof(*node))) || !source_format_budget(a,NULL,0,reserve,reply_owned,0,0)) return app_definition_origin_limit(a,error);
+    if (!source_format_add(&reserve,sizeof(*node)) || !source_format_budget(a,NULL,0,reserve,reply_owned,0,0)) return app_definition_origin_limit(a,error);
     DefinitionOrigin *owner=NULL;
     DefinitionOriginStatus result=definition_origin_begin(&context,a->book.active,definition_origin_owner_bytes(),&owner,error);
     if (result!=DEFINITION_ORIGIN_READY) return result;
-    /* Reserve and construct before retiring a superseded OPEN owner. ADMITTED
-       nodes never pass this path, even if their live definition was changed. */
-    if (!node) {
-        node=dx_alloc(sizeof(*node)); *node=(AppDefinitionOrigin){.next=a->definition_origins,.document=a->book.id,.session=a->book.edit_session_id,.sheet=active_sheet(a)->id};
-        a->definition_origins=node;
-    } else definition_origin_free(&node->owner);
-    node->owner=owner; node->request=a->request_id; *out=node; return DEFINITION_ORIGIN_READY;
+    /* Existing owners returned above; only an absent preimage is created. */
+    node=dx_alloc(sizeof(*node)); *node=(AppDefinitionOrigin){.next=a->definition_origins,.document=a->book.id,.session=a->book.edit_session_id,.sheet=active_sheet(a)->id,.owner=owner};
+    a->definition_origins=node; *out=node; return DEFINITION_ORIGIN_READY;
 }
 static DefinitionOriginStatus app_definition_origin_seal(App *a,AppDefinitionOrigin *node,size_t reply_owned,char **error) {
     if (definition_origin_state(node->owner).phase==DEFINITION_ORIGIN_ADMITTED) return DEFINITION_ORIGIN_READY;
