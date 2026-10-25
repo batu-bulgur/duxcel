@@ -13,7 +13,7 @@ static bool navigation(SheetView v) {
 static float width(SheetSourceViewSpec spec,size_t column) { return column>=spec.count ? 96 : spec.columns[column].type==DUCKDB_TYPE_TIMESTAMP ? 190 : 128; }
 SheetSourceViewStatus sheet_source_view_measure(SheetSourceViewSpec spec,SheetSourceViewInfo *out) {
     if (!out || !spec.columns || !spec.count || spec.count>16384 || !navigation(spec.navigation)) return SHEET_SOURCE_VIEW_INVALID;
-    size_t columns=spec.count>16384-8 ? 16384 : spec.count+8; if (columns<52) columns=52;
+    size_t columns=spec.count>16384-16 ? 16384 : spec.count+16; if (columns<52) columns=52;
     size_t owned=sizeof(SheetSourceView)+columns*(sizeof(char *)+sizeof(float))+(columns-spec.count);
     for (size_t i=0;i<spec.count;i++) {
         DefinitionWireMeasure text={0}; size_t length=0;

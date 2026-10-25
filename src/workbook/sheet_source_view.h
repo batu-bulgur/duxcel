@@ -10,7 +10,7 @@ typedef struct {
 } SheetSourceViewSpec;
 typedef struct { size_t owned,columns; } SheetSourceViewInfo;
 typedef enum { SHEET_SOURCE_VIEW_OK,SHEET_SOURCE_VIEW_INVALID,SHEET_SOURCE_VIEW_LIMIT } SheetSourceViewStatus;
-/* Fresh unbounded main-sheet source projection: min(16384,max(52,fields+8))
+/* Fresh unbounded main-sheet source projection: min(16384,max(52,fields+16))
    columns, actual source names, empty virtual labels, timestamp190/other128,
    virtual tail96. No outgoing widths/cache, Row Pages, parsing, IDs or actions.
    Numeric/type inference is not interpreted beyond the existing timestamp width

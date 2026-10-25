@@ -53,7 +53,7 @@ static void invalid_and_bounds(void) {
     Column *many=calloc(16384,sizeof(*many)); CHECK(many);
     for (size_t i=0;i<16384;i++) many[i]=(Column){.name="Field",.type=DUCKDB_TYPE_VARCHAR};
     CHECK(sheet_source_view_measure(spec(many,16384),&info)==SHEET_SOURCE_VIEW_OK && info.columns==16384);
-    CHECK(sheet_source_view_measure(spec(many,100),&info)==SHEET_SOURCE_VIEW_OK && info.columns==108);
+    CHECK(sheet_source_view_measure(spec(many,100),&info)==SHEET_SOURCE_VIEW_OK && info.columns==116);
     SheetSourceView *owned=NULL; CHECK(sheet_source_view_build(spec(many,100),info.owned,&owned)==SHEET_SOURCE_VIEW_OK);
     CHECK(sheet_source_view_get(owned)->widths[99]==128 && sheet_source_view_get(owned)->widths[100]==96);
     sheet_source_view_free(&owned); sheet_source_view_free(&owned); free(many);

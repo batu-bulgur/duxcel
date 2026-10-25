@@ -2521,7 +2521,8 @@ build/tests/test_range_history_slot-debug: $(RANGE_HISTORY_SLOT_SAN_OBJECTS) | b
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(RANGE_HISTORY_SLOT_OBJECTS:.o=.d) $(RANGE_HISTORY_SLOT_SAN_OBJECTS:.o=.d)
 
-PRIMARY_SOURCE_PUBLISH_SRC = $(filter-out tests/test_primary_source_draft.c,$(PRIMARY_SOURCE_DRAFT_SRC)) src/workbook/sheet_presence_asset.c src/workbook/primary_source_publish.c tests/test_primary_source_publish.c
+PRIMARY_SOURCE_PUBLISH_SRC = $(filter-out tests/test_primary_source_draft.c,$(PRIMARY_SOURCE_DRAFT_SRC)) src/workbook/sheet_presence_asset.c src/workbook/sheet_source_view.c src/workbook/primary_source_publish.c tests/test_primary_source_publish.c
+
 PRIMARY_SOURCE_PUBLISH_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_PUBLISH_SRC))))
 PRIMARY_SOURCE_PUBLISH_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(PRIMARY_SOURCE_PUBLISH_SRC))))
 build/tests/test_primary_source_publish: $(PRIMARY_SOURCE_PUBLISH_OBJECTS) build/web-tests/platform-model.o | build/tests
@@ -2530,7 +2531,7 @@ build/tests/test_primary_source_publish-debug: $(PRIMARY_SOURCE_PUBLISH_SAN_OBJE
 	$(call link_binary,-O1 -g $(SANFLAGS) $(PRIMARY_SOURCE_PUBLISH_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(PRIMARY_SOURCE_PUBLISH_OBJECTS:.o=.d) $(PRIMARY_SOURCE_PUBLISH_SAN_OBJECTS:.o=.d)
 
-SHEET_SOURCE_VIEW_SRC = $(filter-out tests/test_primary_source_publish.c,$(PRIMARY_SOURCE_PUBLISH_SRC)) src/workbook/sheet_source_view.c tests/test_sheet_source_view.c
+SHEET_SOURCE_VIEW_SRC = $(filter-out tests/test_primary_source_publish.c,$(PRIMARY_SOURCE_PUBLISH_SRC)) tests/test_sheet_source_view.c
 SHEET_SOURCE_VIEW_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_SOURCE_VIEW_SRC))))
 SHEET_SOURCE_VIEW_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_SOURCE_VIEW_SRC))))
 build/tests/test_sheet_source_view: $(SHEET_SOURCE_VIEW_OBJECTS) build/web-tests/platform-model.o | build/tests

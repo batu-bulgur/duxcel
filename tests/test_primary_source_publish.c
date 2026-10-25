@@ -152,4 +152,61 @@ static void query_revision_exhaustion(void) {
     CHECK(out.primary_epoch==UINT64_MAX && epoch==UINT64_MAX-1 && b.count==2);
     primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
 }
-int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); prospective_presence_lifetime(); occupied_output_preservation(); query_revision_exhaustion(); printf("PASS: %u primary publication checks\n",checks); return 0; }
+static SheetSourceView *initial_view(Column columns[3]) {
+    SheetSourceViewSpec spec={columns,3,{.row=800,.col=9000,.anchor_row=801,.anchor_col=9001,.end_row=802,.end_col=9002,.top=780,.horizontal=11.5f,.fraction=.25,.canvas_zoom=1.5f,.selection=2}};
+    SheetSourceViewInfo info; SheetSourceView *view=NULL;
+    CHECK(sheet_source_view_measure(spec,&info)==SHEET_SOURCE_VIEW_OK);
+    CHECK(sheet_source_view_build(spec,info.owned,&view)==SHEET_SOURCE_VIEW_OK); return view;
+}
+static void initial_view_adoption(void) {
+    Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=12,epoch=4;
+    PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false}; PrimarySourceDraft *draft=resolved(c);
+    Column columns[]={{.name=dx_strdup("City"),.type=DUCKDB_TYPE_VARCHAR},{.name=dx_strdup("When"),.type=DUCKDB_TYPE_TIMESTAMP},{.name=dx_strdup("Amount"),.type=DUCKDB_TYPE_DECIMAL}};
+    SheetSourceView *view=initial_view(columns); PrimarySourceInitialSchema schema={request,epoch,primary_source_draft_source(draft),columns,3,NULL};
+    PrimarySourcePublishInfo plain,info; CHECK(primary_source_publish_measure(c,draft,&plain,NULL)==PRIMARY_PUBLISH_READY);
+    CHECK(primary_source_publish_measure_initial(c,draft,view,schema,&info,NULL)==PRIMARY_PUBLISH_READY);
+    CHECK(info.initial_view==sheet_source_view_owned(view) && info.presence>plain.presence && info.coexisting>plain.coexisting+info.initial_view);
+    Workbook before=b; PrimarySourcePublishPlan *plan=NULL;
+    CHECK(primary_source_publish_prepare_initial(c,&draft,&view,schema,info.coexisting-1,&plan,NULL)==PRIMARY_PUBLISH_LIMIT && draft && view && !plan && !memcmp(&b,&before,sizeof(b)));
+    CHECK(primary_source_publish_prepare_initial(c,&draft,&view,schema,info.coexisting,&plan,NULL)==PRIMARY_PUBLISH_READY && !draft && !view && !memcmp(&b,&before,sizeof(b)));
+    const SheetView *after=primary_source_publish_initial_view(plan); SheetPresenceView proposed=sheet_presence_view(primary_source_publish_presence(plan));
+    CHECK(after && after->column_count==52 && after->columns!=proposed.sheet->view.columns && after->widths!=proposed.sheet->view.widths);
+    CHECK(after->widths[0]==128 && after->widths[1]==190 && after->widths[51]==96 && proposed.sheet->view.col==9000 && proposed.sheet->view.canvas_zoom==1.5f);
+    for (size_t i=0;i<3;i++) free(columns[i].name);
+    PrimarySourcePublication out={0}; CHECK(primary_source_publish_apply(c,&plan,info.coexisting,&out,NULL)==PRIMARY_PUBLISH_ADMITTED && !plan);
+    Worksheet *created=b.sheets+b.active; bool matches=false;
+    CHECK(created->view.column_count==52 && created->view.widths[1]==190 && created->view.col==9000 && created->view.fraction==.25 && created->view.canvas_zoom==1.5f);
+    CHECK(sheet_presence_matches(out.presence,(SheetPresenceView){b.id,b.sheet_high_water,created,&out.candidate.source},&matches)==SHEET_PRESENCE_OK && matches);
+    CHECK(b.command_revision==before.command_revision+1 && out.primary_epoch==epoch+1);
+    CHECK(workbook_history_step(&b,false,NULL).status==WORKBOOK_HISTORY_APPLIED && b.count==1);
+    CHECK(workbook_history_step(&b,true,NULL).status==WORKBOOK_HISTORY_APPLIED && b.count==2);
+    created=b.sheets+b.active; CHECK(created->view.widths[1]==190 && created->view.col==9000 && !strcmp(created->view.columns[2],"Amount"));
+    CHECK(sheet_presence_matches(out.presence,(SheetPresenceView){b.id,b.sheet_high_water,created,&created->analysis},&matches)==SHEET_PRESENCE_OK && matches);
+    primary_source_publication_free(&out); analysis_free(&app); workbook_free(&b);
+}
+static void initial_schema_fences(void) {
+    for (unsigned mode=0;mode<10;mode++) {
+        Workbook b=book(); Analysis app=analysis_copy(&b.sheets[0].analysis); uint64_t request=12,epoch=4;
+        PrimarySourceDraftContext c={&b,&app,&request,&epoch,true,false}; PrimarySourceDraft *draft=resolved(c);
+        Column columns[]={{.name="City",.type=DUCKDB_TYPE_VARCHAR},{.name="When",.type=DUCKDB_TYPE_TIMESTAMP},{.name="Amount",.type=DUCKDB_TYPE_DECIMAL}};
+        SheetSourceView *view=initial_view(columns); Analysis actual=*primary_source_draft_source(draft);
+        PrimarySourceInitialSchema schema={request,epoch,&actual,columns,3,NULL};
+        if (mode==0) schema.request++;
+        if (mode==1) schema.primary_epoch++;
+        if (mode==2) schema.error="actual query failed";
+        if (mode==3) actual.path="/different.duckdb";
+        if (mode==4) columns[0].name="Different";
+        if (mode==5) columns[1].type=DUCKDB_TYPE_VARCHAR;
+        if (mode==6) schema.count=2;
+        if (mode==7) schema.count=0;
+        if (mode==8) columns[1].name=NULL;
+        if (mode==9) actual.filter_number=(NumberType){NUM_DECIMAL,39,0};
+        PrimarySourcePublishStatus expected=mode==2 ? PRIMARY_PUBLISH_FAILED : mode>=7 ? PRIMARY_PUBLISH_INVALID : PRIMARY_PUBLISH_STALE;
+        PrimarySourcePublishInfo info={0},unchanged=info; Workbook before=b; PrimarySourcePublishPlan *plan=NULL;
+        CHECK(primary_source_publish_measure_initial(c,draft,view,schema,&info,NULL)==expected && !memcmp(&info,&unchanged,sizeof(info)));
+        CHECK(primary_source_publish_prepare_initial(c,&draft,&view,schema,SIZE_MAX,&plan,NULL)==expected && draft && view && !plan && !memcmp(&before,&b,sizeof(b)));
+        sheet_source_view_free(&view); primary_source_draft_free(&draft); analysis_free(&app); workbook_free(&b);
+    }
+    CHECK(!primary_source_publish_initial_view(NULL));
+}
+int main(void) { publication(); stale_and_cancel(); assets_and_unresolved(); file_and_demo_publication(); prospective_presence_lifetime(); occupied_output_preservation(); query_revision_exhaustion(); initial_view_adoption(); initial_schema_fences(); printf("PASS: %u primary publication checks\n",checks); return 0; }

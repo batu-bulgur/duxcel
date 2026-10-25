@@ -138,7 +138,7 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
-    "source-initial-view": Feature(("sheet_source_view",), "",
+    "source-initial-view": Feature(("sheet_source_view", "primary_source_publish"), "",
         ("python3 tools/test.py feature --feature primary-source-publication", "python3 tools/test.py feature --feature primary-source-kinds"),
         ("src/workbook/sheet_source_view.c", "src/workbook/sheet_source_view.h", "tests/test_sheet_source_view.c")),
 

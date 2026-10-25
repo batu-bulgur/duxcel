@@ -3,10 +3,11 @@
 #include "primary_source_draft.h"
 #include "definition_origin.h"
 #include "sheet_presence_asset.h"
+#include "sheet_source_view.h"
 #include "lifecycle.h"
 typedef struct PrimarySourcePublishPlan PrimarySourcePublishPlan;
 typedef struct {
-    size_t coexisting,live,draft,presence,creation,origin,scratch;
+    size_t coexisting,live,draft,presence,creation,origin,scratch,initial_view;
     uint64_t prospective_sheet,primary_epoch; /* Proposed one-step App query revision, never wrapped. */
 } PrimarySourcePublishInfo;
 typedef enum { PRIMARY_PUBLISH_READY,PRIMARY_PUBLISH_ADMITTED,PRIMARY_PUBLISH_PENDING,
@@ -33,6 +34,31 @@ PrimarySourcePublishStatus primary_source_publish_measure(PrimarySourceDraftCont
    rejection leaves draft, old plan and book untouched. out must be empty. */
 PrimarySourcePublishStatus primary_source_publish_prepare(PrimarySourceDraftContext context,
     PrimarySourceDraft **draft,size_t reserved,PrimarySourcePublishPlan **out,char **error);
+typedef struct {
+    uint64_t request,primary_epoch;
+    const Analysis *analysis;
+    const Column *columns;
+    size_t count;
+    const char *error;
+} PrimarySourceInitialSchema;
+/* Actual successful new-primary probe schema: exact current request/revision and
+   resolved authored source, plus owned view matching those Column names/types.
+   No Row Pages or renderer state. initial was built under its own admitted
+   ownership grant; measure includes that resident owner plus the full presence
+   clone and real CREATE adoption peak. The scalar preferences are its explicit
+   immutable new-sheet intent, not an outgoing Grid snapshot.
+   Success takes BOTH draft and initial; every rejection preserves both.
+   Unlike provisional prepare above, this captures the complete AFTER view and
+   moves it onto the new Worksheet inside the real CREATE boundary. */
+PrimarySourcePublishStatus primary_source_publish_measure_initial(PrimarySourceDraftContext context,
+    const PrimarySourceDraft *draft,const SheetSourceView *initial,PrimarySourceInitialSchema schema,
+    PrimarySourcePublishInfo *out,char **error);
+PrimarySourcePublishStatus primary_source_publish_prepare_initial(PrimarySourceDraftContext context,
+    PrimarySourceDraft **draft,SheetSourceView **initial,PrimarySourceInitialSchema schema,size_t reserved,
+    PrimarySourcePublishPlan **out,char **error);
+/* NULL means the provisional source plan has no actual-probe initial view proof.
+   Borrow ends with cancellation/apply; no caller may alter this AFTER state. */
+const SheetView *primary_source_publish_initial_view(const PrimarySourcePublishPlan *plan);
 /* Borrow the independent immutable prospective presence while a prepared plan
    still owns its source draft. It contains the unpublished prospective ID, not
    a live assignment. Cancellation/apply ends the borrow. This getter neither
