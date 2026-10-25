@@ -1053,6 +1053,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_dependency_admission build/test
 PARALLEL_NATIVE_GOALS += build/tests/test_history_event_frame build/tests/test_history_event_frame-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_source_history_payload build/tests/test_source_history_payload-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_event_slot build/tests/test_history_event_slot-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_source_history_slot build/tests/test_source_history_slot-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2280,3 +2281,12 @@ build/tests/test_history_event_slot: $(HISTORY_EVENT_SLOT_OBJECTS) | build/tests
 build/tests/test_history_event_slot-debug: $(HISTORY_EVENT_SLOT_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(HISTORY_EVENT_SLOT_OBJECTS:.o=.d) $(HISTORY_EVENT_SLOT_SAN_OBJECTS:.o=.d)
+
+SOURCE_HISTORY_SLOT_SRC = $(filter-out tests/test_source_history_payload.c,$(SOURCE_HISTORY_PAYLOAD_SRC)) src/workbook/history_path.c src/workbook/history_anchors.c src/workbook/history_window.c src/workbook/version_index.c src/workbook/history_event_slot.c src/workbook/source_history_slot.c tests/test_source_history_slot.c
+SOURCE_HISTORY_SLOT_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(SOURCE_HISTORY_SLOT_SRC))))
+SOURCE_HISTORY_SLOT_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(SOURCE_HISTORY_SLOT_SRC))))
+build/tests/test_source_history_slot: $(SOURCE_HISTORY_SLOT_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_source_history_slot-debug: $(SOURCE_HISTORY_SLOT_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(SOURCE_HISTORY_SLOT_OBJECTS:.o=.d) $(SOURCE_HISTORY_SLOT_SAN_OBJECTS:.o=.d)

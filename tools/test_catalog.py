@@ -124,6 +124,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "source-history-slot": Feature(("source_history_slot", "source_history_payload", "history_event_slot", "history_path"), "",
+        ("python3 tools/test.py feature --feature history-definition", "python3 tools/test.py feature --feature history-format"),
+        ("src/workbook/source_history_slot.c", "src/workbook/source_history_slot.h", "tests/test_source_history_slot.c")),
     "history-event-slot": Feature(("history_event_slot", "history_path"), "",
         ("python3 tools/test.py feature --feature history-stream",),
         ("src/workbook/history_event_slot.c", "src/workbook/history_event_slot.h", "tests/test_history_event_slot.c")),
