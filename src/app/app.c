@@ -810,7 +810,6 @@ static Worksheet *active_sheet(App *a) { return a->book.count ? &a->book.sheets[
 #ifndef DUXCEL_BROWSER_HOST
 static void source_format_cancel(App *a,const char *message);
 static bool source_format_manual_import_ready(App *a);
-static void source_format_manual_adopt(App *a,bool advance_revision);
 static void source_format_reset(App *a);
 static void source_format_page(App *a);
 static FormatBudgetStatus source_format_budget_status(App *a,const WorkbookFormatReplacement *replacement,
@@ -6774,10 +6773,15 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
         if (imported) { status(a,"Source-bound cell formatting needs verified record collection. Whole-column defaults remain available."); return false; }
     }
 #ifndef DUXCEL_BROWSER_HOST
-    if (sheet->formats.source_aware) return source_format_spatial_apply(a,range,mask,value);
+    if (sheet->formats.source_aware) return source_format_spatial_apply(a,range,mask,value,false);
     bool imported_owner=a->analysis.kind!=SOURCE_NONE;
     for (size_t i=0;!imported_owner && i<sheet->objects.count;i++) imported_owner=sheet->objects.items[i].kind==OBJECT_TABLE;
-    bool manual_mode=imported_owner && !sheet->formats.source_aware && source_format_first_safe(&sheet->formats);
+    if (imported_owner) {
+        if (!source_format_first_safe(&sheet->formats)) {
+            status(a,"The existing finite formats need source ownership before more manual formatting."); return false;
+        }
+        return source_format_spatial_apply(a,range,mask,value,true);
+    }
 #endif
     if (a->analysis.kind==SOURCE_NONE && sheet->analysis.kind==SOURCE_NONE && !sheet->objects.count &&
         !sheet->formats.source_aware && !sheet->formats.scope_count) {
@@ -6792,12 +6796,6 @@ static bool apply_format(App *a,unsigned mask,CellFormat value) {
     }
     bool ok=format_apply(&sheet->formats,range,mask,value,&error);
     if (ok && revision!=sheet->formats.revision) {
-#ifndef DUXCEL_BROWSER_HOST
-        /* The new patch is known manual (source admission above declined it).
-           Prior legacy states contain only broad defaults. Adopt within this
-           edit's existing revision advance, including UINT64_MAX-1 → MAX. */
-        if (manual_mode) source_format_manual_adopt(a,false);
-#endif
         worksheet_record(sheet,EDIT_FORMAT); a->book.dirty=true;
     }
     if (!ok) status(a,error); free(error); return ok;
@@ -15866,6 +15864,9 @@ static void column_width_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
 static void paste_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_MANUAL_FORMAT
+static void source_manual_format_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_SPATIAL_FORMAT
 static void source_spatial_format_test_frame(AppSession *session);
 #endif
@@ -16813,6 +16814,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_PASTE_COMMAND
     paste_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_MANUAL_FORMAT
+    source_manual_format_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_SPATIAL_FORMAT
     source_spatial_format_test_frame(session);
 #endif
@@ -17251,4 +17255,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_SOURCE_SPATIAL_FORMAT
 #include "../../tests/support/source_spatial_format_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_SOURCE_MANUAL_FORMAT
+#include "../../tests/support/source_manual_format_app.inc"
 #endif

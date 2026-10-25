@@ -1172,6 +1172,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_spatial_format-gui
 
 PARALLEL_NATIVE_GOALS += build/tests/test_source_record_range_csv-gui build/tests/test_source_record_range_parquet-gui
 
+PARALLEL_NATIVE_GOALS += build/tests/test_source_manual_format-gui
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2622,3 +2623,10 @@ build/tests/test_source_spatial_format-gui: tests/test_source_spatial_format_gui
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_spatial_format_gui.c $(SOURCE_SPATIAL_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(SOURCE_SPATIAL_GUI_OBJECT:.o=.d)
 
+SOURCE_MANUAL_GUI_OBJECT = build/obj/feature-source-manual-format/app.o
+$(SOURCE_MANUAL_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_SOURCE_MANUAL_FORMAT)
+SOURCE_MANUAL_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(SOURCE_MANUAL_GUI_OBJECT)
+build/tests/test_source_manual_format-gui: tests/test_source_manual_format_gui.c $(SOURCE_MANUAL_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_manual_format_gui.c $(SOURCE_MANUAL_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(SOURCE_MANUAL_GUI_OBJECT:.o=.d)
