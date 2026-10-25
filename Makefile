@@ -2300,3 +2300,14 @@ build/tests/test_cell_history_payload: $(CELL_HISTORY_PAYLOAD_OBJECTS) | build/t
 build/tests/test_cell_history_payload-debug: $(CELL_HISTORY_PAYLOAD_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(CELL_HISTORY_PAYLOAD_OBJECTS:.o=.d) $(CELL_HISTORY_PAYLOAD_SAN_OBJECTS:.o=.d)
+
+# Pure one-ID event composes existing current presence and catalog owners.
+SHEET_TOPOLOGY_SRC = $(filter-out tests/test_sheet_presence_asset.c,$(SHEET_PRESENCE_SRC)) src/workbook/sheet_lifecycle.c src/workbook/sheet_topology_event.c tests/test_sheet_topology_event.c
+SHEET_TOPOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_SRC))))
+SHEET_TOPOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_TOPOLOGY_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_sheet_topology_event build/tests/test_sheet_topology_event-debug
+build/tests/test_sheet_topology_event: $(SHEET_TOPOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_sheet_topology_event-debug: $(SHEET_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(SHEET_TOPOLOGY_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_SAN_OBJECTS:.o=.d)
