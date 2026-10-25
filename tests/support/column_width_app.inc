@@ -69,7 +69,39 @@ static void column_width_test_frame(AppSession *session) {
         WIDTH_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,width_path); break;
     case 20:
         WIDTH_CHECK(!a->book.dirty && !s->undo_actions_count && a->grid.widths[0]==220 && s->view.widths[0]==220 && a->book.sheets[0].view.widths[0]==229.5f);
-        width_result=1; printf("PASS: native column width workflow (21 stages, %u checks)\n",width_checks); break;
+        WIDTH_CHECK(activate_sheet(a,0,true)); break;
+    case 21: {
+        char *error=NULL; WIDTH_CHECK(cells_set(&s->cells,2,3,"NULL",&error)); worksheet_record(s,EDIT_CELLS);
+        CellFormat format=format_default(); format.flags=FORMAT_BOLD;
+        WIDTH_CHECK(format_apply(&s->formats,(FormatRange){2,2,3,3},FORMAT_BOLD,format,&error)); worksheet_record(s,EDIT_FORMAT);
+        grid_ensure_columns(&a->grid,16384); grid_set_width(&a->grid,3,150); grid_set_width(&a->grid,16383,166);
+        WIDTH_CHECK(commit_grid_widths(a)); free(error); width_revision=a->book.command_revision;
+        a->grid.col=1; column_action(a,COLUMN_LEFT); break;
+    }
+    case 22:
+        WIDTH_CHECK(a->book.command_revision==width_revision+1 && !strcmp(cells_get(&s->cells,2,4),"NULL") && !*cells_get(&s->cells,2,3) &&
+            (format_at(&s->formats,2,4).flags&FORMAT_BOLD) && a->grid.widths[4]==150 && a->grid.widths[16383]==96);
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 23:
+        WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,3),"NULL") && (format_at(&s->formats,2,3).flags&FORMAT_BOLD) && a->grid.widths[3]==150 && a->grid.widths[16383]==166);
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+    case 24:
+        WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,4),"NULL") && a->grid.widths[4]==150 && a->grid.widths[16383]==96);
+        a->grid.col=1; column_action(a,COLUMN_DELETE); break;
+    case 25:
+        WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,3),"NULL") && (format_at(&s->formats,2,3).flags&FORMAT_BOLD) && a->grid.widths[3]==150 && a->grid.widths[16383]==96);
+        ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 26:
+        WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,4),"NULL") && a->grid.widths[4]==150); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+    case 27:
+        WIDTH_CHECK(!strcmp(cells_get(&s->cells,2,3),"NULL") && a->grid.widths[3]==150 && a->grid.widths[16383]==166);
+        workspace_job(a,JOB_SAVE,width_path); break;
+    case 28:
+        WIDTH_CHECK(!a->book.dirty); workspace_job(a,JOB_LOAD,width_path); break;
+    case 29:
+        WIDTH_CHECK(!a->book.dirty && !s->undo_actions_count && !strcmp(cells_get(&s->cells,2,3),"NULL") &&
+            (format_at(&s->formats,2,3).flags&FORMAT_BOLD) && a->grid.widths[3]==150 && a->grid.widths[16383]==166);
+        width_result=1; printf("PASS: native column width workflow (30 stages, %u checks)\n",width_checks); break;
     }
     width_stage++;
 }

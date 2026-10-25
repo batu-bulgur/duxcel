@@ -5687,6 +5687,11 @@ static void column_action(App *a,ColumnAction action) {
     } else {
         size_t col=g->col+(action==COLUMN_RIGHT); char *error=NULL;
         size_t source_columns=a->analysis.kind!=SOURCE_NONE && !a->page.column_count ? 16384 : a->page.column_count;
+        if (manual_range_owner(a,sheet)) {
+            if (!move_manual_range(a,(RangeCommand){.operation=action==COLUMN_DELETE ? RANGE_OPERATION_DELETE_COLUMNS : RANGE_OPERATION_INSERT_COLUMNS,
+                .column=col,.column_count=1},NULL,&error)) { status(a,error); free(error); return; }
+            project_sheet_widths(a); return;
+        }
 #ifndef DUXCEL_BROWSER_HOST
         if (source_format_budget_status(a,NULL,DX_COLUMN_WIDTH_HISTORY_BYTES,0,0,0,0)) return;
 #endif

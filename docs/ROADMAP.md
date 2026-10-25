@@ -255,7 +255,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.3c.3a.2c.1 · P1 · Complete | Current primary DATABASE default-reply and origin ownership; W12c.3c.3a.2b. | Exact accepted request/default-table completion, bounded OPEN/ADMITTED registry and background retirement; no authored action/clock or sealed-root mutation. Table completion and new-primary publication remain separate. |
 | W12c.3c.3a.2c.1a · P1 · Complete | Authored origin projection; W12c.3c.3a.2c.1. | Check borrowed owners before semantic reads; preserve origins through valid derived Table/Pivot extents, numeric inference and query epochs, while actual replies require current request/route revision. Exact Saved/layout/event fences remain unchanged. |
 | W12c.3c.3a.2c.1b · P1 · Complete | Pending-origin Analysis lifetime; W12c.3c.3a.2c.1a. | Typed before-free cache synchronization and sheet authority suspend/resume preserve a valid OPEN owner across Save/refused Save, navigation and Working Head inspection. Prepare all ownership/budget transfers before destructive publication; never rebind freed pointers or reopen an authored preimage. Post-publication load/structural adoption retains its existing nonfallible copy; denied cross-sheet navigation cannot apply Undo. |
-| W12c.3c.3a.2c.2 · P1 · Planned | Existing loaded-Table default-reply adapter; W12c.3c.3a.2c.1b. | Central owner-aware actual-reply completion handles Table and bound analytical routes, carries distinct-job revision, preserves result/count/cache publication and proves real pressure/retry plus lifecycle continuity. New-primary publication and retained replay remain separate. |
+| W12c.3c.3a.2c.2 · P1 · Complete | Existing loaded-Table default-reply adapter; W12c.3c.3a.2c.1b. | Central owner-aware actual-reply completion handles Table and bound analytical routes, carries distinct-job revision, preserves result/count/cache publication and proves real pressure/retry plus lifecycle continuity. New-primary publication and retained replay remain separate. |
 | W12c.3c.3b · P1 · In progress | Fenced definition/composite App adapters; W12c.3c.2b, W12c.3c.3a. | Prepare exact after-plans, reserve before session eviction, recheck all owner/source/model fences, then publish one complete action with correct query/cache invalidation. |
 | W12c.3c.3b.1 · P1 · Complete | Same-connection primary transform controller; W12c.3c.2, W12c.3c.3a.1. | Prepare independent after-plans against the authoritative primary, admit parser/ownership/source closure, reserve before eviction, recheck durable/session/source/history fences and publish one action. No-op preserves Redo. |
 | W12c.3c.3b.2 · P1 · Complete | Primary Remove duplicates App adoption; W12c.3c.3b.1. | Route Remove duplicates through the controller with bounded candidate/scratch admission and narrow input/Undo/Redo/Save/Open coverage. Preserve runtime invalidation and recovery checkpoint rotation. |
@@ -298,8 +298,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.4.1 · P1 · Complete | Manual-only range event and producer; closed cell/format assets and source-free manual command owners. | Encode complete changed-cell and optional format pairs as one event, reserve/recheck before any history eviction, preserve exact inverse and no-op Redo. Keep mixed source/object ranges unchanged until their dependencies close. |
 | W12c.4.2 · P1 · Complete | Manual-only row insertion/deletion; W12c.4.1. | Reuse complete sparse cell/format events and owner fences for bounded row actions. Keep column-width metadata, source/object axes and paste as explicit complete-effect prerequisites. |
 | W12c.4.3a · P1 · Complete | Complete manual column-width asset/journal; W12c.4.2. | Own canonical sparse nondefault width pairs over the bounded virtual grid and exact inverse, including a truncated edge width. Explicit presentation effect16; no synthetic cell change or incomplete scalar inverse. |
-| W12c.4.3b · P1 · In progress | Manual authored resize producers; W12c.4.3a. | Record source-free drag completion, width dialog and autofit in one chronological action. Visual drag drafts cancel safely; virtual default capacity growth is representation-only. Fence committed width authority and refuse divergent replay. |
-| W12c.4.4 · P1 · Queued | Manual column insertion/deletion; W12c.4.3b. | Reserve all cells/formats/width effects before eviction, adopt one action and replay exact widths without double App shifts. Keep source/object columns and paste explicit. |
+| W12c.4.3b · P1 · Complete | Manual authored resize producers; W12c.4.3a. | Record source-free drag completion, width dialog and autofit in one chronological action. Visual drag drafts cancel safely; virtual default capacity growth is representation-only. Fence committed width authority and refuse divergent replay. |
+| W12c.4.4 · P1 · Complete | Manual column insertion/deletion; W12c.4.3b. | Reserve all cells/formats/width effects before eviction, adopt one action and replay exact widths without double App shifts. Keep source/object columns and paste explicit. |
 | W12c.5 · P1 · Queued | Sheet lifecycle and detached payloads; W12c.1–W12c.4. | Preserve create/delete/duplicate/reorder/hide/rename owners and detached contents across reopen. Cross-sheet ordering and identity high-water survive replay; all producer families are covered before durable history activation. |
 | W12c.5.1 · P1 · Complete | Ordered sheet-metadata packet prerequisite; W05b durable identities and existing lifecycle rules. | Own canonical before/after names/order/visibility/active stable ID for the same sheet-ID set; strict limits and failure/no-op preservation. No create/delete/duplicate payload, App mutation or retained activation. Parent lifecycle integration still waits for W12c.4. |
 | W12c.5.2 · P1 · Complete | Typed sheet-metadata plan and event reservation; W12c.5.1 and history-stream owner. | Prepare stable-ID rename/reorder/visibility before/after plans, bind real session/model ownership and reserve a family5 packet without dummy worksheet edits. Full workbook action/adoption/App integration remains separate. |
@@ -2422,3 +2422,24 @@ sparse snapshots are measured before copying, with ragged holes/empty fields,
 quoted data, literal NULL and exact numeric text preserved. Combined release/
 sanitizer module acceptance passes1.948s, zero App stages
 (`20261025T200532-feature-83207`); App paste event adoption remains queued.
+
+W12c.4.3b/W12c.4.4 integrated complete: `73c5122` admits manual column cell/
+format/width effects as one fully reserved family4 event. App manual columns now
+use that producer; mixed/source columns retain their existing source/object
+protection plus the complete session width constituent. The registered
+`column-range-command` release/sanitizer modules and expanded30-stage hidden
+native workflow pass32.608s (GUI18.484s), receipt `20261025T201012-feature-89779`.
+Actual insert/delete, text/style movement, one-action Undo/Redo, exact truncated
+virtual-right-edge width restoration and current native Save/Open are covered.
+Parent W12c.4 remains in progress: paste and broader retained source/object
+composites are not inferred complete. The Object lane proceeds to the manual
+text-paste event producer using the already verified shared parser/planner.
+
+Loaded-Table completion integrated as `a74a5fa` (lane `82c2d41`): actual Table
+and bound analytical replies use the central origin owner; distinct jobs carry
+their route revision. Lane optimized/sanitizer models plus12 hidden Table stages
+pass17.995s; the changed shared primary helper also passes its11-stage native
+regression32.668s. Source proceeds to a pure pending-primary draft prerequisite;
+History independently captures complete authored single-sheet assets before
+future topology publication. Both exclude App adoption until their complete
+publication boundaries are implemented. Combined main Table acceptance follows.

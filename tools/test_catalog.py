@@ -18,7 +18,7 @@ class Feature:
 
 STANDALONE_GUI = {
     "column-width": ("build/tests/test_column_width-gui", "PASS: native column width workflow",
-                     r"^PASS: native column width workflow \(21 stages, [1-9]\d* checks\)$", 21),
+                     r"^PASS: native column width workflow \(30 stages, [1-9]\d* checks\)$", 30),
     "table-origin": ("build/tests/test_table_origin-gui", "PASS: native loaded Table origin workflow",
                      r"^PASS: native loaded Table origin workflow \(12 stages, [1-9]\d* checks\)$", 12),
     "definition-origin": ("build/tests/test_definition_origin-gui", "PASS: native primary origin workflow",
@@ -135,7 +135,7 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
-    "column-range-command": Feature(("cell_range_plan", "range_event", "range_command", "history_range"), "",
+    "column-range-command": Feature(("cell_range_plan", "range_event", "range_command", "history_range"), "column-width",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/range_command.c: complete manual columns", "tests/test_range_command.c")),
     "column-cell-plan": Feature(("cell_range_plan",), "",
