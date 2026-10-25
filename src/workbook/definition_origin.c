@@ -55,10 +55,10 @@ static bool analysis_numbers(const Analysis *a) {
     for (size_t i=0;i<DX_ANALYSIS_FILTERS-1;i++) if (!number_shape(a->filters[i].number)) return false;
     return true;
 }
-static bool current_shape(const DefinitionOriginContext *c,const Worksheet *s) {
+static bool materialized_shape(const Worksheet *s,const Analysis *primary) {
     AnalysisAssetMeasure a={0},b={0}; ObjectsAssetInfo objects={0}; ObjectSnapshot snapshot={s->objects.items,s->objects.count};
-    if (!analysis_numbers(c->primary) || !analysis_numbers(&s->analysis) ||
-        analysis_asset_measure(s->id,0,c->primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK ||
+    if (!analysis_numbers(primary) || !analysis_numbers(&s->analysis) ||
+        analysis_asset_measure(s->id,0,primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK ||
         analysis_asset_measure(s->id,0,&s->analysis,s->objects.next_id,&b)!=ANALYSIS_ASSET_OK ||
         objects_asset_measure(s->id,&snapshot,s->objects.next_id,&objects)!=OBJECTS_ASSET_OK) return false;
     for (size_t i=0;i<s->objects.count;i++) {
@@ -68,6 +68,7 @@ static bool current_shape(const DefinitionOriginContext *c,const Worksheet *s) {
     }
     return true;
 }
+static bool current_shape(const DefinitionOriginContext *c,const Worksheet *s) { return materialized_shape(s,c->primary); }
 static DefinitionOriginStatus check(DefinitionOriginContext *c,const DefinitionOrigin *p,char **error) {
     if (!context_valid(c) || !p) { fail(error,"Choose a valid working definition origin."); return DEFINITION_ORIGIN_INVALID; }
     if (p->phase==DEFINITION_ORIGIN_ADMITTED) { fail(error,"The working definition origin is immutable after admission."); return DEFINITION_ORIGIN_PROTECTED; }
@@ -317,12 +318,11 @@ static bool unowned_imported_formats(const Worksheet *s,const Analysis *primary)
     for (size_t i=0;i<s->formats.count;i++) if (s->formats.items[i].range.r0 || s->formats.items[i].range.r1!=DX_SHEET_ROWS-1) return true;
     return false;
 }
-DefinitionOriginStatus definition_origin_scratch(DefinitionOriginContext *c,const DefinitionOrigin *p,size_t *out,char **error) {
-    DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
-    if (!out) { fail(error,"Choose a definition origin scratch result."); return DEFINITION_ORIGIN_INVALID; }
-    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); ObjectSnapshot objects={s->objects.items,s->objects.count};
+DefinitionOriginStatus definition_origin_asset_scratch(DefinitionOriginAssetView view,size_t *out,char **error) {
+    if (!view.sheet || !view.primary || !out || !materialized_shape(view.sheet,view.primary)) { fail(error,"Choose a valid immutable definition asset view."); return DEFINITION_ORIGIN_INVALID; }
+    const Worksheet *s=view.sheet; ObjectSnapshot objects={s->objects.items,s->objects.count};
     AnalysisAssetMeasure a={0}; ObjectsAssetInfo o={0};
-    if (analysis_asset_measure(s->id,0,c->primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK || objects_asset_measure(s->id,&objects,s->objects.next_id,&o)!=OBJECTS_ASSET_OK || s->formats.scope_count>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS) {
+    if (analysis_asset_measure(s->id,0,view.primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK || objects_asset_measure(s->id,&objects,s->objects.next_id,&o)!=OBJECTS_ASSET_OK || s->formats.scope_count>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS) {
         fail(error,"Invalid bounded definition origin assets."); return DEFINITION_ORIGIN_INVALID;
     }
     size_t validation=a.validation_scratch>o.measure.validation_scratch ? a.validation_scratch : o.measure.validation_scratch;
@@ -333,35 +333,47 @@ DefinitionOriginStatus definition_origin_scratch(DefinitionOriginContext *c,cons
     }
     *out=validation; return DEFINITION_ORIGIN_READY;
 }
-static DefinitionOriginStatus seal_measure(DefinitionOriginContext *c,const DefinitionOrigin *p,DefinitionOriginSealInfo *out,char **error) {
+DefinitionOriginStatus definition_origin_asset_shape(DefinitionOriginAssetView view,DefinitionOriginSealInfo *out,char **error) {
+    if (!out) { fail(error,"Choose a canonical definition shape measure."); return DEFINITION_ORIGIN_INVALID; }
+    size_t scratch=0; DefinitionOriginStatus status=definition_origin_asset_scratch(view,&scratch,error); if (status!=DEFINITION_ORIGIN_READY) return status;
+    const Worksheet *s=view.sheet; ObjectSnapshot objects={s->objects.items,s->objects.count}; AnalysisAssetMeasure a={0}; ObjectsAssetInfo o={0};
+    size_t sources=0,formats=0; FormatDeltaStatus f=format_delta_encoded_size(s->id,(FormatSnapshotView){0},format_delta_store_view(&s->formats),&formats);
+    if (analysis_asset_measure(s->id,0,view.primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK || objects_asset_measure(s->id,&objects,s->objects.next_id,&o)!=OBJECTS_ASSET_OK ||
+        source_versions_asset_size(s->id,&s->source_versions,s->objects.next_id,&sources)!=SOURCE_VERSIONS_CODEC_OK || (f!=FORMAT_DELTA_OK && f!=FORMAT_DELTA_NOOP)) {
+        fail(error,"Invalid canonical definition encoded shape."); return DEFINITION_ORIGIN_INVALID;
+    }
+    size_t bytes=a.bytes;
+    if (!handoff_add(&bytes,o.measure.bytes) || !handoff_add(&bytes,sources) || !handoff_add(&bytes,formats)) { fail(error,"Canonical definition size overflow."); return DEFINITION_ORIGIN_LIMIT; }
+    *out=(DefinitionOriginSealInfo){bytes,scratch}; return DEFINITION_ORIGIN_READY;
+}
+DefinitionOriginStatus definition_origin_scratch(DefinitionOriginContext *c,const DefinitionOrigin *p,size_t *out,char **error) {
     DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
-    Worksheet *s=resolve(c->book,p->before.owner.sheet_id); ObjectSnapshot objects={s->objects.items,s->objects.count};
-    if (definition_baseline_status((DefinitionDependencyView){c->primary,&objects})!=DEFINITION_BASELINE_READY) { fail(error,"Resolve all primary and Table defaults before admitting this definition origin."); return DEFINITION_ORIGIN_UNRESOLVED; }
-    AnalysisAssetMeasure a={0}; ObjectsAssetInfo o={0};
-    if (analysis_asset_measure(s->id,0,c->primary,s->objects.next_id,&a)!=ANALYSIS_ASSET_OK || objects_asset_measure(s->id,&objects,s->objects.next_id,&o)!=OBJECTS_ASSET_OK || s->formats.scope_count>DX_FORMAT_PATCHES*DX_FORMAT_GUARDS) {
-        fail(error,"Invalid bounded definition origin assets."); return DEFINITION_ORIGIN_INVALID;
-    }
-    size_t validation=a.validation_scratch>o.measure.validation_scratch ? a.validation_scratch : o.measure.validation_scratch;
-    if (s->formats.scope_count) {
-        size_t n=analysis_filter_validation_scratch(FILTER_COMPOSITE,DX_SOURCE_SCOPE_TEXT_BYTES,true)+s->formats.scope_count;
-        if (s->formats.scope_count>DX_FORMAT_GUARDS && s->formats.scope_count*sizeof(const FormatScope *)>n) n=s->formats.scope_count*sizeof(const FormatScope *);
-        if (n>validation) validation=n;
-    }
-    if (validation>c->validation_reserved || p->epoch==UINT64_MAX) { fail(error,"Definition origin grammar exceeds its admitted scratch budget."); return DEFINITION_ORIGIN_LIMIT; }
+    return definition_origin_asset_scratch((DefinitionOriginAssetView){resolve(c->book,p->before.owner.sheet_id),c->primary},out,error);
+}
+DefinitionOriginStatus definition_origin_asset_measure(DefinitionOriginAssetView view,size_t validation_reserved,DefinitionOriginSealInfo *out,char **error) {
+    if (!out) { fail(error,"Choose a definition asset measure."); return DEFINITION_ORIGIN_INVALID; }
+    DefinitionOriginSealInfo shape={0}; DefinitionOriginStatus status=definition_origin_asset_shape(view,&shape,error); if (status!=DEFINITION_ORIGIN_READY) return status;
+    const Worksheet *s=view.sheet; ObjectSnapshot objects={s->objects.items,s->objects.count};
+    if (definition_baseline_status((DefinitionDependencyView){view.primary,&objects})!=DEFINITION_BASELINE_READY) { fail(error,"Resolve all primary and Table defaults before admitting this definition origin."); return DEFINITION_ORIGIN_UNRESOLVED; }
+    if (shape.validation_scratch>validation_reserved) { fail(error,"Definition origin grammar exceeds its admitted scratch budget."); return DEFINITION_ORIGIN_LIMIT; }
     size_t source_bytes=0,format_bytes=0;
     FormatDeltaStatus formats=format_delta_encoded_size(s->id,(FormatSnapshotView){0},format_delta_store_view(&s->formats),&format_bytes);
     DefinitionDependencySelection definitions={0}; FormatDependencySelection styling={0};
     if ((formats!=FORMAT_DELTA_OK && formats!=FORMAT_DELTA_NOOP) || source_versions_asset_size(s->id,&s->source_versions,s->objects.next_id,&source_bytes)!=SOURCE_VERSIONS_CODEC_OK ||
-        definition_dependencies_select(s->id,(DefinitionDependencyView){c->primary,&objects},(DefinitionDependencyView){c->primary,&objects},&s->source_versions,s->objects.next_id,&definitions)!=DEFINITION_DEPENDENCIES_OK ||
+        definition_dependencies_select(s->id,(DefinitionDependencyView){view.primary,&objects},(DefinitionDependencyView){view.primary,&objects},&s->source_versions,s->objects.next_id,&definitions)!=DEFINITION_DEPENDENCIES_OK ||
         format_dependencies_select(s->id,(FormatSnapshotView){0},format_delta_store_view(&s->formats),&s->source_versions,s->objects.next_id,&styling)!=FORMAT_DEPENDENCIES_OK) {
         fail(error,"The definition origin source/format dependency graph is incomplete."); return DEFINITION_ORIGIN_INVALID;
     }
-    if (unowned_imported_formats(s,c->primary)) { fail(error,"Imported finite formats require source-aware ownership before origin admission."); return DEFINITION_ORIGIN_UNRESOLVED; }
-    size_t bytes=a.bytes+o.measure.bytes+source_bytes+format_bytes;
+    if (unowned_imported_formats(s,view.primary)) { fail(error,"Imported finite formats require source-aware ownership before origin admission."); return DEFINITION_ORIGIN_UNRESOLVED; }
     if (formats==FORMAT_DELTA_NOOP && (s->formats.count || s->formats.scope_count || s->formats.source_aware)) {
         fail(error,"The empty definition origin format asset must have no dormant payload."); return DEFINITION_ORIGIN_INVALID;
     }
-    *out=(DefinitionOriginSealInfo){bytes,validation}; return DEFINITION_ORIGIN_READY;
+    *out=shape; return DEFINITION_ORIGIN_READY;
+}
+static DefinitionOriginStatus seal_measure(DefinitionOriginContext *c,const DefinitionOrigin *p,DefinitionOriginSealInfo *out,char **error) {
+    DefinitionOriginStatus status=check(c,p,error); if (status!=DEFINITION_ORIGIN_READY) return status;
+    if (p->epoch==UINT64_MAX) { fail(error,"The definition origin epoch is exhausted."); return DEFINITION_ORIGIN_LIMIT; }
+    return definition_origin_asset_measure((DefinitionOriginAssetView){resolve(c->book,p->before.owner.sheet_id),c->primary},c->validation_reserved,out,error);
 }
 DefinitionOriginStatus definition_origin_seal_measure(DefinitionOriginContext *c,const DefinitionOrigin *p,DefinitionOriginSealInfo *out,char **error) {
     if (!out) { fail(error,"Choose a complete definition origin asset measure."); return DEFINITION_ORIGIN_INVALID; }

@@ -23,6 +23,8 @@ from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
 FAST_MODULES = (
     "range_history_slot",
     "range_history_payload",
+    'primary_source_publish',
+
     'cell_history_payload',
     'source_history_slot',
     'history_event_slot',

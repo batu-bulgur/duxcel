@@ -19,6 +19,7 @@ typedef struct {
 } DefinitionOriginReply;
 typedef struct { size_t owned,validation_scratch; uint64_t owner; } DefinitionOriginCompletionInfo;
 typedef struct { size_t asset_bytes,validation_scratch; } DefinitionOriginSealInfo;
+typedef struct { const Worksheet *sheet; const Analysis *primary; } DefinitionOriginAssetView;
 typedef struct {
     uint64_t sheet,object_high_water,source_high_water;
     const void *primary,*objects,*sources,*formats;
@@ -112,6 +113,18 @@ DefinitionOriginHandoffStatus definition_origin_handoff_check(DefinitionOriginCo
 DefinitionOriginHandoffStatus definition_origin_handoff_adopt(DefinitionOriginContext *context,DefinitionOrigin *origin,
     DefinitionOriginHandoff **ticket,char **error);
 void definition_origin_handoff_cancel(DefinitionOriginHandoff **ticket);
+/* Shared canonical cost/closure for an immutable current or unpublished owned
+   after-Sheet view. No runtime owner/session/ID is assigned and no arena is
+   published. The actual primary is mandatory. The complete creation coordinator
+   must prove any prospective sheet identity and reserve this owner/parser/arena
+   peak before its real producer mutates the workbook. Existing seal uses these
+   same functions, so initial-source admission cannot drift from its cost. */
+DefinitionOriginStatus definition_origin_asset_scratch(DefinitionOriginAssetView view,size_t *out,char **error);
+/* Allocation-free encoded shape/peak; does not admit grammar/dependencies.
+   Reserve the returned scratch before calling asset_measure or encoding. */
+DefinitionOriginStatus definition_origin_asset_shape(DefinitionOriginAssetView view,DefinitionOriginSealInfo *out,char **error);
+DefinitionOriginStatus definition_origin_asset_measure(DefinitionOriginAssetView view,size_t validation_reserved,
+    DefinitionOriginSealInfo *out,char **error);
 /* Before parsing/encoding, admit complete current primary/object grammar plus
    format-scope validation. Seal only resolved primary/Tables and closed source/
    format dependencies. Imported finite formats require source-aware ownership.
