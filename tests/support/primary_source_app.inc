@@ -7,7 +7,10 @@ static size_t primary_source_count,primary_source_index;
 static const Cell *primary_source_cells;
 static Analysis primary_source_before;
 static unsigned char *primary_source_file;
-static int primary_source_file_bytes;
+static int primary_source_file_bytes,primary_source_a_bytes;
+static unsigned char *primary_source_a_file;
+static QueryReply *primary_source_obsolete_a,*primary_source_obsolete_b;
+static uint64_t primary_source_aba_order,primary_source_a_request,primary_source_b_request;
 #define PRIMARY_SOURCE_CHECK(x) do { primary_source_checks++; if (!(x)) { fprintf(stderr,"FAIL pending primary stage %u:%d: %s (%s)\n",primary_source_stage,__LINE__,#x,a->message ? a->message : ""); primary_source_result=-1; return; } } while (0)
 static bool primary_source_unchanged(const App *a) {
     return a->book.count==primary_source_count && a->book.active==primary_source_index && a->book.command_revision==primary_source_command &&
@@ -147,8 +150,69 @@ static void primary_source_test_frame(AppSession *session) {
             PRIMARY_SOURCE_CHECK(current && bytes==primary_source_file_bytes && !memcmp(current,primary_source_file,(size_t)bytes));
             UnloadFileData(current); UnloadFileData(primary_source_file); primary_source_file=NULL;
         }
+        break;
+    case 13:
+        primary_source_file=LoadFileData("build/tests/generated/source-connection-b.duckdb",&primary_source_file_bytes);
+        primary_source_a_file=LoadFileData("build/tests/generated/source-connection-a.duckdb",&primary_source_a_bytes);
+        PRIMARY_SOURCE_CHECK(primary_source_file && primary_source_a_file && primary_source_file_bytes>0 && primary_source_a_bytes>0);
+        primary_source_count=a->book.count; primary_source_index=a->book.active; primary_source_command=a->book.command_revision;
+        primary_source_high=a->book.sheet_high_water; primary_source_sheet=active_sheet(a)->id; primary_source_cells=a->page.cells; primary_source_before=a->analysis;
+        primary_source_aba_order=worksheet_history_high_water();
+        open_source(a,"build/tests/generated/source-connection-a.duckdb",false);
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a));
+        primary_source_a_request=a->request_id; a->source_format.bytes=SIZE_MAX; break;
+    case 14:
+        PRIMARY_SOURCE_CHECK(a->primary_source_reply && primary_source_unchanged(a));
+        a->source_format.bytes=0; primary_source_prepare_held(a); if (primary_source_result) return;
+        primary_source_obsolete_a=a->primary_source_reply; a->primary_source_reply=NULL;
+        open_source(a,"build/tests/generated/source-connection-b.duckdb",false);
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(primary_source_pending_stage(a->primary_source_pending_owner)==PRIMARY_PENDING_DRAFT && a->request_id>primary_source_a_request);
+        primary_source_b_request=a->request_id; a->source_format.bytes=SIZE_MAX; break;
+    case 15:
+        PRIMARY_SOURCE_CHECK(a->primary_source_reply && primary_source_unchanged(a));
+        a->source_format.bytes=0; primary_source_prepare_held(a); if (primary_source_result) return;
+        primary_source_obsolete_b=a->primary_source_reply; a->primary_source_reply=NULL;
+        open_source(a,"build/tests/generated/source-connection-a.duckdb",false);
+        PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner && primary_source_unchanged(a));
+        PRIMARY_SOURCE_CHECK(primary_source_pending_stage(a->primary_source_pending_owner)==PRIMARY_PENDING_DRAFT && a->request_id>primary_source_b_request);
+        a->source_format.bytes=SIZE_MAX; break;
+    case 16:
+        PRIMARY_SOURCE_CHECK(a->primary_source_reply && primary_source_unchanged(a));
+        {
+            QueryReply *latest=a->primary_source_reply; PrimarySourcePending *owner=a->primary_source_pending_owner;
+            size_t resident=app_primary_source_owned(a); uint64_t request=a->request_id;
+            PRIMARY_SOURCE_CHECK(primary_source_obsolete_a->id==primary_source_a_request && primary_source_obsolete_b->id==primary_source_b_request);
+            PRIMARY_SOURCE_CHECK(!strcmp(latest->analysis.path,primary_source_obsolete_a->analysis.path) &&
+                definition_analysis_equal(&latest->analysis,&primary_source_obsolete_a->analysis));
+            /* Both obsolete values came from actual Worker probes. Delay only
+               their delivery, then use the ordinary Worker poll ownership path. */
+            QueryReply **obsolete[]={&primary_source_obsolete_a,&primary_source_obsolete_b};
+            for (size_t i=0;i<2;i++) {
+                dx_lock(&a->worker.mutex);
+                bool empty=!a->worker.reply && !a->worker.running && !a->worker.pending;
+                if (empty) { a->worker.reply=*obsolete[i]; *obsolete[i]=NULL; }
+                dx_unlock(&a->worker.mutex); PRIMARY_SOURCE_CHECK(empty);
+                poll_query(a);
+                PRIMARY_SOURCE_CHECK(a->primary_source_pending_owner==owner && a->primary_source_reply==latest && app_primary_source_owned(a)==resident && a->request_id==request);
+                PRIMARY_SOURCE_CHECK(primary_source_unchanged(a) && worksheet_history_high_water()==primary_source_aba_order);
+            }
+        }
+        a->source_format.bytes=0; ui_note_key_press(KEY_F5,0); break;
+    case 17:
+        PRIMARY_SOURCE_CHECK(!a->primary_source_pending_owner && !a->primary_source_reply && !app_primary_source_owned(a));
+        PRIMARY_SOURCE_CHECK(a->book.count==primary_source_count+1 && a->book.command_revision==primary_source_command+1 && a->book.sheet_high_water==primary_source_high+1 && worksheet_history_high_water()==primary_source_aba_order+1);
+        PRIMARY_SOURCE_CHECK(a->analysis.path && strstr(a->analysis.path,"source-connection-a.duckdb") && a->page.total==3);
+        {
+            int bytes=0; unsigned char *current=LoadFileData("build/tests/generated/source-connection-a.duckdb",&bytes);
+            PRIMARY_SOURCE_CHECK(current && bytes==primary_source_a_bytes && !memcmp(current,primary_source_a_file,(size_t)bytes));
+            UnloadFileData(current); UnloadFileData(primary_source_a_file); primary_source_a_file=NULL;
+            current=LoadFileData("build/tests/generated/source-connection-b.duckdb",&bytes);
+            PRIMARY_SOURCE_CHECK(current && bytes==primary_source_file_bytes && !memcmp(current,primary_source_file,(size_t)bytes));
+            UnloadFileData(current); UnloadFileData(primary_source_file); primary_source_file=NULL;
+        }
         primary_source_result=1;
-        printf("PASS: native pending primary workflow (13 stages, %u checks)\n",primary_source_checks); return;
+        printf("PASS: native pending primary workflow (18 stages, %u checks)\n",primary_source_checks); return;
     }
     primary_source_stage++;
 }

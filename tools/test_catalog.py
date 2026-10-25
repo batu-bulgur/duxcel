@@ -36,7 +36,7 @@ STANDALONE_GUI = {
     "primary-source-kinds": ("build/tests/test_primary_source_kinds-gui", "PASS: native source kind workflow",
                              r"^PASS: native source kind workflow \(9 stages, [1-9]\d* checks\)$", 9),
     "primary-source": ("build/tests/test_primary_source-gui", "PASS: native pending primary workflow",
-                       r"^PASS: native pending primary workflow \(13 stages, [1-9]\d* checks\)$", 13),
+                       r"^PASS: native pending primary workflow \(18 stages, [1-9]\d* checks\)$", 18),
     "paste-command": ("build/tests/test_paste_command-gui", "PASS: native manual paste workflow",
                       r"^PASS: native manual paste workflow \(13 stages, [1-9]\d* checks\)$", 13),
     "mixed-columns": ("build/tests/test_mixed_columns-gui", "PASS: native source-free mixed column workflow",
