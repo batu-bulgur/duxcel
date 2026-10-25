@@ -22,7 +22,7 @@ typedef struct {
    be resolved, including obstacles outside the selected range. Page headers
    are fences only, never event payloads or dataset retention. */
 typedef struct {
-    uint64_t object,request,query_epoch,source_epoch;
+    uint64_t object,request,query_epoch,source_epoch; /* request is the document request epoch. */
     const void *owner; const Analysis *definition; const Page *page;
     bool ready,failed;
 } RangeResultProof;
@@ -63,7 +63,8 @@ typedef struct { RangeCommandStatus status; unsigned effects; uint64_t before_re
 /* Immediate single-owner native descriptor fences; captured strings/packets
    remain immutable. Primary means actual App authority, separate from Save
    cache. Without an explicit source policy it admits source-free manual formats;
-   an explicit policy admits only guarded manual paste/Clear on source sheets. Fully contained
+   an explicit source policy admits guarded manual paste/Clear. Source movement
+   and axes additionally require the current actual-result resolver proofs. Fully contained
    source-free Pivot/Chart templates may move with manual cells/formats or
    translate as complete row/column-axis constituents under existing protections.
    Text-only paste outside templates preserves the existing full rectangle guard
@@ -79,10 +80,10 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *con
    Format history even with no global admission callback. Reserve before either
    model journal can evict, recheck all owners and transfer independent graphs.
    App owns budget/readiness, input/confirmation, selection and rendering. No IO,
-   retained App writer, source activation or source-bearing mixed-movement admission.
+   retained App writer, source activation or App source movement routing.
    Manual row and single-column insertion/deletion use this complete effect owner.
    Physical widths use committed Worksheet.view; App projects the admitted view
-   into Grid. Source/object column paths remain separately protected. Text-only
+   into Grid. Source movement/axes remain protected without actual-result proofs. Text-only
    manual paste and finite CLEAR preserve existing styles and widths; rows/columns are returned on change.
    The shared scanner validates the whole text before allocation. Its complete
    independent cell plan supplies the event and adoption; callbacks never read

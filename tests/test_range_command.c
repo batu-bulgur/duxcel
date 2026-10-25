@@ -582,4 +582,42 @@ static void result_readiness(void) {
     f->b.sheets[0].objects.items[1].rows=6; CHECK(!result_prepares(f)); f->b.sheets[0].objects.items[1].rows=5;
     CHECK(result_prepares(f)); result_fixture_free(f); free(f);
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+static void source_axes_controller(void) {
+    for (unsigned axis=0;axis<4;axis++) {
+        ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); result_pivot(f); Worksheet *s=f->b.sheets; s->source_versions.high_water=19;
+        bool column=axis>=2,deletion=axis&1;
+        if (column) {
+            s->view.column_count=16384; s->view.widths=dx_alloc(16384*sizeof(float)); s->view.columns=dx_alloc(16384*sizeof(char *));
+            for (size_t i=0;i<16384;i++) { s->view.widths[i]=96; s->view.columns[i]=dx_strdup(i==4 ? "Fixed name" : ""); }
+            s->view.widths[4]=123; s->view.widths[16383]=333;
+        }
+        RangeCommandTarget *t=target(&f->c); RangeCommand cmd=column ? (RangeCommand){.operation=deletion ? RANGE_OPERATION_DELETE_COLUMNS : RANGE_OPERATION_INSERT_COLUMNS,.column=3,.column_count=1} : (RangeCommand){.operation=deletion ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=10,.row_count=2};
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={f->b.id.high,f->b.id.low,9,VERSION_WORKING_HEAD},.edit_session=f->b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){1,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); f->inner=workbook_history_stream_range_recorder(queue); WorkbookHistoryRangeRecorder recorder={result_reserve,result_publish,result_cancel,f};
+        RangeCommandResult applied=workbook_apply_range_command_recorded(&f->c,t,cmd,&recorder,NULL);
+        CHECK(applied.status==RANGE_COMMAND_APPLIED && applied.effects==(column ? 30u : 14u) && f->b.command_revision==1 && f->published==1 && !f->cancelled);
+        CHECK(s->objects.items[0].row==(column ? 20u : deletion ? 18u : 22u) && s->objects.items[0].col==(column ? deletion ? 7u : 9u : 8u));
+        CHECK(s->objects.items[1].row==(column ? 500u : deletion ? 498u : 502u) && s->objects.items[1].col==(column ? deletion ? 29u : 31u : 30u) && s->source_versions.high_water==19);
+        if (column) CHECK(s->view.widths[deletion ? 3 : 5]==123 && s->view.widths[16383]==96 && !strcmp(s->view.columns[4],"Fixed name") && s->width_revision==1);
+        WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+        CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==applied.effects && event.unbound_sources==2 && event.definitions.sources.versions.high_water==19);
+        if (column) CHECK(column_width_at(column_width_view(&event.widths.before),16383)==column_width_bits(333) && column_width_at(column_width_view(&event.widths.after),16383)==DX_COLUMN_WIDTH_DEFAULT_BITS);
+        range_event_free(&event); free(t); t=target(&f->c); CellStore cells=s->cells; ObjectStore objects=s->objects; FormatStore formats=s->formats;
+        CHECK(workbook_apply_range_command_recorded(&f->c,t,cmd,&recorder,NULL).status==RANGE_COMMAND_LIMIT && f->b.command_revision==1 && !memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&objects,&s->objects,sizeof(objects)) && !memcmp(&formats,&s->formats,sizeof(formats)));
+        CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+        mixed_history_transfer(s,false); f->b.command_revision++;
+        CHECK(s->objects.items[0].row==20 && s->objects.items[0].col==8 && s->objects.items[1].row==500 && s->objects.items[1].col==30 && !strcmp(cells_get(&s->cells,12,4),"NULL") && s->source_versions.high_water==19);
+        if (column) CHECK(s->view.widths[4]==123 && s->view.widths[16383]==333 && !strcmp(s->view.columns[4],"Fixed name") && s->width_revision==2);
+        mixed_history_transfer(s,true); f->b.command_revision++;
+        CHECK(s->objects.items[0].row==(column ? 20u : deletion ? 18u : 22u) && s->objects.items[0].col==(column ? deletion ? 7u : 9u : 8u));
+        if (column) CHECK(s->view.widths[16383]==96 && s->width_revision==3);
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); result_fixture_free(f); free(f);
+    }
+    ResultFixture *f=dx_alloc(sizeof(*f)); result_fixture(f); Worksheet *s=f->b.sheets;
+    const char opaque[]="opaque-result"; FormatScopeView scope={0,opaque,sizeof(opaque)-1}; CellFormat bold=format_default(); bold.flags=FORMAT_ITALIC;
+    CHECK(format_apply_scoped(&s->formats,(FormatRange){12,24,4,10},FORMAT_ITALIC,bold,&scope,1,false,NULL)); worksheet_record(s,EDIT_FORMAT);
+    RangeCommandTarget *t=target(&f->c); CellStore cells=s->cells; ObjectStore objects=s->objects; FormatStore formats=s->formats;
+    CHECK(workbook_apply_range_command_recorded(&f->c,t,(RangeCommand){.operation=RANGE_OPERATION_INSERT_ROWS,.row=10,.row_count=2},NULL,NULL).status==RANGE_COMMAND_PROTECTED && !f->b.command_revision && !memcmp(&cells,&s->cells,sizeof(cells)) && !memcmp(&objects,&s->objects,sizeof(objects)) && !memcmp(&formats,&s->formats,sizeof(formats)));
+    free(t); result_fixture_free(f); free(f);
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command_case(false); clear_command_case(true); mixed_rows_command(); mixed_columns_command(); template_paste_command(); source_cells_command(); source_move_controller(); result_readiness(); source_axes_controller(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
