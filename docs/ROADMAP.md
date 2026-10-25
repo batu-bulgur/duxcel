@@ -2283,190 +2283,78 @@ component probe, not browser workbook Open/Save. Desktop passed to History for
 its final28-stage metadata adapter gate; Source follows for primary-origin GUI.
 
 
-## Coherent milestone freeze — 25 October 2026
+## Coherent milestone verification — 25 October 2026
 
-W12c.5.3b integrated as `586f232`: rename/reorder/hide/show use the actual
-prepared metadata command, bounded admission and a shared transient session
-helper. Normalized no-op and first metadata edit after Open create no cell
-action/query. The lane's final two-module optimized/sanitizer gate passes
-21.072s, including28 hidden native stages/38 checks (GUI7.456s); metadata275
-and cell1,010 checks per configuration. Source `d0b16a2`; source/binary evidence
-is retained in the history lane's feature receipt. This completes the metadata
-adoption child, not detached sheet topology or durable App history activation.
+The current-format/sheet/source-ownership milestone has passed its complete local
+verification inventory. Final shipping artifacts must carry the delivered clean
+HEAD; origin/main publication then requires the matching CI and live Pages check.
+This milestone does not activate retained-history IO or browser workbook Open/Save.
 
-W12c.3c.3a.2c.1 integrated as `3364411`: actual primary DATABASE default replies
-complete only the exact current OPEN origin; pressure leaves origin pending while
-allowing a valid Page. Whole registries retire through the worker queue with
-queued/actively freeing ownership charged until disposal completes. Loaded
-Table/new-primary completion and parent origin readiness remain outstanding.
-Lane `definition-origin` passes8.324s including5 hidden native stages/24 checks
-(GUI3.094s),261 origin/24 baseline assertions each optimized/sanitizer;
-worker retirement passes243 release and661 sanitizer checks, with variable
-wait-loop assertions. Source `f88938b`; receipt
-`build/tests/results/runs/20261025T170653-feature-15458/summary.json` in Source.
+Delivered boundaries:
 
-Before this merge, all225 Python orchestration contracts passed47.166s and
-all337 Node adapter/contracts passed3.773s. The merged tools/catalog boundary
-will be checked again; unchanged JavaScript source retains its full Node proof.
-The production executable's linked review/test exclusion check also passes,
-with report `build/tests/results/milestone-production-exclusion.json`; that
-preliminary binary does not replace final rebuilt artifact verification.
+- `586f232` completes W12c.5.3b: governed sheet rename/reorder/hide/show, normalized
+  no-op preservation and the shared transient session helper. Detached topology
+  and retained history remain separate.
+- `3364411` completes current primary DATABASE default-reply ownership and charged
+  background retirement. `0b61759` separates authored identity from valid result
+  extents, inference and query epochs while checking borrowed pointers first.
+- `ab7e0b0`/`b5708ba` close W12c.3c.3a.2c.1b: typed pre-free Analysis cache and
+  suspend/resume handoffs preserve a valid pending owner across refused/successful
+  Save, sheet switches and Saved inspection/Working Head return. Both sides are
+  admitted before transfer; denied navigation cannot apply Undo to another sheet.
+  Existing post-publication load/structural copies remain nonfallible.
+- `e599617` makes every journal checkpoint a current container16/core15. Unbound
+  checkpoints retain an empty index without inventing Saved roots/tags; explicit
+  Saved bindings remain unchanged. Prerelease older-format readers stay removed.
+- Fixture/orchestration corrections prepare finite inputs before GUI consumers,
+  cancel overwrite of an actual current container, pair test cell/object history,
+  and validate lane-aware TEST badges. No product admission check was weakened.
+- `0d3042c` corrects the browser glyph test's antialias measurement. Negative tests
+  still reject real resizing; product rendering and tolerance are unchanged.
 
-Root now owns broad native engine/desktop verification and final local Wasm/
-browser/package verification. Lanes are read-only during this frozen boundary.
-Push and actual matching CI/CD verification remain required after local success.
+Local verification (source/binary receipts remain in ignored build output):
 
-Milestone cold-start audit found full native orchestration prepared finite
-feature inputs after standalone GUI consumers. Existing cached generated files
-masked that dependency. The first broad attempt was intentionally interrupted
-during its initial build at61.899s, zero App stages; no test failure is claimed.
-Fixture generation now precedes every standalone GUI. The orchestration test
-starts without build inputs and requires every fixture before any GUI;57 runner/
-catalog contracts pass4.424s. Product C is unchanged. The coherent full run
-restarts after this fix, reusing completed incremental compiler outputs.
+| Inventory | Actual acceptance |
+| --- | --- |
+| Pure C modules | All94 modules in optimized and ASan/UBSan configurations. Unchanged modules retain the clean212092a proof; changed origin/baseline are replaced by703/24 assertions per configuration. |
+| Ordered engine inventory | All116 engine/family/process checks pass in the121-result run at e599617 (933.418s), preserving core-before-workbook order. Current App preview and three-process recovery are refreshed in both configurations after the ownership fix. |
+| Native scenarios | All18 names and1,353 actual stages pass, including required NYC. Layout913 passes578.229s; the first run's1,066 passed stages plus the corrected clipboard/remaining287 cover the complete inventory. |
+| Standalone real App | All30 workflows and513 stages are refreshed after the general capture/navigation change:150 delivery-tail +303 remaining +11 origin +21 chronology +28 lifecycle stages. Remaining20 workflows prebuild together with eight compiler jobs, then run serially (226.811s). |
+| GPU/platform |110 sanitizer paint checks, icon verification and477 hidden-window checks pass. Session/menu/Quit passes38 checks in each configuration. Real LaunchServices cold/warm Open with Unicode/spaces, negative alert control and framebuffer equality passes. |
+| Tool contracts |227 Python tests pass44.717s;341 Node tests pass3.074s. |
+| Wasm artifacts | Normal/review/shared-C Worker builds pass25.760/27.847/13.035s at clean feba1ae; all three matching signatures are retained. Subsequent changes affect only the native lifecycle test and documentation/provenance. |
+| Actual browser | All10 maintained profiles pass206.800s: blank/source zoom at DPR1/2, transactions/filters, official Worker probe, shared-C driver, review controls, NULL/text selection and shipping Pages subpath. Source/artifacts remain unchanged throughout. |
+| Shipping package |185 files/42,013,948 bytes; runtime hashes and production review exclusion pass. The normal native bundle passes strict signing, provenance and forbidden-symbol checks with no compiled TEST lane. |
 
-The broad attempt at source `212092a` stopped at app_preview-release after
-999.977s and507 App stages. Its test still expected container Save cancellation
-when overwriting a standalone internal core (an obsolete upgrade assumption).
-Product correctly refuses that unsupported destination. The fixture now cancels
-overwrite of the actual exported container16, retains internal core provenance
-validation separately, and proves original container SHA-256/byte count unchanged.
-The registered app-preview release/sanitizer gate passes20.980s, zero GUI.
-Report `build/tests/results/runs/20261025T173242-feature-36769/summary.json`.
+The inventory audit is `build/tests/results/milestone-coverage-audit.json`;
+it maps every required native check and reports no missing entries. This is
+complete source-scoped coverage across runs, not a claimed single-run full success.
+Original failures remain explicit: preview cancellation used a standalone core,
+old menu navigation selected the new last action, raw fixture edits omitted their
+history constituent, and lifecycle expected bare TEST rather than TEST plus lane.
+Their corrected workflows pass; original failed reports are not relabelled green.
 
-No product source under src/web/packaging/assets changed from `212092a`. To avoid
-replaying507 unchanged App stages after this fixture-only repair, the milestone
-continues with the complete ordered `engines` tier (both configurations), then
-GPU and every named native scenario including required NYC data. Original failed
-full evidence remains explicit; completion requires the union of all full-tier
-checks, not only the repaired module. The new tier reuses existing engine/process
-controllers and fixture ordering;59 runner/catalog contracts pass4.594s.
-All local Wasm/browser checks and actual origin CI/CD delivery remain required.
+Primary origin lifetime was also reproduced as a real App failure before the fix
+(`20261025T184201-feature-55889`). Final ownership gate
+`20261025T185853-feature-61101` passes11 stages/16.318s, including pressure and
+wrong-sheet Undo preservation. Complete native reports are
+`20261025T190018-native-61501`, `20261025T191326-native-62576`,
+`20261025T191831-native-63087` and `20261025T192811-native-66733`.
+Platform acceptance is `20261025T192638-lifecycle-66456` and
+`20261025T193300-open-documents-70521`. Object's browser aggregate is
+`build/tests/results/milestone-feba1ae-browser-evidence.json`, with final Pages
+receipt `20261025T194114-pages`. All automated windows are hidden TEST instances;
+the user's application is preserved. Lifecycle owns its locks and runs directly,
+not under a second lane operation lock.
 
+Remote checkpoint `codex/roadmap-checkpoint-20261025` at78c89ea is backed up and
+its [Web CI run40222893017](https://github.com/batu-bulgur/duxcel/actions/runs/40222893017)
+passes build/browser smoke and web tests/sanitizers. Pages is correctly skipped
+for that checkpoint branch. Final main delivery follows the policy above; its
+matching external CI/deployment result is the source of truth.
 
-Browser milestone accepted at clean harness commit `62ecd6b` (integrated
-`0d3042c`): the recorded zoom failure was a hard-darkness measurement false
-positive, not a product font-size change. True rendered row support is6x9
-pixels in both compared states; the new foreground-coverage measurement
-retains the same ROI and1.25/DPR+.02 size tolerance. Negative synthetic cases
-still reject real resizing. All341 Node tests pass2.920s on combined main.
-Actual blank/source zoom profiles pass at both DPRs in10.677/18.285/11.186/
-15.928s. Object receipts:174539-browser-42762,174606-browser-42786,
-174639-browser-42814,174701-browser-42837 under its25October runs.
-
-Independent actual browser normal import/filters, Worker protocol, shared-C
-Worker driver, review controls and selection also pass at clean `518bce4`.
-Final clean62ecd6b normal/review Wasm builds pass22.714/24.624s, with static
-Pages185files/41,999,664bytes and actual project-subpath smoke9.497s.
-Final package receipt: Object `build/tests/results/runs/20261025T174804-pages/summary.json`.
-No runtime product source changed from `212092a`; web/tests changes are test
-orchestration only. Root's preserved prefix has219 passed checks,507 App
-stages and unchanged binary SHA-256 values, explicitly recorded in
-`build/tests/results/milestone-prefix-evidence.json`.
-
-The complete engines tier now continues both configurations using the already
-built, source-equivalent binaries and current fixtures (`--no-build`); this
-retains every registered process/fault/recovery gate. All GPU/named native
-scenarios and final ordinary package verification remain pending. The raw
-failed full report is retained; no single-run full success is claimed.
-
-The resumed engine inventory passed preview/file conflict/native worker checks
-but exposed an ordinary-checkpoint producer mismatch at workbook_recovery
-(source0448a58,129.258s). Without an explicit Saved-store binding, the current
-journal API still wrote a bare core while recovery correctly required container16.
-The forward fix uses the same current checkpoint writer for every generation:
-empty index/baseNULL preserves absent Saved/root/tag state; explicit Saved
-bindings and their generation policy remain unchanged. No older reader or
-upgrade path is restored. Staging stays outside the fixed generation inventory.
-
-Verified lane fix `0239b6c` passes current-checkpoint both configurations53.506s:
-journal session/performance, workbook recovery, explicit version checkpoint,
-recovery catalog and recovery worker;0GUI. Report Object
-`build/tests/results/runs/20261025T175628-feature-45776/summary.json`.
-Main integration makes only comment wrapping/clarification beyond that patch.
-Native product source is now changed in journal_session; previously passed
-model/UI evidence remains source-scoped, and current engine plus remaining
-GPU/all native scenarios must verify the integrated current writer. Browser
-runtime source is unaffected because journal_session is native persistence.
-
-The integrated current writer passes the complete ordered engine inventory at
-clean `e599617`:121/121 results, release and ASan/UBSan,933.418s; binary hashes
-remain unchanged. Receipt `build/tests/results/runs/20261025T175856-engines-46403/summary.json`.
-The native scenario attempt passed the477-check background gate but stopped at
-layout536 after312.146s: the test selected End expecting Move, although the
-current menu ends with Change data source. No product failure is established.
-The test now validates all eight entries, navigates End then Up and exercises
-the real Move/Cancel input. Registered `shared-actions` limits local coverage to
-choiceview/popup release+sanitizer and30 actual App stages; all pass29.910s.
-Receipt `build/tests/results/runs/20261025T182228-feature-52109/summary.json`.
-An earlier affected invocation was intentionally stopped during its unnecessary
-all-module build at54.379s, zero App stages. All native scenarios will restart
-after this test-only fix; the original failed reports remain explicit.
-
-The restarted native layout passed the repaired menu but stopped at587: the
-readout fixture called raw objects_move without its worksheet history action.
-It now uses the actual governed Move command and asserts valid global history.
-Registered `active-cell` passes cellreadout release/sanitizer plus41 App stages
-in31.549s; receipt `build/tests/results/runs/20261025T183044-feature-53948/summary.json`.
-Runner/catalog contracts pass59 tests. Remaining layout checks are first
-isolated from the existing522 bootstrap before the final full native replay;
-this avoids repeatedly running the unchanged first500 stages while fixing
-old test setup paths. No product/history admission checks were weakened.
-
-The remaining native layout522–949 passes391 actual stages under ASan/UBSan
-at clean `66d789b` (255.382s GUI,292.000s total); receipt
-`build/tests/results/runs/20261025T183148-affected-54498/summary.json`.
-Authored origin projection `ff8e53c` is integrated as `0b61759`; its registered
-gate passes16.935s, including498 origin/24 baseline assertions per configuration
-and5 hidden App stages (3.690s). Receipt
-`build/tests/results/runs/20261025T183809-feature-55300/summary.json`.
-Read-only lifecycle audit found capture/activation still free borrowed Analysis
-owners while an origin may be OPEN under admission pressure. This can reject a
-later valid primary reply or leave sealing pending; Saved bytes are unaffected.
-The .1b closure below precedes the final all-scenario native replay and delivery.
-Previous engine/browser/UI evidence stays source-scoped; no full milestone is claimed.
-
-Pending-origin lifetime .1b is complete: pure typed handoff `d00eceb` integrated
-as `ab7e0b0`,703 assertions per optimized/sanitizer configuration. App capture
-preserves equal-definition pointers or adopts a proven cache handoff; normal
-navigation prepares/checks both sides before ownership/UI/clock publication.
-Already stale origins are never rebound. Existing load/structural postcommit
-copies cannot encounter a new governor refusal. Cross-sheet Undo prepares
-navigation first and stops on denial. The real capture regression failed before
-the fix (`20261025T184201-feature-55889`); final registered gate passes16.318s,
-11 hidden App stages/6.381s GUI at `20261025T185853-feature-61101`.
-It covers refused/successful Save, both capture points, failed navigation,
-suspend/resume under real governor pressure, Saved inspection/Working Head
-return, same-owner actual reply completion, denied cross-sheet Undo with exact
-order/value/revision preservation, successful Undo/Redo and postcommit New.
-Focused chronology21 stages passes20.254s and lifecycle28 stages19.006s;
-runner/catalog59 contracts pass4.863s. Evidence is under ignored run receipts.
-Loaded-Table completion, new-primary publication and retained replay stay open.
-
-Remote backup: `codex/roadmap-checkpoint-20261025` points to `78c89ea`;
-Web build/browser smoke and web tests/sanitizers pass in
-[run40222893017](https://github.com/batu-bulgur/duxcel/actions/runs/40222893017).
-Pages deployment is intentionally skipped for that checkpoint branch. Main
-delivery remains gated on the coherent local native/Wasm milestone and matching CI.
-
-Final native scenario coverage is complete across all18 names/1,353 stages:
-`20261025T190018-native-61501` passes layout913 plus base/workspace/filter/Pivot/
-export/count (1,066 stages) before clipboard exposes an unpaired raw cell fixture.
-Four clipboard notes now pair cells_set with EDIT_CELLS; production logic is
-unchanged. `20261025T191326-native-62576` passes clipboard and all remaining names
-(287 stages,266.962s), including required NYC data. The original raw run stays
-failed; this is explicit complete coverage by source-scoped union, not a claimed
-single-run full success. GPU/current changed-boundary GUI, platform and final
-Wasm/browser packaging remain the delivery tail.
-
-The native delivery tail passes at clean `feba1ae`:150 changed-boundary GUI
-stages, GPU110, icons, current app_preview release/sanitizer, actual three-process
-recovery in both configurations and About (222.734s); receipt
-`20261025T191831-native-63087`. Platform lifecycle uses its own worktree/desktop
-locks and must run directly, not inside a second lane operation lock. Its native
-badge assertion now checks TEST plus the runtime/compiled lane identity instead
-of assuming bare TEST. Both38-check session/menu/Quit variants pass with the
-477-check hidden-window guard (`20261025T192638-lifecycle-66456`). Only the test
-expectation changes; product behavior is unchanged. The remaining standalone App
-workflows will also be refreshed against the changed general capture/navigation
-adapter before final artifact and browser delivery.
+Next dependencies remain loaded-Table completion/new-primary publication and
+retained replay. The independently verified column-width foundation/coordination
+stays private at7b302ec/0ae03cec (tags codex/wip-column-widths-foundation and
+codex/wip-column-width-coordination); App/Grid/compound-column adoption is queued
+for the next milestone, not included in this build.
