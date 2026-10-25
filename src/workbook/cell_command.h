@@ -3,6 +3,11 @@
 #include "workbook.h"
 #include "cell_delta.h"
 
+/* Establish workbook/target-sheet transient command identities only. Success
+   allocates nothing, creates no cell target/action and preserves dirty/revision.
+   No source-cell policy or query is involved. Failure may own a diagnostic;
+   exhaustion rejects before assigning either missing identity. */
+bool workbook_prepare_command_session(Workbook *book,size_t sheet,char **error);
 #define CELL_EDIT_COMMAND_VERSION 2u
 typedef struct {
     uint64_t document,sheet; /* Process-lifetime fences, independent of durable IDs. */

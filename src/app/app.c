@@ -1,4 +1,5 @@
 #include "../workbook/cell_command.h"
+#include "../workbook/sheet_lifecycle_command.h"
 #include "../workbook/format_command.h"
 #include "../workbook/analysis_command.h"
 #include "../workbook/table_command.h"
@@ -5891,6 +5892,40 @@ static void begin_sheet_menu(App *a,size_t index,Vector2 origin) {
     a->unhide_scroll=0; a->context_drag=false;
     a->workbook_focus_index=(int)sheet_display_position(&a->book,index);
 }
+static bool apply_sheet_metadata(App *a,size_t index,SheetMetadataOperation operation,size_t destination,const char *name,char **error) {
+    if (index>=a->book.count || (operation==SHEET_METADATA_REORDER && destination>=a->book.count) ||
+        a->io_busy || a->step_preview.active || history_locked(a)) {
+        if (error) { free(*error); *error=dx_strdup("Return to an available Working Head before changing worksheet metadata."); } return false;
+    }
+    if (!workbook_prepare_command_session(&a->book,index,error)) return false;
+    SheetLifecycleCommandContext context={.book=&a->book,.epoch=&a->request_id,
+        .ready=!a->io_busy && !a->step_preview.active,.read_only=history_locked(a)};
+    SheetMetadataCommand command={operation,a->book.sheets[index].id,
+        operation==SHEET_METADATA_REORDER ? a->book.sheets[destination].id : 0,name};
+    SheetLifecycleCommandPlan *plan=NULL;
+    /* The zero-budget probe allocates nothing and recognizes normalized no-ops
+       before memory pressure can turn an unchanged name into an error. */
+    SheetMetadataStatus result=sheet_lifecycle_command_prepare(context,command,&plan,NULL);
+    if (result==SHEET_METADATA_NOOP) return true;
+    if (result!=SHEET_METADATA_LIMIT) {
+        result=sheet_lifecycle_command_prepare(context,command,&plan,error);
+        sheet_lifecycle_command_free(&plan); return result==SHEET_METADATA_NOOP;
+    }
+    /* Conservative bounded plan peak; the actual opaque lifecycle allocation
+       and rename scratch are charged separately before either is allocated. */
+    context.plan_reserved=2u*1024u*1024u;
+    WorkbookSheetOperation native=operation==SHEET_METADATA_RENAME ? SHEET_RENAME : operation==SHEET_METADATA_REORDER ? SHEET_REORDER : operation==SHEET_METADATA_HIDE ? SHEET_HIDE : SHEET_SHOW;
+    context.adoption_reserved=workbook_lifecycle_metadata_staging(&a->book,native);
+#ifndef DUXCEL_BROWSER_HOST
+    if (source_format_budget_status(a,NULL,0,context.plan_reserved+context.adoption_reserved,0,0,0)) {
+        if (error) { free(*error); *error=dx_strdup(a->message); } return false;
+    }
+#endif
+    result=sheet_lifecycle_command_prepare(context,command,&plan,error);
+    if (result==SHEET_METADATA_READY) result=sheet_lifecycle_command_apply(context,plan,NULL,error);
+    sheet_lifecycle_command_free(&plan);
+    return result==SHEET_METADATA_APPLIED || result==SHEET_METADATA_NOOP;
+}
 static void process_sheet_action(App *a) {
     SheetAction action=a->sheet_action; a->sheet_action=SHEET_ACTION_NONE;
     size_t index=a->sheet_menu_index; if (action==SHEET_ACTION_NONE || a->io_busy || index>=a->book.count) return;
@@ -5898,7 +5933,7 @@ static void process_sheet_action(App *a) {
     char *error=NULL; size_t previous=a->book.active; bool ok=false;
     capture_sheet(a);
     if (action==SHEET_ACTION_DUPLICATE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DUPLICATE,.sheet=index},NULL,&error);
-    else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=action==SHEET_ACTION_HIDE ? SHEET_HIDE : SHEET_SHOW,.sheet=index},NULL,&error);
+    else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=apply_sheet_metadata(a,index,action==SHEET_ACTION_HIDE ? SHEET_METADATA_HIDE : SHEET_METADATA_SHOW,0,NULL,&error);
     else if (action==SHEET_ACTION_DELETE) ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_DELETE,.sheet=index},NULL,&error);
     else {
         size_t destination=index;
@@ -5906,7 +5941,7 @@ static void process_sheet_action(App *a) {
             destination=action==SHEET_ACTION_UP ? destination-1 : destination+1;
             if (!a->book.sheets[destination].hidden) break;
         }
-        ok=workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_REORDER,.sheet=index,.destination=destination},NULL,&error);
+        ok=apply_sheet_metadata(a,index,SHEET_METADATA_REORDER,destination,NULL,&error);
     }
     if (!ok) { status(a,error); free(error); return; }
 #ifndef DUXCEL_BROWSER_HOST
@@ -5943,7 +5978,7 @@ static void draw_sheet_modal(App *a) {
         bool cancel=ui_button(u,box(r.x+w-248*s,r.y+h-48*s,110*s,30*s),"Cancel",false,true);
         if (apply) {
             char *error=NULL;
-            if (workbook_sheet_command(&a->book,(WorkbookSheetCommand){.operation=SHEET_RENAME,.sheet=a->sheet_menu_index,.name=a->input.text},NULL,&error)) { a->modal=MODAL_NONE; a->chrome_focus=2; status(a,"Worksheet renamed."); }
+            if (apply_sheet_metadata(a,a->sheet_menu_index,SHEET_METADATA_RENAME,0,a->input.text,&error)) { a->modal=MODAL_NONE; a->chrome_focus=2; status(a,"Worksheet renamed."); }
             else { a->sheet_rename_error=true; status(a,error); free(error); }
         } else if (cancel) { a->modal=MODAL_NONE; a->chrome_focus=2; }
         return;

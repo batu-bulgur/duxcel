@@ -8,15 +8,22 @@ static bool fail(char **error,const char *message) {
     if (error) { free(*error); *error=dx_strdup(message); }
     return false;
 }
-bool workbook_prepare_cell_edit(Workbook *book,size_t index,uint64_t row,size_t col,CellEditTarget *out,char **error) {
-    if (!book || !out || book->count>DX_MAX_SHEETS || !book->sheets || index>=book->count || row>=DX_SHEET_ROWS || col>=16384)
-        return fail(error,"Choose a valid manual cell before editing.");
+bool workbook_prepare_command_session(Workbook *book,size_t index,char **error) {
+    if (!book || book->count>DX_MAX_SHEETS || !book->sheets || index>=book->count)
+        return fail(error,"Choose an existing worksheet command owner.");
     if (!workbook_identity_valid(book)) return fail(error,"Invalid workbook/worksheet identities.");
     Worksheet *sheet=&book->sheets[index];
     unsigned needed=!book->edit_session_id + (unsigned)!sheet->edit_session_id;
-    if (issued_identity>UINT64_MAX-needed) return fail(error,"Cell editing identity space is exhausted.");
+    if (issued_identity>UINT64_MAX-needed) return fail(error,"Worksheet command identity space is exhausted.");
     if (!book->edit_session_id) book->edit_session_id=++issued_identity;
     if (!sheet->edit_session_id) sheet->edit_session_id=++issued_identity;
+    return true;
+}
+bool workbook_prepare_cell_edit(Workbook *book,size_t index,uint64_t row,size_t col,CellEditTarget *out,char **error) {
+    if (!book || !out || book->count>DX_MAX_SHEETS || !book->sheets || index>=book->count || row>=DX_SHEET_ROWS || col>=16384)
+        return fail(error,"Choose a valid manual cell before editing.");
+    if (!workbook_prepare_command_session(book,index,error)) return false;
+    Worksheet *sheet=&book->sheets[index];
     *out=(CellEditTarget){.document=book->edit_session_id,.sheet=sheet->edit_session_id,
         .expected_revision=sheet->cells.revision,.row=row,.column=col,.workbook=book->id,.expected_document_revision=book->command_revision,.sheet_id=sheet->id};
     return true;

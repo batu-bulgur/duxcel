@@ -236,7 +236,22 @@ static void owned_stream_admission(void) {
     CHECK(!workbook_history_stream_state(stream).owned_bytes && workbook_history_stream_free(&stream,false)==HISTORY_STREAM_OK && !stream);
     workbook_free(&b);
 }
+static void command_sessions(void) {
+    Workbook b; workbook_init(&b); char *error=NULL;
+    CHECK(workbook_add(&b,"Read-only source",&(Analysis){.kind=SOURCE_CSV,.path="/offline/source.csv"},&error)); b.dirty=false;
+    CHECK(!b.edit_session_id && !b.sheets[0].edit_session_id);
+    CellEditTarget invalid={0};
+    CHECK(!workbook_prepare_cell_edit(&b,0,DX_SHEET_ROWS,0,&invalid,&error) && error);
+    CHECK(!b.edit_session_id && !b.sheets[0].edit_session_id && !b.dirty && !b.command_revision); free(error); error=NULL;
+    CHECK(workbook_prepare_command_session(&b,0,&error) && !error);
+    CHECK(b.edit_session_id && b.sheets[0].edit_session_id && !b.dirty && !b.command_revision && !b.sheets[0].undo_actions_count && !b.sheets[0].cells.revision && !b.lifecycle);
+    Workbook prior=b; Worksheet sheet=b.sheets[0];
+    CHECK(workbook_prepare_command_session(&b,0,&error) && !memcmp(&prior,&b,sizeof(b)) && !memcmp(&sheet,b.sheets,sizeof(sheet)));
+    CHECK(!workbook_prepare_command_session(&b,1,&error) && error && !memcmp(&prior,&b,sizeof(b))); free(error); error=NULL;
+    CellEditTarget target={0}; CHECK(!workbook_prepare_cell_edit(&b,0,DX_SHEET_ROWS,0,&target,&error) && !memcmp(&prior,&b,sizeof(b))); free(error);
+    workbook_free(&b);
+}
 int main(void) {
-    basic_and_history(); identity_and_validation(); object_and_capacity(); pure_admission(); recorded_admission(); owned_stream_admission();
+    command_sessions(); basic_and_history(); identity_and_validation(); object_and_capacity(); pure_admission(); recorded_admission(); owned_stream_admission();
     printf("PASS: %u cell command checks\n",checks); return 0;
 }
