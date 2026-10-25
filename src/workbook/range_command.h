@@ -18,7 +18,7 @@ typedef struct {
     FormatStore formats; FormatPatch patches[DX_FORMAT_PATCHES];
     WorkbookWidthTarget widths;
 } RangeCommandTarget;
-typedef enum { RANGE_OPERATION_MOVE,RANGE_OPERATION_INSERT_ROWS,RANGE_OPERATION_DELETE_ROWS,RANGE_OPERATION_INSERT_COLUMNS,RANGE_OPERATION_DELETE_COLUMNS,RANGE_OPERATION_PASTE } RangeCommandOperation;
+typedef enum { RANGE_OPERATION_MOVE,RANGE_OPERATION_INSERT_ROWS,RANGE_OPERATION_DELETE_ROWS,RANGE_OPERATION_INSERT_COLUMNS,RANGE_OPERATION_DELETE_COLUMNS,RANGE_OPERATION_PASTE,RANGE_OPERATION_CLEAR } RangeCommandOperation;
 typedef struct {
     SheetRange range; int64_t dr; int dc; bool replace;
     RangeCommandOperation operation;
@@ -49,7 +49,7 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *con
    Manual row and single-column insertion/deletion use this complete effect owner.
    Physical widths use committed Worksheet.view; App projects the admitted view
    into Grid. Source/object column paths remain separately protected. Text-only
-   manual paste preserves existing styles; rows/columns are returned on change.
+   manual paste and finite CLEAR preserve existing styles and widths; rows/columns are returned on change.
    The shared scanner validates the whole text before allocation. Its complete
    independent cell plan supplies the event and adoption; callbacks never read
    the original clipboard text, which is no longer part of admitted ownership. */
