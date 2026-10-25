@@ -19,6 +19,8 @@ class Feature:
 STANDALONE_GUI = {
     "paste-command": ("build/tests/test_paste_command-gui", "PASS: native manual paste workflow",
                       r"^PASS: native manual paste workflow \(13 stages, [1-9]\d* checks\)$", 13),
+    "mixed-columns": ("build/tests/test_mixed_columns-gui", "PASS: native source-free mixed column workflow",
+                    r"^PASS: native source-free mixed column workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "column-width": ("build/tests/test_column_width-gui", "PASS: native column width workflow",
                      r"^PASS: native column width workflow \(32 stages, [1-9]\d* checks\)$", 32),
     "table-origin": ("build/tests/test_table_origin-gui", "PASS: native loaded Table origin workflow",
@@ -146,6 +148,9 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
+    "mixed-column-app": Feature(("mixed_range_plan", "range_event", "range_command", "history_range"), "mixed-columns",
+        ("python3 tools/test.py feature --feature mixed-row-app",),
+        ("src/app/app.c: source-free template column routing", "tests/support/mixed_columns_app.inc")),
     "mixed-column-command": Feature(("mixed_range_plan", "range_event", "range_command", "history_range"), "",
         ("python3 tools/test.py feature --feature mixed-row-app",),
         ("src/workbook/range_command.c: complete template column and width admission", "tests/test_range_command.c")),

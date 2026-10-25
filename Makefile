@@ -291,6 +291,13 @@ OBJECT_CREATE_COMMAND_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.
 build/tests/test_object_create_command-gui: tests/test_object_create_command_gui.c $(OBJECT_CREATE_COMMAND_GUI_LINK) | build/tests build/tests/assets
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_object_create_command_gui.c $(OBJECT_CREATE_COMMAND_GUI_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(OBJECT_CREATE_COMMAND_GUI_OBJECT:.o=.d)
+MIXED_COLUMNS_GUI_OBJECT = build/obj/feature-mixed-columns/app.o
+$(MIXED_COLUMNS_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_MIXED_COLUMNS)
+MIXED_COLUMNS_GUI_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(MIXED_COLUMNS_GUI_OBJECT)
+build/tests/test_mixed_columns-gui: tests/test_mixed_columns_gui.c $(MIXED_COLUMNS_GUI_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_mixed_columns_gui.c $(MIXED_COLUMNS_GUI_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(MIXED_COLUMNS_GUI_OBJECT:.o=.d)
 MIXED_ROWS_GUI_OBJECT = build/obj/feature-mixed-rows/app.o
 $(MIXED_ROWS_GUI_OBJECT): src/app/app.c build/obj/release/app/compile.flags
 	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_MIXED_ROWS)
@@ -1033,7 +1040,7 @@ PARALLEL_NATIVE_GOALS = build/tests/test_column_widths build/tests/test_column_w
 	build/bin/duxcel build/bin/duxcel-debug build/edit-sanitize/duxcel \
 	build/review/duxcel-review build/review-sanitize/duxcel-review \
 	build/lifecycle/test-app build/lifecycle/test-app-sanitize build/tests/test_fixture build/tests/test_fixture-debug
-PARALLEL_NATIVE_GOALS += build/tests/test_paste_command-gui build/tests/test_mixed_range-gui build/tests/test_clear_range-gui build/tests/test_mixed_rows-gui
+PARALLEL_NATIVE_GOALS += build/tests/test_paste_command-gui build/tests/test_mixed_range-gui build/tests/test_clear_range-gui build/tests/test_mixed_rows-gui build/tests/test_mixed_columns-gui
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif

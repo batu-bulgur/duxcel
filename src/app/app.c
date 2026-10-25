@@ -5717,7 +5717,7 @@ static void column_action(App *a,ColumnAction action) {
     } else {
         size_t col=g->col+(action==COLUMN_RIGHT); char *error=NULL;
         size_t source_columns=a->analysis.kind!=SOURCE_NONE && !a->page.column_count ? 16384 : a->page.column_count;
-        if (manual_range_owner(a,sheet)) {
+        if (manual_range_owner(a,sheet) || admitted_template_range_owner(a,sheet)) {
             if (!move_manual_range(a,(RangeCommand){.operation=action==COLUMN_DELETE ? RANGE_OPERATION_DELETE_COLUMNS : RANGE_OPERATION_INSERT_COLUMNS,
                 .column=col,.column_count=1},NULL,&error)) { status(a,error); free(error); return; }
             project_sheet_widths(a); return;
@@ -15771,6 +15771,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_MIXED_COLUMNS
+static void mixed_columns_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_ROWS
 static void mixed_rows_test_frame(AppSession *session);
 #endif
@@ -16691,6 +16694,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_MIXED_COLUMNS
+    mixed_columns_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_ROWS
     mixed_rows_test_frame(session);
 #endif
@@ -17084,6 +17090,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_create_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_MIXED_COLUMNS
+#include "../../tests/support/mixed_columns_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_ROWS
 #include "../../tests/support/mixed_rows_app.inc"
 #endif
