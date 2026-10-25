@@ -87,6 +87,9 @@ static void move(void) {
     table.ready=false; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); table.ready=true;
     table.rows=2; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID); table.rows=3;
     c.table_count=0; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_PROTECTED); c.table_count=1;
+    SourceTableExtent proofs[2]={table,table}; c.tables=proofs; c.table_count=2;
+    CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+    proofs[1].object++; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out))); c.tables=&table; c.table_count=1;
     s->source_versions.items[0].owner++; CHECK(source_range_move_plan(c,r,20,10,false,SIZE_MAX,SIZE_MAX,&out,NULL)==SOURCE_RANGE_INVALID && !memcmp(&held,&out,sizeof(out))); s->source_versions.items[0].owner--;
     CHECK(!memcmp(&before,s,sizeof(before)) && s->source_versions.high_water==8 && s->source_versions.count==1 && !memcmp(&held,&out,sizeof(out)));
     workbook_free(reference); free(reference); workbook_free(&b); CHECK(out.objects.items[0].name && out.cells.cells[0].text); mixed_range_plan_free(&out);
