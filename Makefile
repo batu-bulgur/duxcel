@@ -2311,3 +2311,13 @@ build/tests/test_sheet_topology_event: $(SHEET_TOPOLOGY_OBJECTS) build/web-tests
 build/tests/test_sheet_topology_event-debug: $(SHEET_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(SHEET_TOPOLOGY_OBJECTS:.o=.d) $(SHEET_TOPOLOGY_SAN_OBJECTS:.o=.d)
+
+HISTORY_TOPOLOGY_SRC = $(filter-out tests/test_sheet_topology_event.c,$(SHEET_TOPOLOGY_SRC)) src/workbook/history_stream.c src/workbook/cell_delta.c src/workbook/cell_delta_codec.c src/workbook/history_sheet_lifecycle.c src/workbook/history_sheet_topology.c tests/test_history_sheet_topology.c
+HISTORY_TOPOLOGY_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(HISTORY_TOPOLOGY_SRC))))
+HISTORY_TOPOLOGY_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(HISTORY_TOPOLOGY_SRC))))
+PARALLEL_NATIVE_GOALS += build/tests/test_history_sheet_topology build/tests/test_history_sheet_topology-debug
+build/tests/test_history_sheet_topology: $(HISTORY_TOPOLOGY_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(THREAD_LIBS) -lm)
+build/tests/test_history_sheet_topology-debug: $(HISTORY_TOPOLOGY_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(HISTORY_TOPOLOGY_OBJECTS:.o=.d) $(HISTORY_TOPOLOGY_SAN_OBJECTS:.o=.d)
