@@ -2682,3 +2682,10 @@ registered two-module optimized/sanitizer plus6-stage actual UI gate passes
 formats, real pressure refusal, Undo, no-op-preserved Redo and unchanged live
 Page/request/ledger. False-to-true manual-first mode admission is still open;
 retained App recording remains disabled.
+
+Active-record source range acceptance (`2434bb55`, fixture624232d2) passes
+31 actual CSV stages28.527s plus31 Parquet stages24.980s, each with optimized/
+sanitizer range modules (`20261025T232625-feature-59283`,
+`232654-feature-60201`). Real Bold binding, mixed MOVE and row/column Undo/Redo
+preserve RAW ledger identity, field membership, actual paint resolution and
+unchanged Page/content/request owners. No source file mutation is introduced.
