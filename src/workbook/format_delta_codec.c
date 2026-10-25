@@ -153,3 +153,53 @@ FormatDeltaStatus format_delta_decode(const void *data,size_t bytes,size_t reser
     }
     format_delta_free(out); *out=next; return FORMAT_DELTA_OK;
 }
+
+/* Complete-state consumers reuse precisely the current DXFD snapshot body. */
+FormatDeltaStatus format_snapshot_body_measure(FormatSnapshotView v,FormatSnapshotBodyInfo *out) {
+    if (!out) return FORMAT_DELTA_INVALID;
+    FormatStore s=store(v); size_t owned=format_owned_bytes(&s,false);
+    if (owned==SIZE_MAX || owned>DX_FORMAT_CURRENT_BYTES) return FORMAT_DELTA_INVALID;
+    for (size_t i=0;i<v.scope_count;i++) if (!v.scopes[i].bytes || v.scopes[i].bytes>=DX_FORMAT_SCOPE_BYTES || !v.scopes[i].definition) return FORMAT_DELTA_INVALID;
+    for (size_t i=0;i<v.count;i++) {
+        const FormatPatch *p=v.items+i;
+        if ((p->guard_count && !p->guard_ids) || (p->record_count && !p->record_ids) || (p->field_count && !p->fields)) return FORMAT_DELTA_INVALID;
+    }
+    size_t bytes=snapshot_bytes(v); if (bytes>DX_FORMAT_CURRENT_BYTES+DX_FORMAT_SNAPSHOT_HEADER_BYTES) return FORMAT_DELTA_INVALID;
+    *out=(FormatSnapshotBodyInfo){bytes,owned,v.scope_count>DX_FORMAT_GUARDS ? v.scope_count*sizeof(const FormatScope *) : 0}; return FORMAT_DELTA_OK;
+}
+static bool snapshot_overlap(uintptr_t a,size_t an,uintptr_t b,size_t bn) { return an && bn && (a<=b ? b-a<an : a-b<bn); }
+static bool snapshot_region_disjoint(uintptr_t target,size_t bytes,const size_t *written,const void *source,size_t count) {
+    return !snapshot_overlap(target,bytes,(uintptr_t)source,count) && !snapshot_overlap((uintptr_t)written,sizeof(*written),(uintptr_t)source,count);
+}
+static bool snapshot_disjoint(FormatSnapshotView v,const void *arena,size_t bytes,const size_t *written) {
+    uintptr_t target=(uintptr_t)arena;
+    if (snapshot_overlap(target,bytes,(uintptr_t)written,sizeof(*written)) ||
+        !snapshot_region_disjoint(target,bytes,written,v.items,v.count*sizeof(*v.items)) || !snapshot_region_disjoint(target,bytes,written,v.scopes,v.scope_count*sizeof(*v.scopes))) return false;
+    for (size_t i=0;i<v.scope_count;i++) if (!snapshot_region_disjoint(target,bytes,written,v.scopes[i].definition,v.scopes[i].bytes)) return false;
+    for (size_t i=0;i<v.count;i++) {
+        const FormatPatch *p=v.items+i;
+        if (!snapshot_region_disjoint(target,bytes,written,p->guard_ids,p->guard_count*sizeof(size_t)) ||
+            !snapshot_region_disjoint(target,bytes,written,p->record_ids,p->record_count*sizeof(uint64_t)) || !snapshot_region_disjoint(target,bytes,written,p->fields,p->field_count*sizeof(size_t))) return false;
+    }
+    return true;
+}
+FormatDeltaStatus format_snapshot_body_encode(FormatSnapshotView v,size_t reserved,void *arena,size_t capacity,size_t *written) {
+    if (!arena || !written) return FORMAT_DELTA_INVALID;
+    FormatSnapshotBodyInfo info; FormatDeltaStatus status=format_snapshot_body_measure(v,&info); if (status) return status;
+    if (info.bytes>capacity || info.validation_scratch>reserved) return FORMAT_DELTA_LIMIT;
+    if (!snapshot_disjoint(v,arena,info.bytes,written) || !valid(v)) return FORMAT_DELTA_INVALID;
+    Writer w={arena}; write_snapshot(&w,v); *written=info.bytes; return FORMAT_DELTA_OK;
+}
+FormatDeltaStatus format_snapshot_body_preflight(const void *data,size_t bytes,FormatSnapshotBodyInfo *out) {
+    if (!data || !out || bytes<DX_FORMAT_SNAPSHOT_HEADER_BYTES || bytes>DX_FORMAT_CURRENT_BYTES+DX_FORMAT_SNAPSHOT_HEADER_BYTES) return FORMAT_DELTA_INVALID;
+    size_t owned=0,scratch=0; if (!read_snapshot(data,bytes,NULL,&owned,&scratch)) return FORMAT_DELTA_INVALID;
+    *out=(FormatSnapshotBodyInfo){bytes,owned,scratch}; return FORMAT_DELTA_OK;
+}
+FormatDeltaStatus format_snapshot_body_decode(const void *data,size_t bytes,size_t reserved,FormatSnapshot *out) {
+    if (!out) return FORMAT_DELTA_INVALID;
+    FormatSnapshotBodyInfo info; FormatDeltaStatus status=format_snapshot_body_preflight(data,bytes,&info); if (status) return status;
+    if (info.owned>reserved || info.validation_scratch>reserved-info.owned) return FORMAT_DELTA_LIMIT;
+    FormatSnapshot next={0};
+    if (!read_snapshot(data,bytes,&next,NULL,NULL) || !valid(format_delta_snapshot_view(&next))) { format_snapshot_free(&next); return FORMAT_DELTA_INVALID; }
+    format_snapshot_free(out); *out=next; return FORMAT_DELTA_OK;
+}

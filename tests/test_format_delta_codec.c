@@ -135,7 +135,59 @@ static void test_memory_and_membership_limits(void) {
     rejected(wire,bytes-1,budget,&out,FORMAT_DELTA_INVALID);
     free(ids); free(fields); free(wire); format_free(&after); format_delta_free(&out);
 }
+static void test_complete_body(void) {
+    FormatStore empty={0},current={0}; FormatSnapshot owned={0}; FormatSnapshotBodyInfo info={0};
+    CHECK(format_snapshot_body_measure(format_delta_store_view(&empty),&info)==FORMAT_DELTA_OK && info.bytes==8 && !info.owned);
+    unsigned char initial[8]={0}; size_t written=91;
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&empty),0,initial,sizeof(initial),&written)==FORMAT_DELTA_OK && written==8);
+    CHECK(format_snapshot_body_decode(initial,sizeof(initial),0,&owned)==FORMAT_DELTA_OK && !owned.count && !owned.source_aware);
+    empty.source_aware=true;
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&empty),0,initial,sizeof(initial),&written)==FORMAT_DELTA_OK && initial[0]==1);
+    CHECK(format_snapshot_body_decode(initial,sizeof(initial),0,&owned)==FORMAT_DELTA_OK && owned.source_aware);
+    CellFormat value=format_default(); value.flags=FORMAT_BOLD;
+    FormatScopeView scope={7,"scope",5}; uint64_t records[]={1,UINT64_C(9007199254740993)}; size_t fields[]={0,3};
+    CHECK(format_apply_records(&current,&scope,records,2,fields,2,FORMAT_BOLD,value,NULL));
+    value.color=2; CHECK(format_apply_scoped(&current,(FormatRange){10,12,4,5},FORMAT_COLOR,value,&scope,1,true,NULL));
+    CHECK(format_snapshot_body_measure(format_delta_store_view(&current),&info)==FORMAT_DELTA_OK);
+    unsigned char *body=dx_alloc(info.bytes+1); memset(body,0xa5,info.bytes+1); written=91;
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&current),info.validation_scratch,body,info.bytes-1,&written)==FORMAT_DELTA_LIMIT && written==91 && body[0]==0xa5);
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&current),info.validation_scratch,body,info.bytes,&written)==FORMAT_DELTA_OK && written==info.bytes && body[info.bytes]==0xa5);
+    FormatSnapshotBodyInfo measured; CHECK(format_snapshot_body_preflight(body,info.bytes,&measured)==FORMAT_DELTA_OK && measured.owned==info.owned && measured.bytes==info.bytes && measured.validation_scratch==info.validation_scratch);
+    CHECK(format_snapshot_body_decode(body,info.bytes,info.owned-1,&owned)==FORMAT_DELTA_LIMIT && owned.source_aware && !owned.count);
+    CHECK(format_snapshot_body_decode(body,info.bytes,info.owned+info.validation_scratch,&owned)==FORMAT_DELTA_OK);
+    CHECK(owned.items!=current.items && owned.scopes!=current.scopes && owned.scopes[0].definition!=current.scopes[0].definition && owned.items[0].record_ids!=current.items[0].record_ids && owned.items[0].record_ids[1]==UINT64_C(9007199254740993));
+    CHECK(format_snapshot_matches(&current,&owned));
+    size_t paired_bytes=0; unsigned char *paired=encode(9,&empty,&current,&paired_bytes); FormatDeltaInfo pair_info;
+    CHECK(format_delta_preflight(paired,paired_bytes,&pair_info)==FORMAT_DELTA_OK && pair_info.after_bytes==info.bytes);
+    CHECK(!memcmp(body,paired+DX_FORMAT_DELTA_HEADER_BYTES+pair_info.before_bytes,info.bytes)); free(paired);
+    FormatSnapshot before=owned; FormatSnapshotBodyInfo prior=info;
+    for (size_t n=0;n<info.bytes;n++) {
+        CHECK(format_snapshot_body_preflight(body,n,&info)==FORMAT_DELTA_INVALID && !memcmp(&info,&prior,sizeof(info)));
+        CHECK(format_snapshot_body_decode(body,n,budget,&owned)==FORMAT_DELTA_INVALID && !memcmp(&before,&owned,sizeof(owned)));
+    }
+    CHECK(format_snapshot_body_decode(body,info.bytes+1,budget,&owned)==FORMAT_DELTA_INVALID && !memcmp(&before,&owned,sizeof(owned)));
+    body[1]=1; CHECK(format_snapshot_body_decode(body,info.bytes,budget,&owned)==FORMAT_DELTA_INVALID && !memcmp(&before,&owned,sizeof(owned))); body[1]=0;
+    /* Structurally framed but invalid record ordering rejects full decode. */
+    size_t records_at=DX_FORMAT_SNAPSHOT_HEADER_BYTES+12+current.scopes[0].bytes+DX_FORMAT_PATCH_HEADER_BYTES+2;
+    unsigned char saved[8]; memcpy(saved,body+records_at+8,8); memcpy(body+records_at+8,body+records_at,8);
+    CHECK(format_snapshot_body_preflight(body,info.bytes,&measured)==FORMAT_DELTA_OK);
+    CHECK(format_snapshot_body_decode(body,info.bytes,budget,&owned)==FORMAT_DELTA_INVALID && !memcmp(&before,&owned,sizeof(owned))); memcpy(body+records_at+8,saved,8);
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&current),budget,current.items,info.bytes,&written)==FORMAT_DELTA_INVALID);
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&current),budget,body,info.bytes,(size_t *)current.items)==FORMAT_DELTA_INVALID && format_snapshot_matches(&current,&owned));
+    free(body); format_snapshot_free(&owned); format_free(&current);
+    for (size_t i=0;i<40;i++) {
+        char name[32]; snprintf(name,sizeof(name),"Scope%zu",i); FormatScopeView scope_i={i,name,strlen(name)};
+        CHECK(format_apply_scoped(&current,(FormatRange){i,i,0,0},FORMAT_BOLD,value,&scope_i,1,false,NULL));
+    }
+    CHECK(format_snapshot_body_measure(format_delta_store_view(&current),&info)==FORMAT_DELTA_OK && info.validation_scratch==40*sizeof(const FormatScope *));
+    body=dx_alloc(info.bytes); memset(body,0xa5,info.bytes); written=91;
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&current),info.validation_scratch-1,body,info.bytes,&written)==FORMAT_DELTA_LIMIT && written==91 && body[0]==0xa5);
+    CHECK(format_snapshot_body_encode(format_delta_store_view(&current),info.validation_scratch,body,info.bytes,&written)==FORMAT_DELTA_OK);
+    CHECK(format_snapshot_body_decode(body,info.bytes,info.owned,&owned)==FORMAT_DELTA_LIMIT && !owned.count);
+    CHECK(format_snapshot_body_decode(body,info.bytes,info.owned+info.validation_scratch,&owned)==FORMAT_DELTA_OK && owned.scope_count==40);
+    free(body); format_snapshot_free(&owned); format_free(&current); format_free(&empty);
+}
 int main(void) {
-    test_oracle(); test_scoped_membership(); test_memory_and_membership_limits();
+    test_complete_body(); test_oracle(); test_scoped_membership(); test_memory_and_membership_limits();
     printf("PASS: %u closed owned scoped-format payload codec checks\n",checks); return 0;
 }
