@@ -1,3 +1,4 @@
+#include "../ui/sourceview.h"
 #include "../workbook/cell_command.h"
 #include "../workbook/sheet_lifecycle_command.h"
 #include "../workbook/sheet_topology_remove.h"
@@ -89,7 +90,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include <ctype.h>
 #include <assert.h>
 
-typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE } Modal;
+typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE,MODAL_SOURCE_DETAILS } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW,SHEET_ACTION_DELETE } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW,DOCUMENT_RECOVER } DocumentAction;
@@ -452,6 +453,12 @@ typedef struct {
     char *pipeline_text;
     char *sql_text;
     TextEditor query_editor;
+    char *source_details_text;
+    TextLines source_details_lines;
+    size_t source_details_scroll;
+    double source_details_wheel;
+    UIScrollbar source_details_bar;
+    uint64_t source_details_key;
     TextLines query_errors;
     int query_error_scroll;
     double query_error_wheel;
@@ -6549,6 +6556,8 @@ static void draw_source_query(App *a) {
     /* Apply after this frame's native edits/cancel actions have been processed. */
     if (a->query_validated) { QueryReply *reply=a->query_validated; a->query_validated=NULL; receive_source_validation(a,reply); reply_free(reply); }
 }
+#include "source_details.inc"
+
 static bool set_representation(App *a,int representation) {
     SheetObject *o=selected_pivot(a); if (!o || representation<0 || representation>4) return false;
     ObjectKind kind=representation ? OBJECT_CHART : OBJECT_PIVOT;
@@ -6914,6 +6923,7 @@ static void draw_modal(App *a) {
     if (a->modal==MODAL_STEP) { draw_step_menu(a); return; }
     if (a->modal==MODAL_ASSIGN_FIELD || a->modal==MODAL_REPRESENTATION) { draw_author_popup(a); return; }
     if (a->modal==MODAL_COMMANDS) { draw_command_popup(a); return; }
+    if (a->modal==MODAL_SOURCE_DETAILS) { draw_source_details(a); return; }
     if (a->modal==MODAL_SOURCE_QUERY) { draw_source_query(a); return; }
     if (a->modal==MODAL_STATISTICS) { draw_statistics(a); return; }
     if (a->modal==MODAL_UNSAVED) { draw_unsaved(a); return; }
@@ -7368,25 +7378,32 @@ static void draw_step_menu(App *a) {
     const SheetObject *table=NULL; const Analysis *source=pipeline_source(a,&table);
     size_t count=step->kind==UI_STEP_FILTER ? source->filter_count+(source->filter_column ? 1 : 0) : source->sort_count+(source->sort_column ? 1 : 0);
     bool movable=step->kind==UI_STEP_FILTER || step->kind==UI_STEP_SORT;
-    bool available[]={pipeline_step_editable(a,step),movable && step->index>0,movable && step->index+1<count,step->kind!=UI_STEP_SOURCE,source->kind!=SOURCE_NONE};
-    const char *labels[]={step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…","Move earlier","Move later","Remove step","Inspect SQL"};
-    const UICarbonIcon icons[]={CARBON_SETTINGS_ADJUST,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_TRASH_CAN,CARBON_SQL};
-    UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},scale,5,-1);
+    SourceProvenanceView provenance;
+    bool details=step->kind==UI_STEP_SOURCE && source_details_view(a,&provenance);
+#ifdef DUXCEL_BROWSER_HOST
+    /* Uploaded virtual locators need their own provenance presentation. */
+    details=false;
+#endif
+    int actions=details ? 6 : 5;
+    bool available[]={pipeline_step_editable(a,step),movable && step->index>0,movable && step->index+1<count,step->kind!=UI_STEP_SOURCE,source->kind!=SOURCE_NONE,details};
+    const char *labels[]={step->kind==UI_STEP_UNIQUE ? "Keep duplicates" : "Edit…","Move earlier","Move later","Remove step","Inspect SQL","Source details…"};
+    const UICarbonIcon icons[]={CARBON_SETTINGS_ADJUST,CARBON_ARROW_UP,CARBON_ARROW_DOWN,CARBON_TRASH_CAN,CARBON_SQL,CARBON_INFORMATION};
+    UIChoiceLayout menu=ui_choice_layout(a->context_origin,(Vector2){GetScreenWidth(),GetScreenHeight()},scale,actions,-1);
     if (!menu.valid) return;
     popup_capture(a,menu.panel);
     bool opening=a->step_menu_opening; a->step_menu_opening=false;
     if (ui_pressed(KEY_ESCAPE) || (!a->consume_grid_input && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(ui_mouse_position(),menu.panel))) { a->modal=MODAL_NONE; a->chrome_focus=8; a->consume_grid_input=true; return; }
-    context_keys(a,5,5);
+    context_keys(a,actions,actions);
     int direction=ui_key(KEY_UP) || (ui_pressed(KEY_TAB)&&ui_key_shift(KEY_TAB)) || ui_pressed(KEY_END) ? -1 : 1;
-    for (int i=0;i<5 && !available[a->context_focus];i++) a->context_focus=(a->context_focus+5+direction)%5;
+    for (int i=0;i<actions && !available[a->context_focus];i++) a->context_focus=(a->context_focus+actions+direction)%actions;
     ui_choice_frame(u,&menu,step->title);
     REVIEW_AUTHOR_PANEL(a,"step",step->title,menu.panel,menu.title);
-    for (int action=0;action<5;action++) {
-        REVIEW_AUTHOR_ITEM(a,"step",((const char *const[]){"edit","move_earlier","move_later","remove","inspect_sql"})[action],"step.action","menuitem",labels[action],menu.rows[action],menu.panel,available[action],false,a->context_focus==action,NULL);
+    for (int action=0;action<actions;action++) {
+        REVIEW_AUTHOR_ITEM(a,"step",((const char *const[]){"edit","move_earlier","move_later","remove","inspect_sql","source_details"})[action],"step.action","menuitem",labels[action],menu.rows[action],menu.panel,available[action],false,a->context_focus==action,NULL);
         bool clicked=ui_choice_row_input(u,menu.rows[action],labels[action],NULL,icons[action],false,a->context_focus==action,available[action],!opening);
         if (available[action] && (clicked || (!opening && !a->consume_grid_input && a->context_focus==action && (ui_pressed(KEY_ENTER) || ui_pressed(KEY_KP_ENTER) || ui_pressed(KEY_SPACE))))) {
             a->modal=MODAL_NONE; a->chrome_focus=8;
-            if (!action) pipeline_edit_step(a,index); else if (action==4) pipeline_show_sql(a); else pipeline_step_change(a,index,action==1 ? -1 : 1,action==3);
+            if (!action) pipeline_edit_step(a,index); else if (action==4) pipeline_show_sql(a); else if (action==5) begin_source_details(a); else pipeline_step_change(a,index,action==1 ? -1 : 1,action==3);
             a->consume_grid_input=true; return;
         }
     }
@@ -12330,9 +12347,11 @@ static void layout_smoke_step(App *a,int *step) {
         begin_step_menu(a,0,(Vector2){1000,700}); break;
     case 545:
         if (a->modal!=MODAL_STEP || a->context_focus || a->request_id!=request || !a->ui.pointer_blocked) goto failed; break;
-    case 546:
-        if (a->modal!=MODAL_STEP || a->context_focus!=4 || a->request_id!=request) goto failed;
+    case 546: {
+        SourceProvenanceView provenance; int last=source_details_view(a,&provenance) ? 5 : 4;
+        if (a->modal!=MODAL_STEP || a->context_focus!=last || a->request_id!=request) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/native-step-actions-disabled.png"); break;
+    }
     case 547:
         if (a->modal!=MODAL_NONE || a->request_id!=request) goto failed;
         begin_sheet_menu(a,0,(Vector2){10,180}); break;
@@ -15839,6 +15858,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_DETAILS
+static void source_details_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
 static void source_results_test_frame(AppSession *session);
 #endif
@@ -16795,6 +16817,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_DETAILS
+    source_details_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
     source_results_test_frame(session);
 #endif
@@ -17096,6 +17121,7 @@ int app_finish(AppSession *session) {
 #endif
     close_journal(a,a->discard_journal || !a->book.dirty);
     clear_cell_edit_error(a); workbook_free(&a->book); inspector_free(a); sort_editor_free(&a->sort_editor); REVIEW_SQL_CLEAR(a);
+    source_details_free(a);
     reply_free(a->query_validated); text_editor_free(&a->query_editor); text_lines_free(&a->query_errors); free(a->query_error);
     clear_value_choices(a); free(a->value_pending_key); free(a->values_context);
     for (int i=0;i<4;i++) { distinct_free(&a->value_cache[i]); free(a->value_cache_keys[i]); }
@@ -17284,4 +17310,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_TEMPLATE_FORMAT
 #include "../../tests/support/template_format_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_SOURCE_DETAILS
+#include "../../tests/support/source_details_app.inc"
 #endif

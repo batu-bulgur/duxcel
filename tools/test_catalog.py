@@ -17,6 +17,10 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "source-details-csv": ("build/tests/test_source_details_csv-gui", "PASS: native source provenance workflow",
+                    r"^PASS: native source provenance workflow \(25 stages, [1-9]\d* checks\)$", 25),
+    "source-details-parquet": ("build/tests/test_source_details_parquet-gui", "PASS: native source provenance workflow",
+                    r"^PASS: native source provenance workflow \(25 stages, [1-9]\d* checks\)$", 25),
     "source-record-range-csv": ("build/tests/test_source_record_range_csv-gui", "PASS: native CSV record range workflow",
                     r"^PASS: native CSV record range workflow \(31 stages, [1-9]\d* checks\)$", 31),
     "source-record-range-parquet": ("build/tests/test_source_record_range_parquet-gui", "PASS: native Parquet record range workflow",
@@ -69,7 +73,7 @@ STANDALONE_GUI = {
     "range-command": ("build/tests/test_range_command-gui", "PASS: native manual range workflow",
                       r"^PASS: native manual range workflow \(23 stages, [1-9]\d* checks\)$", 23),
     "object-create-command": ("build/tests/test_object_create_command-gui", "PASS: native object create workflow",
-                              r"^PASS: native object create workflow \(19 stages, [1-9]\d* checks\)$", 19),
+                              r"^PASS: native object create workflow \(25 stages, [1-9]\d* checks\)$", 25),
     "object-move-command": ("build/tests/test_object_move_command-gui", "PASS: native object move workflow",
                             r"^PASS: native object move workflow \(16 stages, [1-9]\d* checks\)$", 16),
     "object-delete-command": ("build/tests/test_object_delete_command-gui", "PASS: native object delete workflow",
@@ -109,9 +113,9 @@ STANDALONE_GUI = {
     "version-controls": ("build/tests/test_version_controls-gui", "PASS: native version controls workflow",
                          r"^PASS: native version controls workflow \(26 stages, [1-9]\d* checks\)$", 26),
     "recovery-menu": ("build/tests/test_recovery_process-debug", "PASS: native recovery choice workflow",
-                       r"^PASS: native recovery choice workflow \(19 stages, [1-9]\d* checks\)$", 19),
+                       r"^PASS: native recovery choice workflow \(25 stages, [1-9]\d* checks\)$", 25),
     "recovery": ("build/tests/test_recovery-gui", "PASS: native recovery choice workflow",
-                  r"^PASS: native recovery choice workflow \(19 stages, [1-9]\d* checks\)$", 19),
+                  r"^PASS: native recovery choice workflow \(25 stages, [1-9]\d* checks\)$", 25),
     "workbook-save": ("build/tests/test_workbook_save-gui", "PASS: native controlled Save workflow",
                       r"^PASS: native controlled Save workflow \(22 stages, [1-9]\d* checks\)$", 22),
     "journal-session": ("build/tests/test_journal_session-gui", "PASS: native checkpoint journal workflow",
@@ -900,8 +904,14 @@ FEATURES = {
 }
 
 
+FEATURES["source-details-csv-app"] = Feature(("sourceview", "stepview", "preview"), "source-details-csv",
+    ("python3 tools/test.py feature --feature source-details-parquet-app",),
+    ("src/app/source_details.inc", "src/app/app.c: source-step details action", "tests/support/source_details_app.inc"), fixtures=("transactions",))
+FEATURES["source-details-parquet-app"] = Feature(("sourceview", "stepview", "preview"), "source-details-parquet",
+    ("python3 tools/test.py feature --feature source-details-csv-app",),
+    ("src/app/source_details.inc", "tests/support/source_details_app.inc"), fixtures=("transactions",))
 FEATURES["source-provenance"] = Feature(("sourceview", "stepview", "preview"), "",
-    ("python3 tools/test.py native --scenario layout --config sanitize",),
+    ("python3 tools/test.py feature --feature source-details-csv-app",),
     ("src/ui/sourceview.c", "src/ui/stepview.c"))
 
 

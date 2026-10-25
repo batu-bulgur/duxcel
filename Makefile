@@ -50,7 +50,7 @@ build/duxcel-icon.o: packaging/windows/duxcel.rc assets/icons/duxcel.ico
 endif
 endif
 HEADERS = $(shell find src -name '*.h')
-SRC += src/ui/filterlabel.c src/ui/selectview.c src/ui/shadowview.c
+SRC += src/ui/filterlabel.c src/ui/selectview.c src/ui/shadowview.c src/ui/sourceview.c
 ICON_INPUTS = assets/icons/duxcel.svg tools/generate_icons.py
 ICON_SIZES = 16 20 24 30 32 36 40 48 60 64 72 80 96 128 160 192 256 320 384 512 640 768 1024
 ICON_MAC_SIZES = 16 32 128 256 512
@@ -1186,6 +1186,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_component build/tests/test_his
 PARALLEL_NATIVE_GOALS += build/tests/test_history_after_save build/tests/test_history_after_save-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_version_publication build/tests/test_version_publication-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_sourceview build/tests/test_sourceview-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_source_details_csv-gui build/tests/test_source_details_parquet-gui
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2757,3 +2758,17 @@ build/tests/test_sourceview: $(SOURCEVIEW_SRC) src/ui/sourceview.h src/transform
 	$(CC) -Isrc $(CFLAGS) $(WARN) $(SOURCEVIEW_SRC) -o $@
 build/tests/test_sourceview-debug: $(SOURCEVIEW_SRC) src/ui/sourceview.h src/transforms/analysis.h src/common.h | build/tests
 	$(CC) -Isrc -O1 -g $(WARN) $(SANFLAGS) $(SOURCEVIEW_SRC) -o $@ $(SANFLAGS)
+
+SOURCE_DETAILS_CSV_OBJECT = build/obj/feature-source-details-csv/app.o
+$(SOURCE_DETAILS_CSV_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_SOURCE_DETAILS)
+SOURCE_DETAILS_CSV_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(SOURCE_DETAILS_CSV_OBJECT)
+build/tests/test_source_details_csv-gui: tests/test_source_details_gui.c $(SOURCE_DETAILS_CSV_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_details_gui.c $(SOURCE_DETAILS_CSV_LINK),$(LDFLAGS) $(LDLIBS))
+SOURCE_DETAILS_PARQUET_OBJECT = build/obj/feature-source-details-parquet/app.o
+$(SOURCE_DETAILS_PARQUET_OBJECT): src/app/app.c build/obj/release/app/compile.flags
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_SOURCE_DETAILS -DDUXCEL_SOURCE_DETAILS_PARQUET)
+SOURCE_DETAILS_PARQUET_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(SOURCE_DETAILS_PARQUET_OBJECT)
+build/tests/test_source_details_parquet-gui: tests/test_source_details_gui.c $(SOURCE_DETAILS_PARQUET_LINK) | build/tests build/tests/assets
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_details_gui.c $(SOURCE_DETAILS_PARQUET_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(SOURCE_DETAILS_CSV_OBJECT:.o=.d) $(SOURCE_DETAILS_PARQUET_OBJECT:.o=.d)

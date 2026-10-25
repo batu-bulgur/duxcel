@@ -23,6 +23,13 @@ int main(void) {
         /* This is a borrowed projection, never a retained second definition. */
         path[1]='D'; CHECK(view.path[1]=='D'); path[1]='d';
     }
+    char long_path[8192],long_query[8192];
+    size_t bytes=0;
+    while (bytes+sizeof("İstanbul-表-🦆/")<sizeof(long_path)) { memcpy(long_path+bytes,"İstanbul-表-🦆/",sizeof("İstanbul-表-🦆/")-1); bytes+=sizeof("İstanbul-表-🦆/")-1; }
+    long_path[bytes]=0; memcpy(long_query,long_path,bytes+1);
+    Analysis long_source={.kind=SOURCE_PARQUET,.path=long_path,.query=long_query};
+    SourceProvenanceView long_view={0}; CHECK(ui_source_provenance(&long_source,SOURCE_VIEW_UNAVAILABLE,&long_view));
+    CHECK(long_view.path==long_path && long_view.query==long_query && strlen(long_view.path)==bytes && !strcmp(long_view.query,long_query));
     SourceProvenanceView sentinel={.kind=SOURCE_DATABASE,.path="preserve",.external=true},out=sentinel;
     Analysis invalid={0};
     CHECK(!ui_source_provenance(NULL,SOURCE_VIEW_READY,&out)); CHECK(!memcmp(&out,&sentinel,sizeof(out)));
