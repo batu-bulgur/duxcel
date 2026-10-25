@@ -5524,8 +5524,8 @@ static bool move_manual_range_result(App *a,RangeCommand command,const RangeComm
 static bool move_manual_range(App *a,RangeCommand command,const RangeCommandTarget *captured,char **error) {
     return move_manual_range_result(a,command,captured,NULL,error);
 }
-/* Mixed movement is separate from manual paste/axis eligibility. */
-static bool admitted_template_range_owner(const App *a,const Worksheet *sheet) {
+/* Each admitted opcode retains its own complete planner and protection rules. */
+static bool template_range_owner(const App *a,const Worksheet *sheet) {
     if (a->analysis.kind!=SOURCE_NONE || sheet->analysis.kind!=SOURCE_NONE || sheet->formats.source_aware || sheet->formats.scope_count || !sheet->objects.count) return false;
     for (size_t i=0;i<sheet->objects.count;i++) {
         const SheetObject *o=sheet->objects.items+i;
@@ -5553,7 +5553,7 @@ static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replac
         const SheetCell *cell=sheet->cells.cells+i;
         if (cell->row>=range.r0 && cell->row<=range.r1 && cell->col>=range.c0 && cell->col<=range.c1) single=0;
     }
-    bool manual=manual_range_owner(a,sheet) || (!single && admitted_template_range_owner(a,sheet));
+    bool manual=manual_range_owner(a,sheet) || (!single && template_range_owner(a,sheet));
     if (captured && !manual) { if (error) *error=dx_strdup("The manual range owner changed. Review the destination again."); return false; }
     bool moved=manual ? move_manual_range(a,(RangeCommand){.range=range,.dr=dr,.dc=dc,.replace=replace},captured,error) : single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
         replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
@@ -5578,7 +5578,7 @@ static bool request_range_move(App *a,int64_t dr,int dc,bool reveal,char **error
     if (check==SHEET_MOVE_INVALID) return false;
     if (check==SHEET_MOVE_READY) return move_selection(a,dr,dc,reveal,error);
     free(a->replace_manual_target); a->replace_manual_target=NULL;
-    if (manual_range_owner(a,s) || admitted_template_range_owner(a,s)) {
+    if (manual_range_owner(a,s) || template_range_owner(a,s)) {
 #ifndef DUXCEL_BROWSER_HOST
         if (source_format_budget_status(a,NULL,sizeof(RangeCommandTarget),0,0,0,0)) return false;
 #endif
@@ -5695,7 +5695,7 @@ static void column_action(App *a,ColumnAction action) {
     else if (action==COLUMN_SORT) open_modal(a,MODAL_SORT);
     else if (action==COLUMN_CLEAR) {
         uint64_t r0,r1; size_t c0,c1; grid_bounds(g,&r0,&r1,&c0,&c1);
-        if (manual_range_owner(a,sheet)) {
+        if (manual_range_owner(a,sheet) || template_range_owner(a,sheet)) {
             if (r1==UINT64_MAX) r1=DX_SHEET_ROWS-1;
             if (c1==SIZE_MAX) c1=16383;
             char *error=NULL;
@@ -5707,7 +5707,7 @@ static void column_action(App *a,ColumnAction action) {
         uint64_t row=action==ROW_BELOW ? last+1 : first,count=last-first+1,rows=a->analysis.kind==SOURCE_NONE ? 0 : !a->page.column_count ? UINT64_MAX : source_rows(a); char *error=NULL;
         bool moved=false; for (size_t i=0;i<sheet->objects.count;i++) if (action==ROW_DELETE ? sheet->objects.items[i].row>=row+count : sheet->objects.items[i].row>=row) moved=true;
         uint64_t revision=sheet->cells.revision,format_revision=sheet->formats.revision;
-        bool accepted=(manual_range_owner(a,sheet) || admitted_template_range_owner(a,sheet)) ? move_manual_range(a,(RangeCommand){.operation=action==ROW_DELETE ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=row,.row_count=count},NULL,&error) :
+        bool accepted=(manual_range_owner(a,sheet) || template_range_owner(a,sheet)) ? move_manual_range(a,(RangeCommand){.operation=action==ROW_DELETE ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=row,.row_count=count},NULL,&error) :
             worksheet_rows(sheet,row,count,action!=ROW_DELETE,rows,&error);
         if (!accepted) { status(a,error); free(error); return; }
         bool changed=moved || revision!=sheet->cells.revision || format_revision!=sheet->formats.revision;
@@ -5717,7 +5717,7 @@ static void column_action(App *a,ColumnAction action) {
     } else {
         size_t col=g->col+(action==COLUMN_RIGHT); char *error=NULL;
         size_t source_columns=a->analysis.kind!=SOURCE_NONE && !a->page.column_count ? 16384 : a->page.column_count;
-        if (manual_range_owner(a,sheet) || admitted_template_range_owner(a,sheet)) {
+        if (manual_range_owner(a,sheet) || template_range_owner(a,sheet)) {
             if (!move_manual_range(a,(RangeCommand){.operation=action==COLUMN_DELETE ? RANGE_OPERATION_DELETE_COLUMNS : RANGE_OPERATION_INSERT_COLUMNS,
                 .column=col,.column_count=1},NULL,&error)) { status(a,error); free(error); return; }
             project_sheet_widths(a); return;
@@ -7675,7 +7675,7 @@ static bool paste_extent_field(void *context,uint64_t row,size_t column,const ch
 static void paste_selection(App *a) {
     const char *text=GetClipboardText(); char *error=NULL; size_t rows=0,columns=0;
     Worksheet *sheet=active_sheet(a); uint64_t revision=sheet->cells.revision;
-    if (text && manual_range_owner(a,sheet)) {
+    if (text && (manual_range_owner(a,sheet) || template_range_owner(a,sheet))) {
         RangeCommandResult result={0};
         bool accepted=move_manual_range_result(a,(RangeCommand){.operation=RANGE_OPERATION_PASTE,
             .row=a->grid.row,.column=a->grid.col,.text=text},NULL,&result,&error);
@@ -15771,6 +15771,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_TEMPLATE_CELLS
+static void template_cells_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_COLUMNS
 static void mixed_columns_test_frame(AppSession *session);
 #endif
@@ -16694,6 +16697,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_TEMPLATE_CELLS
+    template_cells_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_COLUMNS
     mixed_columns_test_frame(session);
 #endif
@@ -17090,6 +17096,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_create_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_TEMPLATE_CELLS
+#include "../../tests/support/template_cells_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_MIXED_COLUMNS
 #include "../../tests/support/mixed_columns_app.inc"
 #endif

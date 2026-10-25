@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "template-cells": ("build/tests/test_template_cells-gui", "PASS: native template manual cell workflow",
+                    r"^PASS: native template manual cell workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "paste-command": ("build/tests/test_paste_command-gui", "PASS: native manual paste workflow",
                       r"^PASS: native manual paste workflow \(13 stages, [1-9]\d* checks\)$", 13),
     "mixed-columns": ("build/tests/test_mixed_columns-gui", "PASS: native source-free mixed column workflow",
@@ -148,6 +150,9 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
+    "template-cells-app": Feature(("mixed_range_plan", "cell_paste_plan", "range_command", "history_range"), "template-cells",
+        ("python3 tools/test.py feature --feature mixed-column-app",),
+        ("src/app/app.c: template paste/Clear predicates", "tests/support/template_cells_app.inc")),
     "template-clear-command": Feature(("mixed_range_plan", "cell_range_plan", "range_command", "history_range"), "",
         ("python3 tools/test.py feature --feature mixed-column-app",),
         ("src/workbook/range_command.c: fenced sparse-only template sheet Clear", "tests/test_range_command.c")),
