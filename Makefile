@@ -2402,7 +2402,7 @@ build/tests/test_sheet_session_chronology-debug: $(SHEET_SESSION_CHRONOLOGY_SAN_
 -include $(SHEET_SESSION_CHRONOLOGY_OBJECTS:.o=.d) $(SHEET_SESSION_CHRONOLOGY_SAN_OBJECTS:.o=.d)
 
 # Assigned family5 path-slot proof only; other payload families remain outer obligations.
-SHEET_HISTORY_SLOT_SRC = $(filter-out tests/test_sheet_history_payload.c,$(SHEET_HISTORY_PAYLOAD_SRC)) src/workbook/history_path.c src/workbook/history_anchors.c src/workbook/history_window.c src/workbook/version_index.c src/workbook/sheet_history_slot.c tests/test_sheet_history_slot.c
+SHEET_HISTORY_SLOT_SRC = src/workbook/history_event_slot.c $(filter-out tests/test_sheet_history_payload.c,$(SHEET_HISTORY_PAYLOAD_SRC)) src/workbook/history_path.c src/workbook/history_anchors.c src/workbook/history_window.c src/workbook/version_index.c src/workbook/sheet_history_slot.c tests/test_sheet_history_slot.c
 SHEET_HISTORY_SLOT_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_SLOT_SRC))))
 SHEET_HISTORY_SLOT_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(SHEET_HISTORY_SLOT_SRC))))
 PARALLEL_NATIVE_GOALS += build/tests/test_sheet_history_slot build/tests/test_sheet_history_slot-debug
