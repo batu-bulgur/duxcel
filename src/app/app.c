@@ -5524,6 +5524,15 @@ static bool move_manual_range_result(App *a,RangeCommand command,const RangeComm
 static bool move_manual_range(App *a,RangeCommand command,const RangeCommandTarget *captured,char **error) {
     return move_manual_range_result(a,command,captured,NULL,error);
 }
+/* Mixed movement is separate from manual paste/axis eligibility. */
+static bool admitted_template_range_owner(const App *a,const Worksheet *sheet) {
+    if (a->analysis.kind!=SOURCE_NONE || sheet->analysis.kind!=SOURCE_NONE || sheet->formats.source_aware || sheet->formats.scope_count || !sheet->objects.count) return false;
+    for (size_t i=0;i<sheet->objects.count;i++) {
+        const SheetObject *o=sheet->objects.items+i;
+        if (o->kind==OBJECT_TABLE || o->source_id || o->source.kind!=SOURCE_NONE) return false;
+    }
+    return true;
+}
 static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replace,const RangeCommandTarget *captured,char **error) {
     Grid *g=&a->grid; Worksheet *sheet=active_sheet(a); SheetRange range;
     grid_bounds(g,&range.r0,&range.r1,&range.c0,&range.c1);
@@ -5538,13 +5547,13 @@ static bool move_selection_mode(App *a,int64_t dr,int dc,bool reveal,bool replac
         const SheetObject *o=sheet->objects.items+i;
         if (range.r0==o->row && range.r1==o->row+o->rows-1 && range.c0==o->col && range.c1==o->col+o->columns-1) single=o->id;
     }
-    /* Existing mixed ranges keep their complete cell constituent until their
-       own command owner is admitted; never silently omit hidden manual data. */
+    /* Source-bearing mixed ranges keep their complete protected owner; never
+       omit manual cells when choosing the single-object move route. */
     for (size_t i=0;single && i<sheet->cells.count;i++) {
         const SheetCell *cell=sheet->cells.cells+i;
         if (cell->row>=range.r0 && cell->row<=range.r1 && cell->col>=range.c0 && cell->col<=range.c1) single=0;
     }
-    bool manual=manual_range_owner(a,sheet);
+    bool manual=manual_range_owner(a,sheet) || (!single && admitted_template_range_owner(a,sheet));
     if (captured && !manual) { if (error) *error=dx_strdup("The manual range owner changed. Review the destination again."); return false; }
     bool moved=manual ? move_manual_range(a,(RangeCommand){.range=range,.dr=dr,.dc=dc,.replace=replace},captured,error) : single ? move_single_object(a,single,(uint64_t)((int64_t)range.r0+dr),(size_t)((int64_t)range.c0+dc),error) :
         replace ? worksheet_replace_range(sheet,range,dr,dc,source_rows(a),a->page.column_count,error) :
@@ -5569,7 +5578,7 @@ static bool request_range_move(App *a,int64_t dr,int dc,bool reveal,char **error
     if (check==SHEET_MOVE_INVALID) return false;
     if (check==SHEET_MOVE_READY) return move_selection(a,dr,dc,reveal,error);
     free(a->replace_manual_target); a->replace_manual_target=NULL;
-    if (manual_range_owner(a,s)) {
+    if (manual_range_owner(a,s) || admitted_template_range_owner(a,s)) {
 #ifndef DUXCEL_BROWSER_HOST
         if (source_format_budget_status(a,NULL,sizeof(RangeCommandTarget),0,0,0,0)) return false;
 #endif
@@ -15756,6 +15765,9 @@ static void primary_steps_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
 static void object_move_command_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_MIXED_RANGE
+static void mixed_range_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
 static void range_command_test_frame(AppSession *session);
 #endif
@@ -16667,6 +16679,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_OBJECT_MOVE_COMMAND
     object_move_command_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_MIXED_RANGE
+    mixed_range_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
     range_command_test_frame(session);
 #endif
@@ -17051,6 +17066,9 @@ int app_run(const AppOptions *options) {
 #include "../../tests/support/object_create_command_app.inc"
 #endif
 
+#ifdef DUXCEL_FEATURE_MIXED_RANGE
+#include "../../tests/support/mixed_range_app.inc"
+#endif
 #ifdef DUXCEL_FEATURE_RANGE_COMMAND
 #include "../../tests/support/range_command_app.inc"
 #endif
