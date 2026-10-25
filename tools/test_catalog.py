@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "source-cells": ("build/tests/test_source_cells-gui", "PASS: native source manual cell workflow",
+                    r"^PASS: native source manual cell workflow \(12 stages, [1-9]\d* checks\)$", 12),
     "template-cells": ("build/tests/test_template_cells-gui", "PASS: native template manual cell workflow",
                     r"^PASS: native template manual cell workflow \(10 stages, [1-9]\d* checks\)$", 10),
     "paste-command": ("build/tests/test_paste_command-gui", "PASS: native manual paste workflow",
@@ -218,6 +220,9 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
+    "source-cells-app": Feature(("source_range_plan", "range_command", "history_range"), "source-cells",
+        ("python3 tools/test.py feature --feature source-range-move-plan",),
+        ("src/app/app.c: source manual paste/Clear route", "tests/support/source_cells_app.inc")),
     "source-range-move-plan": Feature(("source_range_plan", "mixed_range_plan"), "",
         ("python3 tools/test.py feature --feature mixed-column-app",),
         ("src/workbook/source_range_plan.c: complete source-bearing movement projection", "tests/test_source_range_plan.c")),
