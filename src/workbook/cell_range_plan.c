@@ -104,3 +104,29 @@ CellRangeStatus cells_columns_plan(const CellStore *s,size_t column,size_t count
     for (size_t i=0;i<next.count;i++) { next.cells[i]=items[i]; next.cells[i].text=dx_strdup(items[i].text); }
     cells_snapshot_free(out); *out=next; return status;
 }
+
+static CellRangeStatus project_clear(const CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,SheetCell *items,CellRangePlanInfo *out,char **error) {
+    if (!out || r0>r1 || c0>c1 || r1>=DX_SHEET_ROWS || c1>=16384 || !source_valid(s,error)) {
+        if (!error || !*error) fail(error,"Choose a finite clear range inside the worksheet."); return CELL_RANGE_INVALID;
+    }
+    size_t n=0,bytes=0; bool changed=false;
+    for (size_t i=0;i<s->count;i++) {
+        const SheetCell *cell=s->cells+i;
+        if (inside(cell,r0,r1,c0,c1)) { changed=true; continue; }
+        items[n++]=*cell; bytes+=strlen(cell->text)+1;
+    }
+    if (!changed) return CELL_RANGE_NOOP;
+    *out=(CellRangePlanInfo){n*sizeof(SheetCell)+bytes,n,bytes}; return CELL_RANGE_READY;
+}
+CellRangeStatus cells_clear_measure(const CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,CellRangePlanInfo *out,char **error) {
+    if (!out) return CELL_RANGE_INVALID; SheetCell items[DX_MAX_EDIT_CELLS]; CellRangePlanInfo info={0};
+    CellRangeStatus status=project_clear(s,r0,r1,c0,c1,items,&info,error); if (status==CELL_RANGE_READY) *out=info; return status;
+}
+CellRangeStatus cells_clear_plan(const CellStore *s,uint64_t r0,uint64_t r1,size_t c0,size_t c1,size_t reserved,CellSnapshot *out,char **error) {
+    if (!out) return CELL_RANGE_INVALID; SheetCell items[DX_MAX_EDIT_CELLS]; CellRangePlanInfo info={0};
+    CellRangeStatus status=project_clear(s,r0,r1,c0,c1,items,&info,error); if (status!=CELL_RANGE_READY) return status;
+    if (info.owned>reserved) { fail(error,"Clear cell ownership exceeds its admitted planning budget."); return CELL_RANGE_LIMIT; }
+    CellSnapshot next={.count=info.count,.bytes=info.bytes}; if (next.count) next.cells=dx_alloc(next.count*sizeof(*next.cells));
+    for (size_t i=0;i<next.count;i++) { next.cells[i]=items[i]; next.cells[i].text=dx_strdup(items[i].text); }
+    cells_snapshot_free(out); *out=next; return CELL_RANGE_READY;
+}

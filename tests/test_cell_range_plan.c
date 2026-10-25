@@ -26,8 +26,23 @@ static void columns(void) {
     CHECK(cells_columns_plan(&s,16383,1,false,SIZE_MAX,&out,NULL)==CELL_RANGE_READY && out.count==3);
     cells_snapshot_free(&out); cells_free(&s);
 }
+static void clear_projection(void) {
+    CellStore s={0},expected={0}; CellSnapshot out={0}; CellRangePlanInfo info={.owned=99};
+    CHECK(cells_set(&s,0,0,"NULL",NULL) && cells_set(&s,100,5,"9007199254740993.0123456789",NULL) && cells_set(&s,DX_SHEET_ROWS-1,16383,"İstanbul",NULL));
+    cells_copy(&expected,&s); CellStore before=s;
+    CHECK(cells_clear_measure(&s,1,2,1,2,&info,NULL)==CELL_RANGE_NOOP && info.owned==99);
+    CHECK(cells_clear_measure(&s,0,100,0,5,&info,NULL)==CELL_RANGE_READY && info.count==1);
+    CHECK(cells_clear_plan(&s,0,100,0,5,info.owned-1,&out,NULL)==CELL_RANGE_LIMIT && !out.cells && !memcmp(&before,&s,sizeof(s)));
+    CHECK(cells_clear_plan(&s,0,100,0,5,info.owned,&out,NULL)==CELL_RANGE_READY && out.count==1 && out.cells[0].row==DX_SHEET_ROWS-1 && out.cells[0].col==16383 && !strcmp(out.cells[0].text,"İstanbul") && out.cells[0].text!=s.cells[2].text);
+    CHECK(cells_clear(&expected,0,100,0,5) && expected.count==out.count && !strcmp(expected.cells[0].text,out.cells[0].text));
+    CellSnapshot held=out;
+    CHECK(cells_clear_plan(&s,2,1,0,0,SIZE_MAX,&out,NULL)==CELL_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+    CHECK(cells_clear_plan(&s,0,UINT64_MAX,0,0,SIZE_MAX,&out,NULL)==CELL_RANGE_INVALID && !memcmp(&held,&out,sizeof(out)));
+    CHECK(cells_clear_plan(&s,0,DX_SHEET_ROWS-1,0,16383,0,&out,NULL)==CELL_RANGE_READY && !out.count && !out.cells);
+    CHECK(!memcmp(&before,&s,sizeof(s))); cells_free(&s); cells_free(&expected);
+}
 int main(void) {
-    columns(); CellStore s={0}; char *error=NULL; CHECK(cells_set(&s,1,1,"NULL",&error) && cells_set(&s,3,3,"12345678901234567890.123456789",&error) && cells_set(&s,10,10,"Occupied",&error));
+    clear_projection(); columns(); CellStore s={0}; char *error=NULL; CHECK(cells_set(&s,1,1,"NULL",&error) && cells_set(&s,3,3,"12345678901234567890.123456789",&error) && cells_set(&s,10,10,"Occupied",&error));
     CellRangePlanInfo info={.owned=99}; CellStore before=s; CellSnapshot out={0};
     CHECK(cells_range_measure(&s,1,3,1,3,0,0,false,&info,NULL)==CELL_RANGE_NOOP && info.owned==99 && !memcmp(&before,&s,sizeof(s)));
     CHECK(cells_range_measure(&s,1,3,1,3,9,9,false,&info,NULL)==CELL_RANGE_OCCUPIED && info.owned==99);
