@@ -7,6 +7,12 @@ static uint64_t source_results_first,source_results_other;
 static uint64_t source_move_revision,source_move_high,source_move_ledger;
 static void source_move_select(App *a,uint64_t row,size_t col) { grid_select_cell(&a->grid,row,col,false); a->grid.end_row=row+312; a->grid.end_col=col+12; }
 #endif
+#ifdef DUXCEL_FEATURE_SOURCE_ROWS
+static uint64_t source_rows_revision,source_rows_high,source_rows_ledger,source_rows_width;
+static size_t source_rows_redo;
+static void source_rows_select(App *a,uint64_t row) { grid_select_cell(&a->grid,row,0,false); a->grid.selection=SELECT_ROWS; a->grid.end_row=row+1; }
+static void source_rows_menu(App *a,int action) { a->modal=MODAL_CONTEXT; a->context_origin=(Vector2){300,200}; a->context_focus=action; a->context_scroll=0; a->chrome_focus=a->pivot_focus=0; ui_note_key_press(KEY_ENTER,0); }
+#endif
 static RangeSourcePolicy source_results_policy;
 static RangeResultContext source_results_resolver;
 static RangeCommandTarget *source_results_target;
@@ -98,7 +104,7 @@ static void source_results_test_frame(AppSession *session) {
         if (!object_ready(a,0) || !object_ready(a,1) || !object_ready(a,2)) return;
         RangeResultProof proof={0}; SR_CHECK(app_range_result(a,source_results_first,&proof) && proof.ready && proof.object==source_results_first && proof.owner==&a->objects[1] && proof.definition==&s->objects.items[0].source && proof.query_epoch==s->objects.items[1].revision && proof.source_epoch==s->objects.items[0].revision && proof.request==a->request_id);
         SR_CHECK(source_results_noop(a).status==RANGE_COMMAND_STALE && source_results_prepare(a,true) && source_results_noop(a).status==RANGE_COMMAND_NOOP && !s->cells.count);
-#ifndef DUXCEL_FEATURE_SOURCE_MOVE
+#if !defined(DUXCEL_FEATURE_SOURCE_MOVE) && !defined(DUXCEL_FEATURE_SOURCE_ROWS)
         source_results_result=1; printf("PASS: native actual source result association workflow (13 stages, %u checks)\n",source_results_checks);
 #endif
         break;
@@ -137,6 +143,35 @@ static void source_results_test_frame(AppSession *session) {
         SR_CHECK(s->objects.items[0].row==1001 && a->book.command_revision==source_move_revision && !strcmp(cells_get(&s->cells,2000,16),"Replace destination") && (format_at(&s->formats,1000,16).flags&FORMAT_BOLD));
         SR_CHECK(s->objects.next_id==source_move_high && s->source_versions.high_water==source_move_ledger && a->analysis.kind==SOURCE_CSV && !a->replace_manual_target);
         source_results_result=1; printf("PASS: native source mixed move workflow (21 stages, %u checks)\n",source_results_checks); break;
+#endif
+#ifdef DUXCEL_FEATURE_SOURCE_ROWS
+    case 13: {
+        char *error=NULL; SR_CHECK(cells_set(&s->cells,740,15,"9007199254740993.0123456789",&error)); worksheet_record(s,EDIT_CELLS);
+        grid_select_cell(&a->grid,740,15,false); CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; SR_CHECK(apply_format(a,FORMAT_BOLD,bold)); free(error);
+        source_rows_high=s->objects.next_id; source_rows_ledger=s->source_versions.high_water; source_rows_width=s->width_revision; source_rows_revision=a->book.command_revision; break;
+    }
+    case 14: source_rows_select(a,320); source_rows_menu(a,0); break;
+    case 15:
+        SR_CHECK(a->modal==MODAL_NONE && a->book.command_revision==source_rows_revision+1 && s->objects.items[0].row==332 && s->undo_actions[s->undo_actions_count-1]==EDIT_RANGE_FORMAT);
+        SR_CHECK(!strcmp(cells_get(&s->cells,742,15),"9007199254740993.0123456789") && (format_at(&s->formats,742,15).flags&FORMAT_BOLD) && a->grid.selection==SELECT_ROWS && a->grid.anchor_row==320 && a->grid.end_row==321); history(a,false); break;
+    case 16:
+        SR_CHECK(s->objects.items[0].row==330 && !strcmp(cells_get(&s->cells,740,15),"9007199254740993.0123456789")); history(a,true); break;
+    case 17:
+        SR_CHECK(s->objects.items[0].row==332 && !strcmp(cells_get(&s->cells,742,15),"9007199254740993.0123456789")); source_rows_select(a,320); source_rows_menu(a,2); break;
+    case 18:
+        SR_CHECK(s->objects.items[0].row==330 && !strcmp(cells_get(&s->cells,740,15),"9007199254740993.0123456789")); source_rows_revision=a->book.command_revision; source_rows_select(a,100); source_rows_menu(a,0); break;
+    case 19:
+        SR_CHECK(a->book.command_revision==source_rows_revision && s->objects.items[0].row==330); source_rows_select(a,331); source_rows_menu(a,0); break;
+    case 20:
+        SR_CHECK(a->book.command_revision==source_rows_revision && s->objects.items[0].row==330); history(a,false); break;
+    case 21:
+        SR_CHECK(s->objects.items[0].row==332); source_rows_revision=a->book.command_revision; source_rows_redo=s->redo_actions_count; SR_CHECK(source_rows_redo); source_rows_select(a,900); source_rows_menu(a,0); break;
+    case 22:
+        SR_CHECK(a->book.command_revision==source_rows_revision && s->redo_actions_count==source_rows_redo && s->objects.items[0].row==332); history(a,true); break;
+    case 23:
+        SR_CHECK(s->objects.items[0].row==330 && !strcmp(cells_get(&s->cells,740,15),"9007199254740993.0123456789") && (format_at(&s->formats,740,15).flags&FORMAT_BOLD));
+        SR_CHECK(s->objects.next_id==source_rows_high && s->source_versions.high_water==source_rows_ledger && s->width_revision==source_rows_width && a->analysis.kind==SOURCE_CSV);
+        source_results_result=1; printf("PASS: native source mixed row workflow (24 stages, %u checks)\n",source_results_checks); break;
 #endif
     }
     source_results_stage++;

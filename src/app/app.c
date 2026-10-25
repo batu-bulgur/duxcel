@@ -5520,11 +5520,11 @@ static bool template_range_owner(const App *a,const Worksheet *sheet);
 static RangeCommandContext app_range_context(App *a,RangeCommandOperation operation) {
     RangeCommandContext context=manual_range_context(a); Worksheet *sheet=active_sheet(a);
     if (!manual_range_owner(a,sheet) && !template_range_owner(a,sheet) &&
-        (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_PASTE || operation==RANGE_OPERATION_CLEAR)) {
+        (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_INSERT_ROWS || operation==RANGE_OPERATION_DELETE_ROWS || operation==RANGE_OPERATION_PASTE || operation==RANGE_OPERATION_CLEAR)) {
         a->range_result_ready=context.command.ready;
         a->range_source_policy=(RangeSourcePolicy){&a->page.total,&a->page.column_count,&a->page.count_pending,&a->fetch_failed,&a->range_result_ready};
         context.source=&a->range_source_policy;
-        if (operation==RANGE_OPERATION_MOVE) {
+        if (operation==RANGE_OPERATION_MOVE || operation==RANGE_OPERATION_INSERT_ROWS || operation==RANGE_OPERATION_DELETE_ROWS) {
             a->range_result_context=(RangeResultContext){app_range_result,a}; context.results=&a->range_result_context;
         }
     }
@@ -5734,11 +5734,12 @@ static void column_action(App *a,ColumnAction action) {
         free(error);
     } else if (action==ROW_ABOVE || action==ROW_BELOW || action==ROW_DELETE) {
         uint64_t first,last; selected_rows(g,&first,&last);
-        uint64_t row=action==ROW_BELOW ? last+1 : first,count=last-first+1,rows=a->analysis.kind==SOURCE_NONE ? 0 : !a->page.column_count ? UINT64_MAX : source_rows(a); char *error=NULL;
+        uint64_t row=action==ROW_BELOW ? last+1 : first,count=last-first+1; char *error=NULL;
         bool moved=false; for (size_t i=0;i<sheet->objects.count;i++) if (action==ROW_DELETE ? sheet->objects.items[i].row>=row+count : sheet->objects.items[i].row>=row) moved=true;
         uint64_t revision=sheet->cells.revision,format_revision=sheet->formats.revision;
-        bool accepted=(manual_range_owner(a,sheet) || template_range_owner(a,sheet)) ? move_manual_range(a,(RangeCommand){.operation=action==ROW_DELETE ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=row,.row_count=count},NULL,&error) :
-            worksheet_rows(sheet,row,count,action!=ROW_DELETE,rows,&error);
+        /* Pending, failed or mismatched source result owners are explicit typed
+           rejections. Never retry a denied complete command through legacy history. */
+        bool accepted=move_manual_range(a,(RangeCommand){.operation=action==ROW_DELETE ? RANGE_OPERATION_DELETE_ROWS : RANGE_OPERATION_INSERT_ROWS,.row=row,.row_count=count},NULL,&error);
         if (!accepted) { status(a,error); free(error); return; }
         bool changed=moved || revision!=sheet->cells.revision || format_revision!=sheet->formats.revision;
         if (changed) a->book.dirty=true;

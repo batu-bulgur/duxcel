@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "source-rows": ("build/tests/test_source_rows-gui", "PASS: native source mixed row workflow",
+                    r"^PASS: native source mixed row workflow \(24 stages, [1-9]\d* checks\)$", 24),
     "source-move": ("build/tests/test_source_move-gui", "PASS: native source mixed move workflow",
                     r"^PASS: native source mixed move workflow \(21 stages, [1-9]\d* checks\)$", 21),
     "source-results": ("build/tests/test_source_results-gui", "PASS: native actual source result association workflow",
@@ -224,6 +226,9 @@ FEATURES = {
     "paste-scanner": Feature(("cell_tsv",), "",
         ("python3 tools/test.py feature --feature range-command",),
         ("src/workbook/cells_tsv_scan.c", "src/workbook/cells.c: shared paste scanner", "tests/test_cell_tsv.c")),
+    "source-rows-app": Feature(("source_range_plan", "range_event", "range_command", "history_range"), "source-rows",
+        ("python3 tools/test.py feature --feature source-move-app",),
+        ("src/app/app.c: source row-only complete range routing", "tests/support/source_results_app.inc: source rows"), fixtures=("transactions",)),
     "source-move-app": Feature(("source_range_plan", "range_event", "range_command", "history_range"), "source-move",
         ("python3 tools/test.py feature --feature source-results-app",),
         ("src/app/app.c: source mixed MOVE and captured Replace", "tests/support/source_results_app.inc: source move"), fixtures=("transactions",)),
