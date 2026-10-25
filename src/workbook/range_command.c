@@ -59,14 +59,19 @@ RangeCommandStatus workbook_range_command_measure(const RangeCommandContext *c,s
     if (!eligible(c,s)) { fail(error,"Source and analytical ranges require their complete composite owner."); return RANGE_COMMAND_PROTECTED; }
     if (!format_shape(&s->formats)) { fail(error,"Invalid bounded format state."); return RANGE_COMMAND_INVALID; }
     if (s->objects.count) {
-        bool move=command.operation==RANGE_OPERATION_MOVE,rows=command.operation==RANGE_OPERATION_INSERT_ROWS || command.operation==RANGE_OPERATION_DELETE_ROWS;
-        if (!move && !rows) { fail(error,"Object-bearing column/paste/clear operations require a separate complete owner."); return RANGE_COMMAND_PROTECTED; }
-        if (command.column || command.column_count || command.text || (move && (command.row || command.row_count)) || (rows && (command.dr || command.dc || command.replace || command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1))) return RANGE_COMMAND_INVALID;
-        MixedRangePlanInfo mixed={0}; MixedRangeStatus status=move ? mixed_range_measure(s,c->primary,command.range,command.dr,command.dc,command.replace,&mixed,error) : mixed_rows_measure(s,c->primary,command.row,command.row_count,insert(command),&mixed,error);
+        bool move=command.operation==RANGE_OPERATION_MOVE,rows=command.operation==RANGE_OPERATION_INSERT_ROWS || command.operation==RANGE_OPERATION_DELETE_ROWS,cols=columns(command);
+        if (!move && !rows && !cols) { fail(error,"Object-bearing paste/clear operations require a separate complete owner."); return RANGE_COMMAND_PROTECTED; }
+        if (command.text || (move && (command.row || command.row_count || command.column || command.column_count)) || (rows && (command.column || command.column_count || command.dr || command.dc || command.replace || command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1)) || (cols && (command.column>=16384 || command.column_count!=1 || command.row || command.row_count || command.dr || command.dc || command.replace || command.range.r0 || command.range.r1 || command.range.c0 || command.range.c1))) return RANGE_COMMAND_INVALID;
+        MixedRangePlanInfo mixed={0}; MixedRangeStatus status=move ? mixed_range_measure(s,c->primary,command.range,command.dr,command.dc,command.replace,&mixed,error) : rows ? mixed_rows_measure(s,c->primary,command.row,command.row_count,insert(command),&mixed,error) : mixed_column_measure(s,c->primary,command.column,insert(command),&mixed,error);
         if (status!=MIXED_RANGE_READY) return status==MIXED_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==MIXED_RANGE_PROTECTED ? RANGE_COMMAND_PROTECTED : status==MIXED_RANGE_OCCUPIED ? RANGE_COMMAND_OCCUPIED : status==MIXED_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID;
         ObjectSnapshot before={s->objects.items,s->objects.count}; size_t retained=objects_snapshot_owned_bytes(&before);
         if (retained==SIZE_MAX) return RANGE_COMMAND_INVALID;
-        *out=(RangeCommandPlanInfo){.owned=mixed.owned+retained+2*s->cells.count*sizeof(CellDelta),.validation_scratch=mixed.validation_scratch}; return RANGE_COMMAND_READY;
+        size_t width_owned=0;
+        if (cols) {
+            ColumnWidthEntry entries[DX_COLUMN_WIDTH_COLUMNS]; ColumnWidthView shifted={0}; ColumnWidthStatus widths=width_axis((Worksheet *)s,command,entries,&shifted,&width_owned);
+            if (widths!=COLUMN_WIDTH_OK && widths!=COLUMN_WIDTH_NOOP) return widths==COLUMN_WIDTH_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID;
+        }
+        *out=(RangeCommandPlanInfo){.owned=mixed.owned+retained+2*s->cells.count*sizeof(CellDelta)+width_owned,.validation_scratch=mixed.validation_scratch}; return RANGE_COMMAND_READY;
     }
     if (command.operation==RANGE_OPERATION_CLEAR) {
         if (command.text || command.row || command.row_count || command.column || command.column_count || command.dr || command.dc || command.replace) { fail(error,"Choose one finite clear range."); return RANGE_COMMAND_INVALID; }
@@ -134,6 +139,7 @@ static size_t deltas(uint64_t sheet,const CellStore *before,const CellSnapshot *
     return n;
 }
 static bool mixed_kind(unsigned effects,EditKind *kind) {
+    if (effects&16) return worksheet_width_edit_kind(effects,kind);
     switch (effects) {
     case 2:*kind=EDIT_CELLS;break; case 4:*kind=EDIT_OBJECTS;break; case 6:*kind=EDIT_RANGE;break;
     case 8:*kind=EDIT_FORMAT;break; case 10:*kind=EDIT_CELLS_FORMAT;break; case 12:*kind=EDIT_OBJECTS_FORMAT;break; case 14:*kind=EDIT_RANGE_FORMAT;break;
@@ -142,10 +148,14 @@ static bool mixed_kind(unsigned effects,EditKind *kind) {
     return true;
 }
 static RangeCommandResult apply_mixed(RangeCommandContext *c,const RangeCommandTarget *t,RangeCommand command,RangeCommandPlanInfo info,RangeCommandResult r,const WorkbookHistoryRangeRecorder *recorder,char **error) {
-    Workbook *b=c->command.book; Worksheet *s=resolve(b,t->owner.owner.sheet_id); MixedRangePlan plan={0}; CellDelta *changes=NULL; void *ticket=NULL;
-    MixedRangeStatus status=command.operation==RANGE_OPERATION_MOVE ? mixed_range_plan(s,c->primary,command.range,command.dr,command.dc,command.replace,info.owned,c->command.validation_reserved,&plan,error) : mixed_rows_plan(s,c->primary,command.row,command.row_count,insert(command),info.owned,c->command.validation_reserved,&plan,error);
+    Workbook *b=c->command.book; Worksheet *s=resolve(b,t->owner.owner.sheet_id); MixedRangePlan plan={0}; CellDelta *changes=NULL; void *ticket=NULL; ColumnWidthCommand *widths=NULL;
+    MixedRangeStatus status=command.operation==RANGE_OPERATION_MOVE ? mixed_range_plan(s,c->primary,command.range,command.dr,command.dc,command.replace,info.owned,c->command.validation_reserved,&plan,error) : columns(command) ? mixed_column_plan(s,c->primary,command.column,insert(command),info.owned,c->command.validation_reserved,&plan,error) : mixed_rows_plan(s,c->primary,command.row,command.row_count,insert(command),info.owned,c->command.validation_reserved,&plan,error);
     if (status!=MIXED_RANGE_READY) { r.status=status==MIXED_RANGE_NOOP ? RANGE_COMMAND_NOOP : status==MIXED_RANGE_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; return r; }
     r.effects=plan.effects; EditKind kind;
+    if (r.effects&16) {
+        ColumnWidthStatus prepared=column_width_command_prepare(width_context(s,info.owned),column_width_view(&plan.widths),&widths);
+        if (prepared!=COLUMN_WIDTH_OK) { r.status=prepared==COLUMN_WIDTH_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancel; }
+    }
     if (!mixed_kind(r.effects,&kind)) { r.status=RANGE_COMMAND_INVALID; goto cancel; }
     if (b->command_revision==UINT64_MAX || ((r.effects&2) && s->cells.revision==UINT64_MAX) || ((r.effects&8) && s->formats.revision==UINT64_MAX) || !worksheet_history_order_available()) { r.status=RANGE_COMMAND_LIMIT; goto cancel; }
     FormatStore prospective=s->formats;
@@ -163,6 +173,7 @@ static RangeCommandResult apply_mixed(RangeCommandContext *c,const RangeCommandT
         view.definitions=(DefinitionEventView){.sheet=s->id,.object_high_water=s->objects.next_id,.effects=r.effects&12u,.before={NULL,&before},.after={NULL,&plan.objects},.sources=&s->source_versions};
         if (r.effects&8) { view.definitions.before_formats=format_delta_store_view(&s->formats); view.definitions.after_formats=format_delta_snapshot_view(&plan.formats); }
     } else if (r.effects&8) { view.before_formats=format_delta_store_view(&s->formats); view.after_formats=format_delta_snapshot_view(&plan.formats); }
+    if (widths) view.widths=column_width_command_pair(widths);
     RangeEventInfo event={0}; RangeEventStatus encoded=range_event_measure(view,c->command.validation_reserved,&event);
     if (encoded!=RANGE_EVENT_OK) { r.status=encoded==RANGE_EVENT_LIMIT ? RANGE_COMMAND_LIMIT : RANGE_COMMAND_INVALID; goto cancel; }
     if (c->admit && !c->admit(c->admission_context,&prospective,info.owned,info.validation_scratch,error)) { r.status=RANGE_COMMAND_LIMIT; goto cancel; }
@@ -174,17 +185,20 @@ static RangeCommandResult apply_mixed(RangeCommandContext *c,const RangeCommandT
         if (!reserved || !ticket) { r.status=reserved || ticket ? RANGE_COMMAND_INVALID : RANGE_COMMAND_LIMIT; goto cancel; }
         effects=r.effects; r=check(c,t,error); r.effects=effects; if (r.status!=RANGE_COMMAND_READY) goto cancel; s=resolve(b,t->owner.owner.sheet_id); view.definitions.sources=(r.effects&4) ? &s->source_versions : NULL;
     }
+    if (widths) {
+        if (column_width_command_check(width_context(s,info.owned),widths)!=COLUMN_WIDTH_OK || column_width_command_adopt(width_context(s,info.owned),&widths)!=COLUMN_WIDTH_OK) { r.status=RANGE_COMMAND_STALE; goto cancel; }
+    }
     if (r.effects&2) cells_adopt_range(&s->cells,&plan.cells);
     if (r.effects&4) objects_adopt_definition(&s->objects,&plan.objects);
     if (r.effects&8) format_commit(&s->formats,&plan.formats);
     worksheet_record(s,kind); b->command_revision++; b->dirty=true; workbook_history_note_edit(b);
     r.status=RANGE_COMMAND_APPLIED; r.after_revision=b->command_revision;
     if (recorder) recorder->publish(recorder->context,ticket);
-    free(changes); mixed_range_plan_free(&plan); return r;
+    column_width_command_cancel(&widths); free(changes); mixed_range_plan_free(&plan); return r;
 cancel:
     if (ticket && recorder) recorder->cancel(recorder->context,ticket);
     if (error && !*error) fail(error,"The complete mixed range was not admitted; the original state is kept.");
-    free(changes); mixed_range_plan_free(&plan); return r;
+    column_width_command_cancel(&widths); free(changes); mixed_range_plan_free(&plan); return r;
 }
 RangeCommandResult workbook_apply_range_command_recorded(RangeCommandContext *c,const RangeCommandTarget *t,RangeCommand command,const WorkbookHistoryRangeRecorder *recorder,char **error) {
     RangeCommandResult r=check(c,t,error); if (r.status!=RANGE_COMMAND_READY) return r;

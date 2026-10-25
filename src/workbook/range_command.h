@@ -35,7 +35,7 @@ typedef struct { RangeCommandStatus status; unsigned effects; uint64_t before_re
    cache. This first owner admits source/object-free spatial manual formats only;
    source-bearing ranges retain their existing complete producer. Fully contained
    source-free Pivot/Chart templates may move with manual cells/formats or
-   translate as complete row-axis constituents under existing row protections. */
+   translate as complete row/column-axis constituents under existing protections. */
 bool workbook_prepare_range_command(RangeCommandContext *context,size_t sheet,RangeCommandTarget *out,char **error);
 /* Conservative complete cell clone + changed-cell vector + bounded format-plan
    peak. No rectangle-area traversal; all constituent reservation precedes copy.

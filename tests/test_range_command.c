@@ -318,4 +318,53 @@ static void mixed_rows_command(void) {
         CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
     }
 }
-int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command(); mixed_rows_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
+static void mixed_history_transfer(Worksheet *s,bool redo) {
+    EditKind kind=(redo ? s->redo_actions : s->undo_actions)[(redo ? s->redo_actions_count : s->undo_actions_count)-1]; unsigned effects=worksheet_edit_effects(kind);
+    ColumnWidthCommandContext wc={&s->view,&s->width_history,&s->width_revision,SIZE_MAX}; ColumnWidthCommand *widths=NULL;
+    if (effects&16) CHECK(column_width_command_replay(wc,redo,&widths)==COLUMN_WIDTH_OK);
+    if (widths) CHECK(column_width_command_adopt(wc,&widths)==COLUMN_WIDTH_OK);
+    if (effects&2) CHECK(cells_history(&s->cells,redo));
+    if (effects&4) CHECK(objects_history(&s->objects,redo));
+    if (effects&8) CHECK(format_history(&s->formats,redo));
+    worksheet_transfer_history(s,redo);
+}
+static void mixed_columns_command(void) {
+    for (unsigned mode=0;mode<8;mode++) for (unsigned deletion=0;deletion<2;deletion++) {
+        Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"Columns",&(Analysis){0},NULL)); Worksheet *s=b.sheets;
+        CHECK(objects_add(&s->objects,5,2,"Template",NULL)==0); s->objects.items[0].rows=3; s->objects.items[0].columns=2; worksheet_record(s,EDIT_OBJECTS);
+        if (mode&1) { CHECK(cells_set(&s->cells,1,1,"NULL",NULL)); worksheet_record(s,EDIT_CELLS); CHECK(cells_set(&s->cells,12,16382,"9007199254740993.0123456789",NULL)); worksheet_record(s,EDIT_CELLS); }
+        if (mode&2) { CellFormat bold=format_default(); bold.flags=FORMAT_BOLD; CHECK(format_apply(&s->formats,(FormatRange){1,12,1,3},FORMAT_BOLD,bold,NULL)); worksheet_record(s,EDIT_FORMAT); }
+        s->view.column_count=16384; s->view.widths=dx_alloc(16384*sizeof(float)); s->view.columns=dx_alloc(16384*sizeof(char *));
+        for (size_t i=0;i<16384;i++) { s->view.widths[i]=96; s->view.columns[i]=dx_strdup(i==1 ? "Fixed" : ""); }
+        if (mode&4) { s->view.widths[1]=123; s->view.widths[16383]=333; }
+        b.dirty=false; uint64_t request=1,epoch=1; RangeCommandContext c=context(&b,&request,&epoch); RangeCommandTarget *t=target(&c);
+        RangeCommand command={.operation=deletion ? RANGE_OPERATION_DELETE_COLUMNS : RANGE_OPERATION_INSERT_COLUMNS,.column=0,.column_count=1}; RangeCommandPlanInfo measured={0};
+        CHECK(workbook_range_command_measure(&c,0,command,&measured,NULL)==RANGE_COMMAND_READY);
+        s->view.widths[0]=97; CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_STALE && !b.command_revision); s->view.widths[0]=96;
+        c.command.plan_reserved=measured.owned+measured.validation_scratch-1;
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_LIMIT && !b.command_revision && !s->width_revision && s->objects.items[0].col==2);
+        c.command.plan_reserved=SIZE_MAX;
+        if (mode&4) { free(t); s->width_revision=UINT64_MAX; t=target(&c); CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_LIMIT && !b.command_revision); s->width_revision=0; free(t); t=target(&c); }
+        WorkbookHistoryStream *queue=NULL; WorkbookHistoryStreamOrigin origin={.owner={b.id.high,b.id.low,9,VERSION_WORKING_HEAD},.edit_session=b.edit_session_id};
+        CHECK(workbook_history_stream_new(origin,(WorkbookHistoryStreamOptions){2,DX_HISTORY_STREAM_DEFAULT_BYTES},&queue)==HISTORY_STREAM_OK); WorkbookHistoryRangeRecorder recorder=workbook_history_stream_range_recorder(queue);
+        unsigned effects=4u|((mode&1)?2u:0u)|((mode&2)?8u:0u)|((mode&4)?16u:0u); uint64_t high=s->objects.next_id;
+        RangeCommandResult result=workbook_apply_range_command_recorded(&c,t,command,&recorder,NULL);
+        CHECK(result.status==RANGE_COMMAND_APPLIED && result.effects==effects && b.command_revision==1 && s->objects.items[0].col==(deletion ? 1u : 3u) && s->objects.next_id==high && !strcmp(s->view.columns[1],"Fixed"));
+        if (mode&4) CHECK(s->view.widths[deletion ? 0 : 2]==123 && s->view.widths[16383]==96 && s->width_revision==1);
+        WorkbookHistoryEvent *held=NULL; CHECK(workbook_history_stream_dispatch(queue,&held)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *info=workbook_history_event_info(held); RangeEvent event={0};
+        CHECK(range_event_decode(workbook_history_event_payload(held),info->bytes,SIZE_MAX,&event)==RANGE_EVENT_OK && event.effects==effects && event.definitions.before_objects.objects.items[0].col==2 && event.definitions.after_objects.objects.items[0].col==(deletion ? 1u : 3u));
+        if (mode&4) CHECK(event.widths.before.entries[1].column==16383 && event.widths.before.entries[1].bits==column_width_bits(333));
+        range_event_free(&event); CHECK(workbook_history_stream_complete(queue,&held)==HISTORY_STREAM_OK);
+        mixed_history_transfer(s,false); b.command_revision++;
+        CHECK(s->objects.items[0].col==2 && s->objects.next_id==high && !strcmp(s->view.columns[1],"Fixed"));
+        if (mode&4) CHECK(s->view.widths[1]==123 && s->view.widths[16383]==333 && s->width_revision==2);
+        if (mode&1) CHECK(!strcmp(cells_get(&s->cells,1,1),"NULL") && !strcmp(cells_get(&s->cells,12,16382),"9007199254740993.0123456789"));
+        mixed_history_transfer(s,true); b.command_revision++;
+        CHECK(s->objects.items[0].col==(deletion ? 1u : 3u) && s->objects.next_id==high);
+        if (mode&4) CHECK(s->view.widths[deletion ? 0 : 2]==123 && s->view.widths[16383]==96 && s->width_revision==3);
+        free(t); t=target(&c); command.column=deletion ? 1 : 4;
+        CHECK(workbook_apply_range_command_recorded(&c,t,command,NULL,NULL).status==RANGE_COMMAND_INVALID && b.command_revision==3);
+        CHECK(workbook_history_stream_free(&queue,false)==HISTORY_STREAM_OK); free(t); workbook_free(&b);
+    }
+}
+int main(void) { plans(); callbacks(); stream(); effects_and_noop(); rows(); columns_compound(); paste_compound(); mixed_commands(); clear_command(); mixed_rows_command(); mixed_columns_command(); printf("PASS: %u admitted manual range checks\n",checks); return 0; }
