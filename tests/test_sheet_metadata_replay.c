@@ -8,7 +8,7 @@
 static unsigned checks;
 #define CHECK(x) do { checks++; if (!(x)) { fprintf(stderr,"FAIL metadata replay:%d: %s\n",__LINE__,#x); exit(1); } } while (0)
 static Workbook fixture(bool hidden) {
-    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"A",&(Analysis){0},NULL)); CHECK(workbook_add(&b,"B",&(Analysis){.kind=SOURCE_DATABASE,.path="/offline.duckdb"},NULL));
+    Workbook b; workbook_init(&b); CHECK(workbook_add(&b,"A",&(Analysis){.kind=SOURCE_DATABASE,.path="/target-offline.duckdb"},NULL)); CHECK(workbook_add(&b,"B",&(Analysis){.kind=SOURCE_DATABASE,.path="/offline.duckdb"},NULL));
     b.edit_session_id=100; b.sheets[0].edit_session_id=101; b.sheets[1].edit_session_id=102; b.sheets[0].hidden=hidden;
     CHECK(cells_set(&b.sheets[0].cells,10,8,"NULL",NULL)); worksheet_record(b.sheets,EDIT_CELLS); workbook_history_sync(&b); b.dirty=false; return b;
 }

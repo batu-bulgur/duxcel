@@ -3,6 +3,7 @@
 #include "../workbook/sheet_topology_remove.h"
 #include "../workbook/sheet_topology_duplicate.h"
 #include "../workbook/sheet_topology_replay.h"
+#include "../workbook/sheet_metadata_replay.h"
 #include "../workbook/format_command.h"
 #include "../workbook/analysis_command.h"
 #include "../workbook/table_command.h"
@@ -2602,11 +2603,19 @@ static void history(App *a,bool redo) {
     }
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by Undo or Redo."); end_step_preview(a);
     if (target.lifecycle) {
-        if (!capture_sheet(a)) { free(error); return; }
+        WorkbookLifecycleMetadata metadata; bool metadata_action=workbook_lifecycle_metadata(&a->book,redo,&metadata);
+        uint64_t previous=active_sheet(a)->id;
+        /* Same-active presentation metadata never captures source graphs or
+           invalidates live Pages/Analysis. Visibility can genuinely switch it. */
+        if ((!metadata_action || metadata_changes_active(a,redo,&metadata)) && !capture_sheet(a)) { free(error); return; }
         WorkbookLifecyclePresence selected;
         bool typed=workbook_lifecycle_presence(&a->book,redo,&selected) && selected.packet;
-        bool applied=typed ? replay_sheet_presence(a,redo,&selected,&error) : workbook_history_step(&a->book,redo,&error).status==WORKBOOK_HISTORY_APPLIED;
-        if (applied) activate_sheet(a,a->book.active,false);
+        bool applied=typed ? replay_sheet_presence(a,redo,&selected,&error) : metadata_action && metadata.packet ? replay_sheet_metadata(a,redo,&metadata,&error) : workbook_history_step(&a->book,redo,&error).status==WORKBOOK_HISTORY_APPLIED;
+        if (applied && metadata_action && active_sheet(a)->id==previous) {
+            app_reindex_sheet_proofs(a);
+            a->workbook_focus_index=0; for (size_t i=0;i<a->book.active;i++) a->workbook_focus_index+=!a->book.sheets[i].hidden;
+            a->reveal_tab=true; status(a,"Worksheet metadata restored.");
+        } else if (applied) activate_sheet(a,a->book.active,false);
         else if (error) status(a,error);
     } else if (!(worksheet_edit_effects(target.kind)&5)) {
         bool hidden=a->book.sheets[target.sheet].hidden;
@@ -6065,7 +6074,8 @@ static void process_sheet_action(App *a) {
     size_t index=a->sheet_menu_index; if (action==SHEET_ACTION_NONE || a->io_busy || index>=a->book.count) return;
     SOURCE_FORMAT_CANCEL(a,"Formatting cancelled by worksheet navigation.");
     char *error=NULL; size_t previous=a->book.active; bool ok=false;
-    if (!capture_sheet(a)) return;
+    bool capture=action==SHEET_ACTION_DUPLICATE || action==SHEET_ACTION_DELETE || action==SHEET_ACTION_SHOW || (action==SHEET_ACTION_HIDE && index==previous);
+    if (capture && !capture_sheet(a)) return;
     if (action==SHEET_ACTION_DUPLICATE) ok=apply_sheet_presence(a,index,true,&error);
     else if (action==SHEET_ACTION_HIDE || action==SHEET_ACTION_SHOW) ok=apply_sheet_metadata(a,index,action==SHEET_ACTION_HIDE ? SHEET_METADATA_HIDE : SHEET_METADATA_SHOW,0,NULL,&error);
     else if (action==SHEET_ACTION_DELETE) ok=apply_sheet_presence(a,index,false,&error);
@@ -6078,15 +6088,7 @@ static void process_sheet_action(App *a) {
         ok=apply_sheet_metadata(a,index,SHEET_METADATA_REORDER,destination,NULL,&error);
     }
     if (!ok) { status(a,error); free(error); return; }
-#ifndef DUXCEL_BROWSER_HOST
-
-    if (a->source_format_proof.raw.data) a->source_format_proof.sheet=a->book.active;
-    a->source_format_attempt.sheet=a->book.active;
-    for (size_t i=0;i<DX_MAX_OBJECTS;i++) if (a->source_format_tables[i].owner) {
-        a->source_format_tables[i].proof.sheet=a->book.active;
-        a->source_format_tables[i].attempt.sheet=a->book.active;
-    }
-#endif
+    app_reindex_sheet_proofs(a);
     if (action==SHEET_ACTION_DUPLICATE || action==SHEET_ACTION_DELETE || (action==SHEET_ACTION_HIDE && index==previous)) activate_sheet(a,a->book.active,false);
     else if (action==SHEET_ACTION_SHOW) activate_sheet(a,index,true);
     a->workbook_focus_index=(int)sheet_display_position(&a->book,a->book.active); a->reveal_tab=true;

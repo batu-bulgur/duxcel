@@ -44,13 +44,16 @@ static void workbook_lifecycle_test_frame(AppSession *session) {
         begin_sheet_rename(a,a->book.active); input_set(&a->input,"Renamed B"); ui_note_key_press(KEY_ENTER,0); break;
     case 7:
         LIFE_GUI_CHECK(a->modal==MODAL_NONE && !strcmp(s->name,"Renamed B"));
+        lifecycle_request=a->request_id; lifecycle_analysis_revision=a->analysis_revision;
         lifecycle_action(a,a->book.active,SHEET_ACTION_UP); break;
     case 8:
         LIFE_GUI_CHECK(a->book.active==0 && s->id==lifecycle_b); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 9:
-        LIFE_GUI_CHECK(a->book.active==1 && s->id==lifecycle_b); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
+        LIFE_GUI_CHECK(a->book.active==1 && s->id==lifecycle_b);
+        LIFE_GUI_CHECK(a->request_id==lifecycle_request && a->analysis_revision==lifecycle_analysis_revision); ui_note_key_press(KEY_Z,DX_MOD_SUPER); break;
     case 10:
-        LIFE_GUI_CHECK(!strcmp(s->name,"Sheet 2")); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
+        LIFE_GUI_CHECK(!strcmp(s->name,"Sheet 2"));
+        LIFE_GUI_CHECK(a->request_id==lifecycle_request && a->analysis_revision==lifecycle_analysis_revision); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 11:
         LIFE_GUI_CHECK(!strcmp(s->name,"Renamed B")); ui_note_key_press(KEY_Z,DX_MOD_SUPER|DX_MOD_SHIFT); break;
     case 12:

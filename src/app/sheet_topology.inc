@@ -28,6 +28,34 @@ static bool app_sheet_topology_admit(App *a,size_t staging,size_t activation,siz
 #endif
     return true;
 }
+static void app_reindex_sheet_proofs(App *a) {
+#ifndef DUXCEL_BROWSER_HOST
+    if (a->source_format_proof.raw.data) a->source_format_proof.sheet=a->book.active;
+    a->source_format_attempt.sheet=a->book.active;
+    for (size_t i=0;i<DX_MAX_OBJECTS;i++) if (a->source_format_tables[i].owner) {
+        a->source_format_tables[i].proof.sheet=a->book.active;
+        a->source_format_tables[i].attempt.sheet=a->book.active;
+    }
+#else
+    (void)a;
+#endif
+}
+static bool metadata_changes_active(const App *a,bool redo,const WorkbookLifecycleMetadata *entry) {
+    return entry && a->book.sheets[a->book.active].id==entry->sheet &&
+        ((entry->operation==SHEET_HIDE && redo) || (entry->operation==SHEET_SHOW && !redo));
+}
+static bool replay_sheet_metadata(App *a,bool redo,const WorkbookLifecycleMetadata *selected,char **error) {
+    if (!sheet_topology_ready(a,error)) return false;
+    SheetMetadataReplayContext c={&a->book,&a->request_id,0,true,false}; SheetMetadataReplayMeasure usage;
+    SheetMetadataReplayStatus result=sheet_metadata_replay_measure(c,redo,&usage);
+    size_t activation=metadata_changes_active(a,redo,selected) ? sheet_topology_activation_staging(a,NULL) : 0;
+    if (result!=SHEET_METADATA_REPLAY_READY || !app_sheet_topology_admit(a,usage.staging,activation,0,error))
+        return sheet_topology_error(error,"The complete worksheet metadata history transfer is unavailable.");
+    c.reserved=usage.staging; SheetMetadataReplayPlan *plan=NULL;
+    result=sheet_metadata_replay_prepare(c,redo,&plan);
+    if (result==SHEET_METADATA_REPLAY_READY) result=sheet_metadata_replay_apply(c,&plan,error);
+    sheet_metadata_replay_free(&plan); return result==SHEET_METADATA_REPLAY_APPLIED || sheet_topology_error(error,"The worksheet metadata history owner changed before adoption.");
+}
 static bool apply_sheet_presence(App *a,size_t index,bool duplicate,char **error) {
     if (!sheet_topology_ready(a,error) || index>=a->book.count) return false;
     if (!duplicate && !a->book.sheets[index].hidden && workbook_visible_count(&a->book)<=1)
