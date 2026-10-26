@@ -2806,3 +2806,9 @@ contract preserves that snapshot as manual and promotes only current state.
 The fixture now checks the preserved mode. Failed run
 `20261026T023355-native-16574` remains failed evidence; remaining native scenarios
 are being rerun, without relabelling the previously passed module/GUI prefix.
+
+Milestone tool contracts caught newly prepended history/scope engine suites ahead
+of the canonical core/workbook fixture pair. The runner restores that pair to
+the front, preserving their serial adjacency and all added engine coverage.
+Native coverage passed before this runner-only ordering correction; tool
+contracts and the affected engine boundary are rechecked separately.
