@@ -157,6 +157,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "manual-value-wire": Feature(("manual_value_wire", "manual_value"), "",
+        ("python3 tools/test.py feature --feature cell-delta-codec", "python3 tools/test.py feature --feature cell-command"),
+        ("src/workbook/manual_value_wire.c", "src/workbook/manual_value_wire.h", "tests/test_manual_value_wire.c: current DXMV1 only; CellDelta1/CellStore/App/native format adoption remain separate")),
     "manual-value": Feature(("manual_value",), "",
         ("python3 tools/test.py feature --feature cell-command", "python3 tools/test.py feature --feature paste-cell-plan"),
         ("src/workbook/manual_value.c", "src/workbook/manual_value.h", "tests/test_manual_value.c: typed presence, raw/canonical precision and admitted ownership; UI intent selection/CellStore/clipboard/wire remain queued")),

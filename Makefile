@@ -1176,6 +1176,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_manual_format-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_source_import_format-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_template_format-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_manual_value build/tests/test_manual_value-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_manual_value_wire build/tests/test_manual_value_wire-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2659,3 +2660,12 @@ build/tests/test_manual_value: $(MANUAL_VALUE_OBJECTS) | build/tests
 build/tests/test_manual_value-debug: $(MANUAL_VALUE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(MANUAL_VALUE_OBJECTS:.o=.d) $(MANUAL_VALUE_SAN_OBJECTS:.o=.d)
+
+MANUAL_VALUE_WIRE_SRC = src/common.c src/workbook/manual_value.c src/workbook/manual_value_wire.c tests/test_manual_value_wire.c
+MANUAL_VALUE_WIRE_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(MANUAL_VALUE_WIRE_SRC))))
+MANUAL_VALUE_WIRE_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(MANUAL_VALUE_WIRE_SRC))))
+build/tests/test_manual_value_wire: $(MANUAL_VALUE_WIRE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_manual_value_wire-debug: $(MANUAL_VALUE_WIRE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(MANUAL_VALUE_WIRE_OBJECTS:.o=.d) $(MANUAL_VALUE_WIRE_SAN_OBJECTS:.o=.d)
