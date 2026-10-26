@@ -172,6 +172,7 @@ This section describes current controls. The editable [Excel shortcut and featur
 | Arrows / Shift + arrows | Move / extend selection, including empty canvas cells |
 | Tab / Shift+Tab; Enter / Shift+Enter | Move horizontally / vertically; cycle within a selected range |
 | Cmd/Ctrl + arrows; Shift + Cmd/Ctrl + arrows | On a manual sheet, jump between contiguous stored-cell edges, the next island and the physical grid edge; Shift extends from the fixed anchor. Table/pivot/source navigation retains its existing region behavior. |
+| Cmd/Ctrl + G; click the cell address above the grid | Go to one address on a source-free/object-free manual sheet; return focus to the grid first. Enter applies; Escape/Cancel retains the selection. |
 | Home / End; Cmd/Ctrl + Home / End | First/last table/pivot column; worksheet start/used end |
 | Page Up / Down | Move one viewport |
 | Cmd/Ctrl + A | Current table/pivot/manual range → used bounds → worksheet |

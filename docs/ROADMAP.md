@@ -62,6 +62,7 @@ Use [browser persistence](design/BROWSER_PERSISTENCE.md) and [source-format iden
 - [ ] **C01 — Grid data boundaries:** Define and implement Cmd+Arrow / Shift+Cmd+Arrow target/anchor/extent behavior for manual occupied/empty islands, source/Table/Pivot and uncached rows. Navigation must not dirty data or enter undo history. Prove pure C and integrated native input separately. Compare NULL/empty/formula-empty occupancy against Excel Mac.
 - [x] **C01a — Manual data boundaries:** Cmd/Ctrl+Arrow follows stored-cell runs/islands and fixed physical edges on source-free/object-free manual sheets; Shift preserves the anchor. Checked far-column growth preserves selection on allocation failure; navigation preserves data, formats, dirty/history/query state. Analytical and whole-axis routes remain separate.
 - [ ] **C02 — Commands and bindings:** Separate Find/Replace/Go To, filter, Focus, refresh and diagnostics; decide Cmd+F, Cmd+Shift+F, F5 and F12 conflicts. Implement visible menu/ribbon alternatives and popup/editor focus priority. Until new bindings are accepted, the guide describes current controls.
+- [x] **C02a — Manual Go To:** Address-strip entry and Cmd/Ctrl+G open a compact same-sheet single-cell dialog on a source-free/object-free manual grid. Invalid/overlong/stale targets, active editors and pane focus remain protected. No data/history/query changes; F5, F12, Cmd+F and Focus bindings retain their behavior.
 - [ ] **C03/C04 — Editing and clipboard:** Accept F2, commit/cancel, Enter/Tab reverse directions, within-selection navigation, clear/delete, paste/move and undo across manual/read-only/object contexts. Link typed/source-overlay/formula dependencies to separate slices; TSV paste does not establish Paste Special.
 - [ ] **C05 — Document safety:** Reproduce closing-related data loss with the actual binary/platform/close path. Verify native guards, Save/Save As/Close/Quit and the first recovery slice including untitled workbooks. Define saved/current/recoverable revisions and IO failure/cancellation behavior. Browser Open/Save retains its existing persistence gates.
 - [ ] **C06 — UI placement and access:** Verify priority feature records' current/proposed ribbon > group > command/context paths and independent Excel ribbon references. Add icon/label/tooltip, disabled/pending/error, narrow/overflow/Focus and keyboard access to cards. Pointer, keytip and shortcut invoke the same data command; record physical-keyboard/screen-reader acceptance separately.
@@ -2865,3 +2866,18 @@ active-editor guards, unchanged data/history/jobs and genuine Save/Open, in52.18
 (`20261026T033200-feature-52653`). Runner/catalog61 contracts pass4.807s; the
 production Grid object has no allocator-fault symbol. General C01 analytical/
 uncached navigation and physical-device/browser acceptance remain separate.
+
+C01a follow-up `b5c2cc5a` fixes the reproduced distant-row gutter clip through
+a bounded programmatic reveal/layout pass. Three modules in both modes and33
+actual App stages pass56.852s (`20261026T035829-feature-59169`); pointer/pan
+behavior is unchanged.
+
+C02a complete: `0a8fe9cc`/`3bbf8792` integrate Go To, `43fa3b40` authors deferred
+blank-browser access coverage, and `268c18c4` tests a genuinely visible pane.
+`53ef4e4d` selects only owned Node files in feature gates (62 runner/catalog
+contracts pass4.435s). Default `go-to-app` passes10 canvas-input Node cases,
+three C modules in optimized/ASan/UBSan and30 actual App stages/32 assertions in
+30.807s (`20261026T041809-feature-65728`). This covers address click, shortcut,
+invalid/overlong drafts, far visibility, real pane/editor guards, stale sessions
+and unchanged data/history/jobs. Actual browser access remains deferred to the
+next maintained browser window; analytical/qualified addresses remain separate.
