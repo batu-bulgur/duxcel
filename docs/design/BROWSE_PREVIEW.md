@@ -48,7 +48,7 @@ The separate `browse_preview_component.h` adapter consumes only a genuine prepar
 
 The fresh `_duxcel_previews` component records the actual selected physical target bytes/hash, captured document/revision and exact DXPS bytes/hash. A reused target is accepted only through the controller's genuine complete-core comparison/selection. Ordered bounded chunks are read back byte-for-byte within the same transaction, with capture/selected leases and payload hash rechecked before success. New payload storage and full live/packet/admission/chunk coexistence grants are explicit; they are not engine RSS guarantees.
 
-The adapter never owns the connection, begins/commits/rolls back a transaction, advertises a registry bit or installs App cache/readiness. A non-ready result requires outer rollback. Its scalar ready result is prepublication evidence, not a committed receipt or permission to borrow cache for historical views. Normal native registry/Open/overwrite integration and actual engine acceptance remain separate; the focused native fixture is registered for root's serial engine window.
+The adapter never owns the connection, begins/commits/rolls back a transaction, advertises a registry bit or installs App cache/readiness. A non-ready result requires outer rollback. Its scalar ready result is prepublication evidence, not a committed receipt or permission to borrow cache for historical views. Normal native registry/Open/overwrite integration remains separate. Focused native fixtures verify prepublication staging/rollback and current online read association; offline locator admission and App display remain open.
 
 ## Strict native component reading
 

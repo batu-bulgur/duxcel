@@ -330,8 +330,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12d.2 · P1 · Complete | Unpublished SQL history component; W12d.1. | Stage/read exact sealed head and DXHP chunks in the caller's transaction; reject corruption/ownership failure atomically without committing or enabling the registry. |
 | W12d.3 · P1 · Complete | Prepared after-Save ownership; W12d.1–2. | Preserve retained paths, tags and Redo while binding the selected real after-root; cancellation leaves the source candidate unchanged. |
 | W12d.4 · P1 · Complete | Genuine Save publication callback owners; W12d.3. | Mint prepared/committed witnesses in the real capture/compare/archive flow, bind exact active callback owners and distinguish User Save from export/Tag/checkpoint. No retained-history activation. |
-| W12d.5 · P1 · In progress | Scoped archive target association; W12d.4. | Prove the actual loaded transaction against an actual retained core leaf, with explicit comparison admission and callback lifetime. Preview reader/registry integration remains separate. |
+| W12d.5 · P1 · Complete | Scoped archive target association; W12d.4. | Prove the actual loaded transaction against an actual retained core leaf, including exact primary/Table/retired-ledger locator semantics, explicit comparison admission and owner-controlled transaction teardown. Preview reader/registry integration remains separate. |
 | W12d.6 · P1 · In progress | Actual retained-event applicability; W12b.2c and W12d.1. | Begin with bounded family1 Undo/Redo against the real current Workbook, reject unsupported families, then extend through all required producers/checkpoints before advertising cross-session replay. |
+| W12d.6a · P1 · Complete | Actual current/Saved cell projections; W12d.1. | Check complete family1 intervals and untouched sparse cells at their explicit shared fork with bounded borrowed overlays. Mixed families and full authored-graph/checkpoint proof remain excluded. |
+| W12d.6b · P1 · Complete | Real frozen-R cell proof binding; W12d.4 and W12d.6a. | Use the same genuine User Save capture/after-owner tuple; valid physical metadata with wrong latest-after refuses before COMMIT. No normal retained writer activation. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
 | W12g · P1 · Queued | Retained-range presentation and milestone gate; W12e–W12f. | Show actual retained Undo coverage and limits. V8→V9→V10 plus unsaved suffix survives reopen, older tags remain openable, and failure/branch/pruning checks pass at the explicit major milestone. |
@@ -851,6 +853,13 @@ source/binary receipts are under ignored build/tests/results/.
 | ID / priority / state | Scope and dependency | Demo and acceptance gate |
 | --- | --- | --- |
 | W15 · P1 · In progress | Explicit Connect source mode and provenance; W05/W09. | Read-only Parquet/CSV query views save definitions/styles and a bounded preview; offline dependencies are visible, originals unchanged by Save/export. DE06; Connect portion of A16/A24. |
+| W15.1 · P1 · Complete | Truthful external connection labels and provenance; W05/W09. | CSV/Parquet steps say Connect; generated data keeps Import semantics. Resolve actual primary/Table ownership independently of unrelated pending probes. |
+| W15.2 · P1 · Complete | Native Source details interaction; W15.1. | Inspect/copy long current-owner query/path/availability at narrow/150% layouts; genuine primary/Table counts finish while the passive dialog remains open. |
+| W15.3 · P1 · Complete | Immutable bounded browse assets, Set and current codecs; W15.1. | Own exact Page values and selected source closure with explicit captured-only association; enforce aggregate/prior/parser/scratch budgets and atomic late failure. No live-result authority. |
+| W15.4 · P1 · Complete | Native User Save preview staging; W15.3 and W12d.4. | Stage exact DXPS chunks/hash against the actual selected publication target inside its transaction; refuse other intents and preserve previous artifacts on failure. Registry/App activation remains separate. |
+| W15.5 · P1 · In progress | Scoped preview reading and offline admission; W15.4/W12d.5. | Exact descriptor/chunk/hash/actual-model admission passes current online cases. Missing-source locator spelling needs genuine primary/Table/DXSV authority before offline acceptance. |
+| W15.6 · P1 · In progress | Separate preview-only owner/renderer; W15.3. | Independent bounded navigation/rendering labels captured interval/provenance and uncached coverage; never install cache into live Page/ObjectView or grant editing/query/stats/history authority. |
+| W15.7 · P1 · Queued | Normal current-artifact preview publication; W15.4–6. | Register explicit component presence/target intent in the current native format, integrate Save/Open with late publication fences and prove offline browse without source mutation. Historical cache borrowing remains excluded. |
 | W16 · P1 · Queued | Import retained source bytes and recipe; W15/W11. | Import then remove external file: workbook/version still queries retained data; failed import leaves no partial dataset. Retention policy and path/content identity explicit. DE07; retained-source A16/A24. |
 | W17 · P1 · Queued | Add selected query result to hidden Data Model; W16. | Materialize the complete query once, save/reopen offline and query it without a visible table; optional sheet view references the same dataset. DE07; model portion of A24. |
 | W18 · P1 · Queued | Workbook-owned effective relation and one typed record patch; W08/W17. | Distinguish duplicate records, NULL presence, empty/literal text and exact DECIMAL; viewport/filter/pivot/statistics/copy/export read one revision. Connect requires explicit conversion; originals unchanged. DE01/DE03/DE04; A07. |
@@ -869,7 +878,7 @@ source/binary receipts are under ignored build/tests/results/.
 | W26a · P1 · In progress | Typed sparse manual cells; W05/W08. Integrates C03/C04/C07. | NULL/empty/literal text, integers and exact DECIMAL survive edit/clipboard/Undo/reopen; no implicit locale-dependent conversion. WM01; typed-cell portion of A06. This does not wait for the Data Model or formula engine. |
 | W26a.1 · P1 · Complete | Owned explicit manual values; W05. | Separate missing, SQL NULL, present empty TEXT and literal text; validate signed/unsigned integers and exact DECIMAL with C99 lexical arithmetic and locale-independent display. No live typed editor activation. |
 | W26a.2 · P1 · Complete | Closed scalar DXMV wire; W26a.1. | Bounded current-only framing retains exact authored bytes/type and reconstructs canonical numbers; malformed input and insufficient arenas fail atomically. |
-| W26a.3 · P1 · In progress | Exact range wire and explicit TSV projection; W26a.2. | Preserve every coordinate/presence/type privately and explicitly project lossy public TSV with shared escaping. Scoped modules pass; borrowed output alias refusal is the remaining review correction. Store/platform adoption stays separate. |
+| W26a.3 · P1 · Complete | Exact range wire and explicit TSV projection; W26a.2. | Preserve every coordinate/presence/type privately and explicitly project lossy public TSV with shared escaping; reject borrowed text/output/written alias before any write. Store/platform adoption stays separate. |
 | W26a.4 · P1 · Complete | Unpublished typed sparse candidates; W26a.3 wire primitives. | Build exact typed after-states from real snapshots and rectangular clipboard input under coexistence budgets; no live/history/core publication. |
 | W26a.5 · P1 · In progress | Single typed CellStore owner and command/journal/core/render closure; W26a.1–4. | Replace text authority with one owned value, preserve snapshot allocator capacity, then close typed edit/clipboard/Undo/journal/current native and shared-reader behavior as one integration group. Private store checks are prerequisites, not user-visible typed editing. |
 | W26b · P1 · Queued | Basic parsed positional formulas and dependency runtime; W26a/W21. Integrates C08. | An explicit small operator/function set recalculates typed manual/analytical references, detects cycles and displays typed ref/type/calc errors. Valid changed numbers recalculate; saved stale output retains its provenance. WM04; formula part of A06/A31. |
@@ -2380,10 +2389,10 @@ preview persistence or historical cached-output activation is implied.
 
 | Lane | Current independent scope | Ready boundary / remaining acceptance |
 | --- | --- | --- |
-| Source (`roadmap-source-format`) | W26a closed typed sparse store/command/current-codec/render cutover | Source-format10/11/6 actual GUI stages pass on main. Five pure value/range prerequisites are integrated for focused reconciliation. Private typed-store checkpoint `788d4e94` passes scoped modules and native compilation; typed command/journal closure continues. Live enabling waits for one coordinated current-schema/Worker/fixture group. |
-| Object (`roadmap-object-create`) | W15 source details, native preview staging and strict read association | Native User Save preview staging passes both configurations31.986s at `be69fc0c`; evidence is protected at `97b9a528`. Actual SourceDetails CSV GUI exposed pending count scheduling at stage22; the passive-modal fix and CSV/Parquet rerun remain pending. Preview is a separate captured-only owner; no registry/App cache activation or historical borrowing. |
-| History (`roadmap-history-save-as`) | W12b.2c combined profile/wire, W12d physical capture/component/after-Save preparation and actual-state proof | All four native plans pass at `d109d2fa`, including actual publication/Save/Tag/Worker optimized/sanitizer checks. Shared archive scope is next. Actual-state applicability still blocks advertised Undo publication. |
-| Coordinator (main) | Linear integration, shared interfaces, scoped acceptance and milestone delivery | The delivered native full run passes252 pure configurations,51 GUI workflows and18 broad scenarios. Final verified delivery is `build/tests/results/milestone2-delivery.json`; the next feature group advances under focused gates. |
+| Source (`roadmap-source-format`) | W26a closed typed sparse store/command/current-codec/render cutover | Source-format10/11/6 actual GUI stages pass on main. Five pure value/range prerequisites and the alias guard pass their focused reconciliation. Private typed-store checkpoint `788d4e94` passes scoped modules and native compilation; typed command/journal closure continues. Live enabling waits for one coordinated current-schema/Worker/fixture group. |
+| Object (`roadmap-object-create`) | W15 source details, native preview staging and strict read association | SourceDetails actual CSV/Parquet25+25 stages pass on combined main. Native stage plus strict online component read passes45.582s; offline locator admission and a separate preview-only renderer continue privately. Preview is a separate captured-only owner; no registry/App cache activation or historical borrowing. |
+| History (`roadmap-history-save-as`) | W12b.2c combined profile/wire, W12d physical capture/component/after-Save preparation and actual-state proof | Four native capture/component/after-Save/publication plans pass on combined main. Archive scope/read/compare40.302s and actual frozen-R cell binding10.122s pass; Saved physical/sheet graph proof remains private. Mixed-family/Tagged applicability still blocks advertised Undo publication. |
+| Coordinator (main) | Linear integration, shared interfaces, scoped acceptance and milestone delivery | The delivered native full run passes252 pure configurations,51 GUI workflows and18 broad scenarios. Final verified delivery is `build/tests/results/milestone2-delivery.json`; the next connection/history/typed-prerequisite group has passed focused gates and is entering its explicit integration milestone. |
 
 The W15 initial cache policy is auxiliary current-artifact browse data. Named
 historical preview/Save As must not borrow Working Head rows. Reused roots use
@@ -2744,10 +2753,25 @@ is claimed for this post-delivery feature group.
 
 Combined main history foundation (`7add8f0b`–`be60c32a`) passes the four scoped
 optimized/sanitizer plans after linear integration: capture22.083s, component
-13.638s, after-Save14.749s and publication67.771s (`20261026T010344-feature-40637`,
+13.638s, after-Save14.749s and publication67.766s (`20261026T010344-feature-40637`,
 `010406-feature-43859`, `010420-feature-44287`, `010435-feature-44855`). The last
 plan includes actual Save/Tag/Worker checks; fourteen catalog contracts pass.
 Pure typed prerequisites pass range/scalar/value/existing-TSV8.233s and sparse
 candidates3.908s (`010213-feature-39892`, `010222-feature-40234`). W12b.2c.1–2
 and W12d.1–4 are components, not persisted Undo/Open activation. Actual-state
 applicability and registry publication remain mandatory.
+
+The connection/history foundation milestone freezes after `24dbec22` product
+code. Combined SourceDetails CSV25 stages58.584s and Parquet25 stages23.861s pass
+(`20261026T011020-feature-50902`, `011119-feature-50901`). Corrected scope/read/
+compare passes all six native configurations40.302s (`012001-feature-56721`),
+including missing primary/Table/retired-ledger locators and changed-target
+refusal; strict online preview stage/read passes both native modes45.582s
+(`012041-feature-57075`). Actual frozen-R family1 publication passes10.122s
+(`011901-feature-56092`), and range/TSV alias5.464s plus cell-state5.786s pass
+(`010826-feature-47759`, `010831-feature-48000`). Failed DETACH/locator and fixture
+reports remain failed; corrected reports are separate. Full native plus
+maintained Wasm/browser/platform delivery gates are the next explicit milestone
+work; private offline-preview, authored-graph and DXCD2/journal/core work continues
+without changing this frozen product snapshot. Current file layers remain
+native16/core15; future typed core16/native17 is not enabled.
