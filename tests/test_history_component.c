@@ -50,6 +50,14 @@ int main(void) {
        the SAME leased R body, with its old Saved index still prepublication. */
     CellEditTarget target; CHECK(workbook_prepare_cell_edit(&book,0,2,3,&target,&error)); CellEditCommand command={CELL_EDIT_COMMAND_VERSION,target,"Live R+1",8};
     CHECK(workbook_apply_cell_edit(&book,&command,(CellEditPolicy){0},&error).status==CELL_EDIT_APPLIED && book.command_revision==2);
+    /* Successful admission owns exact copies even when the transaction owner
+       deliberately rolls back the unpublished SQL component afterward. */
+    exec(c,"BEGIN"); CHECK(workbook_history_component_stage(c,captured,wire,bytes,staging,storage,(WorkbookHistoryComponentControl){0},&error)==HISTORY_COMPONENT_READY);
+    WorkbookHistoryNativeCapture *rolled_back=NULL; WorkbookHistoryProfileBinding rollback_binding={{book.id.high,book.id.low,120,VERSION_WORKING_HEAD},121};
+    CHECK(workbook_history_component_read(c,roots,rollback_binding,parent,caps(),native_caps(),wire,bytes,parse,DX_HISTORY_PROFILE_PARSE_BYTES,(WorkbookHistoryComponentControl){0},&rolled_back,&error)==HISTORY_COMPONENT_READY);
+    exec(c,"ROLLBACK"); CHECK(!schemas(c));
+    CHECK(workbook_history_native_position(rolled_back)->revision==1 && !memcmp(workbook_core_payload_info(workbook_history_native_head(rolled_back))->sha256,original->sha256,32));
+    CHECK(workbook_core_payload_verify(workbook_history_native_head(rolled_back),NULL,NULL,&error)==CORE_PAYLOAD_READY); workbook_history_native_free(&rolled_back);
     exec(c,"BEGIN"); CHECK(workbook_history_component_stage(c,captured,wire,bytes,staging,storage,(WorkbookHistoryComponentControl){0},&error)==HISTORY_COMPONENT_READY);
     WorkbookHistoryComponentInfo info={.revision=77},before=info;
     CHECK(workbook_history_component_probe(c,original->bytes-1,&info,&error)==HISTORY_COMPONENT_LIMIT && !memcmp(&info,&before,sizeof(info)));
