@@ -17,7 +17,7 @@ WorkbookVersionReadResult workbook_version_metadata_read(duckdb_connection conne
     WorkbookVersionReadControl control,WorkbookVersionMetadata **out,char **error);
 /* Copy a bounded pure index into independently owned metadata, without SQL or
    asset admission. Label spans need not be NUL-terminated. out must be NULL;
-   every failure preserves it. Used for an opened legacy Saved baseline. */
+   every failure preserves it. Used for current owned metadata, including an explicit new-document index. */
 bool workbook_version_metadata_copy(const WorkbookVersionIndex *index,uint64_t reserved_bytes,
     WorkbookVersionMetadata **out,char **error);
 /* The returned index borrows immutable handle-owned arrays/labels until free. */

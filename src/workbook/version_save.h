@@ -6,7 +6,7 @@
 typedef struct WorkbookVersionReceipt WorkbookVersionReceipt;
 typedef struct {
     const Workbook *head;
-    const WorkbookVersionCoreSet *base; /* Borrowed immutable; NULL=new/legacy index. */
+    const WorkbookVersionCoreSet *base; /* Borrowed immutable; NULL=new document index. */
     WorkbookVersionOwner owner;
     WorkbookVersionPurpose purpose;
     const char *path,*parent;
