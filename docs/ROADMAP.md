@@ -2787,3 +2787,14 @@ product C, fixture assertion or application stage was removed. The corrected
 full run remains required; failed raw reports are not relabelled. Wasm normal/
 review/Worker builds pass on the unchanged product snapshot in the isolated
 `roadmap-milestone-web` verification checkout.
+
+The corrected full prefix (`20261026T015118-full-85151`) passes all270 pure
+configurations,56 standalone GUI workflows/958 stages, ordered native engine
+and process checks, background and GPU, then stops at layout546. Its Down key
+correctly skips disabled actions to Inspect SQL (index4); the SourceDetails
+fixture-only edit incorrectly expected the appended last action (index5).
+That assertion is restored to the original intent; separate SourceDetails
+End-navigation coverage remains. Preserve every failed raw report and successful
+prefix result. Complete all18 native scenarios through the maintained native
+tier on the corrected harness; no already-passed engine/GUI work is dropped or
+reported as a successful single full invocation.

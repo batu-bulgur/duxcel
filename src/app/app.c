@@ -12348,8 +12348,9 @@ static void layout_smoke_step(App *a,int *step) {
     case 545:
         if (a->modal!=MODAL_STEP || a->context_focus || a->request_id!=request || !a->ui.pointer_blocked) goto failed; break;
     case 546: {
-        SourceProvenanceView provenance; int last=source_details_view(a,&provenance) ? 5 : 4;
-        if (a->modal!=MODAL_STEP || a->context_focus!=last || a->request_id!=request) goto failed;
+        /* Down skips disabled actions to Inspect SQL; the separate source
+           details workflow exercises End navigation to the appended action. */
+        if (a->modal!=MODAL_STEP || a->context_focus!=4 || a->request_id!=request) goto failed;
         smoke_snapshot("build/tests/results/workspace-layout/native-step-actions-disabled.png"); break;
     }
     case 547:
