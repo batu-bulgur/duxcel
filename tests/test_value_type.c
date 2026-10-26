@@ -36,6 +36,11 @@ int main(void) {
     CHECK(ui_value_type_select(&c,UI_VALUE_TYPE_NULL) && c.value.present && c.value.kind==MANUAL_VALUE_SQL_NULL);
     CHECK(ui_value_type_select(&c,UI_VALUE_TYPE_TEXT) && c.value.present && c.value.kind==MANUAL_VALUE_TEXT);
     UIValueType prior=result; CHECK(ui_value_type_finish(&c,false,&result)==UI_VALUE_TYPE_CANCELLED && same(result,prior));
+    CHECK(ui_value_type_begin((ManualValueView){.present=true,.kind=MANUAL_VALUE_TEXT},&c));
+    CHECK(ui_value_type_select(&c,UI_VALUE_TYPE_CLEAR) && !c.value.present && c.value.kind==MANUAL_VALUE_SQL_NULL);
+    CHECK(ui_value_type_finish(&c,true,&result)==UI_VALUE_TYPE_APPLIED && !result.present);
+    CHECK(ui_value_type_begin((ManualValueView){.present=true,.kind=MANUAL_VALUE_TEXT},&c)); UIValueType unchanged=c.value;
+    CHECK(!ui_value_type_select(&c,(UIValueTypeFamily)99) && same(c.value,unchanged));
     CHECK(ui_value_type_begin((ManualValueView){.present=true,.kind=MANUAL_VALUE_NUMBER,.number={NUM_U128,0,0}},&c));
     UIValueTypeChooser before=c; CHECK(!ui_value_type_begin((ManualValueView){.present=true,.kind=MANUAL_VALUE_NUMBER,.number={NUM_FLOAT,0,0}},&c) && same(c.value,before.value) && c.focus==before.focus && c.active);
     for (unsigned i=0;i<40;i++) { CHECK(ui_value_type_tab(&c,false) && ui_value_type_focus_enabled(&c,c.focus)); CHECK(c.focus!=UI_VALUE_TYPE_PRECISION && c.focus!=UI_VALUE_TYPE_SCALE); }

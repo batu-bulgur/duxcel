@@ -17,6 +17,8 @@ class Feature:
 
 
 STANDALONE_GUI = {
+    "value-type": ("build/tests/test_value_type-gui", "PASS: native explicit value-type workflow",
+                    r"^PASS: native explicit value-type workflow \(24 stages, [1-9]\d* checks\)$", 24),
     "source-details-csv": ("build/tests/test_source_details_csv-gui", "PASS: native source provenance workflow",
                     r"^PASS: native source provenance workflow \(25 stages, [1-9]\d* checks\)$", 25),
     "source-details-parquet": ("build/tests/test_source_details_parquet-gui", "PASS: native source provenance workflow",
@@ -961,6 +963,10 @@ def plan(name):
 
 FEATURE_FIXTURES = {"source-opens": (("tools/create_workbook.py", "--source-opens-only"), "PASS: source open fixtures:", "build/tests/generated/source-open.parquet"), "source-origins": (("tools/create_workbook.py", "--source-origins-only"), "PASS: source origin fixture:", "build/tests/generated/source-origins.dxls"), "transactions": (("tools/create_workbook.py",), "PASS: Python transaction fixture,", "build/tests/generated/design-definition.dxls"), "transactions-large": (("tools/create_workbook.py", "--large"), "PASS: Python transaction fixture,", "build/tests/generated/design-large.dxls"), "source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}
 
-FEATURES["value-type"] = Feature(("value_type", "manual_value"), "",
+FEATURES["value-type"] = Feature(("value_type", "manual_value", "value_type_layout"), "",
     ("python3 tools/test.py full --config both",),
     ("src/ui/value_type.h", "src/ui/value_type.c", "tests/test_value_type.c"))
+
+FEATURES["value-type-view"] = Feature(("value_type", "manual_value", "value_type_layout"), "value-type",
+    ("python3 tools/test.py full --config both",),
+    ("src/ui/value_type_view.h", "src/ui/value_type_layout.c", "src/ui/value_type_view.c", "tests/test_value_type_layout.c", "tests/test_value_type_gui.c"))

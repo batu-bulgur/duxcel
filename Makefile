@@ -1192,7 +1192,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview_component build/tests/t
 PARALLEL_NATIVE_GOALS += build/tests/test_archive_scope build/tests/test_archive_scope-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_state build/tests/test_history_cells_state-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_publication build/tests/test_history_cells_publication-debug
-PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type-debug build/tests/test_value_type_layout build/tests/test_value_type_layout-debug build/tests/test_value_type-gui
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2833,3 +2833,21 @@ build/tests/test_value_type: $(VALUE_TYPE_OBJECTS) | build/tests
 build/tests/test_value_type-debug: $(VALUE_TYPE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(VALUE_TYPE_OBJECTS:.o=.d) $(VALUE_TYPE_SAN_OBJECTS:.o=.d)
+
+VALUE_TYPE_LAYOUT_SRC = src/ui/value_type_layout.c tests/test_value_type_layout.c
+VALUE_TYPE_LAYOUT_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(VALUE_TYPE_LAYOUT_SRC))))
+VALUE_TYPE_LAYOUT_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(VALUE_TYPE_LAYOUT_SRC))))
+build/tests/test_value_type_layout: $(VALUE_TYPE_LAYOUT_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_value_type_layout-debug: $(VALUE_TYPE_LAYOUT_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(VALUE_TYPE_LAYOUT_OBJECTS:.o=.d) $(VALUE_TYPE_LAYOUT_SAN_OBJECTS:.o=.d)
+VALUE_TYPE_GUI_SRC = src/common.c src/transforms/number.c src/platform/platform.c src/ui/fontmetrics.c src/ui/motion.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/value_type.c src/ui/value_type_layout.c src/ui/value_type_view.c $(filter src/platform/macos.m src/platform/macos_about.m,$(SRC)) src/app/build_info.c tests/test_value_type_gui.c
+VALUE_TYPE_GUI_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(VALUE_TYPE_GUI_SRC))))
+VALUE_TYPE_GUI_PLATFORM_LIBS =
+ifeq ($(shell uname -s),Darwin)
+VALUE_TYPE_GUI_PLATFORM_LIBS = -framework AppKit -framework UniformTypeIdentifiers
+endif
+build/tests/test_value_type-gui: $(VALUE_TYPE_GUI_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(RAYLIB_LIBS) $(THREAD_LIBS) -lm $(VALUE_TYPE_GUI_PLATFORM_LIBS))
+-include $(VALUE_TYPE_GUI_OBJECTS:.o=.d)
