@@ -173,19 +173,24 @@ BrowsePreviewStatus browse_preview_preflight(const void *data,size_t bytes,Brows
     if (!out) return BROWSE_PREVIEW_INVALID;
     BrowsePreviewWireInfo info={0}; BrowsePreviewStatus status=parse(data,bytes,NULL,&info); if (status==BROWSE_PREVIEW_OK) *out=info; return status;
 }
-BrowsePreviewStatus browse_preview_decode(const void *data,size_t bytes,size_t reserved,BrowsePreview **out) {
+static BrowsePreviewStatus decode(const void *data,size_t bytes,size_t reserved,bool admit,BrowsePreview **out) {
     if (!out) return BROWSE_PREVIEW_INVALID;
     BrowsePreviewWireInfo info={0}; BrowsePreviewStatus status=browse_preview_preflight(data,bytes,&info); if (status!=BROWSE_PREVIEW_OK) return status;
     size_t coexistence=info.coexistence; if (!plus(&coexistence,*out ? (*out)->info.owned : 0) || reserved<coexistence) return BROWSE_PREVIEW_LIMIT;
     BrowsePreview borrowed={.info=info.preview}; borrowed.definition=(unsigned char *)data+DX_BROWSE_PREVIEW_HEADER_BYTES; borrowed.sources=(unsigned char *)borrowed.definition+info.preview.definition_bytes;
-    BrowsePreviewMetadataInfo metadata={0}; status=browse_preview_metadata_preflight(&borrowed,&metadata); if (status!=BROWSE_PREVIEW_OK) return status;
-    AnalysisAsset definition={0}; SourceVersionsAsset sources={0};
-    status=browse_preview_metadata_decode(&borrowed,&metadata,metadata.owned+metadata.validation_scratch,&definition,&sources);
-    if (status!=BROWSE_PREVIEW_OK) return status;
-    analysis_asset_free(&definition); source_versions_asset_free(&sources);
+    if (admit) {
+        BrowsePreviewMetadataInfo metadata={0}; status=browse_preview_metadata_preflight(&borrowed,&metadata); if (status!=BROWSE_PREVIEW_OK) return status;
+        AnalysisAsset definition={0}; SourceVersionsAsset sources={0};
+        status=browse_preview_metadata_decode(&borrowed,&metadata,metadata.owned+metadata.validation_scratch,&definition,&sources);
+        if (status!=BROWSE_PREVIEW_OK) return status;
+        analysis_asset_free(&definition); source_versions_asset_free(&sources);
+    }
     BrowsePreview *next=dx_alloc(sizeof(*next)); browse_preview_owned_init(next); status=parse(data,bytes,next,&info);
     if (status!=BROWSE_PREVIEW_OK) { browse_preview_free(next); return status; }
     next->definition=dx_alloc(next->info.definition_bytes); memcpy(next->definition,borrowed.definition,next->info.definition_bytes);
     next->sources=dx_alloc(next->info.source_bytes); memcpy(next->sources,borrowed.sources,next->info.source_bytes);
     BrowsePreview *old=*out; *out=next; browse_preview_free(old); return BROWSE_PREVIEW_OK;
 }
+
+BrowsePreviewStatus browse_preview_decode(const void *data,size_t bytes,size_t reserved,BrowsePreview **out) { return decode(data,bytes,reserved,true,out); }
+BrowsePreviewStatus browse_preview_decode_staged(const void *data,size_t bytes,size_t reserved,BrowsePreview **out) { return decode(data,bytes,reserved,false,out); }

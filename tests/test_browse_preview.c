@@ -2,6 +2,7 @@
 #include "workbook/analysis_asset.h"
 #include "workbook/browse_preview_admission.h"
 #include "workbook/browse_preview_codec.h"
+#include "workbook/browse_preview_set_codec.h"
 #include "workbook/browse_preview_workbook.h"
 #include "workbook/browse_preview_set_internal.h" /* Set reference-overflow fault injection only. */
 #include "workbook/browse_preview_internal.h" /* Owned reference-overflow fault injection only. */
@@ -391,6 +392,56 @@ static void sets(void) {
     CHECK(browse_preview_set_measure(&book,(BrowsePreview *const *)(uintptr_t)1,DX_BROWSE_PREVIEW_SET_ENTRIES+1,NULL,SIZE_MAX,0,&info)==BROWSE_PREVIEW_SET_LIMIT);
     CHECK(!browse_preview_set_retain(NULL)); browse_preview_set_free(set); set_book_free(&book); finish(&f);
 }
+static void set_wire(void) {
+    Fixture f; start(&f); f.high_water=10; f.table=(SheetObject){.id=7,.kind=OBJECT_TABLE,.revision=9,.source=analysis_copy(&f.definition)};
+    Workbook book=set_book(&f); BrowsePreview *assets[]={capture_fixture(&f,7),capture_fixture(&f,0)};
+    BrowsePreviewSet *set=NULL,*decoded=NULL;
+    CHECK(browse_preview_set_take(&book,assets,2,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_OK);
+    BrowsePreviewSetWireInfo info={0}; BrowsePreviewPacket packet={0};
+    CHECK(browse_preview_set_encode_measure(set,NULL,&info)==BROWSE_PREVIEW_SET_OK);
+    CHECK(browse_preview_set_encode(set,info.coexistence-1,&packet)==BROWSE_PREVIEW_SET_LIMIT && !packet.data);
+    CHECK(browse_preview_set_encode(set,info.coexistence,&packet)==BROWSE_PREVIEW_SET_OK);
+    CHECK(browse_preview_set_read_measure(packet.data,packet.bytes,&book,NULL,SIZE_MAX,13,&info)==BROWSE_PREVIEW_SET_OK);
+    CHECK(info.set.count==2 && info.parser_owned==2*sizeof(BrowsePreview *) && info.coexistence==info.set.coexistence+info.bytes+info.parser_owned);
+    BrowsePreviewSetWireInfo saved=info;
+    CHECK(browse_preview_set_read_measure(packet.data,packet.bytes,&book,NULL,info.set.owned-1,13,&info)==BROWSE_PREVIEW_SET_LIMIT && !memcmp(&info,&saved,sizeof(info)));
+    CHECK(browse_preview_set_decode(packet.data,packet.bytes,&book,SIZE_MAX,13,saved.coexistence-1,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_LIMIT && !decoded);
+    CHECK(browse_preview_set_decode(packet.data,packet.bytes,&book,SIZE_MAX,13,saved.coexistence,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_OK);
+    CHECK(browse_preview_set_info(decoded).snapshot_revision==book.command_revision && browse_preview_set_asset(decoded,0)!=browse_preview_set_asset(set,0));
+    const Page *page=browse_preview_page(browse_preview_set_asset(decoded,0));
+    CHECK(page->cells[0].is_null && !strcmp(page->cells[0].text,"NULL decoration") && !page->cells[1].is_null && !strcmp(page->cells[1].text,"") && !strcmp(page->cells[2].text,"NULL"));
+    CHECK(!strcmp(page->cells[3].text,"9007199254740993.012345678901234567"));
+    BrowsePreviewPacket encoded={0}; CHECK(browse_preview_set_encode(decoded,SIZE_MAX,&encoded)==BROWSE_PREVIEW_SET_OK && encoded.bytes==packet.bytes && !memcmp(encoded.data,packet.data,packet.bytes));
+    browse_preview_packet_free(&encoded); BrowsePreviewSet *old=decoded;
+    CHECK(browse_preview_set_read_measure(packet.data,packet.bytes,&book,decoded,SIZE_MAX,13,&info)==BROWSE_PREVIEW_SET_OK);
+    CHECK(info.coexistence==saved.coexistence+browse_preview_set_info(decoded).owned);
+    CHECK(browse_preview_set_decode(packet.data,packet.bytes,&book,SIZE_MAX,13,info.coexistence-1,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_LIMIT && decoded==old);
+    for (size_t cancel=0;cancel<=2;cancel++) CHECK(browse_preview_set_decode(packet.data,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){cancel_set,&cancel},&decoded)==BROWSE_PREVIEW_SET_CANCELLED && decoded==old);
+    book.command_revision++;
+    CHECK(browse_preview_set_decode(packet.data,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_ASSOCIATION && decoded==old); book.command_revision--;
+    book.id.low++;
+    CHECK(browse_preview_set_decode(packet.data,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_ASSOCIATION && decoded==old); book.id.low--;
+    for (size_t n=0;n<packet.bytes;n++) CHECK(browse_preview_set_decode(packet.data,n,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)!=BROWSE_PREVIEW_SET_OK && decoded==old);
+    unsigned char *wire=packet.data;
+    size_t bad[]={0,6,36,40,44,48,56,64,88,96,120};
+    for (size_t n=0;n<sizeof(bad)/sizeof(*bad);n++) { wire[bad[n]]^=1; CHECK(browse_preview_set_decode(wire,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)!=BROWSE_PREVIEW_SET_OK && decoded==old); wire[bad[n]]^=1; }
+    wire[4]=0; CHECK(browse_preview_set_decode(wire,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_UNSUPPORTED && decoded==old); wire[4]=1;
+    /* Duplicate owner and directory/child disagreement are independent checks. */
+    uint64_t owner=get_wire(wire,104,8); put_wire(wire,104,0,8);
+    CHECK(browse_preview_set_decode(wire,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_INVALID && decoded==old); put_wire(wire,104,owner,8);
+    size_t first=128,second=first+(size_t)get_wire(wire,80,8);
+    wire[second+32]^=1; CHECK(browse_preview_set_decode(wire,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_INVALID && decoded==old); wire[second+32]^=1;
+    /* Well-framed final child with a changed authored path must fail after the
+       earlier child was staged, without replacing any prior output owner. */
+    const char *path=f.definition.path; size_t length=strlen(path),found=0;
+    for (size_t n=second+256;n+length<=packet.bytes;n++) if (!memcmp(wire+n,path,length)) { found=n; break; }
+    CHECK(found); wire[found]^=1;
+    CHECK(browse_preview_set_decode(wire,packet.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_ASSOCIATION && decoded==old); wire[found]^=1;
+    BrowsePreviewSet *empty=NULL; CHECK(browse_preview_set_take(&book,NULL,0,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&empty)==BROWSE_PREVIEW_SET_OK);
+    CHECK(browse_preview_set_encode(empty,SIZE_MAX,&encoded)==BROWSE_PREVIEW_SET_OK && encoded.bytes==64);
+    CHECK(browse_preview_set_decode(encoded.data,encoded.bytes,&book,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&decoded)==BROWSE_PREVIEW_SET_OK && !browse_preview_set_info(decoded).count);
+    browse_preview_packet_free(&encoded); browse_preview_packet_free(&packet); browse_preview_set_free(empty); browse_preview_set_free(decoded); browse_preview_set_free(set); set_book_free(&book); finish(&f);
+}
 static void maximum_set(void) {
     Fixture f; start(&f); f.high_water=DX_MAX_OBJECTS; f.metadata=81;
     f.table=(SheetObject){.kind=OBJECT_TABLE,.revision=9,.source=analysis_copy(&f.definition)};
@@ -418,6 +469,13 @@ static void maximum_set(void) {
     CHECK(browse_preview_set_manifest(set,0)->sheet==1 && !browse_preview_set_manifest(set,0)->owner);
     CHECK(browse_preview_set_manifest(set,used-1)->sheet==DX_MAX_SHEETS && browse_preview_set_manifest(set,used-1)->owner==DX_MAX_OBJECTS);
     CHECK(browse_preview_set_info(set).capacity==used && browse_preview_set_info(set).snapshot_revision==81);
+    BrowsePreviewPacket packet={0}; BrowsePreviewSetWireInfo wire={0}; BrowsePreviewSet *restored=NULL;
+    CHECK(browse_preview_set_encode(set,SIZE_MAX,&packet)==BROWSE_PREVIEW_SET_OK);
+    CHECK(browse_preview_set_read_measure(packet.data,packet.bytes,&book,NULL,info.owned,sizeof(book),&wire)==BROWSE_PREVIEW_SET_OK && wire.set.count==used && wire.set.owned==info.owned);
+    CHECK(browse_preview_set_decode(packet.data,packet.bytes,&book,info.owned,sizeof(book),wire.coexistence,(BrowsePreviewSetControl){0},&restored)==BROWSE_PREVIEW_SET_OK);
+    CHECK(browse_preview_set_manifest(restored,used-1)->sheet==DX_MAX_SHEETS && browse_preview_set_manifest(restored,used-1)->owner==DX_MAX_OBJECTS);
+    CHECK(browse_preview_set_info(restored).assets_owned==info.assets_owned);
+    browse_preview_set_free(restored); browse_preview_packet_free(&packet);
     browse_preview_set_free(set); free(assets); set_book_free(&book); finish(&f);
 }
 typedef struct { BrowsePreview *owned; const Cell *cells; unsigned loops; bool failed; } RefThread;
@@ -457,4 +515,4 @@ static void maximum(void) {
     BrowsePreview *copy=wire_copy(preview); browse_preview_free(copy);
     browse_preview_free(preview); finish(&f);
 }
-int main(void) { ownership(); stale(); profiles(); association(); table_owner(); workbook_association(); references(); sets(); maximum_set(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
+int main(void) { ownership(); stale(); profiles(); association(); table_owner(); workbook_association(); references(); sets(); set_wire(); maximum_set(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }

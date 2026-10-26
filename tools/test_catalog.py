@@ -904,6 +904,9 @@ FEATURES = {
 }
 
 
+FEATURES["browse-preview-set-codec"] = Feature(("browse_preview", "source_versions_admission"), "",
+    ("python3 tools/test.py feature --feature source-details-csv-app",),
+    ("src/workbook/browse_preview_set_codec.c", "tests/test_browse_preview.c"))
 FEATURES["browse-preview-set"] = Feature(("browse_preview", "source_versions_admission"), "",
     ("python3 tools/test.py feature --feature source-details-csv-app",),
     ("src/workbook/browse_preview_set.c", "tests/test_browse_preview.c"))

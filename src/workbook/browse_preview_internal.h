@@ -16,4 +16,7 @@ BrowsePreviewStatus browse_preview_column_status(const Column *column);
 BrowsePreviewStatus browse_preview_metadata_preflight(const BrowsePreview *preview,BrowsePreviewMetadataInfo *out);
 BrowsePreviewStatus browse_preview_metadata_decode(const BrowsePreview *preview,const BrowsePreviewMetadataInfo *info,
     size_t reserved,AnalysisAsset *definition,SourceVersionsAsset *sources);
+/* Private framing-validated owner; semantic metadata admission is deferred to
+   actual-Workbook Set take. Never expose or publish this staging owner alone. */
+BrowsePreviewStatus browse_preview_decode_staged(const void *data,size_t bytes,size_t reserved,BrowsePreview **out);
 #endif
