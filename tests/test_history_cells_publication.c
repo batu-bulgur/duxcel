@@ -23,7 +23,11 @@ static bool prepare(void *context,const WorkbookVersionPublication *publication,
     CHECK(workbook_history_cells_state_publication(publication,c,after,p->after,scratch,sizeof(scratch)-1,&report)==HISTORY_CELLS_STATE_LIMIT && !memcmp(&report,&old,sizeof(report)));
     WorkbookHistoryCellsStateStatus status=workbook_history_cells_state_publication(publication,c,after,p->after,scratch,sizeof(scratch),&report);
     CHECK(status==p->expected);
-    if (status!=HISTORY_CELLS_STATE_OK) { CHECK(!memcmp(&report,&old,sizeof(report))); return false; }
+    if (status!=HISTORY_CELLS_STATE_OK) {
+        CHECK(!memcmp(&report,&old,sizeof(report)));
+        if (error && !*error) *error=dx_strdup("Retained current cell state does not match the actual frozen publication.");
+        return false;
+    }
     CHECK(report.undo==1 && !report.redo && report.undo_cells==1); return true;
 }
 int main(void) {
