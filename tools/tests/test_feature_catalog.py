@@ -1,6 +1,8 @@
 import contextlib
+import ast
 import io
 from pathlib import Path
+import re
 import shlex
 import unittest
 from unittest import mock
@@ -9,6 +11,31 @@ from test_catalog import FEATURES, STANDALONE_GUI, plan
 
 
 class FeatureCatalogTests(unittest.TestCase):
+    def test_literal_gui_completion_contracts_match_their_consumers(self):
+        # Catch unrelated stage-count edits before compiling/launching the App.
+        # Dynamic summaries still require their existing runtime gates.
+        messages = []
+        for folder in (runner.ROOT / "src", runner.ROOT / "tests"):
+            for path in folder.rglob("*"):
+                if path.suffix not in (".c", ".inc"):
+                    continue
+                for raw in re.findall(r'"(PASS: (?:[^"\\]|\\.)*)"', path.read_text()):
+                    message = ast.literal_eval('"' + raw + '"').strip()
+                    stages = re.search(r'\((\d+) stages,', message)
+                    if stages:
+                        messages.append((path, message, int(stages.group(1))))
+        checked = 0
+        for name, (_, marker, completion, expected) in STANDALONE_GUI.items():
+            for path, message, stages in messages:
+                if not message.startswith(marker + " ("):
+                    continue
+                checked += 1
+                with self.subTest(feature=name, consumer=str(path.relative_to(runner.ROOT))):
+                    self.assertEqual(stages, expected)
+                    rendered = re.sub(r'%[lz]*[udi]', '1', message)
+                    self.assertRegex(rendered, completion)
+        self.assertGreater(checked, 0)
+
     def test_dependencies_are_small_and_registered(self):
         for name, feature in FEATURES.items():
             self.assertTrue(set(feature.modules) <= set(runner.FAST_MODULES), name)

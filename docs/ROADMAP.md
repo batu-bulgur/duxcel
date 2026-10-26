@@ -2775,3 +2775,15 @@ maintained Wasm/browser/platform delivery gates are the next explicit milestone
 work; private offline-preview, authored-graph and DXCD2/journal/core work continues
 without changing this frozen product snapshot. Current file layers remain
 native16/core15; future typed core16/native17 is not enabled.
+
+The first milestone full run (`20261026T012759-full-59774`) is retained as
+failed after445 application stages: object-create's real19-stage/46-check
+workflow exited successfully, but an unrelated SourceDetails catalog edit
+expected25. The same accidental expectation affected both recovery entries;
+all three registrations are restored to their unchanged19-stage consumers.
+A lightweight literal-completion contract catches those three mismatches before
+GUI compilation (red), then all15 catalog contracts pass in0.045s (green). No
+product C, fixture assertion or application stage was removed. The corrected
+full run remains required; failed raw reports are not relabelled. Wasm normal/
+review/Worker builds pass on the unchanged product snapshot in the isolated
+`roadmap-milestone-web` verification checkout.
