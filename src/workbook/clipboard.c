@@ -45,24 +45,48 @@ bool clipboard_set(CellClipboard *copy,size_t row,size_t column,const char *valu
         return failed(error,"Clipboard output exceeds 8 MiB. Select a smaller range.");
     char *owned=value ? dx_strdup(value) : NULL; free(copy->values[index]); copy->values[index]=owned; copy->bytes=copy->bytes-old+next; return true;
 }
-char *clipboard_tsv(const CellClipboard *copy,char **error) {
-    if (!shape_valid(copy)) { failed(error,"Select a valid owned range to copy."); return NULL; }
-    size_t size=copy->rows*copy->columns-1;
-    for (size_t i=0;i<copy->rows*copy->columns;i++) {
-        const char *s=copy->values[i]; if (!s) continue;
+static bool text_shape(ClipboardTextView view) {
+    return view.read && view.rows && view.columns && view.columns<=DX_CLIPBOARD_CELLS && view.rows<=DX_CLIPBOARD_CELLS/view.columns;
+}
+static bool text_bytes(size_t *size,size_t added) {
+    if (added>DX_CLIPBOARD_BYTES || *size>DX_CLIPBOARD_BYTES-added) return false;
+    *size+=added; return true;
+}
+bool clipboard_tsv_measure_view(ClipboardTextView view,size_t *bytes,char **error) {
+    if (!bytes || !text_shape(view)) return failed(error,"Select a valid borrowed range to copy.");
+    size_t count=view.rows*view.columns,size=count-1;
+    for (size_t i=0;i<count;i++) {
+        const char *s=view.read(view.context,i); if (!s) continue;
         bool quote=!*s;
-        for (const char *p=s;*p;p++) { size++; if (*p=='"') size++; if (strchr("\t\r\n\"",*p)) quote=true; }
-        if (quote) size+=2;
+        for (const char *p=s;*p;p++) {
+            if (!text_bytes(&size,*p=='"' ? 2 : 1)) return failed(error,"Clipboard output exceeds 8 MiB. Select a smaller range.");
+            if (strchr("\t\r\n\"",*p)) quote=true;
+        }
+        if (quote && !text_bytes(&size,2)) return failed(error,"Clipboard output exceeds 8 MiB. Select a smaller range.");
     }
-    if (size>DX_CLIPBOARD_BYTES) { failed(error,"Clipboard output exceeds 8 MiB. Select a smaller range."); return NULL; }
-    char *text=dx_alloc(size+1),*out=text;
-    for (size_t row=0;row<copy->rows;row++) for (size_t col=0;col<copy->columns;col++) {
+    *bytes=size; return true;
+}
+static void text_encode(ClipboardTextView view,char *out) {
+    for (size_t row=0;row<view.rows;row++) for (size_t col=0;col<view.columns;col++) {
         if (row || col) *out++=col ? '\t' : '\n';
-        const char *s=copy->values[row*copy->columns+col]; if (!s) continue;
+        const char *s=view.read(view.context,row*view.columns+col); if (!s) continue;
         bool quote=!*s || strpbrk(s,"\t\r\n\"");
         if (quote) *out++='"';
         for (;*s;s++) { if (*s=='"') *out++='"'; *out++=*s; }
         if (quote) *out++='"';
     }
-    *out=0; return text;
+    *out=0;
+}
+bool clipboard_tsv_encode_view(ClipboardTextView view,char *arena,size_t capacity,size_t *written,char **error) {
+    if (!arena || !written) return failed(error,"Choose a complete clipboard output arena.");
+    size_t bytes=0; if (!clipboard_tsv_measure_view(view,&bytes,error)) return false;
+    if (capacity<=bytes) return failed(error,"The clipboard output arena is too small.");
+    text_encode(view,arena); *written=bytes; return true;
+}
+static const char *clipboard_text(const void *context,size_t index) { return ((const CellClipboard *)context)->values[index]; }
+char *clipboard_tsv(const CellClipboard *copy,char **error) {
+    if (!shape_valid(copy)) { failed(error,"Select a valid owned range to copy."); return NULL; }
+    ClipboardTextView view={copy->rows,copy->columns,clipboard_text,copy}; size_t bytes=0;
+    if (!clipboard_tsv_measure_view(view,&bytes,error)) return NULL;
+    char *text=dx_alloc(bytes+1); text_encode(view,text); return text;
 }

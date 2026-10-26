@@ -47,15 +47,24 @@ static ManualValueWireStatus preflight(const void *data,size_t bytes,ManualValue
 ManualValueWireStatus manual_value_wire_preflight(const void *data,size_t bytes,ManualValueWireInfo *info) {
     return preflight(data,bytes,NULL,info);
 }
-ManualValueWireStatus manual_value_wire_capture(ManualValueInput input,size_t reserved,ManualValuePacket *out) {
-    if (!out || (out->bytes && !out->data) || (!out->bytes && out->data)) return MANUAL_VALUE_WIRE_INVALID;
-    ManualValueWireInfo info; ManualValueWireStatus result=manual_value_wire_measure(input,&info); if (result!=MANUAL_VALUE_WIRE_OK) return result;
-    if (out->bytes>SIZE_MAX-info.bytes || out->bytes+info.bytes>reserved) return MANUAL_VALUE_WIRE_LIMIT;
-    unsigned char *next=dx_alloc(info.bytes); memcpy(next,"DXMV",4);
+static void encode(ManualValueInput input,unsigned char *next) {
+    memset(next,0,DX_MANUAL_VALUE_WIRE_HEADER_BYTES); memcpy(next,"DXMV",4);
     next[4]=DX_MANUAL_VALUE_WIRE_VERSION; next[5]=input.present ? 1 : 0; next[6]=(unsigned char)input.kind;
     next[7]=(unsigned char)number_tag(input.number.kind); next[8]=input.number.precision; next[9]=input.number.scale;
     uint64_t bytes=input.raw_bytes; for (unsigned i=0;i<8;i++) next[16+i]=(unsigned char)(bytes>>(8*i));
     if (input.raw_bytes) memcpy(next+DX_MANUAL_VALUE_WIRE_HEADER_BYTES,input.raw,input.raw_bytes);
+}
+ManualValueWireStatus manual_value_wire_encode(ManualValueInput input,void *arena,size_t capacity,size_t *written) {
+    if (!arena || !written) return MANUAL_VALUE_WIRE_INVALID;
+    ManualValueWireInfo info; ManualValueWireStatus result=manual_value_wire_measure(input,&info); if (result!=MANUAL_VALUE_WIRE_OK) return result;
+    if (capacity<info.bytes) return MANUAL_VALUE_WIRE_LIMIT;
+    encode(input,arena); *written=info.bytes; return MANUAL_VALUE_WIRE_OK;
+}
+ManualValueWireStatus manual_value_wire_capture(ManualValueInput input,size_t reserved,ManualValuePacket *out) {
+    if (!out || (out->bytes && !out->data) || (!out->bytes && out->data)) return MANUAL_VALUE_WIRE_INVALID;
+    ManualValueWireInfo info; ManualValueWireStatus result=manual_value_wire_measure(input,&info); if (result!=MANUAL_VALUE_WIRE_OK) return result;
+    if (out->bytes>SIZE_MAX-info.bytes || out->bytes+info.bytes>reserved) return MANUAL_VALUE_WIRE_LIMIT;
+    unsigned char *next=dx_alloc(info.bytes); encode(input,next);
     manual_value_packet_free(out); *out=(ManualValuePacket){next,info.bytes}; return MANUAL_VALUE_WIRE_OK;
 }
 ManualValueWireStatus manual_value_wire_decode(const void *data,size_t bytes,size_t reserved,ManualValue **out) {

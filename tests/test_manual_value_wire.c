@@ -122,7 +122,17 @@ static void max_bytes(void) {
     ManualValuePacket valid=packet(text("0",1)); ManualValueWireInfo old={.bytes=1},info=old;
     CHECK(manual_value_wire_measure(text((const char *)1,DX_MANUAL_VALUE_TEXT_BYTES+1),&info)==MANUAL_VALUE_WIRE_LIMIT && !memcmp(&info,&old,sizeof(info))); manual_value_packet_free(&valid);
 }
+static void admitted_arena(void) {
+    ManualValueInput input=number(NUM_DECIMAL,5,2,"+0012.3"); ManualValueWireInfo info;
+    CHECK(manual_value_wire_measure(input,&info)==MANUAL_VALUE_WIRE_OK);
+    unsigned char arena[64],before[64]; memset(arena,0xa5,sizeof(arena)); memcpy(before,arena,sizeof(arena)); size_t written=73;
+    CHECK(manual_value_wire_encode(input,arena,info.bytes-1,&written)==MANUAL_VALUE_WIRE_LIMIT && written==73 && !memcmp(arena,before,sizeof(arena)));
+    CHECK(manual_value_wire_encode(number(NUM_I8,0,0,"128"),arena,sizeof(arena),&written)==MANUAL_VALUE_WIRE_INVALID && written==73 && !memcmp(arena,before,sizeof(arena)));
+    CHECK(manual_value_wire_encode(input,arena,info.bytes,&written)==MANUAL_VALUE_WIRE_OK && written==info.bytes && arena[info.bytes]==0xa5);
+    ManualValuePacket exact=packet(input); CHECK(exact.bytes==written && !memcmp(exact.data,arena,written)); manual_value_packet_free(&exact);
+    CHECK(manual_value_wire_encode(input,NULL,0,&written)==MANUAL_VALUE_WIRE_INVALID && manual_value_wire_encode(input,arena,sizeof(arena),NULL)==MANUAL_VALUE_WIRE_INVALID);
+}
 int main(void) {
-    goldens(); numeric_types(); malformed(); budgets_and_aliases(); max_bytes();
+    admitted_arena(); goldens(); numeric_types(); malformed(); budgets_and_aliases(); max_bytes();
     printf("PASS: %u current typed manual wire checks\n",checks); return 0;
 }

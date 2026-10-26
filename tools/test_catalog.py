@@ -157,6 +157,9 @@ ENGINE_PROCESS_CHECKS = {
 
 
 FEATURES = {
+    "manual-range-wire": Feature(("manual_range_wire", "manual_value_wire", "manual_value"), "",
+        ("python3 tools/test.py feature --feature paste-cell-plan", "python3 tools/test.py feature --feature cell-command"),
+        ("src/workbook/manual_range_wire.c", "src/workbook/manual_range_wire.h", "src/workbook/clipboard.c: shared immutable text projection", "src/workbook/manual_value_wire.c: admitted arena encoder", "tests/test_manual_range_wire.c: private value/presence and explicitly lossy public TSV; store/platform adoption queued")),
     "manual-value-wire": Feature(("manual_value_wire", "manual_value"), "",
         ("python3 tools/test.py feature --feature cell-delta-codec", "python3 tools/test.py feature --feature cell-command"),
         ("src/workbook/manual_value_wire.c", "src/workbook/manual_value_wire.h", "tests/test_manual_value_wire.c: current DXMV1 only; CellDelta1/CellStore/App/native format adoption remain separate")),

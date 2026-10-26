@@ -24,6 +24,10 @@ typedef enum { MANUAL_VALUE_WIRE_OK,MANUAL_VALUE_WIRE_INVALID,MANUAL_VALUE_WIRE_
    All failure outputs remain unchanged; all input is borrowed immutable. */
 ManualValueWireStatus manual_value_wire_measure(ManualValueInput input,ManualValueWireInfo *info);
 ManualValueWireStatus manual_value_wire_preflight(const void *data,size_t bytes,ManualValueWireInfo *info);
+/* Encode to a disjoint already-admitted arena. Complete measure/capacity checks
+   precede every write; failure preserves arena and written. No heap allocation.
+   The source raw span and written storage must not overlap the destination. */
+ManualValueWireStatus manual_value_wire_encode(ManualValueInput input,void *arena,size_t capacity,size_t *written);
 /* reserved is prior packet.bytes + complete new frame.bytes. Admission precedes
    allocation/copy; input.raw may borrow the prior packet (including its raw
    subspan), so replacement frees it only after the complete new copy exists.
