@@ -13970,7 +13970,8 @@ static void layout_smoke_step(App *a,int *step) {
         if (a->page.total!=600 || a->page.column_count!=5 || s->formats.source_aware) goto failed;
         grid_select_cell(&a->grid,1000,8,false); s->formats.revision=UINT64_MAX-1;
         { CellFormat value=format_default(); value.flags=FORMAT_ITALIC; if (!apply_format(a,FORMAT_ITALIC,value)) goto failed; }
-        if (!s->formats.source_aware || s->formats.revision!=UINT64_MAX || s->formats.undo_count!=1 || !s->formats.undo[0].source_aware ||
+        /* Manual-first promotes the current mode, preserving the manual before-state. */
+        if (!s->formats.source_aware || s->formats.revision!=UINT64_MAX || s->formats.undo_count!=1 || s->formats.undo[0].source_aware ||
             s->source_versions.high_water || a->analysis.source_version || imported_cell_format(a,0,4).flags || format_at(&s->formats,1000,8).flags!=FORMAT_ITALIC) goto failed;
         workspace_job(a,JOB_SAVE,"build/tests/generated/app-primary-manual-format.dxls"); break;
     case 859:

@@ -2798,3 +2798,11 @@ End-navigation coverage remains. Preserve every failed raw report and successful
 prefix result. Complete all18 native scenarios through the maintained native
 tier on the corrected harness; no already-passed engine/GUI work is dropped or
 reported as a successful single full invocation.
+
+Milestone integration check: the remaining native layout run reached stage 858
+after the passing manual-format Save/Open segment. Its old assertion expected
+the first manual-before snapshot to be source-aware; the accepted manual-first
+contract preserves that snapshot as manual and promotes only current state.
+The fixture now checks the preserved mode. Failed run
+`20261026T023355-native-16574` remains failed evidence; remaining native scenarios
+are being rerun, without relabelling the previously passed module/GUI prefix.
