@@ -68,5 +68,5 @@ int main(void) {
         }
         stage++;
     }
-    CHECK(stage==24); ui_destroy(&ui); dx_native_shutdown(); CloseWindow(); printf("PASS: native explicit value-type workflow (24 stages, %u checks)\n",checks); return 0;
+    CHECK(stage==24); ui_destroy(&ui); dx_native_shutdown(); CloseWindow(); CHECK(!IsWindowReady()); printf("PASS: native explicit value-type workflow (24 stages, %u checks)\n",checks); return 0;
 }

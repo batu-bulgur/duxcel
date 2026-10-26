@@ -7,6 +7,7 @@ import io
 import json
 import pathlib
 import os
+import shutil
 import tempfile
 import unittest
 from unittest import mock
@@ -208,6 +209,22 @@ class RunnerTests(unittest.TestCase):
             self.assertNotEqual(first['source_sha256'],second['source_sha256'])
             (web/'package-lock.json').write_text('{"changed":true}')
             self.assertNotEqual(second['source_sha256'],runner.source_metadata(root)['source_sha256'])
+
+    def test_widget_lifecycle_does_not_replace_application_shutdown_contract(self):
+        self.assertEqual(runner.WIDGET_GUI, {"value-type"})
+        obj=object.__new__(runner.Runner); obj.root=pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree,obj.root)
+        obj.build=mock.Mock(); obj.retain_binaries=mock.Mock()
+        obj.pin_test_binary=mock.Mock(side_effect=lambda name:name)
+        obj.command=mock.Mock(return_value={"status":"passed"}); obj.record=mock.Mock()
+        with mock.patch.object(runner,"native_resource_guard",return_value=contextlib.nullcontext()) as guard:
+            obj.standalone_gui_check("value-type")
+        guard.assert_called_once_with(standalone="value-type")
+        self.assertFalse(obj.command.call_args.kwargs["native"])
+        self.assertEqual(obj.record.call_args.args[0]["gui_scope"],"widget")
+        self.assertIn("24 stages",obj.command.call_args.kwargs["completion_pattern"])
+        with self.assertRaisesRegex(RuntimeError,"shutdown summary"):
+            runner.validate_output("PASS: fixture\n",0,"PASS: fixture",native=True)
 
     def test_inventory(self):
         self.assertEqual(len(runner.NATIVE), 18)

@@ -16,6 +16,9 @@ class Feature:
     fixtures: tuple = ()
 
 
+# Widget fixtures own a raylib/UI lifecycle; they never instantiate App.
+WIDGET_GUI = frozenset({"value-type"})
+
 STANDALONE_GUI = {
     "value-type": ("build/tests/test_value_type-gui", "PASS: native explicit value-type workflow",
                     r"^PASS: native explicit value-type workflow \(24 stages, [1-9]\d* checks\)$", 24),

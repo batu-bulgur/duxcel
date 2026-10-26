@@ -36,6 +36,13 @@ when full-App sanitizer or platform boundaries are affected. The receipt records
 these configurations and the deferred commands. A focused pass is acceptance of
 that boundary, not whole-product/native-browser parity.
 
+Independent control fixtures are explicitly listed in `WIDGET_GUI`. They retain
+hidden TEST identity, pinned binaries, the desktop lock and exact completion
+contracts, but own a widget/window lifecycle instead of instantiating App.
+Their fixture checks window closure before its terminal assertion; results count
+widget stages separately. All App fixtures still require the genuine App
+shutdown summary. A widget pass never establishes App/editor integration.
+
 The `cell-command` gate runs only `test_cell_command` in optimized/ASan/UBSan
 and a 13-stage release App fixture compiled separately from production. The
 fixture drives the real editor/Enter/Escape/Undo/Redo path, simulates a competing

@@ -17,7 +17,7 @@ import sys
 import time
 
 
-from test_catalog import FEATURE_FIXTURES, FEATURES, STANDALONE_GUI, ENGINE_PROCESS_CHECKS, plan as feature_plan
+from test_catalog import FEATURE_FIXTURES, FEATURES, STANDALONE_GUI, WIDGET_GUI, ENGINE_PROCESS_CHECKS, plan as feature_plan
 from workspace import (ROOT, FileLock, native_lock_path, source_metadata,
                        utc_now, sha256, fingerprint, ensure_unchanged, make_jobserver_fds, operation_lease, inherited_lease_fds)
 FAST_MODULES = (
@@ -604,8 +604,12 @@ class Runner:
         (self.root / "build/tests/generated").mkdir(parents=True,exist_ok=True)
         (self.root / "build/tests/results" / name).mkdir(parents=True,exist_ok=True)
         with native_resource_guard(standalone=name):
-            self.record(self.command(name+"-native",["./"+binary],marker,native=True,
-                                     completion_pattern=completion,stages=stages))
+            # App fixtures require App's shutdown summary. Independent widgets
+            # assert their own closed-window lifecycle before their completion.
+            result=self.command(name+"-native",["./"+binary],marker,native=name not in WIDGET_GUI,
+                                completion_pattern=completion,stages=stages)
+            result["gui_scope"]="widget" if name in WIDGET_GUI else "application"
+            self.record(result)
 
     def feature_engine_checks(self, modules):
         """Mutable private archive checks run serially, including sanitizer variants."""
@@ -830,8 +834,9 @@ class Runner:
                 self.summary["error"] = "Test binaries changed during the run: " + ", ".join(changed)
             self.summary["finished_utc"] = utc_now()
             self.write_summary()
-            passed = sum(r.get("expected_stages") or 0 for r in self.summary["results"] if r["status"] == "passed")
-            print(f"{self.summary['status'].upper()}: {self.summary['elapsed_seconds']:.3f}s; {passed} application stages; {self.log_dir / 'summary.json'}", flush=True)
+            passed = sum(r.get("expected_stages") or 0 for r in self.summary["results"] if r["status"] == "passed" and r.get("gui_scope")!="widget")
+            widgets = sum(r.get("expected_stages") or 0 for r in self.summary["results"] if r["status"] == "passed" and r.get("gui_scope")=="widget")
+            print(f"{self.summary['status'].upper()}: {self.summary['elapsed_seconds']:.3f}s; {passed} application stages; {widgets} widget stages; {self.log_dir / 'summary.json'}", flush=True)
         return 0 if self.summary["status"].startswith("passed") else 1
 
 
@@ -881,10 +886,10 @@ def main(argv=None):
         for name, stages, frames, _ in NATIVE:
             print(f"Full {name}: {layout_stage_count(0,stages) if name == 'layout' else stages} stages, {frames} frame timeout")
         for name, (_, _, _, stages) in STANDALONE_GUI.items():
-            print(f"Full standalone {name}: {stages} application stages")
+            print(f"Full standalone {name}: {stages} {'widget' if name in WIDGET_GUI else 'application'} stages")
         native_stages = sum(layout_stage_count(0,row[1]) if row[0] == "layout" else row[1] for row in NATIVE)
         print(f"Full native scenarios: {native_stages} application stages +110 GPU checks; NYC8 optional unless --require-data")
-        print(f"Full total: {native_stages+sum(row[3] for row in STANDALONE_GUI.values())} application stages plus About adapter checks")
+        print(f"Full total: {native_stages+sum(row[3] for name,row in STANDALONE_GUI.items() if name not in WIDGET_GUI)} application stages plus About adapter checks")
         return 0
     if args.tier == "affected" and not args.feature:
         argument_parser.error("affected requires --feature (see --list)")
