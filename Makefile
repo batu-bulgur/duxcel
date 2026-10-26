@@ -1188,6 +1188,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_version_publication build/tests/test_v
 PARALLEL_NATIVE_GOALS += build/tests/test_sourceview build/tests/test_sourceview-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_source_details_csv-gui build/tests/test_source_details_parquet-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview build/tests/test_browse_preview-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview_component build/tests/test_browse_preview_component-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2782,3 +2783,13 @@ build/tests/test_browse_preview: $(BROWSE_PREVIEW_OBJECTS) | build/tests
 build/tests/test_browse_preview-debug: $(BROWSE_PREVIEW_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(BROWSE_PREVIEW_OBJECTS:.o=.d) $(BROWSE_PREVIEW_SAN_OBJECTS:.o=.d)
+
+# Native preview staging remains a separate prepublication component gate.
+BROWSE_PREVIEW_COMPONENT_SOURCES = $(sort $(filter-out tests/test_version_save.c,$(VERSION_SAVE_SOURCES)) $(filter-out tests/test_browse_preview.c,$(BROWSE_PREVIEW_SRC)) src/workbook/browse_preview_component.c tests/test_browse_preview_component.c)
+BROWSE_PREVIEW_COMPONENT_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(BROWSE_PREVIEW_COMPONENT_SOURCES))))
+BROWSE_PREVIEW_COMPONENT_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(BROWSE_PREVIEW_COMPONENT_SOURCES))))
+build/tests/test_browse_preview_component: $(BROWSE_PREVIEW_COMPONENT_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_browse_preview_component-debug: $(BROWSE_PREVIEW_COMPONENT_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(BROWSE_PREVIEW_COMPONENT_OBJECTS:.o=.d) $(BROWSE_PREVIEW_COMPONENT_SAN_OBJECTS:.o=.d)
