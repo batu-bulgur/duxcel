@@ -859,6 +859,11 @@ source/binary receipts are under ignored build/tests/results/.
 | ID / priority / state | Scope and dependency | Demo and acceptance gate |
 | --- | --- | --- |
 | W26a · P1 · In progress | Typed sparse manual cells; W05/W08. Integrates C03/C04/C07. | NULL/empty/literal text, integers and exact DECIMAL survive edit/clipboard/Undo/reopen; no implicit locale-dependent conversion. WM01; typed-cell portion of A06. This does not wait for the Data Model or formula engine. |
+| W26a.1 · P1 · Complete | Owned explicit manual values; W05. | Separate missing, SQL NULL, present empty TEXT and literal text; validate signed/unsigned integers and exact DECIMAL with C99 lexical arithmetic and locale-independent display. No live typed editor activation. |
+| W26a.2 · P1 · Complete | Closed scalar DXMV wire; W26a.1. | Bounded current-only framing retains exact authored bytes/type and reconstructs canonical numbers; malformed input and insufficient arenas fail atomically. |
+| W26a.3 · P1 · In progress | Exact range wire and explicit TSV projection; W26a.2. | Preserve every coordinate/presence/type privately and explicitly project lossy public TSV with shared escaping. Scoped modules pass; borrowed output alias refusal is the remaining review correction. Store/platform adoption stays separate. |
+| W26a.4 · P1 · Complete | Unpublished typed sparse candidates; W26a.3 wire primitives. | Build exact typed after-states from real snapshots and rectangular clipboard input under coexistence budgets; no live/history/core publication. |
+| W26a.5 · P1 · In progress | Single typed CellStore owner and command/journal/core/render closure; W26a.1–4. | Replace text authority with one owned value, preserve snapshot allocator capacity, then close typed edit/clipboard/Undo/journal/current native and shared-reader behavior as one integration group. Private store checks are prerequisites, not user-visible typed editing. |
 | W26b · P1 · Queued | Basic parsed positional formulas and dependency runtime; W26a/W21. Integrates C08. | An explicit small operator/function set recalculates typed manual/analytical references, detects cycles and displays typed ref/type/calc errors. Valid changed numbers recalculate; saved stale output retains its provenance. WM04; formula part of A06/A31. |
 | W27 · P1 · Queued | Explicit manual-range analytical input; W26a. | Bind a finite typed range to a relation and pivot; one edit updates consumers at one revision; schema changes invalidate explicitly. WM03; remaining A06. |
 | W28 · P1 · Queued | Code/display names and object-local positional references; W26b/W21. | `sheet_code.object_code.A1` resolves offscreen; display rename is cosmetic, code rename updates parsed bindings atomically. No category/GETPIVOTDATA lookup. WM07–WM08; naming part of A29. |
@@ -2359,18 +2364,18 @@ for the next milestone, not included in this build.
 
 ## Active dependency milestone — three implementation lanes
 
-The completed source/range/session-history group is undergoing final milestone
-delivery. Main product sources stay frozen while full native/Wasm/platform
-checks and origin/CI delivery run; private next-slice work continues. Native
+The source/range/session-history milestone is delivered at `34cf37a3`, with full
+local native/Wasm/platform checks, successful origin/CI and live Pages proof.
+Main has resumed linear focused integration; private next-slice work continues. Native
 core15/container16 are still current. No typed-cell schema, retained Undo,
 preview persistence or historical cached-output activation is implied.
 
 | Lane | Current independent scope | Ready boundary / remaining acceptance |
 | --- | --- | --- |
-| Source (`roadmap-source-format`) | W26a closed typed sparse store/command/current-codec/render cutover; source-format fallbacks prepared separately | `codex/w26-reconciled-fb895901` protects eleven reconciled format/value prerequisites. Source-format10/11/6 real GUI stages remain queued; typed models/range plans have pure gates only. Live enabling waits for one coordinated current-schema/Worker/fixture group. |
-| Object (`roadmap-object-create`) | W15 explicit Connect/source details, bounded browse asset/codec/actual-Workbook association and atomic PreviewSet | Private `31758132` includes pure preview closure/lifetime; Source details25-stage CSV/Parquet workflows are compiled, not run. Reconcile onto main for proposed-source probe exclusions. Preview remains a separate captured-only owner; no cache persistence or historical borrowing. |
-| History (`roadmap-history-save-as`) | W12b.2c combined profile/wire plus W12d physical capture/component/after-Save preparation | Pure profile/wire `fd53b88d`/`918bfdaf`/`9276aeee` pass. Native capture/component and first-Save/rollback cases through `93e5fde5` compile; both named engine plans remain queued. Actual-state applicability and real User Save receipt binding still block advertised Undo publication. |
-| Coordinator (main) | Linear integration, shared interfaces, scoped acceptance and milestone delivery | Native full run passes252 pure configurations,51 GUI workflows and18 broad scenarios; final delivery receipts are under `build/tests/results/milestone2-*`. No additional product merge until this delivery finishes. |
+| Source (`roadmap-source-format`) | W26a closed typed sparse store/command/current-codec/render cutover | Source-format10/11/6 actual GUI stages pass on main. Five pure value/range prerequisites are integrated for focused reconciliation. Private typed-store checkpoint `788d4e94` passes scoped modules and native compilation; typed command/journal closure continues. Live enabling waits for one coordinated current-schema/Worker/fixture group. |
+| Object (`roadmap-object-create`) | W15 source details, native preview staging and strict read association | Native User Save preview staging passes both configurations31.986s at `be69fc0c`; evidence is protected at `97b9a528`. Actual SourceDetails CSV GUI exposed pending count scheduling at stage22; the passive-modal fix and CSV/Parquet rerun remain pending. Preview is a separate captured-only owner; no registry/App cache activation or historical borrowing. |
+| History (`roadmap-history-save-as`) | W12b.2c combined profile/wire, W12d physical capture/component/after-Save preparation and actual-state proof | All four native plans pass at `d109d2fa`, including actual publication/Save/Tag/Worker optimized/sanitizer checks. Shared archive scope is next. Actual-state applicability still blocks advertised Undo publication. |
+| Coordinator (main) | Linear integration, shared interfaces, scoped acceptance and milestone delivery | The delivered native full run passes252 pure configurations,51 GUI workflows and18 broad scenarios. Final verified delivery is `build/tests/results/milestone2-delivery.json`; the next feature group advances under focused gates. |
 
 The W15 initial cache policy is auxiliary current-artifact browse data. Named
 historical preview/Save As must not borrow Working Head rows. Reused roots use

@@ -160,7 +160,7 @@ FEATURES = {
     "manual-cells-plan": Feature(("manual_cells_plan", "manual_range_wire", "manual_value"), "",
         ("python3 tools/test.py feature --feature cell-command", "python3 tools/test.py feature --feature cell-delta-codec"),
         ("src/workbook/manual_cells_plan.c", "src/workbook/manual_cells_plan.h", "tests/test_manual_cells_plan.c: current snapshot TEXT import and unpublished exact typed after-state; live store/history/core cutover deferred")),
-    "manual-range-wire": Feature(("manual_range_wire", "manual_value_wire", "manual_value"), "",
+    "manual-range-wire": Feature(("manual_range_wire", "manual_value_wire", "manual_value", "cell_tsv"), "",
         ("python3 tools/test.py feature --feature paste-cell-plan", "python3 tools/test.py feature --feature cell-command"),
         ("src/workbook/manual_range_wire.c", "src/workbook/manual_range_wire.h", "src/workbook/clipboard.c: shared immutable text projection", "src/workbook/manual_value_wire.c: admitted arena encoder", "tests/test_manual_range_wire.c: private value/presence and explicitly lossy public TSV; store/platform adoption queued")),
     "manual-value-wire": Feature(("manual_value_wire", "manual_value"), "",
