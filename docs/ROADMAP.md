@@ -2895,3 +2895,21 @@ cell/not-found, stale/draft guards and unchanged data/history/jobs. A final
 copy-only refinement says “Text as entered” without changing search semantics.
 Authored blank-browser C01/Go To/Find interactions are deferred to the next
 maintained browser window; source/Replace/physical keyboard parity is not implied.
+
+### Navigation milestone: broad acceptance snapshot
+
+The dependency chain C01a → C02a → C02b is complete under focused native gates,
+with W26a.5a's independent widget prerequisite. Product snapshot `8ae87941`
+keeps native container16/core15 unchanged. Freeze the combined tree for143 pure
+modules/both configurations,59 App workflows plus one widget,18 broad native
+scenarios, tool/Node contracts, normal/review/Worker Wasm, maintained browser
+profiles INCLUDING blank `--review --access-only`, and native lifecycle/Open.
+Only after that coherent milestone passes will its commits be pushed and the
+matching CI/CD/live artifact verified. Ordinary focused acceptance remains
+complete; no hands-on approval dependency is introduced.
+
+All three isolated feature lanes continue: current typed store/editor/range and
+journal transaction closure; certified primary/Table navigation; retained
+metadata/content/topology applicability. Native/desktop runtime remains one
+coordinator-owned serial lane; pending private component checks queue behind
+this explicit milestone while pure implementation and locked builds continue.
