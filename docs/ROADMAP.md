@@ -209,7 +209,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12b.2 · P1 · In progress | Event/path continuity and durable metadata profile; W12b.1. | Prove current lineage/cursor and retained ranges, classify checkpoint-only legacy history explicitly, and bind each reversible payload family before selecting a file profile. Never fabricate old Undo from saved snapshots. |
 | W12b.2a · P1 · Complete | Structural event-path and anchor/window join; W12b.1. | Prove ordered lineage ancestry, exact retained transitions, cursor/Redo bounds and monotonic operation IDs. Ancestor prefixes remain on-path; abandoned suffixes stay checkpoints. A forked Saved endpoint cannot silently produce a successful empty window. Payload/file admission remains separate. |
 | W12b.2b · P1 · Complete | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
-| W12b.2c · P1 · Queued | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit only the current file profile; unsupported/corrupt history cannot replace the live document. |
+| W12b.2c · P1 · In progress | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit only the current file profile; unsupported/corrupt history cannot replace the live document. |
 | W12c · P1 · In progress | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
 | W12c.1 · P1 · Complete | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
 | W12c.1a · P1 · Complete | Shared exact sparse-cell payload ownership; W12b.2a. | Validate target/text/clear/no-op and capture exact before/after spans into caller-owned bounded storage before mutation. Existing native recovery reservation uses the same shared controller without another allocation or wire migration. |
@@ -320,7 +320,7 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.5.7 · P1 · Complete | Authored matching versus immutable enrichment; W12c.5.6. | Navigation/default tail capacity and proven ledger completion/allocator growth cannot block valid sheet Undo. Exact authored data remains checked; current counters/RAW are never rewound or promoted to readiness. |
 | W12c.5.8 · P1 · Complete | Read-only typed sheet slot/batch/applicability prerequisites; W12c.5.7. | Bind only supplied current frame/path slots, cap aggregate ownership before decode, preserve prior output on late failure and expose pending/unbound observations without activation. Full file profile/publication remains W12b.2c/W12d. |
 | W12c.5.9 · P1 · Complete | Native source CREATE publication; W12c.5.6–W12c.5.8 and source draft/origin admission. | Resolve actual Database/CSV/Parquet/demo probe, own the full initial view and original topology packet, then publish one genuine CREATE. Cancel/stale/pressure preserve the prior sheet; keyboard replay preserves authored widths/navigation and monotonic identities. |
-| W12d · P1 · Queued | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
+| W12d · P1 · In progress | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
 | W12g · P1 · Queued | Retained-range presentation and milestone gate; W12e–W12f. | Show actual retained Undo coverage and limits. V8→V9→V10 plus unsaved suffix survives reopen, older tags remain openable, and failure/branch/pruning checks pass at the explicit major milestone. |
@@ -839,7 +839,7 @@ source/binary receipts are under ignored build/tests/results/.
 
 | ID / priority / state | Scope and dependency | Demo and acceptance gate |
 | --- | --- | --- |
-| W15 · P1 · Queued | Explicit Connect source mode and provenance; W05/W09. | Read-only Parquet/CSV query views save definitions/styles and a bounded preview; offline dependencies are visible, originals unchanged by Save/export. DE06; Connect portion of A16/A24. |
+| W15 · P1 · In progress | Explicit Connect source mode and provenance; W05/W09. | Read-only Parquet/CSV query views save definitions/styles and a bounded preview; offline dependencies are visible, originals unchanged by Save/export. DE06; Connect portion of A16/A24. |
 | W16 · P1 · Queued | Import retained source bytes and recipe; W15/W11. | Import then remove external file: workbook/version still queries retained data; failed import leaves no partial dataset. Retention policy and path/content identity explicit. DE07; retained-source A16/A24. |
 | W17 · P1 · Queued | Add selected query result to hidden Data Model; W16. | Materialize the complete query once, save/reopen offline and query it without a visible table; optional sheet view references the same dataset. DE07; model portion of A24. |
 | W18 · P1 · Queued | Workbook-owned effective relation and one typed record patch; W08/W17. | Distinguish duplicate records, NULL presence, empty/literal text and exact DECIMAL; viewport/filter/pivot/statistics/copy/export read one revision. Connect requires explicit conversion; originals unchanged. DE01/DE03/DE04; A07. |
@@ -855,7 +855,7 @@ source/binary receipts are under ignored build/tests/results/.
 
 | ID / priority / state | Scope and dependency | Demo and acceptance gate |
 | --- | --- | --- |
-| W26a · P1 · Queued | Typed sparse manual cells; W05/W08. Integrates C03/C04/C07. | NULL/empty/literal text, integers and exact DECIMAL survive edit/clipboard/Undo/reopen; no implicit locale-dependent conversion. WM01; typed-cell portion of A06. This does not wait for the Data Model or formula engine. |
+| W26a · P1 · In progress | Typed sparse manual cells; W05/W08. Integrates C03/C04/C07. | NULL/empty/literal text, integers and exact DECIMAL survive edit/clipboard/Undo/reopen; no implicit locale-dependent conversion. WM01; typed-cell portion of A06. This does not wait for the Data Model or formula engine. |
 | W26b · P1 · Queued | Basic parsed positional formulas and dependency runtime; W26a/W21. Integrates C08. | An explicit small operator/function set recalculates typed manual/analytical references, detects cycles and displays typed ref/type/calc errors. Valid changed numbers recalculate; saved stale output retains its provenance. WM04; formula part of A06/A31. |
 | W27 · P1 · Queued | Explicit manual-range analytical input; W26a. | Bind a finite typed range to a relation and pivot; one edit updates consumers at one revision; schema changes invalidate explicitly. WM03; remaining A06. |
 | W28 · P1 · Queued | Code/display names and object-local positional references; W26b/W21. | `sheet_code.object_code.A1` resolves offscreen; display rename is cosmetic, code rename updates parsed bindings atomically. No category/GETPIVOTDATA lookup. WM07–WM08; naming part of A29. |
@@ -1914,41 +1914,22 @@ the user subsequently resumed roadmap execution. Newer source changes require a
 new package before they are present in this previously delivered bundle.
 
 
-## Active parallel roadmap execution
+## Parallel execution policy
 
-The user authorizes four GPT-6.1 medium-effort subagent lanes, superseding the
-usual two-lane default for this run. Base: `55ad3f6`. The coordinator owns main,
-active docs, shared App/build/catalog reconciliation and linear integration.
-The current agent service permits root plus three running subagents. The user
-requires those three slots to implement product features. Isolation is stopped
-after its verified infrastructure commits; the coordinator owns runner work.
-Four worktrees are registered; do not confuse a ready checkout with a running
-agent or a module result with integrated product acceptance.
+The user authorizes three GPT-6.1 medium implementation agents plus the root
+coordinator. Isolation stays stopped. Active assignments and ready references
+are maintained in the current handoff table below; earlier receipt paragraphs
+are integration evidence, not another active queue.
 
-| Lane / managed worktree | Dependency-ready scope | Reconciliation boundary |
-| --- | --- | --- |
-| `roadmap-isolation` · Stopped | Verified build/test isolation infrastructure | No active assignment; leave this agent stopped as requested |
-| `roadmap-object-create` · Active | Manual row actions and manual move/replace complete | Own range_event/history_range/range_command; family4 reserved; mixed source/object integration waits for closure |
-| `roadmap-source-format` · Active | W12c.3c.3a.2 authoritative working-origin completion | Own source-origin/default relation and verified baseline integration; no retained writer activation |
-| `roadmap-history-save-as` · Active | W12c.5.3 guarded metadata adoption; payload/preparation and W13 complete | Own sheet_lifecycle metadata codec; same stable ID set, no topology/App activation; future envelope family5 reserved |
-
-Every checkout keeps private `build/` fixtures/binaries/receipts. The user's
-follow-up supersedes whole-command serialization: take the shared compilation
-lease only while building, with eight compilation jobs, and release it before
-independent private test execution. Keep same-checkout runner ownership to avoid
-overwriting a tested executable. App tests use dedicated lane-tagged TEST
-executables; subagents do not launch the normal `Duxcel.app`. Clipboard, native
-file-panel and other actual shared desktop interactions retain their separate
-native-service lock. Hidden software-injected GUI tests that use no shared OS
-services may run independently. No user App is controlled or terminated.
-The coordinator integrates verified commits at dependency milestones, runs only
-the affected combined feature/interaction gates and records product completion
-here. Unresolved dependencies stay explicit; no lane activates retained App
-history before complete producer/publication coverage. Disposable scheduling
-details live in ignored `build/locks/roadmap-lanes.json`. Phase-aware runner
-verification is complete; private feature execution has resumed.
-
-
+Each lane has an isolated worktree and private fixtures, binaries and TEST
+identity. One coordinator owns shared interfaces, App/build/catalog integration
+and main. Compilation uses the repository lease and eight jobs. Mutable engines
+and all actual native/browser desktop interactions have one explicit owner;
+subagents currently compile and run pure gates only. They share one read-only
+execution slot at `build/locks/roadmap-lane-readonly.lock`, leaving one for the
+coordinator; nested processes forward inherited lease descriptors. Keep source
+work progressing while a resource is queued and reassign the next dependency-
+ready feature when a slice finishes. No routine hands-on approval gate is added.
 
 Parallel bootstrap integrated: original infrastructure commit `a7e530e` (main
 `2bc8442`) plus `22f6b87` provides `tools/lane.py`, a private checkout marker,
@@ -2375,20 +2356,28 @@ for the next milestone, not included in this build.
 
 ## Active dependency milestone — three implementation lanes
 
-The user-authorized team resumes from verified main `9543a52` with three
-GPT-6.1 medium implementation lanes plus the coordinator. Isolation remains
-stopped. Compilation, mutable engine work and desktop interaction remain serialized
-through the existing leases; each checkout owns its generated data and tagged
-hidden TEST binaries. A queued shared-resource gate does not prevent independent
-source work. The coordinator supplies the next dependency-ready task at each
-handoff instead of waiting for routine human approval.
+The completed source/range/session-history group is undergoing final milestone
+delivery. Main product sources stay frozen while full native/Wasm/platform
+checks and origin/CI delivery run; private next-slice work continues. Native
+core15/container16 are still current. No typed-cell schema, retained Undo,
+preview persistence or historical cached-output activation is implied.
 
-| Lane | Owned work | Integration boundary |
+| Lane | Current independent scope | Ready boundary / remaining acceptance |
 | --- | --- | --- |
-| Source (`roadmap-source-format`) | Native pending source/CREATE ownership and read-only source-subset admission | Private source publication accepted at `codex/source-publication-native-accepted`; retained writer/browser activation remain off |
-| History (`roadmap-history-save-as`) | Sheet topology/metadata payload ownership and genuine session replay | Private topology12/lifecycle28 gates accepted; detached chronology and final-valid metadata fixes integrated separately on main |
-| Object (`roadmap-object-create`) | Mixed ranges, complete source result fences, source MOVE/axes and keyboard Clear | Codec/controllers verified; native routing children pass their own focused interaction gates before integration |
-| Coordinator (main) | Shared interfaces, dependency integration and current milestone delivery | Scoped acceptance per slice; full native/Wasm inventory at milestones, then verified origin/CI delivery |
+| Source (`roadmap-source-format`) | W26a closed typed sparse store/command/current-codec/render cutover; source-format fallbacks prepared separately | `codex/w26-reconciled-fb895901` protects eleven reconciled format/value prerequisites. Source-format10/11/6 real GUI stages remain queued; typed models/range plans have pure gates only. Live enabling waits for one coordinated current-schema/Worker/fixture group. |
+| Object (`roadmap-object-create`) | W15 explicit Connect/source details, bounded browse asset/codec/actual-Workbook association and atomic PreviewSet | Private `31758132` includes pure preview closure/lifetime; Source details25-stage CSV/Parquet workflows are compiled, not run. Reconcile onto main for proposed-source probe exclusions. Preview remains a separate captured-only owner; no cache persistence or historical borrowing. |
+| History (`roadmap-history-save-as`) | W12b.2c combined profile/wire plus W12d physical capture/component/after-Save preparation | Pure profile/wire `fd53b88d`/`918bfdaf`/`9276aeee` pass. Native capture/component and first-Save/rollback cases through `93e5fde5` compile; both named engine plans remain queued. Actual-state applicability and real User Save receipt binding still block advertised Undo publication. |
+| Coordinator (main) | Linear integration, shared interfaces, scoped acceptance and milestone delivery | Native full run passes252 pure configurations,51 GUI workflows and18 broad scenarios; final delivery receipts are under `build/tests/results/milestone2-*`. No additional product merge until this delivery finishes. |
+
+The W15 initial cache policy is auxiliary current-artifact browse data. Named
+historical preview/Save As must not borrow Working Head rows. Reused roots use
+the actual purpose-specific publication target and complete-core comparison;
+metadata compatibility is never current-result or format-binding readiness.
+History owns the closed native registry; known component advertisement must be
+explicit, with no unknown/absent compatibility fallback. Retained actual-state
+applicability remains separate from metadata/physical byte proof.
+
+### Earlier scoped integration evidence
 
 Width authority remains committed `SheetView.widths`; Grid is a projection and
 visual drag draft. Pure foundation refs `7b302ec`/`0ae03cec` stay reachable until
@@ -2689,3 +2678,23 @@ sanitizer range modules (`20261025T232625-feature-59283`,
 `232654-feature-60201`). Real Bold binding, mixed MOVE and row/column Undo/Redo
 preserve RAW ledger identity, field membership, actual paint resolution and
 unchanged Page/content/request owners. No source file mutation is introduced.
+
+Milestone2 local regression passes at frozen product snapshot `fb895901`:
+`20261025T232830-full-61586` is one successful complete native run in2939.944s,
+500 result records, zero failures/skips,252 pure configurations,51 standalone
+GUI workflows/881 stages and18 broad scenarios/1353 stages (2234 total).
+Background477 and GPU110 checks also pass. Source comparison after `811d9e6c`
+changes only the Python fixture-order expectation; no product C/build/asset
+change requires repeating that native run. Corrected Python229 and Node341
+contracts pass; normal/review/official-Worker Wasm and9 real browser profiles
+pass. Ten browser-host C binaries pass normal/sanitizer, and macOS lifecycle
+passes at `20261026T003407-lifecycle-12950`. Failed raw orchestration/old test
+reports remain failed; corrected results are recorded separately.
+
+Final clean bundle/signing/Open and Pages subpath checks, followed by matching
+origin/CI/live deployment proof, are the delivery tail. Concise disposable
+receipts: `build/tests/results/milestone2-current-coverage-audit.json`,
+`milestone2-wasm-builds.json`, `milestone2-browser-runtime.json` and the final
+artifact/delivery receipt. The prior fully delivered checkpoint remains
+`a215eb1` until that tail completes; the next integration note records the new
+verified delivery reference. The private three-lane queue continues meanwhile.
