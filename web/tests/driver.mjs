@@ -228,6 +228,9 @@ const altStress=process.argv.includes('--alt-stress');
 const persistenceOwners=process.argv.includes('--persistence-owners');
 const persistence=process.argv.includes('--persistence')||persistenceOwners;
 const sourceIndex=process.argv.indexOf('--source');const sourceFile=sourceIndex<0?null:process.argv[sourceIndex+1];
+const bootstrapIndex=process.argv.indexOf('--source-bootstrap-ms');
+const sourceBootstrapMs=bootstrapIndex<0?15000:Number(process.argv[bootstrapIndex+1]);
+if(!Number.isInteger(sourceBootstrapMs)||sourceBootstrapMs<15000||sourceBootstrapMs>90000||bootstrapIndex>=0&&!sourceFile)throw new Error('--source-bootstrap-ms requires --source and an integer from 15000 to 90000');
 if(chartOtherOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='chart-other.csv'||Number(process.argv[process.argv.indexOf('--dpr')+1])!==2||process.argv.some(flag=>/^--.*-only$/.test(flag)&&flag!=='--chart-other-only')||['--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--chart-other-only requires --review/chart-other.csv/--dpr 2 and excludes other profiles/engine/report-upload options');
 if(sourceLabelsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||process.argv.some(flag=>/^--.*-only$/.test(flag)&&flag!=='--source-labels-only')||['--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--source-labels-only requires --review/transactions.csv and excludes other profiles/engine/report-upload options');
 if(sourceBindingsOnly&&(!review||!sourceFile||path.basename(sourceFile)!=='transactions.csv'||process.argv.some(flag=>/^--.*-only$/.test(flag)&&flag!=='--source-bindings-only')||['--filters','--busy','--worker-driver','--worker-probe','--platform','--alt-stress','--persistence','--persistence-owners','--query-apply','--review-offline','--review-outbox'].some(flag=>process.argv.includes(flag))))throw new Error('--source-bindings-only requires --review/transactions.csv and excludes other profiles/engine/report-upload options');
@@ -2876,8 +2879,8 @@ async function zoomSource({total='5',columns=6}={}){
 async function pendingReports(){
  return evaluate(`(async()=>{const {createIndexedDBReviewStore}=await import('/review_queue.mjs');const store=createIndexedDBReviewStore();try{return(await store.listPending()).map(row=>({report_id:row.reportId,digest:row.digest,bytes:row.blob.size}));}finally{store.close();}})()`);
 }
-async function waitPage(afterId=null){
- for(const deadline=Date.now()+15000;Date.now()<deadline;){
+async function waitPage(afterId=null,timeoutMs=15000){
+ for(const deadline=Date.now()+timeoutMs;Date.now()<deadline;){
   const current=replies().filter(r=>r.kind===0&&(afterId===null||BigInt(r.id)>BigInt(afterId))).at(-1);
   if(current){check(!current.error,'C browser query failed');if(!current.pending)return current;const count=replies().find(r=>r.kind===8&&BigInt(r.id)>BigInt(current.id));if(count){check(!count.error,'C browser count failed');return {...current,total:count.counted};}}
   await pause(20);
@@ -3324,7 +3327,7 @@ try{
    busyResult={job,input_to_capture_ms:Date.now()-inputStarted,captured_before_reply:true,scope:'Actual shared C ribbon input/frame while a source query job is pending; not engine-only execution or input latency'};
    await click(38,42);
   }
-  const imported=await waitPage();sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
+  const imported=await waitPage(null,sourceBootstrapMs);sourceResult={...imported,selection_to_c_reply_ms:Date.now()-importStarted,bootstrap_timeout_ms:sourceBootstrapMs};check(imported.rows>0&&imported.columns>0,'Imported C Page is empty');await frames(4);await capture('imported');
   if(sourceFile.endsWith('/transactions.csv')){check(imported.total==='5'&&imported.columns===6,'CSV import count/schema changed');await click(716,102);const sorted=await waitPage(imported.id);check(sorted.total==='5','Sort changed source count');await frames();await capture('sorted');}
   if(platform){
    await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('9','Digit9',57);await key('Escape','Escape',27);await click(40,42);

@@ -2698,3 +2698,16 @@ receipts: `build/tests/results/milestone2-current-coverage-audit.json`,
 artifact/delivery receipt. The prior fully delivered checkpoint remains
 `a215eb1` until that tail completes; the next integration note records the new
 verified delivery reference. The private three-lane queue continues meanwhile.
+
+The delivery tail is verified at `0bc3f1b7`: clean native bundle/signature and
+cold/warm LaunchServices Open pass; origin/main and workflow40250807938 match
+the commit and all three CI/CD jobs succeed. Live Pages release identity and
+served Wasm hash match its own manifest. Actual live CSV/sort/filter acceptance
+passes26 checks (`20261026T005605-pages`,12.336s), with the first remote engine
+bootstrap explicitly bounded at90s; subsequent query waits remain15s. Earlier
+15s live-bootstrap failures remain recorded as failures. Local packaged-subpath
+acceptance passes7.318s (`20261026T005620-pages`), and seven Pages tool contracts
+plus four invalid bootstrap-limit rejection cases pass. This allowance changes
+test orchestration only, not shipping engine behavior. Private typed-store,
+preview persistence and retained-history work remain outside this delivered
+product snapshot until their closed integration gates pass.

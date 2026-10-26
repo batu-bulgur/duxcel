@@ -24,6 +24,16 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+def browser_command(url, output, *, remote):
+    command = ['node', 'web/tests/driver.mjs', url, str(output / 'cdp'),
+               '--source', str(ROOT / 'tests/fixtures/transactions.csv'), '--filters']
+    if remote:
+        # A fresh public browser also downloads/instantiates the official engine.
+        # Only first import gets this allowance; subsequent queries stay bounded.
+        command += ['--source-bootstrap-ms', '90000']
+    return command
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     target = parser.add_mutually_exclusive_group(required=True)
@@ -49,8 +59,7 @@ def main():
             with urllib.request.urlopen(url + 'release.json', timeout=60) as response:
                 release = json.load(response)
             before = source_metadata(ROOT)
-            command = ['node', 'web/tests/driver.mjs', url, str(output / 'cdp'),
-                       '--source', str(ROOT / 'tests/fixtures/transactions.csv'), '--filters']
+            command = browser_command(url, output, remote=bool(args.url))
             with (output / 'browser.txt').open('w') as log:
                 result = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, timeout=240)
             after = source_metadata(ROOT)

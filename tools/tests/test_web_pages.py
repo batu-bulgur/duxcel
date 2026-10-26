@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
 """Publication boundary checks: integrity, isolation, and a minimal public payload."""
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
 from package_web_pages import RUNTIME, package
+SPEC = importlib.util.spec_from_file_location('duxcel_pages_acceptance', Path(__file__).resolve().parents[1] / 'test_web_pages.py')
+pages_acceptance = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(pages_acceptance)
+
+
+class PagesBrowserCommandTests(unittest.TestCase):
+    def test_remote_bootstrap_allowance_preserves_source_and_filters(self):
+        local = pages_acceptance.browser_command('http://127.0.0.1/duxcel/', Path('result'), remote=False)
+        remote = pages_acceptance.browser_command('https://example.com/duxcel/', Path('result'), remote=True)
+        self.assertNotIn('--source-bootstrap-ms', local)
+        self.assertEqual(remote[-2:], ['--source-bootstrap-ms', '90000'])
+        self.assertEqual(local[4:], remote[4:-2])
+        self.assertIn('--source', remote)
+        self.assertIn('--filters', remote)
 
 
 class PagesPackageTests(unittest.TestCase):
