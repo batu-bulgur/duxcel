@@ -973,3 +973,7 @@ FEATURES["value-type"] = Feature(("value_type", "manual_value", "value_type_layo
 FEATURES["value-type-view"] = Feature(("value_type", "manual_value", "value_type_layout"), "value-type",
     ("python3 tools/test.py full --config both",),
     ("src/ui/value_type_view.h", "src/ui/value_type_layout.c", "src/ui/value_type_view.c", "tests/test_value_type_layout.c", "tests/test_value_type_gui.c"))
+
+FEATURES["data-boundary"] = Feature(("data_boundary",), "",
+    ("python3 tools/test.py full --config both",),
+    ("src/grid/data_boundary.c", "src/grid/data_boundary.h", "tests/test_data_boundary.c"))

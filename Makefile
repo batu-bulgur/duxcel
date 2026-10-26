@@ -1193,6 +1193,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_archive_scope build/tests/test_archive
 PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_state build/tests/test_history_cells_state-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_publication build/tests/test_history_cells_publication-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type-debug build/tests/test_value_type_layout build/tests/test_value_type_layout-debug build/tests/test_value_type-gui
+PARALLEL_NATIVE_GOALS += build/tests/test_data_boundary build/tests/test_data_boundary-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2851,3 +2852,8 @@ endif
 build/tests/test_value_type-gui: $(VALUE_TYPE_GUI_OBJECTS) | build/tests
 	$(call link_binary,$(CFLAGS) $^,$(RAYLIB_LIBS) $(THREAD_LIBS) -lm $(VALUE_TYPE_GUI_PLATFORM_LIBS))
 -include $(VALUE_TYPE_GUI_OBJECTS:.o=.d)
+
+build/tests/test_data_boundary: src/grid/data_boundary.c tests/test_data_boundary.c src/grid/data_boundary.h src/common.h | build/tests
+	$(call link_binary,$(CPPFLAGS) $(WARN) $(CFLAGS) src/grid/data_boundary.c tests/test_data_boundary.c,)
+build/tests/test_data_boundary-debug: src/grid/data_boundary.c tests/test_data_boundary.c src/grid/data_boundary.h src/common.h | build/tests
+	$(call link_binary,$(CPPFLAGS) $(WARN) -O1 -g $(SANFLAGS) src/grid/data_boundary.c tests/test_data_boundary.c,$(SANFLAGS))
