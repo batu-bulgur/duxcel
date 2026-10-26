@@ -20,6 +20,13 @@ Duxcel uses one C99/raylib UI and DuckDB analytical definitions. Native macOS is
 
 Session sheet deletion/duplication and metadata replay now retain their original typed payload under the genuine lifecycle owner. Proven source-ledger completion, allocator growth and navigation do not block valid Undo; same-active metadata replay preserves source Pages and query requests. These are session prerequisites, not durable retained traversal or source execution readiness.
 
+Manual source-free/object-free sheets now support finite Cmd/Ctrl+Arrow data
+boundaries, guarded address-strip/Cmd+G Go To, and literal case-sensitive Find
+through View → Navigate. Native full regression and the maintained real Wasm
+browser profiles pass the combined navigation milestone, including actual
+browser boundary/Go To/Find input. Analytical navigation and typed editing
+remain separate private candidates; native16/core15 stays current.
+
 Valid pending native definition owners now survive Save capture, refused Save,
 sheet suspend/resume and Saved inspection/Working Head return through typed
 ownership transfers. Failed navigation cannot apply Undo to another sheet.

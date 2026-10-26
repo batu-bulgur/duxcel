@@ -47,7 +47,7 @@ numbered workbook dependencies. W05a/W05b implement the admitted single-cell com
 Shared C/native/official-Worker metadata slices already cover definitions, filters, cells/columns, IDs/counters, ledger/bindings and base format properties. These are partial reader components; tests remain essential.
 
 - [ ] Complete end-to-end format-state/selector streams, scopes/memberships, combined ledger budgets and cross-owner validation. The recovered C/native tag reader and JS selector transport are tested components, not browser activation.
-- [ ] Finish historical migration, whole-candidate validation, atomic App publication and writer/output adapters. Enable real asynchronous browser Open/Save only after these pass.
+- [ ] Finish current-format whole-candidate validation, atomic App publication and writer/output adapters. Enable real asynchronous browser Open/Save only after these pass. Prerelease readers do not migrate older formats.
 - [ ] Finish external source relinking/handles and explicitly bounded source-content identity. Session registrations alone do not establish cross-session persistence or arbitrary SQL dependencies.
 - [ ] Verify OPFS recovery, quota/failure/crash handling and portable workbook export; pin compatible Worker/extensions/hosting requirements.
 - [ ] Complete source-record format lineage through custom queries/reindexing and unsupported multi-owner/Table/PIVOT histories. Preserve verified native subsets without overstating universal activation.
@@ -2921,3 +2921,20 @@ The fixture now explicitly expects its Search icon, preserving all assertions.
 Focused Grid optimized/ASan/UBSan passes14.703s
 (`20261026T051941-fast-88887`); a fresh complete milestone run follows.
 All343 Node contracts pass2.551s. The failed broad run remains failed evidence.
+
+Navigation milestone local acceptance is complete on clean `1f2e7ee3`:
+the fresh full native run passes3156.730s
+(`20261026T052015-full-89164`), including143 pure modules in both modes,
+59 App workflows and one widget, all ordered engines/process gates,
+background/GPU and18 broad native scenarios. It completes2410 App stages
+and24 widget stages without skips. All233 Python contracts pass71.943s;
+343 Node contracts and ten browser-host C binaries pass. Normal/review/Worker
+Wasm builds, all ten maintained real browser profiles and packaged Pages smoke
+pass, including actual blank-browser manual boundaries, Go To and Find.
+Hidden lifecycle and isolated cold/warm LaunchServices Open also pass
+(`20261026T062134-lifecycle-27179`, `20261026T062147-open-documents-27387`).
+The normal bundle is strictly signed with clean compiled provenance and no lane
+marker. Concise receipts remain in ignored `build/tests/results/milestone4-*`.
+Final clean delivery metadata, origin push and matching CI/CD/live verification
+follow this local checkpoint; the later private typed/journal, source/Pivot
+navigation and retained-history candidates are outside this acceptance.
