@@ -1,6 +1,7 @@
 #include "workbook/browse_preview.h"
 #include "workbook/analysis_asset.h"
 #include "workbook/browse_preview_admission.h"
+#include "workbook/browse_preview_codec.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +12,7 @@ typedef struct {
     WorkbookId document;
     uint64_t session,sheet,sheet_session,high_water,metadata,request,query,source;
     Analysis definition;
+    SheetObject table;
     Page page;
     SourceVersions sources;
     RangeResultProof proof;
@@ -30,7 +32,7 @@ static void start(Fixture *f) {
     f->page.columns[2]=(Column){.name=dx_strdup("Float"),.type_name=dx_strdup("DOUBLE"),.type=DUCKDB_TYPE_DOUBLE,.number_type={NUM_FLOAT,0,0},.numeric=true};
     const char *texts[]={"NULL decoration","","NULL","9007199254740993.012345678901234567","NaN","Infinity"};
     for (size_t i=0;i<6;i++) f->page.cells[i].text=dx_strdup(texts[i]);
-    f->page.cells[0].is_null=true; f->page.cells[3].number=-0.0; f->page.cells[4].number=NAN; f->page.cells[5].number=INFINITY;
+    f->page.cells[0].is_null=true; f->page.cells[3].number=-0.0; { uint64_t bits=UINT64_C(0x7ff8000000001234); memcpy(&f->page.cells[4].number,&bits,8); } f->page.cells[5].number=INFINITY;
     f->page.records=(PageRecords){.ids=dx_alloc(2*sizeof(uint64_t)),.source_key=dx_strdup("actual reader key"),.count=1,.stamp=77,.file_identity_valid=true,.file_identity={.device=31,.inode=41,.size=500,.links=1}};
     f->page.records.ids[0]=1901;
     f->proof=(RangeResultProof){.object=0,.request=f->request,.query_epoch=f->query,.source_epoch=f->source,.owner=&f->owner,.definition=&f->definition,.page=&f->page,.ready=true};
@@ -39,7 +41,7 @@ static void start(Fixture *f) {
         .object_high_water=&f->high_water,.metadata_clock=&f->metadata,.request_epoch=&f->request,.query_epoch=&f->query,.source_epoch=&f->source,
         .definition=&f->definition,.result_owner=&f->owner,.sources=&f->sources,.results=&f->resolver,.other_owned=sizeof(*f)};
 }
-static void finish(Fixture *f) { page_free(&f->page); analysis_free(&f->definition); source_versions_free(&f->sources); }
+static void finish(Fixture *f) { page_free(&f->page); analysis_free(&f->definition); analysis_free(&f->table.source); source_versions_free(&f->sources); }
 static BrowsePreviewInfo measured(Fixture *f,BrowsePreviewTarget *target,BrowsePreview *prior) {
     BrowsePreviewInfo info={0}; CHECK(browse_preview_prepare(&f->context,target)==BROWSE_PREVIEW_OK);
     CHECK(browse_preview_measure(&f->context,target,prior,&info)==BROWSE_PREVIEW_OK); return info;
@@ -98,10 +100,9 @@ static void stale(void) {
 }
 static void profiles(void) {
     Fixture f; start(&f); BrowsePreviewTarget target; BrowsePreview *preview=NULL; BrowsePreviewInfo info;
-    f.context.owner=7; f.proof.object=7; f.high_water=10;
     f.page.count_pending=true; info=measured(&f,&target,NULL); CHECK(info.count_pending && info.total==102);
     CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&preview)==BROWSE_PREVIEW_OK && browse_preview_page(preview)->count_pending);
-    CHECK(browse_preview_info(preview).owner==7 && browse_preview_info(preview).object_high_water==10);
+    CHECK(browse_preview_info(preview).owner==0 && browse_preview_info(preview).object_high_water==0);
     f.page.records.count=0; info=measured(&f,&target,preview); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&preview)==BROWSE_PREVIEW_OK);
     CHECK(!browse_preview_page(preview)->records.ids && !browse_preview_page(preview)->records.count && browse_preview_page(preview)->records.file_identity_valid && browse_preview_page(preview)->records.stamp==77);
     for (SourceKind kind=SOURCE_PARQUET;kind<=SOURCE_DATABASE;kind++) {
@@ -129,10 +130,86 @@ static void profiles(void) {
     f.context.other_owned=SIZE_MAX; CHECK(browse_preview_prepare(&f.context,&target)==BROWSE_PREVIEW_OK); preserved(&f,&target,&preview,BROWSE_PREVIEW_LIMIT);
     f.context.other_owned=0; browse_preview_free(preview); finish(&f);
 }
+static BrowsePreview *wire_copy(const BrowsePreview *preview) {
+    BrowsePreviewPacket packet={0}; BrowsePreviewWireInfo measured={0},inspected={0}; BrowsePreview *decoded=NULL;
+    CHECK(browse_preview_encode_measure(preview,NULL,&measured)==BROWSE_PREVIEW_OK);
+    CHECK(browse_preview_encode(preview,measured.coexistence-1,&packet)==BROWSE_PREVIEW_LIMIT && !packet.data);
+    CHECK(browse_preview_encode(preview,measured.coexistence,&packet)==BROWSE_PREVIEW_OK);
+    CHECK(browse_preview_preflight(packet.data,packet.bytes,&inspected)==BROWSE_PREVIEW_OK && inspected.owned==browse_preview_info(preview).owned);
+    CHECK(browse_preview_decode(packet.data,packet.bytes,inspected.coexistence-1,&decoded)==BROWSE_PREVIEW_LIMIT && !decoded);
+    CHECK(browse_preview_decode(packet.data,packet.bytes,inspected.coexistence,&decoded)==BROWSE_PREVIEW_OK);
+    BrowsePreviewPacket again={0}; CHECK(browse_preview_encode(decoded,SIZE_MAX,&again)==BROWSE_PREVIEW_OK);
+    CHECK(packet.bytes==again.bytes && !memcmp(packet.data,again.data,packet.bytes));
+    const Page *before=browse_preview_page(preview),*after=browse_preview_page(decoded);
+    CHECK(after->cells!=before->cells || !before->row_count);
+    for (size_t i=0;i<before->row_count*before->column_count;i++) {
+        CHECK(after->cells[i].is_null==before->cells[i].is_null && !memcmp(&after->cells[i].number,&before->cells[i].number,8));
+        CHECK(before->cells[i].text ? after->cells[i].text && !strcmp(before->cells[i].text,after->cells[i].text) && before->cells[i].text!=after->cells[i].text : !after->cells[i].text);
+    }
+    browse_preview_packet_free(&packet); browse_preview_packet_free(&again); return decoded;
+}
+static void put_wire(unsigned char *data,size_t at,uint64_t value,unsigned bytes) { for (unsigned i=0;i<bytes;i++) { data[at+i]=(unsigned char)value; value>>=8; } }
+static uint64_t get_wire(const unsigned char *data,size_t at,unsigned bytes) { uint64_t value=0; for (unsigned i=0;i<bytes;i++) value|=(uint64_t)data[at+i]<<(8*i); return value; }
+static void bad_wire(const unsigned char *data,size_t bytes,BrowsePreview **prior,BrowsePreviewStatus expected) {
+    BrowsePreview *old=*prior; const Page *page=browse_preview_page(old);
+    static unsigned case_id; case_id++;
+    BrowsePreviewStatus got=browse_preview_decode(data,bytes,SIZE_MAX,prior);
+    if (got!=expected) fprintf(stderr,"Wire corruption case %u: expected %d, got %d\n",case_id,expected,got);
+    CHECK(got==expected && *prior==old && browse_preview_page(*prior)==page);
+}
+static void wire_corruption(void) {
+    Fixture f; start(&f); BrowsePreviewTarget target; BrowsePreviewInfo info=measured(&f,&target,NULL); BrowsePreview *preview=NULL;
+    CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&preview)==BROWSE_PREVIEW_OK);
+    BrowsePreview *decoded=wire_copy(preview); BrowsePreviewPacket packet={0}; CHECK(browse_preview_encode(preview,SIZE_MAX,&packet)==BROWSE_PREVIEW_OK);
+    unsigned char *bad=dx_alloc(packet.bytes+1); memcpy(bad,packet.data,packet.bytes);
+    for (size_t n=0;n<packet.bytes;n++) { BrowsePreview *old=decoded; CHECK(browse_preview_decode(packet.data,n,SIZE_MAX,&decoded)!=BROWSE_PREVIEW_OK && decoded==old); }
+    bad_wire(bad,packet.bytes+1,&decoded,BROWSE_PREVIEW_INVALID);
+    const size_t invalid_bytes[]={0,6,24,32,56,124,128,132,136,140,144,148,212,252};
+    for (size_t i=0;i<sizeof(invalid_bytes)/sizeof(*invalid_bytes);i++) {
+        memcpy(bad,packet.data,packet.bytes); size_t at=invalid_bytes[i];
+        if (at==124) bad[at]|=8; else if (at==24 || at==128 || at==132) put_wire(bad,at,0,8*(at==24)+4*(at!=24)); else bad[at]^=1;
+        bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    }
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,4,0,2); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_UNSUPPORTED);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,72,357,8); put_wire(bad,112,257,4); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_LIMIT);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,116,257,4); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_LIMIT);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,120,3,4); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,64,UINT64_MAX,8); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,72,101,8); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    size_t definition_bytes=(size_t)get_wire(packet.data,128,4),source_bytes=(size_t)get_wire(packet.data,132,4);
+    size_t schema=256+definition_bytes+source_bytes,cells=schema+(size_t)get_wire(packet.data,136,4),records=cells+(size_t)get_wire(packet.data,140,4);
+    const size_t schema_bad[]={schema+4,schema+7,schema+10,schema+12,schema+20+4};
+    for (size_t i=0;i<sizeof(schema_bad)/sizeof(*schema_bad);i++) { memcpy(bad,packet.data,packet.bytes); bad[schema_bad[i]]=i==4 ? 0xc0 : 255; bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID); }
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,schema,0,4); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,schema,255,4); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_UNSUPPORTED);
+    memcpy(bad,packet.data,packet.bytes); bad[cells]=2; bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    memcpy(bad,packet.data,packet.bytes); bad[cells+13]=0x80; bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,records,0,8); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    memcpy(bad,packet.data,packet.bytes); bad[256+definition_bytes+8]^=1; bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    memcpy(bad,packet.data,packet.bytes); put_wire(bad,40,10,8); put_wire(bad,256+16,1,8); bad_wire(bad,packet.bytes,&decoded,BROWSE_PREVIEW_INVALID);
+    BrowsePreviewWireInfo inspected={0}; CHECK(browse_preview_preflight(packet.data,packet.bytes,&inspected)==BROWSE_PREVIEW_OK);
+    BrowsePreview *old=decoded; CHECK(browse_preview_decode(packet.data,packet.bytes,inspected.coexistence+browse_preview_info(decoded).owned-1,&decoded)==BROWSE_PREVIEW_LIMIT && decoded==old);
+    CHECK(browse_preview_decode((void *)(uintptr_t)1,SIZE_MAX,SIZE_MAX,&decoded)==BROWSE_PREVIEW_LIMIT && decoded==old);
+    free(bad); browse_preview_packet_free(&packet); browse_preview_free(decoded); browse_preview_free(preview); finish(&f);
+}
+static void table_owner(void) {
+    Fixture f; start(&f); f.table=(SheetObject){.id=7,.kind=OBJECT_TABLE,.revision=9,.rows=5,.columns=3,.source=analysis_copy(&f.definition)};
+    f.high_water=10; f.context.owner=7; f.context.table=&f.table; f.context.definition=&f.table.source;
+    f.context.query_epoch=f.context.source_epoch=&f.table.revision; f.proof.object=7; f.proof.definition=&f.table.source;
+    BrowsePreviewTarget target; BrowsePreview *preview=NULL; BrowsePreviewInfo info=measured(&f,&target,NULL);
+    CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&preview)==BROWSE_PREVIEW_OK);
+    BrowsePreview *copy=wire_copy(preview); BrowsePreviewLive live={.document=f.document,.sheet=f.sheet,.owner=7,.object_high_water=f.high_water,.definition=&f.table.source,.sources=&f.sources,.other_owned=sizeof(f),.table=&f.table}; SourceDependencyAdmission report={0};
+    CHECK(browse_preview_admit(copy,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_EXACT && report.unbound_sources==1);
+    f.table.kind=OBJECT_PIVOT; preserved(&f,&target,&preview,BROWSE_PREVIEW_INVALID);
+    CHECK(browse_preview_admit(copy,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); f.table.kind=OBJECT_TABLE;
+    measured(&f,&target,preview); f.table.revision++; preserved(&f,&target,&preview,BROWSE_PREVIEW_STALE); f.table.revision--;
+    live.object_high_water=7; CHECK(browse_preview_admit(copy,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_UNAVAILABLE);
+    browse_preview_free(copy); browse_preview_free(preview); finish(&f);
+}
 static void association(void) {
     Fixture f; start(&f); BrowsePreview *unbound=NULL,*pending=NULL,*complete=NULL; BrowsePreviewTarget target;
     BrowsePreviewInfo info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&unbound)==BROWSE_PREVIEW_OK);
-    BrowsePreviewLive live={f.document,f.sheet,0,f.high_water,&f.definition,&f.sources,sizeof(f)};
+    BrowsePreviewLive live={.document=f.document,.sheet=f.sheet,.owner=0,.object_high_water=f.high_water,.definition=&f.definition,.sources=&f.sources,.other_owned=sizeof(f)};
     SourceDependencyAdmission report={0}; size_t reserved=0;
     CHECK(browse_preview_admission_measure(unbound,live,&reserved)==BROWSE_PREVIEW_OK);
     CHECK(browse_preview_admit(unbound,live,reserved,&report)==SOURCE_DEPENDENCY_EXACT && report.unbound_sources==1);
@@ -163,6 +240,13 @@ static void association(void) {
     live.sheet++; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); live.sheet=f.sheet;
     live.owner=9; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); live.owner=0;
     f.definition.source_version=0; CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); f.definition.source_version=1;
+    const BrowsePreview *assets[]={unbound,pending,complete};
+    for (size_t i=0;i<3;i++) {
+        SourceDependencyAdmission original={0},roundtrip={0}; BrowsePreview *copy=wire_copy(assets[i]);
+        SourceDependencyStatus expected=browse_preview_admit(assets[i],live,SIZE_MAX,&original);
+        CHECK(browse_preview_admit(copy,live,SIZE_MAX,&roundtrip)==expected && !memcmp(&original,&roundtrip,sizeof(original)));
+        browse_preview_free(copy);
+    }
     saved=report; unsigned char *bad=(unsigned char *)browse_preview_sources(pending,&bytes); unsigned char old=bad[24]; bad[24]=2;
     CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_INVALID && !memcmp(&report,&saved,sizeof(report))); bad[24]=old;
     browse_preview_free(unbound); browse_preview_free(pending); browse_preview_free(complete); finish(&f);
@@ -176,6 +260,7 @@ static void maximum(void) {
     CHECK(info.rows==256 && info.columns==256 && info.owned<DX_BROWSE_PREVIEW_OWNED_BYTES);
     CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&preview)==BROWSE_PREVIEW_OK);
     CHECK(browse_preview_page(preview)->cells[65535].is_null && !browse_preview_page(preview)->cells[65535].text && browse_preview_page(preview)->offset==UINT64_MAX-256);
+    BrowsePreview *copy=wire_copy(preview); browse_preview_free(copy);
     browse_preview_free(preview); finish(&f);
 }
-int main(void) { ownership(); stale(); profiles(); association(); maximum(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
+int main(void) { ownership(); stale(); profiles(); association(); table_owner(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }

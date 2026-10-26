@@ -8,6 +8,7 @@ typedef struct {
     const Analysis *definition;
     const SourceVersions *sources;
     size_t other_owned;
+    const SheetObject *table; /* Actual Table source, NULL for primary owner0. */
 } BrowsePreviewLive;
 /* Full temporary DXAN/DXSV ownership plus grammar/RAW stack, existing preview
    and separately charged live inputs. No source IO or current Page is needed.

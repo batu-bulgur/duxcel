@@ -13,6 +13,7 @@ typedef struct {
     const uint64_t *request_epoch,*query_epoch,*source_epoch;
     uint64_t owner; /* 0 primary, otherwise actual Table ID, never a Pivot/Chart. */
     const Analysis *definition;
+    const SheetObject *table; /* Actual positive owner; NULL for the primary. */
     const void *result_owner;
     const SourceVersions *sources;
     const RangeResultContext *results;

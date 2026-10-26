@@ -2774,7 +2774,7 @@ build/tests/test_source_details_parquet-gui: tests/test_source_details_gui.c $(S
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_source_details_gui.c $(SOURCE_DETAILS_PARQUET_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(SOURCE_DETAILS_CSV_OBJECT:.o=.d) $(SOURCE_DETAILS_PARQUET_OBJECT:.o=.d)
 
-BROWSE_PREVIEW_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/workbook/source_scope.c src/workbook/definition_wire.c src/workbook/analysis_asset.c src/workbook/source_versions_codec.c src/workbook/source_versions_admission.c src/workbook/definition_state.c src/workbook/browse_preview.c src/workbook/browse_preview_admission.c tests/test_browse_preview.c
+BROWSE_PREVIEW_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/data/page.c src/data/source_digest.c src/workbook/source_scope.c src/workbook/definition_wire.c src/workbook/analysis_asset.c src/workbook/source_versions_codec.c src/workbook/source_versions_admission.c src/workbook/definition_state.c src/workbook/browse_preview.c src/workbook/browse_preview_metadata.c src/workbook/browse_preview_codec.c src/workbook/browse_preview_admission.c tests/test_browse_preview.c
 BROWSE_PREVIEW_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(BROWSE_PREVIEW_SRC))))
 BROWSE_PREVIEW_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(BROWSE_PREVIEW_SRC))))
 build/tests/test_browse_preview: $(BROWSE_PREVIEW_OBJECTS) | build/tests

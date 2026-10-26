@@ -1,12 +1,13 @@
-#include "browse_preview.h"
+#include "browse_preview_internal.h"
 #include "analysis_asset.h"
 #include <stdlib.h>
 #include <string.h>
-struct BrowsePreview { BrowsePreviewInfo info; Page page; void *definition,*sources; };
 static bool context_valid(const BrowsePreviewContext *c) {
     return c && c->document && c->document_session && c->sheet && c->sheet_session && c->object_high_water && c->metadata_clock &&
         c->request_epoch && c->query_epoch && c->source_epoch && c->definition && c->result_owner && c->sources && c->results && c->results->resolve &&
-        (c->document->high || c->document->low) && *c->document_session && *c->sheet && *c->sheet_session && c->owner<=*c->object_high_water;
+        (c->document->high || c->document->low) && *c->document_session && *c->sheet && *c->sheet_session && c->owner<=*c->object_high_water &&
+        (!c->owner ? !c->table : c->table && c->table->kind==OBJECT_TABLE && c->table->id==c->owner &&
+            c->definition==&c->table->source && c->query_epoch==&c->table->revision && c->source_epoch==&c->table->revision);
 }
 static BrowsePreviewStatus resolve(const BrowsePreviewContext *c,RangeResultProof *proof,const SourceVersion **binding) {
     if (!context_valid(c)) return BROWSE_PREVIEW_INVALID;
@@ -45,7 +46,7 @@ static BrowsePreviewStatus check(const BrowsePreviewContext *c,const BrowsePrevi
     if (c->document!=old->document || c->document_session!=old->document_session || c->sheet!=old->sheet || c->sheet_session!=old->sheet_session ||
         c->object_high_water!=old->object_high_water || c->metadata_clock!=old->metadata_clock || c->request_epoch!=old->request_epoch ||
         c->query_epoch!=old->query_epoch || c->source_epoch!=old->source_epoch || c->owner!=old->owner || c->definition!=old->definition ||
-        c->result_owner!=old->result_owner || c->sources!=old->sources || c->results!=old->results ||
+        c->table!=old->table || c->result_owner!=old->result_owner || c->sources!=old->sources || c->results!=old->results ||
         c->results->resolve!=t->resolver.resolve || c->results->context!=t->resolver.context) return BROWSE_PREVIEW_STALE;
     if (c->document->high!=t->document.high || c->document->low!=t->document.low || *c->document_session!=t->document_session || *c->sheet!=t->sheet ||
         *c->sheet_session!=t->sheet_session || *c->object_high_water!=t->object_high_water || *c->metadata_clock!=t->metadata_clock ||
@@ -59,6 +60,29 @@ static BrowsePreviewStatus check(const BrowsePreviewContext *c,const BrowsePrevi
         memcmp(c->definition,&t->result.definition,sizeof(t->result.definition)) || memcmp(proof->page,&t->result.page,sizeof(t->result.page)) ||
         memcmp(c->sources,&t->sources,sizeof(t->sources)) || (binding!=NULL)!=t->bound ||
         (binding && memcmp(binding,&t->binding,sizeof(t->binding)))) return BROWSE_PREVIEW_STALE;
+    return BROWSE_PREVIEW_OK;
+}
+BrowsePreviewStatus browse_preview_column_status(const Column *column) {
+    if (!column || !column->name || !column->type_name || !column->type) return BROWSE_PREVIEW_INVALID;
+    /* Current shared DuckDB type IDs, retained exactly without text fallback. */
+    if ((unsigned)column->type>41u) return BROWSE_PREVIEW_UNSUPPORTED;
+    if (column->category_count || column->categories) return BROWSE_PREVIEW_UNSUPPORTED;
+    NumberKind kind=NUM_NONE;
+    switch (column->type) {
+    case DUCKDB_TYPE_TINYINT: kind=NUM_I8; break; case DUCKDB_TYPE_SMALLINT: kind=NUM_I16; break;
+    case DUCKDB_TYPE_INTEGER: kind=NUM_I32; break; case DUCKDB_TYPE_BIGINT: kind=NUM_I64; break;
+    case DUCKDB_TYPE_HUGEINT: kind=NUM_I128; break; case DUCKDB_TYPE_UTINYINT: kind=NUM_U8; break;
+    case DUCKDB_TYPE_USMALLINT: kind=NUM_U16; break; case DUCKDB_TYPE_UINTEGER: kind=NUM_U32; break;
+    case DUCKDB_TYPE_UBIGINT: kind=NUM_U64; break; case DUCKDB_TYPE_UHUGEINT: kind=NUM_U128; break;
+    case DUCKDB_TYPE_DECIMAL: kind=NUM_DECIMAL; break;
+    case DUCKDB_TYPE_FLOAT: case DUCKDB_TYPE_DOUBLE: kind=NUM_FLOAT; break;
+    default: break;
+    }
+    NumberType number=column->number_type;
+    if (number.kind!=kind || column->numeric!=(kind!=NUM_NONE) ||
+        (kind==NUM_DECIMAL ? !number.precision || number.precision>38 || number.scale>number.precision : number.precision || number.scale) ||
+        (unsigned)column->date_grain>PIVOT_DATE_MONTH) return BROWSE_PREVIEW_INVALID;
+    for (size_t i=0;i<DX_PIVOT_FIELDS;i++) if ((unsigned)column->category_grains[i]>PIVOT_DATE_MONTH) return BROWSE_PREVIEW_INVALID;
     return BROWSE_PREVIEW_OK;
 }
 static bool add(size_t *total,size_t bytes) { if (bytes>DX_BROWSE_PREVIEW_OWNED_BYTES || *total>DX_BROWSE_PREVIEW_OWNED_BYTES-bytes) return false; *total+=bytes; return true; }
@@ -82,10 +106,7 @@ static BrowsePreviewStatus measure(const BrowsePreviewContext *c,const BrowsePre
     if (!add(&owned,page->column_count*sizeof(Column)) || !add(&owned,cells*sizeof(Cell)) || !add(&owned,page->records.count*sizeof(uint64_t))) return BROWSE_PREVIEW_LIMIT;
     for (size_t col=0;col<page->column_count;col++) {
         const Column *column=page->columns+col;
-        if (column->category_count || column->categories) return BROWSE_PREVIEW_UNSUPPORTED;
-        NumberType number=column->number_type;
-        if (!column->name || !column->type_name || !column->type || (unsigned)column->type>255u || (unsigned)number.kind>NUM_FLOAT ||
-            (number.kind==NUM_DECIMAL ? !number.precision || number.precision>38 || number.scale>number.precision : number.precision || number.scale)) return BROWSE_PREVIEW_INVALID;
+        status=browse_preview_column_status(column); if (status!=BROWSE_PREVIEW_OK) return status;
         const char *texts[]={column->name,column->type_name,column->caption,column->detail};
         for (size_t i=0;i<4;i++) { status=text_owned(texts[i],&owned,NULL); if (status!=BROWSE_PREVIEW_OK) return status; }
     }
