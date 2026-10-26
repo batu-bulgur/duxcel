@@ -1178,6 +1178,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_template_format-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_manual_value build/tests/test_manual_value-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_manual_value_wire build/tests/test_manual_value_wire-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_manual_range_wire build/tests/test_manual_range_wire-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_manual_cells_plan build/tests/test_manual_cells_plan-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2680,3 +2681,13 @@ build/tests/test_manual_range_wire: $(MANUAL_RANGE_WIRE_OBJECTS) | build/tests
 build/tests/test_manual_range_wire-debug: $(MANUAL_RANGE_WIRE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(MANUAL_RANGE_WIRE_OBJECTS:.o=.d) $(MANUAL_RANGE_WIRE_SAN_OBJECTS:.o=.d)
+
+# Unpublished typed after-state, grounded in current snapshot ownership.
+MANUAL_CELLS_PLAN_SRC = src/common.c src/workbook/manual_value.c src/workbook/manual_value_wire.c src/workbook/manual_range_wire.c src/workbook/manual_cells_plan.c src/workbook/clipboard.c src/workbook/cells.c src/workbook/cells_tsv_scan.c tests/test_manual_cells_plan.c
+MANUAL_CELLS_PLAN_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(MANUAL_CELLS_PLAN_SRC))))
+MANUAL_CELLS_PLAN_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(MANUAL_CELLS_PLAN_SRC))))
+build/tests/test_manual_cells_plan: $(MANUAL_CELLS_PLAN_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_manual_cells_plan-debug: $(MANUAL_CELLS_PLAN_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(MANUAL_CELLS_PLAN_OBJECTS:.o=.d) $(MANUAL_CELLS_PLAN_SAN_OBJECTS:.o=.d)
