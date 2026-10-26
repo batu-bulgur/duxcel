@@ -21,7 +21,7 @@ WIDGET_GUI = frozenset({"value-type"})
 
 STANDALONE_GUI = {
     "data-boundary": ("build/tests/test_data_boundary-gui", "PASS: native manual data-boundary workflow",
-                    r"^PASS: native manual data-boundary workflow \(31 stages, [1-9]\d* checks\)$", 31),
+                    r"^PASS: native manual data-boundary workflow \(33 stages, [1-9]\d* checks\)$", 33),
     "value-type": ("build/tests/test_value_type-gui", "PASS: native explicit value-type workflow",
                     r"^PASS: native explicit value-type workflow \(24 stages, [1-9]\d* checks\)$", 24),
     "source-details-csv": ("build/tests/test_source_details_csv-gui", "PASS: native source provenance workflow",

@@ -251,6 +251,13 @@ static void reveal_cell_at(Grid *g,const Page *p,float s,uint64_t row,size_t col
     if (left+g->widths[column]>g->horizontal+view) g->horizontal=left+g->widths[column]-view;
 }
 void grid_reveal_cell(Grid *g,const Page *p,float s) { reveal_cell_at(g,p,s,g->row,g->col); }
+void grid_reveal_navigation_target(Grid *g,const Page *p,float s,uint64_t row,size_t column) {
+    if (!g || !p || !isfinite(s) || s<=0 || row>=DX_SHEET_ROWS || column>=g->width_count || !g->visible_rows) return;
+    /* One layout can widen the row gutter after a distant jump. Resolve the
+       target once more against that body, without changing general pan logic. */
+    reveal_cell_at(g,p,s,row,column); grid_layout(g,s,p,g->rect);
+    reveal_cell_at(g,p,s,row,column); grid_layout(g,s,p,g->rect);
+}
 void grid_reveal_column(Grid *g,const Page *p,float s,size_t column,bool center) {
     if (column>=g->width_count || s<=0) return;
     if (column<g->frozen_columns || g->freeze_blocked) return;
@@ -332,7 +339,7 @@ static void navigate(Grid *g,const Page *p,const GridInput *in,float scale) {
             g->row=next.row; g->anchor_row=next.anchor_row; g->end_row=next.end_row;
             g->col=next.column; g->anchor_col=next.anchor_column; g->end_col=next.end_column;
         } else if (status!=GRID_BOUNDARY_NOOP) return;
-        reveal_cell_at(g,data,scale,in->shift ? g->end_row : g->row,in->shift ? g->end_col : g->col); return;
+        grid_reveal_navigation_target(g,data,scale,in->shift ? g->end_row : g->row,in->shift ? g->end_col : g->col); return;
     }
     switch (key) {
     case KEY_UP: case KEY_DOWN:

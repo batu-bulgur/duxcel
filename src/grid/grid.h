@@ -110,6 +110,10 @@ void grid_fit_column(Grid *g,UIContext *ui,const Page *page,size_t column);
 /* Presentation-only navigation: preserves active cell, selection and row offset. */
 void grid_reveal_column(Grid *g,const Page *page,float scale,size_t column,bool center);
 void grid_reveal_cell(Grid *g,const Page *page,float scale);
+/* Programmatic navigation only: settle a target after distant-row gutter
+   geometry changes. Capacity is already admitted; no allocation or selection
+   mutation occurs. Ordinary pointer/pan reveal behavior is unchanged. */
+void grid_reveal_navigation_target(Grid *g,const Page *page,float scale,uint64_t row,size_t column);
 void grid_select_cell(Grid *g, uint64_t row, size_t col, bool extend);
 /* scale is interface scale * g->zoom; header/gutter chrome uses interface scale. */
 void grid_layout(Grid *g, float scale, const Page *page, Rectangle rect);

@@ -76,10 +76,19 @@ static void data_boundary_test_frame(AppSession *session) {
         DB_CHECK(a->grid.row==DX_SHEET_ROWS-1 && data_boundary_unchanged(a));
         AppGridBoundary target; a->busy=true; app_grid_boundary_begin(a,&target); bool guarded=!a->grid.manual_occupancy_active; a->busy=false; DB_CHECK(guarded);
         SourceKind kind=a->analysis.kind; a->analysis.kind=SOURCE_CSV; app_grid_boundary_begin(a,&target); guarded=!a->grid.manual_occupancy_active; a->analysis.kind=kind; DB_CHECK(guarded); app_grid_boundary_end(a);
-        workspace_job(a,JOB_LOAD,"build/tests/generated/data-boundary.dxls"); break;
+        grid_select_cell(&a->grid,0,GRID_BOUNDARY_COLUMNS-1,false);
+        grid_reveal_cell(&a->grid,&a->page,a->ui.scale*a->grid.zoom); grid_layout(&a->grid,a->ui.scale*a->grid.zoom,&a->page,a->grid.rect);
+        data_boundary_key(KEY_DOWN,false); break;
     }
-    case 29: DB_CHECK(!a->book.dirty && !strcmp(cells_get(&s->cells,20000,25),"Far island") && (format_at(&s->formats,30,3).flags&FORMAT_BOLD)); data_boundary_baseline(a); grid_select_cell(&a->grid,5,2,false); data_boundary_key(KEY_DOWN,false); break;
-    case 30: DB_CHECK(a->grid.row==7 && data_boundary_unchanged(a) && !a->grid.manual_occupancy_active && !a->grid.manual_occupancy.context); data_boundary_result=1; printf("PASS: native manual data-boundary workflow (31 stages, %u checks)\n",data_boundary_checks); break;
+    case 29: {
+        DB_CHECK(a->grid.row==DX_SHEET_ROWS-1 && a->grid.col==GRID_BOUNDARY_COLUMNS-1 && data_boundary_unchanged(a));
+        float view=a->grid.body.width/(a->ui.scale*a->grid.zoom);
+        DB_CHECK(a->grid.offsets[a->grid.col]>=a->grid.horizontal && a->grid.offsets[a->grid.col+1]-a->grid.horizontal<=view+.001f);
+        data_boundary_key(KEY_DOWN,false); break;
+    }
+    case 30: DB_CHECK(a->grid.row==DX_SHEET_ROWS-1 && a->grid.col==GRID_BOUNDARY_COLUMNS-1 && data_boundary_unchanged(a)); workspace_job(a,JOB_LOAD,"build/tests/generated/data-boundary.dxls"); break;
+    case 31: DB_CHECK(!a->book.dirty && !strcmp(cells_get(&s->cells,20000,25),"Far island") && (format_at(&s->formats,30,3).flags&FORMAT_BOLD)); data_boundary_baseline(a); grid_select_cell(&a->grid,5,2,false); data_boundary_key(KEY_DOWN,false); break;
+    case 32: DB_CHECK(a->grid.row==7 && data_boundary_unchanged(a) && !a->grid.manual_occupancy_active && !a->grid.manual_occupancy.context); data_boundary_result=1; printf("PASS: native manual data-boundary workflow (33 stages, %u checks)\n",data_boundary_checks); break;
     }
     data_boundary_stage++;
 }

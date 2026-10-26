@@ -11,7 +11,19 @@ static void prepared(Grid *g,UIContext *u,Page *p,Cells *cells) {
     grid_init(g); grid_ensure_columns(g,52); g->chrome_scale=1; g->digit_width=7; u->scale=1; grid_layout(g,1,p,(Rectangle){0,0,640,400});
     g->manual_occupancy=(GridBoundaryOccupancy){read_cell,cells,cells->count,GRID_BOUNDARY_CELLS_MAX}; g->manual_occupancy_active=true;
 }
+static void distant_visibility(void) {
+    GridBoundaryCell entry={1000000,GRID_BOUNDARY_COLUMNS-1,true}; Cells cells={&entry,1,false};
+    UIContext ui={0}; Page page={0}; Grid grid; prepared(&grid,&ui,&page,&cells);
+    grid_ensure_columns(&grid,GRID_BOUNDARY_COLUMNS); grid_select_cell(&grid,0,GRID_BOUNDARY_COLUMNS-1,false);
+    grid_reveal_cell(&grid,&page,1); grid_layout(&grid,1,&page,grid.rect);
+    key(&grid,&ui,&page,KEY_DOWN,false); CHECK(grid.row==1000000 && grid.col==GRID_BOUNDARY_COLUMNS-1);
+    float right=grid.offsets[grid.col+1]-grid.horizontal;
+    if (right>grid.body.width+.001f) fprintf(stderr,"Distant boundary target clipped: right=%.3f body=%.3f gutter=%.3f\n",right,grid.body.width,grid.gutter);
+    CHECK(grid.offsets[grid.col]>=grid.horizontal && right<=grid.body.width+.001f);
+    grid_destroy(&grid);
+}
 int main(void) {
+    distant_visibility();
     GridBoundaryCell entries[]={{5,2,true},{6,2,true},{7,2,true},{20,2,true},{21,2,true},{30,0,true},{30,1,true},{30,3,false},{30,4,true}}; Cells cells={entries,9,false};
     UIContext ui={0}; Page page={0}; Grid grid; prepared(&grid,&ui,&page,&cells); grid_select_cell(&grid,5,2,false);
     key(&grid,&ui,&page,KEY_DOWN,false); CHECK(grid.row==7 && grid.anchor_row==7 && grid.end_row==7);
