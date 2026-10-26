@@ -45,7 +45,7 @@ static void first_save_input(void) {
     CellEditTarget target; CHECK(workbook_prepare_cell_edit(&book,0,1,1,&target,&error)); WorkbookHistoryStream *stream=NULL;
     CHECK(workbook_history_stream_new((WorkbookHistoryStreamOrigin){.owner=position.owner,.edit_session=book.edit_session_id},(WorkbookHistoryStreamOptions){4,4096},&stream)==HISTORY_STREAM_OK);
     CellEditRecorder recorder=workbook_history_stream_cell_recorder(stream); CellEditCommand command={CELL_EDIT_COMMAND_VERSION,target,"First",5};
-    CHECK(workbook_apply_cell_edit_recorded(&book,&command,(CellEditPolicy){0},&recorder,&error).status==CELL_EDIT_APPLIED);
+    CHECK(workbook_apply_cell_edit_recorded(&book,&command,(CellEditPolicy){.source_ready=true},&recorder,&error).status==CELL_EDIT_APPLIED);
     WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *frame=workbook_history_event_info(event);
     WorkbookHistoryEventPosition transition={frame->transition,frame->lineage,frame->position}; size_t ordinal=0; segment.through=1;
     current.events=&transition; current.event_count=1; current.operation_high_water=frame->transition; current.cursor=current.tail=1;
@@ -81,7 +81,7 @@ int main(void) {
     CHECK(workbook_history_stream_new((WorkbookHistoryStreamOrigin){.owner=owner,.edit_session=book.edit_session_id},(WorkbookHistoryStreamOptions){4,4096},&stream)==HISTORY_STREAM_OK);
     CellEditRecorder recorder=workbook_history_stream_cell_recorder(stream);
     CellEditCommand command={CELL_EDIT_COMMAND_VERSION,target,"Captured R",10};
-    CHECK(workbook_apply_cell_edit_recorded(&book,&command,(CellEditPolicy){0},&recorder,&error).status==CELL_EDIT_APPLIED && book.command_revision==1);
+    CHECK(workbook_apply_cell_edit_recorded(&book,&command,(CellEditPolicy){.source_ready=true},&recorder,&error).status==CELL_EDIT_APPLIED && book.command_revision==1);
     WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK);
     const WorkbookHistoryEventInfo *frame=workbook_history_event_info(event);
     WorkbookHistoryEventPosition event_position={frame->transition,frame->lineage,frame->position};
@@ -114,7 +114,7 @@ int main(void) {
     CHECK(workbook_history_profile_view(workbook_history_native_profile(out))->records[0].event->transition==1);
     /* Live R+1 cannot mutate the owned frozen-R bytes or their revision. */
     CHECK(workbook_prepare_cell_edit(&book,0,2,3,&target,&error)); command=(CellEditCommand){CELL_EDIT_COMMAND_VERSION,target,"Live R+1",8};
-    CHECK(workbook_apply_cell_edit(&book,&command,(CellEditPolicy){0},&error).status==CELL_EDIT_APPLIED && book.command_revision==2);
+    CHECK(workbook_apply_cell_edit(&book,&command,(CellEditPolicy){.source_ready=true},&error).status==CELL_EDIT_APPLIED && book.command_revision==2);
     Workbook restored; workbook_init(&restored); CHECK(workbook_load_core_payload(&restored,workbook_core_payload_path(workbook_history_native_head(out)),&error));
     CHECK(restored.command_revision==1 && !strcmp(cells_get(&restored.sheets[0].cells,2,3),"Captured R")); workbook_free(&restored);
     /* Reuse the genuinely retained CoreSet reference, with a new independently

@@ -13,7 +13,7 @@ static WorkbookHistoryNativeCapture *native_fixture(const char *parent,Workbook 
     CellEditTarget target; CHECK(workbook_prepare_cell_edit(book,0,2,3,&target,error));
     WorkbookHistoryStream *stream=NULL; CHECK(workbook_history_stream_new((WorkbookHistoryStreamOrigin){.owner=owner,.edit_session=book->edit_session_id},(WorkbookHistoryStreamOptions){4,4096},&stream)==HISTORY_STREAM_OK);
     CellEditRecorder recorder=workbook_history_stream_cell_recorder(stream); CellEditCommand command={CELL_EDIT_COMMAND_VERSION,target,"Captured R",10};
-    CHECK(workbook_apply_cell_edit_recorded(book,&command,(CellEditPolicy){0},&recorder,error).status==CELL_EDIT_APPLIED);
+    CHECK(workbook_apply_cell_edit_recorded(book,&command,(CellEditPolicy){.source_ready=true},&recorder,error).status==CELL_EDIT_APPLIED);
     WorkbookHistoryEvent *event=NULL; CHECK(workbook_history_stream_dispatch(stream,&event)==HISTORY_STREAM_OK); const WorkbookHistoryEventInfo *frame=workbook_history_event_info(event);
     WorkbookHistoryEventPosition event_position={frame->transition,frame->lineage,frame->position}; WorkbookHistorySegment current_segment={0,0,1},saved_segment={0,0,0};
     WorkbookHistoryPath current={book->id.high,book->id.low,&current_segment,1,&event_position,1,0,frame->transition,0,0,1,1},saved={book->id.high,book->id.low,&saved_segment,1,NULL,0,0,0,0,0,0,0};

@@ -49,7 +49,7 @@ int main(void) {
     /* Source/enrichment/R+1 can advance the live model. The component consumes
        the SAME leased R body, with its old Saved index still prepublication. */
     CellEditTarget target; CHECK(workbook_prepare_cell_edit(&book,0,2,3,&target,&error)); CellEditCommand command={CELL_EDIT_COMMAND_VERSION,target,"Live R+1",8};
-    CHECK(workbook_apply_cell_edit(&book,&command,(CellEditPolicy){0},&error).status==CELL_EDIT_APPLIED && book.command_revision==2);
+    CHECK(workbook_apply_cell_edit(&book,&command,(CellEditPolicy){.source_ready=true},&error).status==CELL_EDIT_APPLIED && book.command_revision==2);
     /* Successful admission owns exact copies even when the transaction owner
        deliberately rolls back the unpublished SQL component afterward. */
     exec(c,"BEGIN"); CHECK(workbook_history_component_stage(c,captured,wire,bytes,staging,storage,(WorkbookHistoryComponentControl){0},&error)==HISTORY_COMPONENT_READY);
