@@ -44,7 +44,15 @@ static void source_details_test_frame(AppSession *session) {
         SD_CHECK(strstr(a->source_details_text,view.path) && strstr(a->source_details_text,"External · Read-only") && strstr(a->source_details_text,"Source rows remain external"));
         ui_note_key_press(KEY_C,DX_MOD_SUPER); break;
     case 5:
-        SD_CHECK(!strcmp(GetClipboardText(),a->source_details_text)); ui_note_key_press(KEY_ESCAPE,0); break;
+        SD_CHECK(!strcmp(GetClipboardText(),a->source_details_text));
+        /* A real new-Table probe uses JOB_PAGE but is not this primary source.
+           Cancel before its reply is admitted; no Table/user edit is created. */
+        grid_select_cell(&a->grid,900,40,false);
+        SD_CHECK(import_table(a,"build/tests/generated/source-connection-a.duckdb"));
+        SD_CHECK(a->object_import.active && a->busy && a->pending_kind==JOB_PAGE);
+        SD_CHECK(source_details_view(a,&view) && view.definition==&a->analysis && view.state==SOURCE_VIEW_READY);
+        cancel_active_query(a); SD_CHECK(!a->object_import.active && !a->busy && !sheet->objects.count);
+        ui_note_key_press(KEY_ESCAPE,0); break;
     case 6:
         SD_CHECK(a->modal==MODAL_NONE && a->book.command_revision==source_details_revision && sheet->undo_actions_count==source_details_undo && sheet->redo_actions_count==source_details_redo);
         begin_step_menu(a,0,(Vector2){300,200}); break;

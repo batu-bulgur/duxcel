@@ -11,7 +11,7 @@ static bool source_details_view(App *a,SourceProvenanceView *out) {
         if (associated && view->failed) state=SOURCE_VIEW_UNAVAILABLE;
         else if (associated && !pending && object_ready(a,index)) state=SOURCE_VIEW_READY;
     } else {
-        bool pending=a->busy && (a->pending_kind==JOB_PAGE || (a->pending_kind==JOB_COUNT && !a->pending_object_id));
+        bool pending=!a->object_import.active && a->busy && (a->pending_kind==JOB_PAGE || (a->pending_kind==JOB_COUNT && !a->pending_object_id));
         if (a->fetch_failed) state=SOURCE_VIEW_UNAVAILABLE;
         else if (!pending && !a->page_stale && a->page.column_count && !a->page.count_pending) state=SOURCE_VIEW_READY;
     }
