@@ -3,6 +3,7 @@
 #include "workbook/browse_preview_admission.h"
 #include "workbook/browse_preview_codec.h"
 #include "workbook/browse_preview_workbook.h"
+#include "workbook/browse_preview_set_internal.h" /* Set reference-overflow fault injection only. */
 #include "workbook/browse_preview_internal.h" /* Owned reference-overflow fault injection only. */
 #include <math.h>
 #include <stdio.h>
@@ -323,6 +324,102 @@ static void workbook_association(void) {
     }
     free(book.sheets); browse_preview_free(primary); browse_preview_free(table_preview); finish(&f);
 }
+static bool cancel_set(void *context,size_t entry) { return entry==*(const size_t *)context; }
+static Workbook set_book(Fixture *f) {
+    Workbook book={.id=f->document,.sheet_high_water=7,.command_revision=44,.count=1,.user_scale=1};
+    book.sheets=dx_alloc(sizeof(Worksheet)); book.sheets[0]=(Worksheet){.id=7,.name=dx_strdup("Connected"),.analysis=analysis_copy(&f->definition),.view={.canvas_zoom=1}};
+    ObjectStore *objects=&book.sheets[0].objects; objects->next_id=10; objects->count=1; objects->items=dx_alloc(sizeof(SheetObject));
+    objects->items[0]=(SheetObject){.id=7,.kind=OBJECT_TABLE,.name=dx_strdup("Table"),.row=330,.col=16,.rows=5,.columns=3,.source=analysis_copy(&f->definition)};
+    return book;
+}
+static void set_book_free(Workbook *book) {
+    for (size_t i=0;i<book->count;i++) {
+        Worksheet *sheet=book->sheets+i; free(sheet->name); analysis_free(&sheet->analysis); source_versions_free(&sheet->source_versions);
+        for (size_t j=0;j<sheet->objects.count;j++) { free(sheet->objects.items[j].name); analysis_free(&sheet->objects.items[j].source); }
+        free(sheet->objects.items);
+    }
+    free(book->sheets); *book=(Workbook){0};
+}
+static BrowsePreview *capture_fixture(Fixture *f,uint64_t owner) {
+    f->context.owner=owner; f->context.table=owner ? &f->table : NULL; f->context.definition=owner ? &f->table.source : &f->definition;
+    f->context.query_epoch=owner ? &f->table.revision : &f->query; f->context.source_epoch=owner ? &f->table.revision : &f->source;
+    f->proof.object=owner; f->proof.definition=f->context.definition;
+    BrowsePreviewTarget target; BrowsePreviewInfo info=measured(f,&target,NULL); BrowsePreview *asset=NULL;
+    CHECK(browse_preview_capture(&f->context,&target,info.coexistence,&asset)==BROWSE_PREVIEW_OK); return asset;
+}
+static void sets(void) {
+    Fixture f; start(&f); f.high_water=10; f.table=(SheetObject){.id=7,.kind=OBJECT_TABLE,.revision=9,.source=analysis_copy(&f.definition)};
+    Workbook book=set_book(&f); BrowsePreview *assets[]={capture_fixture(&f,7),capture_fixture(&f,0)};
+    const BrowsePreview *table=assets[0],*primary=assets[1]; BrowsePreviewSet *set=NULL; BrowsePreviewSetInfo info={0};
+    CHECK(browse_preview_set_measure(&book,assets,2,NULL,SIZE_MAX,123,&info)==BROWSE_PREVIEW_SET_OK);
+    CHECK(info.count==2 && info.capacity==2 && info.snapshot_revision==44 && info.scope==BROWSE_PREVIEW_AUXILIARY_CURRENT_ARTIFACT);
+    CHECK(info.coexistence==info.owned+info.validation_scratch+123);
+    BrowsePreviewSetInfo saved_info=info;
+    CHECK(browse_preview_set_measure(&book,assets,2,NULL,info.owned-1,123,&info)==BROWSE_PREVIEW_SET_LIMIT && !memcmp(&info,&saved_info,sizeof(info)));
+    CHECK(browse_preview_set_take(&book,assets,2,SIZE_MAX,123,saved_info.coexistence-1,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_LIMIT && !set && assets[0]==table && assets[1]==primary);
+    for (size_t cancel=0;cancel<=2;cancel++) {
+        CHECK(browse_preview_set_take(&book,assets,2,SIZE_MAX,123,SIZE_MAX,(BrowsePreviewSetControl){cancel_set,&cancel},&set)==BROWSE_PREVIEW_SET_CANCELLED);
+        CHECK(!set && assets[0]==table && assets[1]==primary);
+    }
+    book.id.low++;
+    CHECK(browse_preview_set_take(&book,assets,2,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_ASSOCIATION && !set && assets[0]==table && assets[1]==primary); book.id=f.document;
+    CHECK(browse_preview_set_take(&book,assets,2,SIZE_MAX,123,SIZE_MAX,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_OK && !assets[0] && !assets[1]);
+    CHECK(browse_preview_set_asset(set,0)==primary && browse_preview_set_asset(set,1)==table && !browse_preview_set_asset(set,2));
+    CHECK(browse_preview_set_manifest(set,0)->owner==0 && browse_preview_set_manifest(set,1)->owner==7 && !browse_preview_set_manifest(set,2));
+    CHECK(browse_preview_set_manifest(set,0)->admission.classification==BROWSE_PREVIEW_CAPTURED_ONLY);
+    BrowsePreviewWireInfo wire={0}; CHECK(browse_preview_encode_measure(primary,NULL,&wire)==BROWSE_PREVIEW_OK && wire.bytes==browse_preview_set_manifest(set,0)->encoded_bytes);
+    BrowsePreview *duplicates[]={browse_preview_retain(primary),browse_preview_retain(primary)}; BrowsePreviewSet *old=set;
+    CHECK(browse_preview_set_take(&book,duplicates,2,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_INVALID && set==old && duplicates[0] && duplicates[1]);
+    browse_preview_free(duplicates[0]); browse_preview_free(duplicates[1]);
+    BrowsePreview *independent[]={browse_preview_retain(primary),wire_copy(primary)};
+    CHECK(browse_preview_set_take(&book,independent,2,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_INVALID && set==old && independent[0] && independent[1]);
+    browse_preview_free(independent[0]); browse_preview_free(independent[1]);
+    BrowsePreviewSet *pinned=browse_preview_set_retain(set); CHECK(pinned==set);
+    book.command_revision=45; BrowsePreview *reuse[]={browse_preview_retain(primary)};
+    CHECK(browse_preview_set_measure(&book,reuse,1,set,SIZE_MAX,17,&info)==BROWSE_PREVIEW_SET_OK && info.snapshot_revision==45);
+    CHECK(info.coexistence==info.owned+browse_preview_set_info(set).owned+info.validation_scratch+17);
+    CHECK(browse_preview_set_take(&book,reuse,1,SIZE_MAX,17,info.coexistence-1,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_LIMIT && set==old && reuse[0]==primary);
+    CHECK(browse_preview_set_take(&book,reuse,1,SIZE_MAX,17,info.coexistence,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_OK && !reuse[0]);
+    CHECK(browse_preview_set_info(set).snapshot_revision==45 && browse_preview_set_asset(set,0)==primary && browse_preview_set_asset(pinned,1)==table);
+    browse_preview_set_free(pinned); CHECK(!strcmp(browse_preview_page(browse_preview_set_asset(set,0))->cells[3].text,"9007199254740993.012345678901234567"));
+    dx_lock(&set->ownership); set->references=SIZE_MAX; dx_unlock(&set->ownership); CHECK(!browse_preview_set_retain(set));
+    dx_lock(&set->ownership); CHECK(set->references==SIZE_MAX); set->references=1; dx_unlock(&set->ownership);
+    CHECK(browse_preview_set_measure(&book,NULL,0,set,SIZE_MAX,0,&info)==BROWSE_PREVIEW_SET_OK && !info.count && !info.assets_owned);
+    size_t cancel=0; old=set;
+    CHECK(browse_preview_set_take(&book,NULL,0,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){cancel_set,&cancel},&set)==BROWSE_PREVIEW_SET_CANCELLED && set==old);
+    CHECK(browse_preview_set_take(&book,NULL,0,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_OK && !browse_preview_set_info(set).count);
+    CHECK(browse_preview_set_measure(&book,(BrowsePreview *const *)(uintptr_t)1,DX_BROWSE_PREVIEW_SET_ENTRIES+1,NULL,SIZE_MAX,0,&info)==BROWSE_PREVIEW_SET_LIMIT);
+    CHECK(!browse_preview_set_retain(NULL)); browse_preview_set_free(set); set_book_free(&book); finish(&f);
+}
+static void maximum_set(void) {
+    Fixture f; start(&f); f.high_water=DX_MAX_OBJECTS; f.metadata=81;
+    f.table=(SheetObject){.kind=OBJECT_TABLE,.revision=9,.source=analysis_copy(&f.definition)};
+    Workbook book={.id=f.document,.sheet_high_water=DX_MAX_SHEETS,.command_revision=81,.count=DX_MAX_SHEETS,.user_scale=1};
+    book.sheets=dx_alloc(book.count*sizeof(Worksheet)); BrowsePreview **assets=dx_alloc(DX_BROWSE_PREVIEW_SET_ENTRIES*sizeof(*assets)); size_t used=0;
+    for (size_t n=book.count;n;n--) {
+        Worksheet *sheet=book.sheets+n-1; sheet->id=n; sheet->name=dx_printf("Sheet%zu",n); sheet->analysis=analysis_copy(&f.definition);
+        sheet->objects.next_id=DX_MAX_OBJECTS; sheet->objects.count=DX_MAX_OBJECTS; sheet->objects.items=dx_alloc(DX_MAX_OBJECTS*sizeof(SheetObject));
+        f.sheet=n;
+        for (size_t owner=DX_MAX_OBJECTS+1;owner;owner--) {
+            size_t id=owner-1;
+            if (id) { f.table.id=id; sheet->objects.items[id-1]=(SheetObject){.id=id,.kind=OBJECT_TABLE,.name=dx_printf("Table%zu",id),.row=330+id*10,.col=16,.rows=5,.columns=3,.source=analysis_copy(&f.definition)}; }
+            assets[used++]=capture_fixture(&f,id);
+        }
+    }
+    CHECK(used==DX_BROWSE_PREVIEW_SET_ENTRIES && used==2112);
+    BrowsePreviewSetInfo info={0}; CHECK(browse_preview_set_measure(&book,assets,used,NULL,SIZE_MAX,sizeof(book),&info)==BROWSE_PREVIEW_SET_OK);
+    BrowsePreviewSet *set=NULL;
+    char *path=book.sheets[0].analysis.path; book.sheets[0].analysis.path=dx_strdup("/different-last-owner.csv");
+    CHECK(browse_preview_set_take(&book,assets,used,info.owned,sizeof(book),info.coexistence,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_ASSOCIATION && !set);
+    for (size_t i=0;i<used;i++) CHECK(assets[i]);
+    free(book.sheets[0].analysis.path); book.sheets[0].analysis.path=path;
+    CHECK(browse_preview_set_take(&book,assets,used,info.owned,sizeof(book),info.coexistence,(BrowsePreviewSetControl){0},&set)==BROWSE_PREVIEW_SET_OK);
+    for (size_t i=0;i<used;i++) CHECK(!assets[i]);
+    CHECK(browse_preview_set_manifest(set,0)->sheet==1 && !browse_preview_set_manifest(set,0)->owner);
+    CHECK(browse_preview_set_manifest(set,used-1)->sheet==DX_MAX_SHEETS && browse_preview_set_manifest(set,used-1)->owner==DX_MAX_OBJECTS);
+    CHECK(browse_preview_set_info(set).capacity==used && browse_preview_set_info(set).snapshot_revision==81);
+    browse_preview_set_free(set); free(assets); set_book_free(&book); finish(&f);
+}
 typedef struct { BrowsePreview *owned; const Cell *cells; unsigned loops; bool failed; } RefThread;
 static void *reference_thread(void *context) {
     RefThread *thread=context;
@@ -360,4 +457,4 @@ static void maximum(void) {
     BrowsePreview *copy=wire_copy(preview); browse_preview_free(copy);
     browse_preview_free(preview); finish(&f);
 }
-int main(void) { ownership(); stale(); profiles(); association(); table_owner(); workbook_association(); references(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
+int main(void) { ownership(); stale(); profiles(); association(); table_owner(); workbook_association(); references(); sets(); maximum_set(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
