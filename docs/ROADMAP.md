@@ -2913,3 +2913,11 @@ journal transaction closure; certified primary/Table navigation; retained
 metadata/content/topology applicability. Native/desktop runtime remains one
 coordinator-owned serial lane; pending private component checks queue behind
 this explicit milestone while pure implementation and locked builds continue.
+
+The first broad navigation run (`20261026T051524-full-86192`) stopped after
+284/286 passing pure configurations: both Grid configurations correctly
+rejected an outdated expected icon inventory that omitted View → Navigate.
+The fixture now explicitly expects its Search icon, preserving all assertions.
+Focused Grid optimized/ASan/UBSan passes14.703s
+(`20261026T051941-fast-88887`); a fresh complete milestone run follows.
+All343 Node contracts pass2.551s. The failed broad run remains failed evidence.
