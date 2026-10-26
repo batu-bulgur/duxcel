@@ -2392,7 +2392,7 @@ preview persistence or historical cached-output activation is implied.
 | Source (`roadmap-source-format`) | W26a closed typed sparse store/command/current-codec/render cutover | Source-format10/11/6 actual GUI stages pass on main. Five pure value/range prerequisites and the alias guard pass their focused reconciliation. Private typed-store checkpoint `788d4e94` passes scoped modules and native compilation; typed command/journal closure continues. Live enabling waits for one coordinated current-schema/Worker/fixture group. |
 | Object (`roadmap-object-create`) | W15 source details, native preview staging and strict read association | SourceDetails actual CSV/Parquet25+25 stages pass on combined main. Native stage plus strict online component read passes45.582s; offline locator admission and a separate preview-only renderer continue privately. Preview is a separate captured-only owner; no registry/App cache activation or historical borrowing. |
 | History (`roadmap-history-save-as`) | W12b.2c combined profile/wire, W12d physical capture/component/after-Save preparation and actual-state proof | Four native capture/component/after-Save/publication plans pass on combined main. Archive scope/read/compare40.302s and actual frozen-R cell binding10.122s pass; Saved physical/sheet graph proof remains private. Mixed-family/Tagged applicability still blocks advertised Undo publication. |
-| Coordinator (main) | Linear integration, shared interfaces, scoped acceptance and milestone delivery | The delivered native full run passes252 pure configurations,51 GUI workflows and18 broad scenarios. Final verified delivery is `build/tests/results/milestone2-delivery.json`; the next connection/history/typed-prerequisite group has passed focused gates and is entering its explicit integration milestone. |
+| Coordinator (main) | Linear integration, shared interfaces, scoped acceptance and milestone delivery | Connection/history/prerequisite integration passes270 pure configurations,56 narrow GUI workflows and18 broad native scenarios, plus maintained local Wasm/browser/platform gates. See `build/tests/results/milestone3-native-coverage.json`, `milestone3-remaining-gates.json` and `milestone3-delivery.json` for exact tested revisions and separate publication results. Three private feature lanes continue. |
 
 The W15 initial cache policy is auxiliary current-artifact browse data. Named
 historical preview/Save As must not borrow Working Head rows. Reused roots use
@@ -2812,3 +2812,29 @@ of the canonical core/workbook fixture pair. The runner restores that pair to
 the front, preserving their serial adjacency and all added engine coverage.
 Native coverage passed before this runner-only ordering correction; tool
 contracts and the affected engine boundary are rechecked separately.
+
+### Connection/history prerequisite milestone: local acceptance complete
+
+- Passing native coverage:135 module suites in both configurations;56 standalone
+  GUI workflows/958 stages;18 broad scenarios/1353 stages; ordered storage/process,
+  background and GPU gates. Exact passing prefix and corrected scenario runs are
+  recorded in `build/tests/results/milestone3-native-coverage.json`. Failed raw
+  runs remain failed; this is aggregate coverage, not one green full invocation.
+- Passed231 Python contracts,341 Node contracts,10 browser-host C configurations,
+  normal/review/official-Worker Wasm builds, all9 real browser profiles, local
+  publication smoke, macOS lifecycle and actual guarded cold/warm document Open.
+  The restored core/workbook-first ordering also passes its affected four-engine
+  serial boundary. Detailed generated receipts remain under ignored `build/`.
+- Product code accepted at `f17df128`; subsequent runner-order and delivery
+  documentation changes do not change product semantics. Shipping build metadata
+  is refreshed from the final clean delivery commit. Origin/CI/live-artifact
+  results are recorded separately in `milestone3-delivery.json` after publication.
+- Visible changes include Connect labels, current-owner Source details/copy with
+  continued background row counts, and corrected manual-first format history.
+  Retained Undo, preview Save/Open activation and live typed editing remain open;
+  the current native container16/embedded core15 layers are unchanged.
+
+The three feature lanes continue independently: typed store/editor/current-core
+closure; preview/explicit type controls and manual boundary navigation; combined
+actual-state history and explicit native component registry prerequisites. Normal
+feature acceptance resumes with focused gates, without a hands-on approval pause.
