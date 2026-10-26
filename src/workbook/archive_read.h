@@ -5,9 +5,10 @@
 typedef struct WorkbookArchiveCandidate WorkbookArchiveCandidate;
 typedef struct WorkbookArchiveReadScope WorkbookArchiveReadScope;
 /* Existing archive connection uses a 256 MB DuckDB memory limit. This explicit
-   grant covers comparison on that engine, not RSS or a temporary spill quota.
+   grant additionally covers a bounded 64-row/two-locator driver result (8 MiB)
+   and 512 KiB sequential locator-resolution scratch. It is not RSS or a spill quota.
    Live Workbook/CoreSet/component staging remain separately charged. */
-#define DX_ARCHIVE_SCOPE_COMPARE_BYTES ((size_t)256u*1024u*1024u)
+#define DX_ARCHIVE_SCOPE_COMPARE_BYTES ((size_t)264u*1024u*1024u+512u*1024u)
 typedef enum { ARCHIVE_READ_HEADER,ARCHIVE_READ_HEAD,ARCHIVE_READ_INDEX,ARCHIVE_READ_COPY,ARCHIVE_READ_VERIFY,ARCHIVE_READ_ADMIT,ARCHIVE_READ_RECHECK } WorkbookArchiveReadPhase;
 typedef struct {
     /* Worker callback; true cancels before publication. Never mutate input,
@@ -25,7 +26,12 @@ typedef struct {
 /* Associate exactly one actual retained leaf with the actual loaded current
    body, under the active archive callback and exact owner pointers. Membership,
    sealed integrity and complete current metadata equality are proved; document,
-   revision or hash descriptors alone never authorize. No Saved inference,
+   revision or hash descriptors alone never authorize. Relative primary/Table/
+   ledger locators use the actual archive base and existing loader resolution,
+   then match the actual admitted model AND sealed core, with no source query.
+   Missing references additionally prove the exact native writer relative-path
+   conversion through that same loader; no new lexical/symlink normalization.
+   No Saved inference,
    historical command intent, external data, execution or Undo proof is implied.
    Comparison uses only admitted tables and one read-only attachment pinned
    until the archive owner ends/closes its transaction. The helper never ends

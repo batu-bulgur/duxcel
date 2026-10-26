@@ -13,7 +13,7 @@ static bool stopped(Read *r,WorkbookArchiveReadPhase phase,size_t root,uint64_t 
     if (r->stopped) fail(error,"Native archive admission was cancelled."); return r->stopped;
 }
 struct WorkbookArchiveReadScope {
-    Read *read; duckdb_connection connection; const Workbook *book;
+    Read *read; duckdb_connection connection; const Workbook *book; const char *path;
     const WorkbookVersionCoreSet *versions; const WorkbookCorePayload *target;
     bool active,failed;
 };
@@ -46,7 +46,7 @@ bool workbook_archive_scope_associate(WorkbookArchiveReadScope *s,duckdb_connect
     if (!info || info->document.high!=book->id.high || info->document.low!=book->id.low) return fail(error,"The archive leaf belongs to another document.");
     if (s->target) return workbook_archive_scope_recheck(s,c,book,versions,error);
     bool equal=false;
-    WorkbookCorePayloadResult result=workbook_core_payload_equal_transaction(c,leaf,(WorkbookCoreCompareControl){scope_cancel,s},&equal,error);
+    WorkbookCorePayloadResult result=workbook_core_payload_equal_transaction(c,leaf,s->path,book,(WorkbookCoreCompareControl){scope_cancel,s},&equal,error);
     if (result!=CORE_PAYLOAD_READY || !equal) {
         s->failed=true;
         return result==CORE_PAYLOAD_READY ? fail(error,"The selected retained leaf does not match the actual current archive body.") : false;
@@ -109,7 +109,7 @@ WorkbookArchiveReadResult workbook_archive_read(const char *path,const char *par
         if (index->document_high!=candidate->book->id.high || index->document_low!=candidate->book->id.low) { fail(error,"The version index belongs to another authored head."); goto done; }
     }
     if (control.admit) {
-        WorkbookArchiveReadScope scope={.read=&read,.connection=c,.book=candidate->book,.versions=candidate->versions,.active=true};
+        WorkbookArchiveReadScope scope={.read=&read,.connection=c,.book=candidate->book,.versions=candidate->versions,.path=target,.active=true};
         bool admitted=control.admit(control.context,&scope,c,candidate->book,candidate->versions,error);
         if (admitted && scope.target) admitted=workbook_archive_scope_recheck(&scope,c,candidate->book,candidate->versions,error);
         scope.active=false;

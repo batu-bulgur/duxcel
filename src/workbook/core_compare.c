@@ -36,6 +36,75 @@ done:
     if (statement) duckdb_destroy_prepare(&statement);
     return ok;
 }
+/* The outer artifact stores relative locators; sealed cores store resolved
+   absolute locators. Compare all three fields separately, in bounded row batches,
+   using the SAME existing resolver and admitted model as the real archive read. */
+static const char *locator_expected(const Workbook *book,unsigned role,uint64_t sid,uint64_t owner,SourceKind *kind) {
+    if (sid>=book->count) return NULL; const Worksheet *sheet=book->sheets+sid;
+    if (!role) { *kind=sheet->analysis.kind; return sheet->analysis.path ? sheet->analysis.path : ""; }
+    if (role==1) {
+        for (size_t i=0;i<sheet->objects.count;i++) if (sheet->objects.items[i].id==owner && sheet->objects.items[i].kind==OBJECT_TABLE) {
+            const Analysis *a=&sheet->objects.items[i].source; *kind=a->kind; return a->path ? a->path : "";
+        }
+    } else for (size_t i=0;i<sheet->source_versions.count;i++) if (sheet->source_versions.items[i].version==owner) {
+        *kind=sheet->source_versions.items[i].kind; return sheet->source_versions.items[i].path;
+    }
+    return NULL;
+}
+static bool compare_locators(duckdb_connection connection,Compare *compare,const char *archive,const Workbook *book,bool *equal,char **error) {
+    static const char *tables[]={"sheets","table_sources","source_versions"};
+    static const char *keys[]={"l.id,0","l.sheet_id,l.object_id","l.sheet_id,l.version"};
+    static const char *joins[]={"l.id=r.id","l.sheet_id=r.sheet_id AND l.object_id=r.object_id","l.sheet_id=r.sheet_id AND l.version=r.version"};
+    static const char *orders[]={"l.id","l.sheet_id,l.object_id","l.sheet_id,l.version"};
+    static const char *kinds[]={"kind","kind","source_kind"};
+    static const char *paths[]={"path","path","source_reference"};
+    const size_t caps[]={DX_MAX_SHEETS,DX_MAX_SHEETS*DX_MAX_OBJECTS,DX_MAX_SHEETS*DX_SOURCE_VERSIONS};
+    bool same=true;
+    for (unsigned role=0;role<3;role++) for (size_t offset=0;;offset+=64) {
+        duckdb_result result={0};
+        char *sql=dx_printf("SELECT %s,l.%s,CASE WHEN octet_length(encode(l.%s))<=65536 AND NOT contains(l.%s,chr(0)) THEN l.%s ELSE NULL END,CASE WHEN octet_length(encode(r.%s))<=65536 AND NOT contains(r.%s,chr(0)) THEN r.%s ELSE NULL END FROM _duxcel_workspace.%s l JOIN dx_other._duxcel_workspace.%s r ON %s ORDER BY %s LIMIT 64 OFFSET %zu",keys[role],kinds[role],paths[role],paths[role],paths[role],paths[role],paths[role],paths[role],tables[role],tables[role],joins[role],orders[role],offset);
+        bool ok=query(connection,sql,compare,&result,error); free(sql);
+        size_t count=(size_t)duckdb_row_count(&result);
+        if (ok && (offset>caps[role] || count>caps[role]-offset)) ok=fail(error,"Archive locator comparison exceeds the admitted row bound.");
+        for (size_t i=0;ok && i<count;i++) {
+            if (stopped(compare,error)) { ok=false; break; }
+            if (duckdb_value_is_null(&result,3,i) || duckdb_value_is_null(&result,4,i)) { ok=fail(error,"Invalid bounded archive locator."); break; }
+            uint64_t sid=duckdb_value_uint64(&result,0,i),owner=duckdb_value_uint64(&result,1,i);
+            SourceKind kind=(SourceKind)duckdb_value_int32(&result,2,i),expected_kind=SOURCE_NONE;
+            const char *expected=locator_expected(book,role,sid,owner,&expected_kind);
+            char *left=duckdb_value_varchar(&result,3,i),*right=duckdb_value_varchar(&result,4,i);
+            /* Empty stays empty. Demo/None use their existing literal semantics;
+               ledger references always use the strict source-package resolver. */
+            char *resolved=left && *left && (role==2 || (kind!=SOURCE_NONE && kind!=SOURCE_DEMO)) ? workbook_source_path(archive,left) : dx_strdup(left ? left : "");
+            bool reference_equal=left && right && resolved && !strcmp(resolved,right);
+            if (!reference_equal && left && right && *right && (role==2 || (kind!=SOURCE_NONE && kind!=SOURCE_DEMO))) {
+                /* Missing sources cannot be realpath-normalized by the loader.
+                   Prove the writer's EXACT declared reference conversion rather
+                   than invent lexical normalization across possible symlinks. */
+                char *relative=workbook_relative_path(archive,right);
+                char *restored=relative ? workbook_source_path(archive,relative) : NULL;
+                reference_equal=relative && restored && !strcmp(left,relative) && !strcmp(resolved,restored);
+                free(restored); free(relative);
+            }
+            if (!left || !right || !resolved || !expected || kind!=expected_kind || strcmp(resolved,expected) || !reference_equal) same=false;
+            free(resolved); duckdb_free(left); duckdb_free(right);
+        }
+        duckdb_destroy_result(&result); if (!ok) return false;
+        if (count<64) break;
+    }
+    *equal=same; return true;
+}
+static char *comparison_columns(const WorkbookCodecTable *table,bool container) {
+    const char *locator=container ? (!strcmp(table->table,"sheets") || !strcmp(table->table,"table_sources") ? "path" : !strcmp(table->table,"source_versions") ? "source_reference" : NULL) : NULL;
+    char *columns=dx_strdup("");
+    for (const char *p=table->columns;*p;) {
+        size_t n=strcspn(p,","); if (*columns) dx_append(&columns,",");
+        if (locator && strlen(locator)==n && !memcmp(p,locator,n)) dx_append(&columns,"'' AS %s",locator);
+        else dx_append(&columns,"%.*s",(int)n,p);
+        p+=n; if (*p) p++;
+    }
+    return columns;
+}
 /* Both native entry points compare the same admitted current codec rows. */
 static bool compare_tables(duckdb_connection connection,Compare *compare,bool container,bool *equal,char **error) {
     duckdb_result result={0}; bool same=true;
@@ -58,8 +127,12 @@ static bool compare_tables(duckdb_connection connection,Compare *compare,bool co
         /* The outer current native container advertises 16 in its head meta;
            its embedded current core is 15. Normalize only that framing field,
            never authored rows, identities, command clocks or presentation. */
-        const char *left_columns=container && !strcmp(table->table,"meta") ? "15 AS version,active_sheet,user_scale" : table->columns;
-        char *sql=dx_printf("SELECT NOT EXISTS ((SELECT %s FROM _duxcel_workspace.%s EXCEPT ALL SELECT %s FROM dx_other._duxcel_workspace.%s) UNION ALL (SELECT %s FROM dx_other._duxcel_workspace.%s EXCEPT ALL SELECT %s FROM _duxcel_workspace.%s))",left_columns,table->table,table->columns,table->table,table->columns,table->table,left_columns,table->table);
+        /* Locator values are proved separately above; a neutral projection on
+           BOTH sides keeps every other typed column/multiplicity exact. */
+        char *right_columns=comparison_columns(table,container);
+        const char *left_columns=container && !strcmp(table->table,"meta") ? "15 AS version,active_sheet,user_scale" : right_columns;
+        char *sql=dx_printf("SELECT NOT EXISTS ((SELECT %s FROM _duxcel_workspace.%s EXCEPT ALL SELECT %s FROM dx_other._duxcel_workspace.%s) UNION ALL (SELECT %s FROM dx_other._duxcel_workspace.%s EXCEPT ALL SELECT %s FROM _duxcel_workspace.%s))",left_columns,table->table,right_columns,table->table,right_columns,table->table,left_columns,table->table);
+        free(right_columns);
         bool ok=query(connection,sql,compare,&result,error); free(sql);
         if (ok && (duckdb_row_count(&result)!=1 || duckdb_column_count(&result)!=1 || duckdb_value_is_null(&result,0,0))) ok=fail(error,"Invalid core comparison result.");
         if (ok) same &= duckdb_value_boolean(&result,0,0);
@@ -110,9 +183,9 @@ done:
 /* Internal borrowed-transaction comparison. The archive scope owns attachment
    cleanup by ending and closing its unpublished read transaction/connection. */
 WorkbookCorePayloadResult workbook_core_payload_equal_transaction(duckdb_connection connection,
-    const WorkbookCorePayload *right,WorkbookCoreCompareControl control,bool *equal,char **error) {
+    const WorkbookCorePayload *right,const char *archive,const Workbook *book,WorkbookCoreCompareControl control,bool *equal,char **error) {
     const WorkbookCorePayloadInfo *info=workbook_core_payload_info(right);
-    if (!connection || !info || info->encoding!=15 || !equal) { fail(error,"Choose an admitted current transaction and sealed leaf."); return CORE_PAYLOAD_FAILED; }
+    if (!connection || !info || info->encoding!=15 || !archive || !*archive || !book || !equal) { fail(error,"Choose an admitted current transaction and sealed leaf."); return CORE_PAYLOAD_FAILED; }
     Compare compare={.control=control,.phase=CORE_COMPARE_VERIFY};
     WorkbookCorePayloadResult status=verify(right,&compare,error);
     if (status!=CORE_PAYLOAD_READY) return status;
@@ -123,6 +196,9 @@ WorkbookCorePayloadResult workbook_core_payload_equal_transaction(duckdb_connect
     if (!ok) return compare.stopped ? CORE_PAYLOAD_CANCELLED : CORE_PAYLOAD_FAILED;
     compare.phase=CORE_COMPARE_ROWS;
     ok=compare_tables(connection,&compare,true,&same,error);
+    bool locators=false;
+    if (ok) ok=compare_locators(connection,&compare,archive,book,&locators,error);
+    same &= locators;
     /* DuckDB cannot DETACH after reading an attached database inside the active
        transaction. Keep this read-only attachment pinned until archive_read
        ends/closes its owned transaction. Never COMMIT/ROLLBACK a borrowed one.

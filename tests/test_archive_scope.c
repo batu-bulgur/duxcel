@@ -44,6 +44,14 @@ int main(void) {
     char parent[]="build/tests/archive-scope-XXXXXX"; CHECK(mkdtemp(parent)); char *path=dx_printf("%s/current.dxls",parent),*error=NULL;
     Workbook book; workbook_init(&book); CHECK(workbook_add(&book,"Scoped",&(Analysis){.kind=SOURCE_PARQUET,.path="/offline/never-query.parquet"},&error));
     CHECK(cells_set(&book.sheets[0].cells,5,4,"NULL",&error));
+    Worksheet *sheet=book.sheets;
+    CHECK(objects_add_table(&sheet->objects,0,8,"Offline Table",&(Analysis){.kind=SOURCE_PARQUET,.path="/offline/table.parquet"},&error)==0);
+    worksheet_record(sheet,EDIT_OBJECTS);
+    SourceVersions next={0}; SourceVersion row={.version=1,.kind=SOURCE_PARQUET,.path="/offline/never-query.parquet"};
+    CHECK(source_versions_plan(&sheet->source_versions,&row,true,&next,&error)); sheet->source_versions=next;
+    sheet->analysis.source_version=1; sheet->formats.source_aware=true;
+    row=(SourceVersion){.version=2,.kind=SOURCE_PARQUET,.path="/offline/retired.parquet"}; next=(SourceVersions){0};
+    CHECK(source_versions_plan(&sheet->source_versions,&row,true,&next,&error)); source_versions_free(&sheet->source_versions); sheet->source_versions=next;
     WorkbookCorePayload *foreign=NULL;
     CHECK(workbook_core_payload_capture(&book,parent,(WorkbookCorePayloadControl){0},&foreign,&error)==CORE_PAYLOAD_READY);
     CHECK(test_current_archive_save(&book,path,&error));
@@ -59,6 +67,20 @@ int main(void) {
        artifact can immediately be admitted again without residual ownership. */
     CHECK(workbook_archive_read(path,parent,128u*1024u*1024u,control,&out,&error)==ARCHIVE_READ_READY && out && !error); workbook_archive_candidate_free(out); out=NULL;
     duckdb_database db=NULL; duckdb_connection c=NULL;
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
+    sql(c,"UPDATE _duxcel_workspace.table_sources SET path='/offline/different-table.parquet'"); duckdb_disconnect(&c); duckdb_close(&db); p.mismatch=true;
+    CHECK(workbook_archive_read(path,parent,128u*1024u*1024u,control,&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error);
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
+    sql(c,"UPDATE _duxcel_workspace.table_sources SET path='/offline/table.parquet'; UPDATE _duxcel_workspace.source_versions SET source_reference='/offline/different-retired.parquet' WHERE version=2"); duckdb_disconnect(&c); duckdb_close(&db);
+    CHECK(workbook_archive_read(path,parent,128u*1024u*1024u,control,&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error);
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
+    sql(c,"UPDATE _duxcel_workspace.source_versions SET source_reference='/offline/retired.parquet' WHERE version=2; UPDATE _duxcel_workspace.sheets SET path='/offline/different-primary.parquet'; UPDATE _duxcel_workspace.source_versions SET source_reference='/offline/different-primary.parquet' WHERE version=1"); duckdb_disconnect(&c); duckdb_close(&db);
+    CHECK(workbook_archive_read(path,parent,128u*1024u*1024u,control,&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error);
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
+    sql(c,"UPDATE _duxcel_workspace.sheets SET path='/offline/never-query.parquet'; UPDATE _duxcel_workspace.source_versions SET source_reference='/offline/never-query.parquet' WHERE version=1"); duckdb_disconnect(&c); duckdb_close(&db); p.mismatch=false;
+    /* Different absolute/relative spellings with the SAME resolved references
+       remain equal; actual different primary/Table/retired-ledger targets fail. */
+    CHECK(workbook_archive_read(path,parent,128u*1024u*1024u,control,&out,&error)==ARCHIVE_READ_READY && out && !error); workbook_archive_candidate_free(out); out=NULL;
     CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
     sql(c,"UPDATE _duxcel_workspace.meta SET user_scale=1.25"); duckdb_disconnect(&c); duckdb_close(&db); p.mismatch=true;
     CHECK(workbook_archive_read(path,parent,128u*1024u*1024u,control,&out,&error)==ARCHIVE_READ_FAILED && !out); clear(&error);
