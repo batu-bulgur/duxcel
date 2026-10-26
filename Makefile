@@ -1183,6 +1183,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_profile build/tests/test_histo
 PARALLEL_NATIVE_GOALS += build/tests/test_history_native_capture build/tests/test_history_native_capture-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_profile_codec build/tests/test_history_profile_codec-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_component build/tests/test_history_component-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_history_after_save build/tests/test_history_after_save-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2731,3 +2732,12 @@ build/tests/test_history_component: $(HISTORY_COMPONENT_OBJECTS) | build/tests
 build/tests/test_history_component-debug: $(HISTORY_COMPONENT_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(HISTORY_COMPONENT_OBJECTS:.o=.d) $(HISTORY_COMPONENT_SAN_OBJECTS:.o=.d)
+
+HISTORY_AFTER_SAVE_SRC = $(filter-out tests/test_history_component.c,$(HISTORY_COMPONENT_SRC)) tests/test_history_after_save.c
+HISTORY_AFTER_SAVE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(HISTORY_AFTER_SAVE_SRC))))
+HISTORY_AFTER_SAVE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(HISTORY_AFTER_SAVE_SRC))))
+build/tests/test_history_after_save: $(HISTORY_AFTER_SAVE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_history_after_save-debug: $(HISTORY_AFTER_SAVE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(HISTORY_AFTER_SAVE_OBJECTS:.o=.d) $(HISTORY_AFTER_SAVE_SAN_OBJECTS:.o=.d)

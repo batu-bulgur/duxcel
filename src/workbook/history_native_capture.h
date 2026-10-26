@@ -55,6 +55,12 @@ WorkbookHistoryNativeStatus workbook_history_native_take(WorkbookHistoryProfile 
    their bytes. Does not allocate, publish or renew arbitrary external trust. */
 WorkbookHistoryNativeStatus workbook_history_native_check(const WorkbookHistoryNativeCapture *capture,
     WorkbookHistoryNativeControl control,char **error);
+/* Borrow-only physical association check over actual opaque owners. A selected
+   root leaf may be the head because this call transfers no ownership. Owned
+   native_take still rejects that alias to prevent double disposal. */
+WorkbookHistoryNativeStatus workbook_history_native_check_parts(const WorkbookHistoryProfile *profile,
+    const WorkbookVersionCoreSet *roots,const WorkbookCorePayload *head,WorkbookHistoryCapturedPosition captured,
+    WorkbookHistoryNativeControl control,char **error);
 const WorkbookHistoryProfile *workbook_history_native_profile(const WorkbookHistoryNativeCapture *capture);
 const WorkbookVersionCoreSet *workbook_history_native_roots(const WorkbookHistoryNativeCapture *capture);
 const WorkbookCorePayload *workbook_history_native_head(const WorkbookHistoryNativeCapture *capture);

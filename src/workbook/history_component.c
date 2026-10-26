@@ -68,27 +68,28 @@ static bool fresh(duckdb_connection c,char **error) {
     if (ok) ok=duckdb_row_count(&r)==1 && !duckdb_value_is_null(&r,0,0) && !duckdb_value_uint64(&r,0,0); duckdb_destroy_result(&r);
     return ok || fail(error,"History component staging requires a fresh reserved schema and explicit transaction.");
 }
-WorkbookHistoryComponentStatus workbook_history_component_stage(duckdb_connection c,const WorkbookHistoryNativeCapture *capture,
+static WorkbookHistoryComponentStatus stage_parts(duckdb_connection c,const WorkbookHistoryProfile *profile,const WorkbookVersionCoreSet *roots,
+    const WorkbookCorePayload *head,WorkbookHistoryCapturedPosition captured,
     void *wire,size_t capacity,size_t reserved,uint64_t storage_reserved,WorkbookHistoryComponentControl control,char **error) {
-    if (!c || !capture || !wire || capacity>DX_HISTORY_PROFILE_WIRE_BYTES) return HISTORY_COMPONENT_FAILED;
+    if (!c || !profile || !roots || !head || !wire || capacity>DX_HISTORY_PROFILE_WIRE_BYTES) return HISTORY_COMPONENT_FAILED;
     if (capacity>SIZE_MAX-DX_HISTORY_COMPONENT_IO_BYTES || capacity+DX_HISTORY_COMPONENT_IO_BYTES>reserved) return HISTORY_COMPONENT_LIMIT;
-    size_t bytes=0; if (workbook_history_profile_encoded_size(workbook_history_native_profile(capture),&bytes)!=HISTORY_PROFILE_CODEC_OK || bytes>capacity) return HISTORY_COMPONENT_LIMIT;
-    const WorkbookCorePayloadInfo *bounded=workbook_core_payload_info(workbook_history_native_head(capture));
+    size_t bytes=0; if (workbook_history_profile_encoded_size(profile,&bytes)!=HISTORY_PROFILE_CODEC_OK || bytes>capacity) return HISTORY_COMPONENT_LIMIT;
+    const WorkbookCorePayloadInfo *bounded=workbook_core_payload_info(head);
     if (!bounded || bounded->bytes>storage_reserved || bytes>storage_reserved-bounded->bytes) return HISTORY_COMPONENT_LIMIT;
     Control progress={.control=control,.phase=HISTORY_COMPONENT_VERIFY};
-    WorkbookHistoryNativeStatus checked=workbook_history_native_check(capture,(WorkbookHistoryNativeControl){native_cancel,&progress},error);
+    WorkbookHistoryNativeStatus checked=workbook_history_native_check_parts(profile,roots,head,captured,(WorkbookHistoryNativeControl){native_cancel,&progress},error);
     if (checked!=HISTORY_NATIVE_READY) return progress.stopped ? HISTORY_COMPONENT_CANCELLED : checked==HISTORY_NATIVE_UNSUPPORTED ? HISTORY_COMPONENT_UNSUPPORTED : HISTORY_COMPONENT_FAILED;
-    if (workbook_history_profile_encode(workbook_history_native_profile(capture),wire,capacity,&bytes)!=HISTORY_PROFILE_CODEC_OK) return HISTORY_COMPONENT_FAILED;
+    if (workbook_history_profile_encode(profile,wire,capacity,&bytes)!=HISTORY_PROFILE_CODEC_OK) return HISTORY_COMPONENT_FAILED;
     unsigned char digest[DX_SOURCE_DIGEST_BYTES]; char detail[DX_SOURCE_DIGEST_ERROR_BYTES]={0}; progress.asset=DX_HISTORY_COMPONENT_PROFILE;
     SourceDigestStatus hashed=source_digest_bytes(wire,bytes,hash_cancel,&progress,digest,detail);
     if (hashed!=SOURCE_DIGEST_OK) { fail(error,detail); return hashed==SOURCE_DIGEST_CANCELLED ? HISTORY_COMPONENT_CANCELLED : hashed==SOURCE_DIGEST_UNSUPPORTED ? HISTORY_COMPONENT_UNSUPPORTED : HISTORY_COMPONENT_FAILED; }
     if (!fresh(c,error)) return HISTORY_COMPONENT_FAILED;
     progress.phase=HISTORY_COMPONENT_DESCRIPTOR; if (stop(&progress,0,error)) return HISTORY_COMPONENT_CANCELLED;
     if (!exec(c,"CREATE SCHEMA _duxcel_history; CREATE TABLE _duxcel_history.meta(codec INTEGER,container_encoding INTEGER,core_encoding INTEGER,packet_encoding INTEGER,kind INTEGER,document_high UBIGINT,document_low UBIGINT,head_revision UBIGINT,head_bytes UBIGINT,head_hash BLOB,packet_bytes UBIGINT,packet_hash BLOB); CREATE TABLE _duxcel_history.chunks(asset INTEGER,position UBIGINT,data BLOB)",error)) return HISTORY_COMPONENT_FAILED;
-    const WorkbookCorePayload *head=workbook_history_native_head(capture); const WorkbookCorePayloadInfo *info=workbook_core_payload_info(head); const WorkbookHistoryCapturedPosition *position=workbook_history_native_position(capture);
+    const WorkbookCorePayloadInfo *info=workbook_core_payload_info(head);
     duckdb_prepared_statement meta=NULL,chunks=NULL; FILE *file=NULL; bool ok=false;
     if (!prepared(c,"INSERT INTO _duxcel_history.meta VALUES (1,16,15,1,?,?,?,?,?,?,?,?)",&meta,error) || !prepared(c,"INSERT INTO _duxcel_history.chunks VALUES (?,?,?)",&chunks,error)) goto done;
-    duckdb_bind_int32(meta,1,(int32_t)workbook_history_profile_view(workbook_history_native_profile(capture))->kind); duckdb_bind_uint64(meta,2,info->document.high); duckdb_bind_uint64(meta,3,info->document.low); duckdb_bind_uint64(meta,4,position->revision); duckdb_bind_uint64(meta,5,info->bytes); duckdb_bind_blob(meta,6,info->sha256,DX_SOURCE_DIGEST_BYTES); duckdb_bind_uint64(meta,7,bytes); duckdb_bind_blob(meta,8,digest,DX_SOURCE_DIGEST_BYTES);
+    duckdb_bind_int32(meta,1,(int32_t)workbook_history_profile_view(profile)->kind); duckdb_bind_uint64(meta,2,info->document.high); duckdb_bind_uint64(meta,3,info->document.low); duckdb_bind_uint64(meta,4,captured.revision); duckdb_bind_uint64(meta,5,info->bytes); duckdb_bind_blob(meta,6,info->sha256,DX_SOURCE_DIGEST_BYTES); duckdb_bind_uint64(meta,7,bytes); duckdb_bind_blob(meta,8,digest,DX_SOURCE_DIGEST_BYTES);
     if (!run(meta,error)) goto done;
     file=fopen(workbook_core_payload_path(head),"rb"); if (!file) { fail(error,"Cannot read the actual sealed captured head."); goto done; }
     unsigned char buffer[DX_VERSION_CHUNK_BYTES]; progress.phase=HISTORY_COMPONENT_CHUNKS;
@@ -108,13 +109,25 @@ WorkbookHistoryComponentStatus workbook_history_component_stage(duckdb_connectio
     }
     if (fclose(file)) { file=NULL; fail(error,"Cannot close staged head input."); goto done; } file=NULL;
     progress.phase=HISTORY_COMPONENT_RECHECK;
-    checked=workbook_history_native_check(capture,(WorkbookHistoryNativeControl){native_cancel,&progress},error); if (checked!=HISTORY_NATIVE_READY) goto done;
+    checked=workbook_history_native_check_parts(profile,roots,head,captured,(WorkbookHistoryNativeControl){native_cancel,&progress},error); if (checked!=HISTORY_NATIVE_READY) goto done;
     progress.phase=HISTORY_COMPONENT_RECHECK; progress.asset=DX_HISTORY_COMPONENT_PROFILE;
     unsigned char after[DX_SOURCE_DIGEST_BYTES];
     if (source_digest_bytes(wire,bytes,hash_cancel,&progress,after,detail)!=SOURCE_DIGEST_OK || memcmp(after,digest,sizeof(digest))) { fail(error,"The immutable history packet changed during staging."); goto done; }
     ok=!stop(&progress,bytes,error);
 done:
     if (file) fclose(file); if (meta) duckdb_destroy_prepare(&meta); if (chunks) duckdb_destroy_prepare(&chunks); return result(&progress,ok);
+}
+WorkbookHistoryComponentStatus workbook_history_component_stage(duckdb_connection c,const WorkbookHistoryNativeCapture *capture,
+    void *wire,size_t capacity,size_t reserved,uint64_t storage_reserved,WorkbookHistoryComponentControl control,char **error) {
+    if (!capture) return HISTORY_COMPONENT_FAILED;
+    return stage_parts(c,workbook_history_native_profile(capture),workbook_history_native_roots(capture),workbook_history_native_head(capture),
+        *workbook_history_native_position(capture),wire,capacity,reserved,storage_reserved,control,error);
+}
+WorkbookHistoryComponentStatus workbook_history_component_stage_after_save(duckdb_connection c,const WorkbookHistoryAfterSave *plan,
+    void *wire,size_t capacity,size_t reserved,uint64_t storage_reserved,WorkbookHistoryComponentControl control,char **error) {
+    if (!plan) return HISTORY_COMPONENT_FAILED;
+    return stage_parts(c,workbook_history_after_save_profile(plan),workbook_history_after_save_roots(plan),workbook_history_after_save_selected(plan),
+        *workbook_history_after_save_position(plan),wire,capacity,reserved,storage_reserved,control,error);
 }
 typedef struct { duckdb_prepared_statement statement; WorkbookChunks spans; unsigned asset; Control *control; } Input;
 static bool read_chunk(void *context,uint64_t offset,void *buffer,size_t bytes,char **error) {

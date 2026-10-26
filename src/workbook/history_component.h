@@ -1,6 +1,7 @@
 #ifndef DUXCEL_HISTORY_COMPONENT_H
 #define DUXCEL_HISTORY_COMPONENT_H
 #include "history_native_capture.h"
+#include "history_after_save.h"
 #include "history_profile_codec.h"
 #define DX_HISTORY_COMPONENT_ENCODING 1u
 #define DX_HISTORY_COMPONENT_HEAD 0u
@@ -49,6 +50,10 @@ typedef enum { HISTORY_COMPONENT_READY,HISTORY_COMPONENT_FAILED,HISTORY_COMPONEN
    association is still required before advertising usable retained Undo. */
 WorkbookHistoryComponentStatus workbook_history_component_probe(duckdb_connection connection,uint64_t max_head_bytes,WorkbookHistoryComponentInfo *out,char **error);
 WorkbookHistoryComponentStatus workbook_history_component_stage(duckdb_connection connection,const WorkbookHistoryNativeCapture *capture,
+    void *wire,size_t wire_capacity,size_t stage_reserved,uint64_t storage_reserved,WorkbookHistoryComponentControl control,char **error);
+/* Prepared after-Save metadata/root closure can be staged before final Commit.
+   This still borrows a pinned source through the plan and proves no publication. */
+WorkbookHistoryComponentStatus workbook_history_component_stage_after_save(duckdb_connection connection,const WorkbookHistoryAfterSave *plan,
     void *wire,size_t wire_capacity,size_t stage_reserved,uint64_t storage_reserved,WorkbookHistoryComponentControl control,char **error);
 WorkbookHistoryComponentStatus workbook_history_component_read(duckdb_connection connection,const WorkbookVersionCoreSet *roots,
     WorkbookHistoryProfileBinding binding,const char *parent,WorkbookHistoryProfileCaps profile_caps,WorkbookHistoryNativeCaps native_caps,
