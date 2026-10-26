@@ -159,7 +159,7 @@ FAST_MODULES = (
 
 )
 FAST_MODULES += ("value_type", "value_type_layout", "data_boundary", "grid_data_boundary")
-FAST_MODULES += ("go_to", "go_to_layout", "manual_find")
+FAST_MODULES += ("go_to", "go_to_layout", "manual_find", "find_layout")
 RECORD_MODULES = ("record_sql", "record_pages")
 FAST_MODULES += ("source_range_plan", "sourceview", "browse_preview")
 ENGINE_MODULES = ("core", "workbook", "history_cells_publication", "archive_scope", "version_publication", "history_after_save", "history_component", "history_native_capture", "fixture", *RECORD_MODULES, "workbook_codec_native", "workbook_identity_native", "workbook_journal", "journal_queue", "journal_session", "journal_performance", "workbook_save", "workbook_payload", "core_payload", "core_restore", "core_compare", "version_stage", "version_read", "version_restore", "archive_read", "archive_write", "version_save", "version_tag_save", "version_preview", "version_lifetime", "worker_archive", "preview_worker", "app_versions", "app_preview", "file_conflict", "version_checkpoint", "worker_native", "record_selection_worker", "worker_source_digest", "worker_save", "file_lease", "workbook_recovery", "directory_cursor", "recovery_catalog", "recovery_worker", "recovery_process")

@@ -1002,3 +1002,7 @@ FEATURES["go-to-app"] = Feature(("go_to", "go_to_layout", "grid_data_boundary"),
 FEATURES["manual-find"] = Feature(("manual_find", "manual_value"), "",
     ("python3 tools/test.py full --config both",),
     ("src/grid/manual_find.c", "src/grid/manual_find.h", "tests/test_manual_find.c"))
+
+FEATURES["manual-find-layout"] = Feature(("manual_find", "find_layout"), "",
+    ("python3 tools/test.py full --config both",),
+    ("src/ui/find_layout.c", "src/ui/find_layout.h", "tests/test_find_layout.c"))

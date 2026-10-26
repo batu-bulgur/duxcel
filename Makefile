@@ -1198,7 +1198,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type
 PARALLEL_NATIVE_GOALS += build/tests/test_data_boundary build/tests/test_data_boundary-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_grid_data_boundary build/tests/test_grid_data_boundary-debug build/tests/test_data_boundary-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_go_to-gui build/tests/test_go_to build/tests/test_go_to-debug build/tests/test_go_to_layout build/tests/test_go_to_layout-debug
-PARALLEL_NATIVE_GOALS += build/tests/test_manual_find build/tests/test_manual_find-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_manual_find build/tests/test_manual_find-debug build/tests/test_find_layout build/tests/test_find_layout-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2921,3 +2921,12 @@ build/tests/test_manual_find: $(MANUAL_FIND_OBJECTS) | build/tests
 build/tests/test_manual_find-debug: $(MANUAL_FIND_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(SANFLAGS))
 -include $(MANUAL_FIND_OBJECTS:.o=.d) $(MANUAL_FIND_SAN_OBJECTS:.o=.d)
+
+FIND_LAYOUT_SRC = src/ui/find_layout.c tests/test_find_layout.c
+FIND_LAYOUT_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(FIND_LAYOUT_SRC))))
+FIND_LAYOUT_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(FIND_LAYOUT_SRC))))
+build/tests/test_find_layout: $(FIND_LAYOUT_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_find_layout-debug: $(FIND_LAYOUT_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(FIND_LAYOUT_OBJECTS:.o=.d) $(FIND_LAYOUT_SAN_OBJECTS:.o=.d)
