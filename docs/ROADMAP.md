@@ -228,7 +228,10 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.2c.3b · P1 · In progress | Fenced format producer and composite admission; W12c.2c.3a, W12c.3. | Recheck workbook/sheet/format/source state after reservation, then atomically adopt every constituent and publish once. Preserve prepared input on failure; cover analysis/object source-version changes before activating retained App history. |
 | W12c.2c.3b.1 · P1 · Complete | Fenced manual-format producer; W12c.2c.3a. | Source-free/object-free spatial formatting reserves before mutation, rechecks durable/session/cell/format/document fences, then publishes one complete worksheet action. Failure preserves the owned plan; no-op preserves Redo and clocks. Normal manual App formatting uses this controller with session-only history. |
 | W12c.2c.3b.2 · P1 · In progress | Source-bound composite format producer; W12c.2c.3b.1, W12c.3. | Admit source ledger plus primary/Table bindings and format assets together, preserving immutable baseline normalization and all source/readiness/revision fences. No partial constituent publication or early retained-history activation. |
-| W12c.2c.3b.2a · P1 · Complete | Already-source-aware spatial command/App fallback; source format fences and W12c.2c.3a. | Reserve/recheck a complete effect8 format delta and scratch before whole-column/manual-space adoption; preserve bindings, RAW/RESULT/GUARDED precedence, Pages, Redo and clocks on refusal/no-op. False-to-true manual-first transition remains separate. |
+| W12c.2c.3b.2a · P1 · Complete | Already-source-aware spatial command/App fallback; source format fences and W12c.2c.3a. | Reserve/recheck a complete effect8 format delta and scratch before whole-column/manual-space adoption; preserve bindings, RAW/RESULT/GUARDED precedence, Pages, Redo and clocks on refusal/no-op. |
+| W12c.2c.3b.2b · P1 · Complete | Manual-first format adoption; W12c.2c.3b.2a. | Admit the first source-aware mode under the same fences without rewriting historical before-states; actual native formatting and replay preserve pressure/no-op ownership. |
+| W12c.2c.3b.2c · P1 · Complete | Real manual-to-Table import format history; W12c.2c.3b.2b. | Preserve genuine manual commands before Table import and later record formatting; first/bound adoption and Undo/Redo retain immutable mode and source identity. |
+| W12c.2c.3b.2d · P1 · Complete | Source-free template spatial formatting; W12c.2c.3b.2b and object creation. | Admit spatial formats around current Pivot/Chart templates with no source, unchanged modes and exact source rejection. |
 | W12c.3 · P1 · In progress | Analysis and object payloads; W12c.1. | Capture source/query/filter/sort and Table/Pivot/Chart/Marks/name/geometry changes with stable IDs. App owns result invalidation/readiness; the codec retains definitions without querying external data. |
 | W12c.3a · P1 · Complete | Closed primary/Table Analysis definition asset; W12c.1. | Preserve stable sheet/owner/source-version IDs, exact nullable texts, query/unique/group/aggregate, ordered filters/sorts and finite enum tags. Preflight owned memory and grammar scratch before copying; exclude derived schema caches and require verified rebinding before execution. |
 | W12c.3b · P1 · Complete | Closed object/Pivot/Chart/Marks definitions; W12c.3a. | Preserve IDs, geometry, titles, source links and complete typed definitions without embedding runtime Pages or activation claims. |
@@ -2711,3 +2714,17 @@ plus four invalid bootstrap-limit rejection cases pass. This allowance changes
 test orchestration only, not shipping engine behavior. Private typed-store,
 preview persistence and retained-history work remain outside this delivered
 product snapshot until their closed integration gates pass.
+
+Delivery follow-up `34cf37a3` is also verified: workflow40251775805 succeeds in
+all three jobs, live release/UI Wasm integrity matches, and the real live
+CSV/sort/filter gate passes26 checks16.848s (`20261026T005931-pages`). The clean
+normal bundle carries34cf37a3 with an empty lane and strict signature. The
+combined receipt is `build/tests/results/milestone2-delivery.json`.
+
+W12c.2c.3b.2b–2d complete at `50026509`–`024bb507`: focused optimized/sanitizer
+modules plus actual native manual-first10 stages11.215s, real Table import11
+stages10.636s and template6 stages7.686s all pass (`20261026T005856-feature-37380`,
+`005907-feature-37886`, `005918-feature-38204`). Historical format modes remain
+immutable; refusal/no-op preserve owned plans and Redo. Retained App activation
+and the separate typed-cell group remain open. No broad suite or human review
+is claimed for this post-delivery feature group.
