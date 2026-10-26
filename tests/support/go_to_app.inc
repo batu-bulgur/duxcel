@@ -52,11 +52,14 @@ static void go_to_test_frame(AppSession *session) {
     case 19: GT_CHECK(a->modal==MODAL_NONE && go_to_unchanged(a)); go_to_key(KEY_F2,0); break;
     case 20: GT_CHECK(a->modal==MODAL_CELL); input_set(&a->input,"Uncommitted editor draft"); go_to_key(KEY_G,DX_MOD_SUPER); break;
     case 21: GT_CHECK(a->modal==MODAL_CELL && !strcmp(a->input.text,"Uncommitted editor draft") && go_to_unchanged(a)); go_to_key(KEY_ESCAPE,0); break;
-    case 22: GT_CHECK(a->modal==MODAL_NONE); a->chrome_focus=2; go_to_key(KEY_G,DX_MOD_SUPER); break;
-    case 23: GT_CHECK(a->modal==MODAL_NONE && a->chrome_focus==2 && go_to_unchanged(a)); a->chrome_focus=0; go_to_key(KEY_G,DX_MOD_SUPER); break;
-    case 24: GT_CHECK(a->modal==MODAL_GO_TO); go_to_session=a->book.edit_session_id; a->book.edit_session_id++; input_set(&a->input,"Z99"); go_to_key(KEY_ENTER,0); break;
-    case 25: GT_CHECK(a->modal==MODAL_GO_TO && a->grid.row==8 && a->grid.col==1 && !strcmp(a->input.text,"Z99")); a->book.edit_session_id=go_to_session; go_to_key(KEY_ESCAPE,0); break;
-    case 26: GT_CHECK(a->modal==MODAL_NONE && go_to_unchanged(a)); go_to_result=1; printf("PASS: native same-sheet Go To workflow (27 stages, %u checks)\n",go_to_checks); break;
+    case 22: GT_CHECK(a->modal==MODAL_NONE); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->sidebar=true; a->workbook_collapsed=false; break;
+    case 23: GT_CHECK(a->sidebar && !a->workbook_collapsed && a->workspace.left.width>0 && !a->workspace.left_overlay); go_to_key(KEY_F6,DX_MOD_SHIFT); break;
+    case 24: GT_CHECK(a->chrome_focus==2 && !a->ribbon_focus && !a->pivot_focus); input_set(&a->input,"Pane draft sentinel"); go_to_key(KEY_G,DX_MOD_SUPER); break;
+    case 25: GT_CHECK(a->modal==MODAL_NONE && a->chrome_focus==2 && !strcmp(a->input.text,"Pane draft sentinel") && go_to_unchanged(a)); go_to_key(KEY_F6,0); break;
+    case 26: GT_CHECK(!a->chrome_focus && !a->ribbon_focus && !a->pivot_focus); go_to_key(KEY_G,DX_MOD_SUPER); break;
+    case 27: GT_CHECK(a->modal==MODAL_GO_TO); go_to_session=a->book.edit_session_id; a->book.edit_session_id++; input_set(&a->input,"Z99"); go_to_key(KEY_ENTER,0); break;
+    case 28: GT_CHECK(a->modal==MODAL_GO_TO && a->grid.row==8 && a->grid.col==1 && !strcmp(a->input.text,"Z99")); a->book.edit_session_id=go_to_session; go_to_key(KEY_ESCAPE,0); break;
+    case 29: GT_CHECK(a->modal==MODAL_NONE && go_to_unchanged(a)); go_to_result=1; printf("PASS: native same-sheet Go To workflow (30 stages, %u checks)\n",go_to_checks); break;
     }
     go_to_stage++;
 }

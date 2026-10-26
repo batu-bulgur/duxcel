@@ -21,7 +21,7 @@ WIDGET_GUI = frozenset({"value-type"})
 
 STANDALONE_GUI = {
     "go-to": ("build/tests/test_go_to-gui", "PASS: native same-sheet Go To workflow",
-              r"^PASS: native same-sheet Go To workflow \(27 stages, [1-9]\d* checks\)$", 27),
+              r"^PASS: native same-sheet Go To workflow \(30 stages, [1-9]\d* checks\)$", 30),
     "data-boundary": ("build/tests/test_data_boundary-gui", "PASS: native manual data-boundary workflow",
                     r"^PASS: native manual data-boundary workflow \(33 stages, [1-9]\d* checks\)$", 33),
     "value-type": ("build/tests/test_value_type-gui", "PASS: native explicit value-type workflow",
