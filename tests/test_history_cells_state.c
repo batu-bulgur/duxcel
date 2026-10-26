@@ -45,7 +45,52 @@ static void expect(WorkbookHistoryProfile *p,Workbook *b,WorkbookHistoryCellsSta
     if (expected!=HISTORY_CELLS_STATE_OK) CHECK(!memcmp(&out,&old,sizeof(out)));
     else CHECK(out.undo==2 && out.redo==2 && out.undo_cells==1 && out.redo_cells==2);
 }
+static void forks(void) {
+    Fixture f; fixture(&f); uint64_t id=f.book.sheets[0].id;
+    packet(&f,0,id,5,"","common"); packet(&f,1,id,5,"common","Saved"); packet(&f,2,id,5,"common","Current");
+    f.frames[1].lineage=1; f.frames[1].parent_lineage=0; f.frames[1].forked=true;
+    f.frames[2].lineage=2; f.frames[2].parent_lineage=0; f.frames[2].forked=true;
+    f.frames[2].position=2; f.frames[2].previous_position=1;
+    WorkbookHistorySegment cs[]={{0,0,1},{2,1,2}},ss[]={{0,0,1},{1,1,2}};
+    WorkbookHistoryEventPosition cp[]={{1,0,1},{3,2,2}},sp[]={{1,0,1},{2,1,2}};
+    size_t cm[]={0,2},sm[]={0,1};
+    WorkbookHistoryPath current={f.book.id.high,f.book.id.low,cs,2,cp,2,2,3,0,0,2,2};
+    /* Deliberately different path cursor: the actual Saved state is explicitly
+       bound by the Saved anchor at2, never inferred from this cursor at0. */
+    WorkbookHistoryPath saved={f.book.id.high,f.book.id.low,ss,2,sp,2,1,2,0,0,0,2};
+    WorkbookVersionRoot root={.bytes=12345,.encoding=15}; root.key.bytes[0]=71;
+    f.versions=(WorkbookVersionIndex){.document_high=f.book.id.high,.document_low=f.book.id.low,.generation=1,.saved_generation=1,.saved={true,root.key},.roots=&root,.root_count=1};
+    WorkbookHistoryAnchor anchor={{1,2,root.key},1}; f.anchors=(WorkbookHistoryAnchors){f.book.id.high,f.book.id.low,1,1,&anchor,1,NULL,0};
+    f.view.current=(WorkbookHistoryProfilePath){&current,cm,2}; f.view.saved=(WorkbookHistoryProfilePath){&saved,sm,2}; f.view.count=3;
+    CHECK(cells_set(&f.book.sheets[0].cells,5,3,"Current",NULL)); CHECK(cells_set(&f.book.sheets[0].cells,20,3,"untouched",NULL));
+    Workbook *saved_book=workbook_snapshot(&f.book); CHECK(saved_book); CHECK(cells_set(&saved_book->sheets[0].cells,5,3,"Saved",NULL));
+    WorkbookHistoryProfile *profile=prepare(&f); WorkbookHistoryCellStateEntry scratch[4]; size_t bytes=0;
+    CHECK(workbook_history_cells_saved_measure(profile,&f.book,saved_book,&bytes)==HISTORY_CELLS_STATE_OK && bytes==sizeof(scratch));
+    CHECK(workbook_history_cells_saved_measure(NULL,&f.book,saved_book,&bytes)==HISTORY_CELLS_STATE_INVALID && bytes==sizeof(scratch));
+    CHECK(workbook_history_cells_saved_measure(profile,&f.book,saved_book,NULL)==HISTORY_CELLS_STATE_INVALID);
+    WorkbookHistoryCellsSavedReport report={0};
+    CHECK(workbook_history_cells_saved_check(profile,&f.book,saved_book,scratch,bytes,&report)==HISTORY_CELLS_STATE_OK);
+    CHECK(report.shared_position==1 && report.current.undo==2 && !report.current.redo && report.saved.undo==2 && !report.saved.redo && report.coordinate_checks);
+    WorkbookHistoryCellsSavedReport old=report; memset(scratch,0x79,sizeof(scratch));
+    CHECK(workbook_history_cells_saved_check(profile,&f.book,saved_book,scratch,bytes-1,&report)==HISTORY_CELLS_STATE_LIMIT && !memcmp(&report,&old,sizeof(report)));
+    for (size_t i=0;i<sizeof(scratch);i++) CHECK(((unsigned char *)scratch)[i]==0x79);
+    /* Every transition applies individually to BOTH bodies, but untouched data
+       at their shared fork differs. Delta-only applicability must not pass it. */
+    CHECK(cells_set(&saved_book->sheets[0].cells,20,3,"different",NULL));
+    CHECK(workbook_history_cells_saved_check(profile,&f.book,saved_book,scratch,bytes,&report)==HISTORY_CELLS_STATE_MISMATCH && !memcmp(&report,&old,sizeof(report)));
+    CHECK(cells_set(&saved_book->sheets[0].cells,20,3,"untouched",NULL));
+    CHECK(cells_set(&saved_book->sheets[1].cells,100,1,"extra",NULL));
+    CHECK(workbook_history_cells_saved_check(profile,&f.book,saved_book,scratch,bytes,&report)==HISTORY_CELLS_STATE_MISMATCH);
+    CHECK(cells_set(&saved_book->sheets[1].cells,100,1,"",NULL));
+    /* Current may have been Undone past the shared fork: project forward from
+       its actual earlier body, while independently reversing Saved to fork. */
+    current.cursor=0; WorkbookHistoryProfile *earlier=prepare(&f); CHECK(cells_set(&f.book.sheets[0].cells,5,3,"",NULL));
+    CHECK(workbook_history_cells_saved_check(earlier,&f.book,saved_book,scratch,bytes,&report)==HISTORY_CELLS_STATE_OK && !report.current.undo && report.current.redo==2 && report.shared_position==1);
+    workbook_history_profile_free(&earlier); workbook_history_profile_free(&profile);
+    workbook_free(saved_book); free(saved_book); for (size_t i=0;i<4;i++) free(f.packets[i]); workbook_free(&f.book);
+}
 int main(void) {
+    forks();
     Fixture f; fixture(&f); WorkbookHistoryProfile *p=prepare(&f); size_t bytes=0;
     CHECK(workbook_history_cells_state_measure(p,&f.book,&bytes)==HISTORY_CELLS_STATE_OK && bytes==4*sizeof(WorkbookHistoryCellStateEntry));
     expect(p,&f.book,HISTORY_CELLS_STATE_OK);

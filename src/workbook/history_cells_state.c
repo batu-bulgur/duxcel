@@ -76,7 +76,8 @@ static bool coordinate(const Worksheet *a,const Worksheet *b,const WorkbookHisto
 static WorkbookHistoryCellsStateStatus saved_views(const WorkbookHistoryProfile *profile,const Workbook *current,const Workbook *saved,
     WorkbookHistoryProfileView *cv,WorkbookHistoryProfileView *sv,uint64_t *saved_position,uint64_t *fork,size_t *bytes) {
     const WorkbookHistoryProfileView *v=workbook_history_profile_view(profile);
-    if (!v || !v->versions->saved.present || !v->saved.path || !bytes) return HISTORY_CELLS_STATE_UNSUPPORTED;
+    if (!v || !bytes) return HISTORY_CELLS_STATE_INVALID;
+    if (!v->versions->saved.present || !v->saved.path) return HISTORY_CELLS_STATE_UNSUPPORTED;
     *cv=*v; *sv=*v; sv->current=v->saved;
     size_t cn=0,sn=0; WorkbookHistoryCellsStateStatus status=measure_path(cv,current,&cn);
     if (status!=HISTORY_CELLS_STATE_OK) return status;
