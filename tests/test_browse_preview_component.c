@@ -90,6 +90,88 @@ static void readback(const char *path,const Workbook *actual,BrowsePreviewCompon
     const Page *page=browse_preview_page(browse_preview_set_asset(set,0)); CHECK(page->cells[0].is_null && !page->cells[0].text && !strcmp(page->cells[1].text,"") && !strcmp(page->cells[2].text,"NULL") && !strcmp(page->cells[3].text,"9007199254740993.012345678901234567"));
     browse_preview_set_free(set); free(wire); duckdb_disconnect(&c); duckdb_close(&db); duckdb_destroy_config(&config); CHECK(!error);
 }
+typedef struct { BrowsePreviewSet *set; BrowsePreviewSet *prior; size_t reserved; bool cancel; unsigned called; BrowsePreviewComponentStatus status; } Read;
+static bool cancel_read(void *context,BrowsePreviewComponentPhase phase,size_t entry,uint64_t bytes) { (void)entry; (void)bytes; return ((Read *)context)->cancel && phase==BROWSE_COMPONENT_RECHECK; }
+static bool read_component(void *context,WorkbookArchiveReadScope *scope,duckdb_connection c,const Workbook *book,const WorkbookVersionCoreSet *versions,char **error) {
+    Read *r=context; r->called++; BrowsePreviewComponentInfo info={0};
+    CHECK(browse_preview_component_probe(c,UINT64_MAX,SIZE_MAX,&info,error)==BROWSE_COMPONENT_READY);
+    CHECK(info.snapshot_revision==book->command_revision && info.set_bytes>DX_VERSION_CHUNK_BYTES);
+    BrowsePreviewComponentInfo sentinel=info;
+    CHECK(browse_preview_component_probe(c,info.target_bytes-1,SIZE_MAX,&info,error)==BROWSE_COMPONENT_LIMIT && !memcmp(&info,&sentinel,sizeof(info)));
+    CHECK(browse_preview_component_probe(c,UINT64_MAX,(size_t)info.set_bytes-1,&info,error)==BROWSE_COMPONENT_LIMIT && !memcmp(&info,&sentinel,sizeof(info)));
+    r->status=browse_preview_component_read(scope,c,book,versions,SIZE_MAX,SIZE_MAX,0,r->reserved,(BrowsePreviewComponentControl){cancel_read,r},&r->set,error);
+    if (r->status!=BROWSE_COMPONENT_READY) { CHECK(r->set==r->prior); return false; }
+    CHECK(browse_preview_set_info(r->set).snapshot_revision==book->command_revision);
+    CHECK(browse_preview_set_manifest(r->set,0)->admission.classification==BROWSE_PREVIEW_CAPTURED_ONLY);
+    return true;
+}
+static void archive_readback(const char *path,const char *parent) {
+    Read read={.reserved=SIZE_MAX}; WorkbookArchiveCandidate *candidate=NULL; char *error=NULL;
+    CHECK(workbook_archive_read(path,parent,UINT64_C(64)*1024*1024,(WorkbookArchiveReadControl){.admit=read_component,.context=&read},&candidate,&error)==ARCHIVE_READ_READY && !error && read.called==1 && read.status==BROWSE_COMPONENT_READY);
+    CHECK(browse_preview_set_info(read.set).count==1); workbook_archive_candidate_free(candidate); candidate=NULL;
+    const Page *page=browse_preview_page(browse_preview_set_asset(read.set,0)); CHECK(page->cells[0].is_null && !page->cells[0].text && !strcmp(page->cells[3].text,"9007199254740993.012345678901234567"));
+    read.prior=read.set; read.reserved=DX_ARCHIVE_SCOPE_COMPARE_BYTES-1; read.called=0;
+    CHECK(workbook_archive_read(path,parent,UINT64_C(64)*1024*1024,(WorkbookArchiveReadControl){.admit=read_component,.context=&read},&candidate,&error)==ARCHIVE_READ_FAILED && !candidate && read.called==1 && read.status==BROWSE_COMPONENT_LIMIT && read.set==read.prior); if (error) { free(error); error=NULL; }
+    read.reserved=SIZE_MAX; read.cancel=true; read.called=0;
+    CHECK(workbook_archive_read(path,parent,UINT64_C(64)*1024*1024,(WorkbookArchiveReadControl){.admit=read_component,.context=&read},&candidate,&error)==ARCHIVE_READ_FAILED && !candidate && read.called==1 && read.status==BROWSE_COMPONENT_CANCELLED && read.set==read.prior); if (error) { free(error); error=NULL; }
+    browse_preview_set_free(read.set);
+}
+static void mutate(const char *path,const char *sql) {
+    duckdb_database db=NULL; duckdb_connection c=NULL; duckdb_result result={0};
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
+    CHECK(duckdb_query(c,sql,&result)==DuckDBSuccess); duckdb_destroy_result(&result); duckdb_disconnect(&c); duckdb_close(&db);
+}
+static bool reject_component(void *context,WorkbookArchiveReadScope *scope,duckdb_connection c,const Workbook *book,const WorkbookVersionCoreSet *versions,char **error) {
+    Read *r=context; r->called++;
+    r->status=browse_preview_component_read(scope,c,book,versions,SIZE_MAX,SIZE_MAX,0,SIZE_MAX,(BrowsePreviewComponentControl){0},&r->set,error);
+    CHECK(r->set==r->prior); return false;
+}
+static void corruption(const char *path,const char *parent,const BrowsePreviewSet *original) {
+    Read r={.set=browse_preview_set_retain(original)}; r.prior=r.set;
+    static const char *bad[]={
+        "UPDATE _duxcel_previews.meta SET codec=0",
+        "UPDATE _duxcel_previews.meta SET target_hash=NULL",
+        "CREATE TABLE _duxcel_previews.unknown(value INTEGER)",
+        "INSERT INTO _duxcel_previews.meta SELECT * FROM _duxcel_previews.meta",
+        "UPDATE _duxcel_previews.chunks SET position=position+1",
+        "INSERT INTO _duxcel_previews.chunks SELECT * FROM _duxcel_previews.chunks WHERE position=0",
+        "UPDATE _duxcel_previews.meta SET snapshot_revision=snapshot_revision+1",
+        "UPDATE _duxcel_previews.meta SET target_hash=from_hex(repeat('00',32))",
+        "INSERT INTO _duxcel_workspace.cells VALUES(0,900,30,'changed body with same doc and revision')"
+    };
+    static const char *undo[]={
+        "UPDATE _duxcel_previews.meta SET codec=1",
+        "", /* restore the actual target hash from the immutable retained index */
+        "DROP TABLE _duxcel_previews.unknown",
+        "DELETE FROM _duxcel_previews.meta WHERE rowid NOT IN (SELECT min(rowid) FROM _duxcel_previews.meta)",
+        "UPDATE _duxcel_previews.chunks SET position=position-1",
+        "DELETE FROM _duxcel_previews.chunks WHERE rowid NOT IN (SELECT min(rowid) FROM _duxcel_previews.chunks GROUP BY position)",
+        "UPDATE _duxcel_previews.meta SET snapshot_revision=snapshot_revision-1",
+        "", "DELETE FROM _duxcel_workspace.cells WHERE row_id=900 AND column_id=30"
+    };
+    /* Preserve the actual descriptor bytes, never replace authority with a
+       guessed root. Temporary SQL mutations touch only this private artifact. */
+    duckdb_database db=NULL; duckdb_connection c=NULL; duckdb_result result={0};
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess);
+    CHECK(duckdb_query(c,"SELECT hex(target_hash) FROM _duxcel_previews.meta",&result)==DuckDBSuccess);
+    char *target=duckdb_value_varchar(&result,0,0); CHECK(target && strlen(target)==64); char *restore=dx_printf("UPDATE _duxcel_previews.meta SET target_hash=from_hex('%s')",target); duckdb_free(target); duckdb_destroy_result(&result); duckdb_disconnect(&c); duckdb_close(&db);
+    for (size_t i=0;i<sizeof(bad)/sizeof(*bad);i++) {
+        mutate(path,bad[i]); WorkbookArchiveCandidate *candidate=NULL; char *error=NULL; r.called=0;
+        CHECK(workbook_archive_read(path,parent,UINT64_C(64)*1024*1024,(WorkbookArchiveReadControl){.admit=reject_component,.context=&r},&candidate,&error)==ARCHIVE_READ_FAILED && !candidate && r.called==1 && r.status!=BROWSE_COMPONENT_READY && r.set==r.prior);
+        if (error) free(error); mutate(path,*undo[i] ? undo[i] : restore);
+    }
+    /* Same-length corrupt payload must fail its hash; restore exact immutable
+       DXPS bytes using the same canonical chunk boundaries. */
+    mutate(path,"UPDATE _duxcel_previews.chunks SET data=from_hex(repeat('00',octet_length(data))) WHERE position=0");
+    WorkbookArchiveCandidate *candidate=NULL; char *error=NULL; r.called=0;
+    CHECK(workbook_archive_read(path,parent,UINT64_C(64)*1024*1024,(WorkbookArchiveReadControl){.admit=reject_component,.context=&r},&candidate,&error)==ARCHIVE_READ_FAILED && !candidate && r.called==1 && r.status!=BROWSE_COMPONENT_READY && r.set==r.prior); if (error) free(error);
+    BrowsePreviewPacket packet={0}; CHECK(browse_preview_set_encode(original,SIZE_MAX,&packet)==BROWSE_PREVIEW_SET_OK);
+    CHECK(duckdb_open(path,&db)==DuckDBSuccess && duckdb_connect(db,&c)==DuckDBSuccess); duckdb_prepared_statement statement=NULL;
+    CHECK(duckdb_prepare(c,"UPDATE _duxcel_previews.chunks SET data=? WHERE position=0",&statement)==DuckDBSuccess);
+    CHECK(duckdb_bind_blob(statement,1,packet.data,DX_VERSION_CHUNK_BYTES)==DuckDBSuccess && duckdb_execute_prepared(statement,&result)==DuckDBSuccess);
+    duckdb_destroy_result(&result); duckdb_destroy_prepare(&statement); duckdb_disconnect(&c); duckdb_close(&db); browse_preview_packet_free(&packet);
+    archive_readback(path,parent); free(restore); browse_preview_set_free(r.set);
+}
 int main(void) {
     char parent[]="build/tests/browse-preview-component-XXXXXX"; CHECK(mkdtemp(parent));
     char *path=dx_printf("%s/preview.dxls",parent),*second=dx_printf("%s/reused.dxls",parent),*protected=dx_printf("%s/protected.dxls",parent); char *source=realpath("tests/fixtures/transactions.csv",NULL); CHECK(source);
@@ -104,10 +186,10 @@ int main(void) {
     workbook_version_receipt_free(receipt); receipt=NULL; request.path=path;
     WorkbookVersionSaveControl control={.publication={stage,cancelled,&state}};
     CHECK(workbook_version_save(request,control,&receipt,&error)==WORKBOOK_SAVE_COMPLETE && receipt && !error && state.status==BROWSE_COMPONENT_READY && state.prepared==1 && !state.cancelled && !state.reused);
-    readback(path,&book,state.info); base=workbook_version_receipt_take_versions(receipt); workbook_version_receipt_free(receipt); receipt=NULL;
+    readback(path,&book,state.info); archive_readback(path,parent); base=workbook_version_receipt_take_versions(receipt); workbook_version_receipt_free(receipt); receipt=NULL;
     request.base=base; state.base=base; state.prepared=0; request.path=second;
     CHECK(workbook_version_save(request,control,&receipt,&error)==WORKBOOK_SAVE_COMPLETE && receipt && !error && state.reused && state.prepared==1);
-    readback(second,&book,state.info); workbook_version_receipt_free(receipt); receipt=NULL; request.path=protected;
+    readback(second,&book,state.info); archive_readback(second,parent); corruption(second,parent,set); workbook_version_receipt_free(receipt); receipt=NULL; request.path=protected;
     SourceDigest before=digest(protected); size_t inventory=children(parent);
     for (Mode mode=TOO_SMALL;mode<=DUPLICATE;mode++) {
         state.mode=mode; state.prepared=state.cancelled=0;

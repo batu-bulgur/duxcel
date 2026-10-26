@@ -2,6 +2,7 @@
 #define DX_BROWSE_PREVIEW_COMPONENT_H
 #include "browse_preview_set_codec.h"
 #include "version_save.h"
+#include "archive_read.h"
 #include "version_chunks.h"
 #define DX_BROWSE_PREVIEW_COMPONENT_ENCODING 1u
 #define DX_BROWSE_PREVIEW_COMPONENT_IO_BYTES (3u*DX_VERSION_CHUNK_BYTES+4096u)
@@ -47,4 +48,22 @@ BrowsePreviewComponentStatus browse_preview_component_stage(const WorkbookVersio
     duckdb_connection connection,const WorkbookVersionCoreSet *after,const BrowsePreviewSet *set,
     size_t other_owned,size_t reserved,uint64_t storage_reserved,BrowsePreviewComponentControl control,
     BrowsePreviewComponentInfo *out,char **error);
+/* Strict descriptor/chunk-shape observation only; no target or data authority.
+   Explicit limits are checked before chunk inventory or payload allocation. */
+BrowsePreviewComponentStatus browse_preview_component_probe(duckdb_connection connection,
+    uint64_t max_target_bytes,size_t max_set_bytes,BrowsePreviewComponentInfo *out,char **error);
+/* Synchronous actual archive admit callback only. Untrusted descriptor selects
+   a candidate ACTUAL retained leaf; the active scope proves complete association
+   with its SAME already-loaded current body, never inferred Latest Saved.
+   reserved includes prior/new Set, packet/parser/child validation, bounded IO,
+   other_owned and DX_ARCHIVE_SCOPE_COMPARE_BYTES (existing bounded engine grant,
+   not RSS/spill quota). wire_limit separately bounds advertised payload bytes.
+   Output stays unchanged on component failure/cancel. READY returns independently
+   owned callback staging only: outer archive identity recheck/candidate READY is
+   still required. Caller frees staged Set on enclosing archive failure. No scope
+   pointer, model owner, live Page readiness or historical permission is retained. */
+BrowsePreviewComponentStatus browse_preview_component_read(WorkbookArchiveReadScope *scope,
+    duckdb_connection connection,const Workbook *actual,const WorkbookVersionCoreSet *versions,
+    size_t retained_limit,size_t wire_limit,size_t other_owned,size_t reserved,
+    BrowsePreviewComponentControl control,BrowsePreviewSet **out,char **error);
 #endif
