@@ -63,6 +63,7 @@ Use [browser persistence](design/BROWSER_PERSISTENCE.md) and [source-format iden
 - [x] **C01a — Manual data boundaries:** Cmd/Ctrl+Arrow follows stored-cell runs/islands and fixed physical edges on source-free/object-free manual sheets; Shift preserves the anchor. Checked far-column growth preserves selection on allocation failure; navigation preserves data, formats, dirty/history/query state. Analytical and whole-axis routes remain separate.
 - [ ] **C02 — Commands and bindings:** Separate Find/Replace/Go To, filter, Focus, refresh and diagnostics; decide Cmd+F, Cmd+Shift+F, F5 and F12 conflicts. Implement visible menu/ribbon alternatives and popup/editor focus priority. Until new bindings are accepted, the guide describes current controls.
 - [x] **C02a — Manual Go To:** Address-strip entry and Cmd/Ctrl+G open a compact same-sheet single-cell dialog on a source-free/object-free manual grid. Invalid/overlong/stale targets, active editors and pane focus remain protected. No data/history/query changes; F5, F12, Cmd+F and Focus bindings retain their behavior.
+- [x] **C02b — Manual Find:** View → Navigate offers literal case-sensitive Find and Go To without moving prior command indices or changing Cmd+F. Previous/Next wraps through the complete sparse manual sheet; Whole cell, no-match, stale-owner and real pane/editor guards are explicit. Replace/source search remain separate.
 - [ ] **C03/C04 — Editing and clipboard:** Accept F2, commit/cancel, Enter/Tab reverse directions, within-selection navigation, clear/delete, paste/move and undo across manual/read-only/object contexts. Link typed/source-overlay/formula dependencies to separate slices; TSV paste does not establish Paste Special.
 - [ ] **C05 — Document safety:** Reproduce closing-related data loss with the actual binary/platform/close path. Verify native guards, Save/Save As/Close/Quit and the first recovery slice including untitled workbooks. Define saved/current/recoverable revisions and IO failure/cancellation behavior. Browser Open/Save retains its existing persistence gates.
 - [ ] **C06 — UI placement and access:** Verify priority feature records' current/proposed ribbon > group > command/context paths and independent Excel ribbon references. Add icon/label/tooltip, disabled/pending/error, narrow/overflow/Focus and keyboard access to cards. Pointer, keytip and shortcut invoke the same data command; record physical-keyboard/screen-reader acceptance separately.
@@ -2881,3 +2882,16 @@ three C modules in optimized/ASan/UBSan and30 actual App stages/32 assertions in
 invalid/overlong drafts, far visibility, real pane/editor guards, stale sessions
 and unchanged data/history/jobs. Actual browser access remains deferred to the
 next maintained browser window; analytical/qualified addresses remain separate.
+
+C02b complete on combined main: `78ee4275`/`c96eb0a8` own bounded UTF-8/KMP
+search, `b1eb6d62` owns layout, `a680aa07` shares the transient modal fence and
+adds View Navigate, and `b85d3073` tests actual pane focus. `manual-find-app`
+passes four modules in both modes and36 real App stages/37 assertions in37.286s
+(`20261026T045122-feature-78459`). The affected `go-to-app` rerun passes its
+owned Node file, three modules in both modes and30 App stages in25.088s
+(`20261026T045200-feature-79409`);62 runner/catalog contracts pass4.312s.
+The accepted fixtures cover pointer/keytip commands, 150% bounds, wrap/whole
+cell/not-found, stale/draft guards and unchanged data/history/jobs. A final
+copy-only refinement says “Text as entered” without changing search semantics.
+Authored blank-browser C01/Go To/Find interactions are deferred to the next
+maintained browser window; source/Replace/physical keyboard parity is not implied.

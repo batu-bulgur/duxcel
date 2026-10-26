@@ -37,9 +37,9 @@ static void draw_find(App *a) {
     if (a->find.message_revision!=a->input.revision) { a->find.message[0]=0; a->find.message_revision=a->input.revision; }
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){20,32,45,70}); DrawRectangleRec(l.panel,UI_BG); DrawRectangleLinesEx(l.panel,1,UI_BORDER);
     ui_text_clip_weight(u,"Find manual text",l.title,17,UI_TEXT,false,UI_SEMIBOLD);
-    ui_label(u,"Literal authored text · case-sensitive",l.label,11,UI_MUTED,false,UI_REGULAR); input_draw(u,&a->input,l.input);
+    ui_label(u,"Text as entered · case-sensitive",l.label,11,UI_MUTED,false,UI_REGULAR); input_draw(u,&a->input,l.input);
     bool whole=ui_tool_button(u,l.whole_cell,a->find.whole_cell ? "Whole cell: On" : "Whole cell: Off",a->find.whole_cell,true);
-    ui_text_clip(u,a->find.message[0] ? a->find.message : "Manual values only. Sources and Replace are not searched.",l.message,11,UI_MUTED,false);
+    ui_text_clip(u,a->find.message[0] ? a->find.message : "Search manual entries on this worksheet.",l.message,11,UI_MUTED,false);
     bool enabled=manual_navigation_check(a) && a->input.length && a->input.length<=GRID_FIND_QUERY_BYTES;
     bool close=ui_button(u,l.close,"Close",a->find.focus==4,true),previous=ui_button(u,l.previous,"Previous",a->find.focus==2,enabled),next=ui_button(u,l.next,"Next",a->find.focus==3,enabled);
     REVIEW_AUTHOR_PANEL(a,"manual_find","Find manual text",l.panel,l.title);
