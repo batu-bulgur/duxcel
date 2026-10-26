@@ -21,6 +21,8 @@ class Feature:
 WIDGET_GUI = frozenset({"value-type"})
 
 STANDALONE_GUI = {
+    "manual-find": ("build/tests/test_manual_find-gui", "PASS: native manual Find workflow",
+                    r"^PASS: native manual Find workflow \(33 stages, [1-9]\d* checks\)$", 33),
     "go-to": ("build/tests/test_go_to-gui", "PASS: native same-sheet Go To workflow",
               r"^PASS: native same-sheet Go To workflow \(30 stages, [1-9]\d* checks\)$", 30),
     "data-boundary": ("build/tests/test_data_boundary-gui", "PASS: native manual data-boundary workflow",
@@ -1006,3 +1008,11 @@ FEATURES["manual-find"] = Feature(("manual_find", "manual_value"), "",
 FEATURES["manual-find-layout"] = Feature(("manual_find", "find_layout"), "",
     ("python3 tools/test.py full --config both",),
     ("src/ui/find_layout.c", "src/ui/find_layout.h", "tests/test_find_layout.c"))
+
+FEATURES["manual-find-app"] = Feature(("manual_find", "find_layout", "keytips", "go_to"), "manual-find",
+    ("python3 tools/test.py feature --feature go-to-app", "python3 tools/test_web_app.py --review --access-only", "python3 tools/test.py full --config both"),
+    ("src/app/find.inc", "src/app/manual_navigation.inc", "src/ui/ribbon_spec.c", "src/ui/keytips.c", "tests/support/find_app.inc", "tests/test_manual_find_gui.c"))
+
+FEATURES["manual-find-navigation"] = Feature(("manual_find", "find_layout", "keytips", "go_to"), "",
+    ("python3 tools/test.py feature --feature manual-find-app", "python3 tools/test.py feature --feature go-to-app"),
+    ("src/app/find.inc", "src/app/manual_navigation.inc", "src/ui/ribbon_spec.c", "src/ui/keytips.c", "tests/test_keytips.c"))

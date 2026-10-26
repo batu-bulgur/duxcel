@@ -83,6 +83,8 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include "../ui/brand.h"
 #include "../grid/go_to.h"
 #include "../ui/go_to_layout.h"
+#include "../grid/manual_find.h"
+#include "../ui/find_layout.h"
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
@@ -92,7 +94,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include <ctype.h>
 #include <assert.h>
 
-typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE,MODAL_SOURCE_DETAILS,MODAL_GO_TO } Modal;
+typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE,MODAL_SOURCE_DETAILS,MODAL_GO_TO,MODAL_FIND } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW,SHEET_ACTION_DELETE } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW,DOCUMENT_RECOVER } DocumentAction;
@@ -462,8 +464,10 @@ typedef struct {
     struct {
         const Worksheet *sheet; const SheetCell *cells;
         WorkbookId document; uint64_t document_session,sheet_session,sheet_id,revision,cell_revision,format_revision,width_revision,request;
-        size_t count,capacity; int focus; char message[112];
-    } go_to;
+        size_t count,capacity;
+    } manual_navigation;
+    struct { int focus; char message[112]; } go_to;
+    struct { int focus; bool whole_cell; uint64_t message_revision; char message[128]; } find;
     UIScrollbar source_details_bar;
     uint64_t source_details_key;
     TextLines query_errors;
@@ -961,7 +965,9 @@ static bool manual_cell(App *a) {
     return !(a->grid.row<source_rows(a) && a->grid.col<a->page.column_count) && objects_hit(&active_sheet(a)->objects,a->grid.row,a->grid.col)<0;
 }
 #include "grid_boundary.inc"
+#include "manual_navigation.inc"
 #include "go_to.inc"
+#include "find.inc"
 static void set_grid_navigation(App *a) {
     a->grid.navigation=(GridRegion){0}; ObjectStore *store=&active_sheet(a)->objects;
     int hit=objects_hit(store,a->grid.row,a->grid.col); if (hit<0) return;
@@ -6924,6 +6930,7 @@ static void draw_modal(App *a) {
     if (a->modal==MODAL_VERSIONS) { versions_draw(a); return; }
 #endif
     if (a->modal==MODAL_GO_TO) { draw_go_to(a); return; }
+    if (a->modal==MODAL_FIND) { draw_find(a); return; }
     if (a->modal==MODAL_VIEW) { draw_view_menu(a); return; }
     if (a->modal==MODAL_DENSITY) { draw_density_menu(a); return; }
     if (a->modal==MODAL_INTERFACE_SCALE) { draw_scale_menu(a); return; }
@@ -8267,7 +8274,7 @@ static void shortcuts(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
         version_edit=a->modal==MODAL_VERSIONS && !a->version_view.focus;
 #endif
-        bool editing=(a->modal==MODAL_GO_TO && !a->go_to.focus) || version_edit || (a->modal==MODAL_ASSIGN_FIELD && a->pivot_search_focus) || (a->modal==MODAL_SOURCE_QUERY && !a->query_focus) || (a->modal==MODAL_SORT && a->sort_editor.focus==0) || (a->modal==MODAL_OBJECT_NAME && !a->object_name_focus) || (a->modal==MODAL_MOVE_RANGE && !a->range_move_focus) || (a->modal==MODAL_CHART_SIZE && a->chart_size_focus<2) || a->modal==MODAL_CELL || (a->modal==MODAL_WIDTH && !a->width_focus) || a->modal==MODAL_RENAME || (a->modal==MODAL_FILTER && !a->filter_condition_menu && (a->filter_focus==3 || a->filter_focus==7 || a->filter_focus==8)) || a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK;
+        bool editing=(a->modal==MODAL_FIND && !a->find.focus) || (a->modal==MODAL_GO_TO && !a->go_to.focus) || version_edit || (a->modal==MODAL_ASSIGN_FIELD && a->pivot_search_focus) || (a->modal==MODAL_SOURCE_QUERY && !a->query_focus) || (a->modal==MODAL_SORT && a->sort_editor.focus==0) || (a->modal==MODAL_OBJECT_NAME && !a->object_name_focus) || (a->modal==MODAL_MOVE_RANGE && !a->range_move_focus) || (a->modal==MODAL_CHART_SIZE && a->chart_size_focus<2) || a->modal==MODAL_CELL || (a->modal==MODAL_WIDTH && !a->width_focus) || a->modal==MODAL_RENAME || (a->modal==MODAL_FILTER && !a->filter_condition_menu && (a->filter_focus==3 || a->filter_focus==7 || a->filter_focus==8)) || a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK;
         if (a->modal==MODAL_FILTER && (a->filter_focus==4 || a->filter_focus==5) && command==DX_COMMAND_SELECT_ALL) { a->values_all=true; clear_value_choices(a); }
         TextInput *field=a->modal==MODAL_FILTER && a->filter_focus==7 ? &a->filter_term : a->modal==MODAL_FILTER && a->filter_focus==8 ? &a->filter_end : a->modal==MODAL_ASSIGN_FIELD ? &a->pivot_search : a->modal==MODAL_SORT ? &a->sort_editor.search : a->modal==MODAL_CHART_SIZE && !a->chart_size_focus ? &a->chart_columns : &a->input;
         if (editing && command==DX_COMMAND_SELECT_ALL) field->select_all=true;
@@ -8421,6 +8428,7 @@ static bool action_available(App *a,UIAction action) {
     SheetObject *object=selected_pivot(a); Page *fields=context_fields(a);
     int source_index=command_source_index(a); const Analysis *source=source_index>=0 ? &active_sheet(a)->objects.items[source_index].source : &a->analysis;
     switch (action) {
+    case ACTION_FIND: case ACTION_GO_TO: return manual_navigation_ready(a,true);
     case ACTION_CUT: case ACTION_FONT: case ACTION_WRAP: return false;
     case ACTION_FONT_SIZE: case ACTION_BOLD: case ACTION_ITALIC: case ACTION_UNDERLINE: case ACTION_TEXT_COLOR:
     case ACTION_ALIGN_LEFT: case ACTION_ALIGN_CENTER: case ACTION_ALIGN_RIGHT: case ACTION_NUMBER_FORMAT: case ACTION_ACCOUNTING: case ACTION_DECIMAL_LESS: case ACTION_DECIMAL_MORE: return active_sheet(a)!=NULL;
@@ -8528,6 +8536,8 @@ static void run_action(App *a,UIAction action) {
         if (a->analysis.kind!=SOURCE_NONE) change_analysis(a,false); break;
     case ACTION_WORKBOOK: a->sidebar=!a->sidebar; if (a->sidebar && GetScreenWidth()/a->ui.scale<700) show_workspace(a); break;
     case ACTION_FIELDS: a->fields_visible=!a->fields_visible; if (a->fields_visible && GetScreenWidth()/a->ui.scale<700) show_workspace(a); if (!a->fields_visible) { a->pivot_focus=0; a->pivot_search_focus=false; } break;
+    case ACTION_FIND: begin_find(a); break;
+    case ACTION_GO_TO: begin_go_to_from(a,true); break;
     case ACTION_FOCUS: set_ribbon_mode(a,a->ribbon_mode==3 ? a->previous_ribbon_mode : 3); break;
     case ACTION_DENSITY: a->modal=MODAL_DENSITY; a->context_focus=a->context_scroll=0; break;
     case ACTION_SCALE: begin_scale_menu(a,a->context_origin); break;
@@ -15887,6 +15897,9 @@ static void data_boundary_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_GO_TO
 static void go_to_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_MANUAL_FIND
+static void find_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
 static void source_results_test_frame(AppSession *session);
 #endif
@@ -16852,6 +16865,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_GO_TO
     go_to_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_MANUAL_FIND
+    find_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
     source_results_test_frame(session);
 #endif
@@ -17353,4 +17369,7 @@ int app_run(const AppOptions *options) {
 #endif
 #ifdef DUXCEL_FEATURE_GO_TO
 #include "../../tests/support/go_to_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_MANUAL_FIND
+#include "../../tests/support/find_app.inc"
 #endif

@@ -132,6 +132,8 @@ static const char *review_action_id(UIAction action) {
         [ACTION_RESET_ZOOM]="command.reset_zoom",
         [ACTION_RESET_LAYOUT]="command.reset_layout",
         [ACTION_GUIDE]="command.guide",
+        [ACTION_FIND]="command.find_manual_text",
+        [ACTION_GO_TO]="command.go_to",
     };
     return (unsigned)action<sizeof(actions)/sizeof(actions[0]) ? actions[action] : "command.unknown";
 }

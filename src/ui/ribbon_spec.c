@@ -1,7 +1,7 @@
 #include "ribbon_spec.h"
 #include <math.h>
 const char *const ui_ribbon_tabs[]={"Home","Insert","Data","Analyze","View","Visualization"};
-const int ribbon_counts[]={24,5,8,11,12,11},ribbon_group_counts[]={6,2,3,4,4,4};
+const int ribbon_counts[]={24,5,8,11,14,11},ribbon_group_counts[]={6,2,3,4,5,4};
 #define C(label,icon,action) {label,CARBON_##icon,ACTION_##action}
 #define VISUALS C("Edit analysis",DATA_VIEW,CREATE_VIEW),C("Matrix",TABLE,MATRIX),C("Bar chart",CHART_BAR,BAR),C("Line chart",CHART_LINE,LINE),C("Add to Rows",ROW,ADD_ROWS),C("Add to Columns",COLUMN,ADD_COLUMNS),C("Swap shelves",ARROWS_HORIZONTAL,SWAP_SHELVES),C("Add measure",FUNCTION,ADD_MEASURE),C("Transformations",DATA_STRUCTURED,TRANSFORM),C("Inspect SQL",SQL,SQL),C("Browse data",TABLE,BROWSE)
 const UIRibbonCommand ribbon_commands[RIBBON_TABS][UI_RIBBON_COMMANDS]={
@@ -9,7 +9,7 @@ const UIRibbonCommand ribbon_commands[RIBBON_TABS][UI_RIBBON_COMMANDS]={
     {C("Analysis view",DATA_VIEW,CREATE_VIEW),C("Matrix",TABLE,MATRIX),C("Bar chart",CHART_BAR,BAR),C("Line chart",CHART_LINE,LINE),C("New sheet",DOCUMENT_BLANK,NEW_SHEET)},
     {C("Sort ascending",SORT_ASCENDING,SORT_ASC),C("Sort descending",SORT_DESCENDING,SORT_DESC),C("Source order",ARROWS_HORIZONTAL,SOURCE_ORDER),C("Column filter",FILTER,FILTER),C("Clear all filters",FILTER_REMOVE,CLEAR_FILTERS),C("Transformations",DATA_STRUCTURED,TRANSFORM),C("Inspect SQL",SQL,SQL),C("Refresh result",RENEW,REFRESH)},
     {VISUALS},
-    {C("Workbook",TABLE,WORKBOOK),C("Fields",LIST,FIELDS),C("Transformations",DATA_STRUCTURED,TRANSFORM),C("Inspect SQL",SQL,SQL),C("Focus view",MAXIMIZE,FOCUS),C("Row density",ARROWS_HORIZONTAL,DENSITY),C("Interface scale",SETTINGS_ADJUST,SCALE),C("Gridlines",GRID,GRIDLINES),C("Freeze first 2 columns",COLUMN,FREEZE),C("Reset zoom",ZOOM_IN,RESET_ZOOM),C("Reset layout",RENEW,RESET_LAYOUT),C("Keyboard guide",KEYBOARD,GUIDE)},
+    {C("Workbook",TABLE,WORKBOOK),C("Fields",LIST,FIELDS),C("Transformations",DATA_STRUCTURED,TRANSFORM),C("Inspect SQL",SQL,SQL),C("Focus view",MAXIMIZE,FOCUS),C("Row density",ARROWS_HORIZONTAL,DENSITY),C("Interface scale",SETTINGS_ADJUST,SCALE),C("Gridlines",GRID,GRIDLINES),C("Freeze first 2 columns",COLUMN,FREEZE),C("Reset zoom",ZOOM_IN,RESET_ZOOM),C("Reset layout",RENEW,RESET_LAYOUT),C("Keyboard guide",KEYBOARD,GUIDE),C("Find manual text…",SEARCH,FIND),C("Go to cell…",SEARCH,GO_TO)},
     {VISUALS}
 };
 #undef VISUALS
@@ -20,7 +20,7 @@ const UIRibbonGroup ribbon_groups[RIBBON_TABS][UI_RIBBON_GROUPS]={
     {{"Analysis",0,4,90,false},{"Workbook",4,1,50,false}},
     {{"Order",0,3,70,false},{"Filter",3,2,90,false},{"Steps",5,3,80,false}},
     {{"Visuals",0,4,90,false},{"Structure",4,4,80,false},{"Inspect",8,2,40,false},{"Return",10,1,10,false}},
-    {{"Panes",0,4,90,false},{"Layout",4,3,80,false},{"Worksheet",7,3,40,false},{"Help",10,2,10,false}},
+    {{"Panes",0,4,90,false},{"Layout",4,3,80,false},{"Worksheet",7,3,40,false},{"Help",10,2,10,false},{"Navigate",12,2,60,false}},
     {{"Visuals",0,4,90,false},{"Structure",4,4,80,false},{"Inspect",8,2,40,false},{"Return",10,1,10,false}}
 };
 UICarbonIcon ui_ribbon_group_icon(int tab,int group) {
@@ -29,7 +29,7 @@ UICarbonIcon ui_ribbon_group_icon(int tab,int group) {
         {CARBON_DATA_VIEW,CARBON_TABLE},
         {CARBON_SORT_ASCENDING,CARBON_FILTER,CARBON_DATA_STRUCTURED},
         {CARBON_CHART_BAR,CARBON_ROW,CARBON_SQL,CARBON_TABLE},
-        {CARBON_DATA_STRUCTURED,CARBON_SETTINGS_ADJUST,CARBON_GRID,CARBON_KEYBOARD},
+        {CARBON_DATA_STRUCTURED,CARBON_SETTINGS_ADJUST,CARBON_GRID,CARBON_KEYBOARD,CARBON_SEARCH},
         {CARBON_CHART_BAR,CARBON_ROW,CARBON_SQL,CARBON_TABLE}
     };
     if (tab<0 || tab>=RIBBON_TABS || group<0 || group>=ribbon_group_counts[tab]) return CARBON_COUNT;

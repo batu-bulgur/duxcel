@@ -17,6 +17,9 @@ static void expect_command(const char *keys,UIAction action) {
     CHECK(!state.active);
 }
 int main(void) {
+    expect_command("WZC",ACTION_FIND); expect_command("WZD",ACTION_GO_TO);
+    CHECK(ui_ribbon_action_index(RIBBON_VIEW,ACTION_FIND)==12 && ui_ribbon_action_index(RIBBON_VIEW,ACTION_GO_TO)==13);
+    CHECK(ribbon_group_counts[RIBBON_VIEW]==5 && !strcmp(ribbon_groups[RIBBON_VIEW][4].name,"Navigate"));
     UIKeytips state={0};
     CHECK(ui_keytips_feed(&state,'H',false).kind==UI_KEYTIP_NONE);
     CHECK(!ui_keytips_escape(&state));
