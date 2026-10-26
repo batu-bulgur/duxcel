@@ -339,6 +339,9 @@ def run_owned_process(command, *, timeout, **kwargs):
             signal.signal(signal.SIGTERM, previous)
 
 
+NODE_COMPLETION_PATTERN = r"(?ms)^# tests [1-9]\d*$.*^# fail 0$.*^# cancelled 0$.*^# skipped 0$.*^# todo 0$"
+
+
 def configurations(name):
     return ("release", "sanitize") if name == "both" else (name,)
 
@@ -688,6 +691,9 @@ class Runner:
         self.summary["app_config"]="standalone-sanitize" if sanitized else "release" if gui else None
         if plan["tool_tests"]:
             self.record(self.command("feature-tools", [sys.executable, "-m", "unittest", *plan["tool_tests"]], "OK"))
+        if plan.get("node_tests"):
+            self.record(self.command("feature-node", ["node", "--test", "--test-reporter=tap", *plan["node_tests"]],
+                                     "# fail 0", completion_pattern=NODE_COMPLETION_PATTERN))
         if plan["modules"]:
             self.headless(plan["modules"])
         if plan["engine_modules"]:

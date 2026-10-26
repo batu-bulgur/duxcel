@@ -11,6 +11,22 @@ from test_catalog import FEATURES, STANDALONE_GUI, plan
 
 
 class FeatureCatalogTests(unittest.TestCase):
+    def test_owned_node_gate_is_focused_mandatory_and_keeps_native_gui(self):
+        selected=plan("go-to-app")
+        self.assertEqual(selected["node_tests"],["web/tests/canvas_input.test.mjs"])
+        self.assertEqual(plan("cell-command")["node_tests"],[])
+        obj=runner.Runner.__new__(runner.Runner)
+        obj.args=runner.parser().parse_args(["feature","--feature","go-to-app"])
+        obj.summary={}; obj.headless=mock.Mock(); obj.standalone_gui_check=mock.Mock()
+        obj.command=mock.Mock(return_value={"status":"passed"}); obj.record=mock.Mock()
+        with contextlib.redirect_stdout(io.StringIO()): obj.feature()
+        self.assertEqual(obj.command.call_args.args[1],["node","--test","--test-reporter=tap","web/tests/canvas_input.test.mjs"])
+        obj.standalone_gui_check.assert_called_once_with("go-to")
+        summary="# tests 10\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n"
+        runner.validate_output(summary,0,"# fail 0",completion_pattern=runner.NODE_COMPLETION_PATTERN)
+        for bad in (summary.replace("tests 10","tests 0"),summary.replace("skipped 0","skipped 1"),summary.replace("cancelled 0","cancelled 1")):
+            with self.assertRaises(RuntimeError): runner.validate_output(bad,0,"# fail 0",completion_pattern=runner.NODE_COMPLETION_PATTERN)
+
     def test_literal_gui_completion_contracts_match_their_consumers(self):
         # Catch unrelated stage-count edits before compiling/launching the App.
         # Dynamic summaries still require their existing runtime gates.

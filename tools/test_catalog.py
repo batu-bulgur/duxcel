@@ -14,6 +14,7 @@ class Feature:
     owns: tuple
     engine_modules: tuple = ()
     fixtures: tuple = ()
+    node_tests: tuple = ()
 
 
 # Widget fixtures own a raylib/UI lifecycle; they never instantiate App.
@@ -961,7 +962,7 @@ def plan(name):
             ["tools.tests.test_create_workbook.SourceConnectionTests"] if name == "table-replacement" else
             ["tools.tests.test_build_info"] if name == "about" else
                           ["tools.tests.test_runner", "tools.tests.test_feature_catalog", "tools.tests.test_web_build"] if name == "test-infrastructure" else [],
-            "engine_modules": list(feature.engine_modules), "fixtures": list(feature.fixtures),
+            "engine_modules": list(feature.engine_modules), "fixtures": list(feature.fixtures), "node_tests": list(feature.node_tests),
             "process_support_targets": sorted({target for module in feature.engine_modules if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(name) for target in ENGINE_PROCESS_CHECKS[module].support}),
             "engine_process_checks": [ENGINE_PROCESS_CHECKS[module].script for module in feature.engine_modules if module in ENGINE_PROCESS_CHECKS and ENGINE_PROCESS_CHECKS[module].selected(name)], "owns": list(feature.owns), "deferred_interactions": list(feature.interactions),
             "milestone": "python3 tools/test.py full --config both",
@@ -996,4 +997,4 @@ FEATURES["go-to"] = Feature(("go_to", "go_to_layout"), "",
 
 FEATURES["go-to-app"] = Feature(("go_to", "go_to_layout", "grid_data_boundary"), "go-to",
     ("python3 tools/test_web_app.py --review --access-only", "python3 tools/test.py full --config both"),
-    ("src/app/go_to.inc", "tests/support/go_to_app.inc", "tests/test_go_to_gui.c", "web/canvas_input.mjs", "web/tests/canvas_input.test.mjs"))
+    ("src/app/go_to.inc", "tests/support/go_to_app.inc", "tests/test_go_to_gui.c", "web/canvas_input.mjs", "web/tests/canvas_input.test.mjs"), node_tests=("web/tests/canvas_input.test.mjs",))

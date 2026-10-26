@@ -36,6 +36,12 @@ when full-App sanitizer or platform boundaries are affected. The receipt records
 these configurations and the deferred commands. A focused pass is acceptance of
 that boundary, not whole-product/native-browser parity.
 
+Feature plans can select exact `node_tests` files for browser bridge logic.
+These run with a stable TAP reporter before C modules, require nonzero tests
+with no failure/cancellation/skip/todo, and keep the named native GUI gate.
+They do not launch a browser or run the full JavaScript suite. Go To owns only
+`web/tests/canvas_input.test.mjs`; its actual browser access workflow is deferred.
+
 Independent control fixtures are explicitly listed in `WIDGET_GUI`. They retain
 hidden TEST identity, pinned binaries, the desktop lock and exact completion
 contracts, but own a widget/window lifecycle instead of instantiating App.
