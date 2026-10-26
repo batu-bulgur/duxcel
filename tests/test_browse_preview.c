@@ -296,10 +296,29 @@ static void workbook_association(void) {
     sheet->objects.items[1].id=7;
     CHECK(browse_preview_workbook_admit(primary,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_INVALID && !memcmp(&report,&saved,sizeof(report))); sheet->objects.items[1].id=9;
     CHECK(browse_preview_workbook_admit(primary,&book,SIZE_MAX,SIZE_MAX,&report)==SOURCE_DEPENDENCY_LIMIT && !memcmp(&report,&saved,sizeof(report)));
+    /* The actual model's first binding is a conflict for an unbound capture,
+       not permission to relabel the old cache. */
+    f.sources.items=dx_alloc(sizeof(SourceVersion)); f.sources.items[0]=(SourceVersion){.owner=7,.version=1,.kind=SOURCE_CSV,.path=dx_strdup(f.table.source.path)};
+    f.sources.count=f.sources.capacity=f.sources.high_water=1; f.sources.bytes=sizeof(SourceVersion)+strlen(f.table.source.path)+1; f.table.source.source_version=1;
+    sheet->objects.items[0].source.source_version=1; CHECK(source_versions_copy(&sheet->source_versions,&f.sources,NULL));
+    CHECK(browse_preview_workbook_admit(table_preview,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT && report.classification==BROWSE_PREVIEW_NOT_ASSOCIATED);
+    BrowsePreview *bound=NULL; info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&bound)==BROWSE_PREVIEW_OK);
+    CHECK(browse_preview_workbook_admit(bound,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_EXACT && report.dependencies.sources.captured_pending==1 && report.classification==BROWSE_PREVIEW_CAPTURED_ONLY);
+    SourceDigest digest={.identity={.size=500},.bytes=500,.sha256={1}}; SourcePacket raw={0};
+    CHECK(source_scope_raw_build(7,1,&f.table.source,&f.page,&digest,"test-engine",&raw,NULL)); f.sources.items[0].raw=raw; f.sources.bytes+=raw.bytes;
+    CHECK(source_versions_copy(&sheet->source_versions,&f.sources,NULL));
+    CHECK(browse_preview_workbook_admit(bound,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_REFINED && report.dependencies.sources.captured_pending==1 && report.classification==BROWSE_PREVIEW_CAPTURED_ONLY);
+    BrowsePreview *complete=NULL; info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&complete)==BROWSE_PREVIEW_OK);
+    CHECK(browse_preview_workbook_admit(complete,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_EXACT);
+    digest.sha256[0]=2; SourcePacket changed={0}; CHECK(source_scope_raw_build(7,1,&f.table.source,&f.page,&digest,"test-engine",&changed,NULL));
+    source_packet_free(&sheet->source_versions.items[0].raw); sheet->source_versions.items[0].raw=changed;
+    CHECK(browse_preview_workbook_admit(complete,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT && report.classification==BROWSE_PREVIEW_NOT_ASSOCIATED);
+    CHECK(browse_preview_workbook_admit(bound,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_REFINED && report.dependencies.sources.captured_pending==1);
+    browse_preview_free(bound); browse_preview_free(complete);
     for (size_t i=0;i<2;i++) {
         Worksheet *current=book.sheets+i; free(current->name); analysis_free(&current->analysis);
         for (size_t j=0;j<current->objects.count;j++) { free(current->objects.items[j].name); analysis_free(&current->objects.items[j].source); }
-        free(current->objects.items);
+        free(current->objects.items); source_versions_free(&current->source_versions);
     }
     free(book.sheets); browse_preview_free(primary); browse_preview_free(table_preview); finish(&f);
 }
