@@ -94,19 +94,94 @@ static void invalid_inputs(void) {
     CHECK(manual_cells_range(out,0,0,0,1,slots,1,&range)==MANUAL_CELLS_INVALID);
     CHECK(out==prior); manual_cells_free(&out);
 }
+static ManualRange *range(ManualRangeView view) {
+    ManualRangePacket packet={0}; ManualRange *out=NULL;
+    CHECK(manual_range_capture(view,SIZE_MAX,&packet)==MANUAL_RANGE_OK);
+    CHECK(manual_range_decode(packet.data,packet.bytes,SIZE_MAX,&out)==MANUAL_RANGE_OK);
+    manual_range_packet_free(&packet); return out;
+}
+static ManualValue *value(ManualValueInput input) { ManualValue *out=NULL; CHECK(manual_value_build(input,SIZE_MAX,&out)==MANUAL_VALUE_OK); return out; }
+static void private_range_after(void) {
+    ManualCells *before=empty(),*after=empty();
+    set(&before,0,0,text("before")); set(&before,1,1,text("left")); set(&before,1,5,text("right"));
+    set(&before,2,2,text("removed hole")); set(&before,1,2,text("replaced")); set(&before,DX_SHEET_ROWS-1,16383,text("far"));
+    ManualValue *null=value((ManualValueInput){.present=true}),*empty_text=value(text("")),*numeric=value(number("+0012.3")),*literal=value(text("NULL"));
+    const ManualValue *values[]={null,empty_text,NULL,NULL,numeric,literal}; ManualRange *input=range((ManualRangeView){2,3,6,values});
+    ManualCellsInfo info; CHECK(manual_cells_paste_measure(before,1,2,input,&info)==MANUAL_CELLS_READY && info.count==8);
+    CHECK(info.coexisting==info.owned+manual_cells_owned(before)+manual_range_owned(input));
+    size_t required=info.coexisting+manual_cells_owned(after)+59; ManualCells *prior=after;
+    CHECK(manual_cells_paste(before,1,2,input,59,required-1,&after)==MANUAL_CELLS_LIMIT && after==prior && !strcmp(manual_value_view(manual_cells_at(before,2,2)).raw,"removed hole"));
+    CHECK(manual_cells_paste(before,1,2,input,59,required,&after)==MANUAL_CELLS_READY && manual_cells_count(after)==8);
+    CHECK(!strcmp(manual_value_view(manual_cells_at(after,0,0)).raw,"before") && !strcmp(manual_value_view(manual_cells_at(after,1,1)).raw,"left") && !strcmp(manual_value_view(manual_cells_at(after,1,5)).raw,"right"));
+    CHECK(!strcmp(manual_value_view(manual_cells_at(after,DX_SHEET_ROWS-1,16383)).raw,"far"));
+    CHECK(manual_value_view(manual_cells_at(after,1,2)).kind==MANUAL_VALUE_SQL_NULL && manual_value_view(manual_cells_at(after,1,3)).present && !manual_value_view(manual_cells_at(after,1,3)).raw_bytes);
+    CHECK(!manual_cells_at(after,1,4) && !manual_cells_at(after,2,2) && !strcmp(manual_value_view(manual_cells_at(after,2,3)).raw,"+0012.3") && !strcmp(manual_value_view(manual_cells_at(after,2,4)).raw,"NULL"));
+    ManualCellsInfo old={1,2,3,4}; info=old; prior=after;
+    CHECK(manual_cells_paste_measure(after,1,2,input,&info)==MANUAL_CELLS_NOOP && !memcmp(&info,&old,sizeof(info)));
+    CHECK(manual_cells_paste(after,1,2,input,SIZE_MAX,0,&after)==MANUAL_CELLS_NOOP && after==prior);
+    CHECK(manual_cells_paste(before,1,2,input,SIZE_MAX,SIZE_MAX,&after)==MANUAL_CELLS_LIMIT && after==prior);
+    /* Same output/source alias counts that owner once; all range values and
+       outside entries are independently copied before source release. */
+    CHECK(manual_cells_paste_measure(before,1,2,input,&info)==MANUAL_CELLS_READY);
+    prior=before; CHECK(manual_cells_paste(before,1,2,input,7,info.coexisting+6,&before)==MANUAL_CELLS_LIMIT && before==prior);
+    CHECK(manual_cells_paste(before,1,2,input,7,info.coexisting+7,&before)==MANUAL_CELLS_READY);
+    manual_range_free(&input); manual_value_free(&null); manual_value_free(&empty_text); manual_value_free(&numeric); manual_value_free(&literal); manual_cells_free(&after);
+    CHECK(!strcmp(manual_value_view(manual_cells_at(before,2,3)).raw,"+0012.3"));
+    const ManualValue *slots[6]; ManualRangeView exported;
+    CHECK(manual_cells_range(before,1,2,2,3,slots,6,&exported)==MANUAL_CELLS_READY && !slots[2] && !slots[3]);
+    input=range(exported); CHECK(manual_cells_paste(before,1,2,input,0,0,&before)==MANUAL_CELLS_NOOP);
+    manual_range_free(&input); manual_cells_free(&before);
+}
+static void private_authored_equality(void) {
+    ManualCells *source=empty(); set(&source,0,0,number("+0012.3"));
+    ManualValue *v=value(number("12.30")); const ManualValue *one[]={v}; ManualRange *input=range((ManualRangeView){1,1,1,one});
+    CHECK(manual_cells_paste(source,0,0,input,0,SIZE_MAX,&source)==MANUAL_CELLS_READY && !strcmp(manual_value_view(manual_cells_at(source,0,0)).raw,"12.30"));
+    CHECK(manual_cells_paste(source,0,0,input,0,0,&source)==MANUAL_CELLS_NOOP);
+    manual_range_free(&input); manual_value_free(&v); v=value(text("12.30")); one[0]=v; input=range((ManualRangeView){1,1,1,one});
+    CHECK(manual_cells_paste(source,0,0,input,0,SIZE_MAX,&source)==MANUAL_CELLS_READY && manual_value_view(manual_cells_at(source,0,0)).kind==MANUAL_VALUE_TEXT);
+    CHECK(manual_cells_paste(source,0,0,input,0,0,&source)==MANUAL_CELLS_NOOP);
+    manual_range_free(&input); manual_value_free(&v); one[0]=NULL; input=range((ManualRangeView){1,1,1,one});
+    CHECK(manual_cells_paste(source,0,0,input,0,SIZE_MAX,&source)==MANUAL_CELLS_READY && !manual_cells_count(source));
+    CHECK(manual_cells_paste(source,0,0,input,0,0,&source)==MANUAL_CELLS_NOOP);
+    manual_range_free(&input); manual_cells_free(&source);
+}
+static void private_range_bounds(void) {
+    ManualCells *source=empty(),*out=empty(),*prior=out; ManualValue *v=value(text("X")); const ManualValue *one[]={v}; ManualRange *input=range((ManualRangeView){1,1,1,one});
+    const uint64_t rows[]={DX_SHEET_ROWS,UINT64_MAX};
+    for (size_t i=0;i<2;i++) CHECK(manual_cells_paste(source,rows[i],0,input,0,SIZE_MAX,&out)==MANUAL_CELLS_INVALID && out==prior);
+    CHECK(manual_cells_paste(source,0,16384,input,0,SIZE_MAX,&out)==MANUAL_CELLS_INVALID);
+    CHECK(manual_cells_paste(NULL,0,0,input,0,SIZE_MAX,&out)==MANUAL_CELLS_INVALID && manual_cells_paste(source,0,0,NULL,0,SIZE_MAX,&out)==MANUAL_CELLS_INVALID);
+    CHECK(manual_cells_paste(source,0,0,input,0,SIZE_MAX,NULL)==MANUAL_CELLS_INVALID);
+    CHECK(manual_cells_paste(source,DX_SHEET_ROWS-1,16383,input,0,SIZE_MAX,&out)==MANUAL_CELLS_READY && manual_cells_count(out)==1);
+    manual_range_free(&input); const ManualValue *two[]={v,NULL}; input=range((ManualRangeView){2,1,2,two}); prior=out;
+    CHECK(manual_cells_paste(source,DX_SHEET_ROWS-1,16383,input,0,SIZE_MAX,&out)==MANUAL_CELLS_LIMIT && out==prior);
+    manual_range_free(&input); input=range((ManualRangeView){1,2,2,two});
+    CHECK(manual_cells_paste(source,DX_SHEET_ROWS-1,16383,input,0,SIZE_MAX,&out)==MANUAL_CELLS_LIMIT && out==prior);
+    CHECK(manual_cells_paste(source,DX_SHEET_ROWS-1,16382,input,0,SIZE_MAX,&out)==MANUAL_CELLS_READY && manual_value_view(manual_cells_at(out,DX_SHEET_ROWS-1,16382)).present && !manual_cells_at(out,DX_SHEET_ROWS-1,16383));
+    manual_cells_free(&source); manual_cells_free(&out); manual_range_free(&input); manual_value_free(&v);
+}
 static void limits(void) {
     SheetCell *rows=calloc(DX_MAX_EDIT_CELLS,sizeof(*rows)); CHECK(rows);
     for (size_t i=0;i<DX_MAX_EDIT_CELLS;i++) rows[i]=(SheetCell){i,0,"X"};
     CellSnapshot source={rows,DX_MAX_EDIT_CELLS,2*DX_MAX_EDIT_CELLS}; ManualCells *out=NULL;
     CHECK(manual_cells_import(&source,0,SIZE_MAX,&out)==MANUAL_CELLS_READY && manual_cells_count(out)==DX_MAX_EDIT_CELLS);
     CHECK(manual_cells_edit(out,DX_SHEET_ROWS-1,16383,(ManualValueInput){.present=true},0,SIZE_MAX,&out)==MANUAL_CELLS_LIMIT);
+    ManualValue *present=value(text("Z")); const ManualValue *single[]={present}; ManualRange *input=range((ManualRangeView){1,1,1,single}); ManualCells *prior_count=out;
+    CHECK(manual_cells_paste(out,DX_SHEET_ROWS-1,16383,input,0,SIZE_MAX,&out)==MANUAL_CELLS_LIMIT && out==prior_count);
+    CHECK(manual_cells_paste(out,1,0,input,0,SIZE_MAX,&out)==MANUAL_CELLS_READY && manual_cells_count(out)==DX_MAX_EDIT_CELLS);
+    CHECK(manual_cells_paste(out,1,0,input,0,0,&out)==MANUAL_CELLS_NOOP);
+    manual_range_free(&input); manual_value_free(&present);
     set(&out,3,0,(ManualValueInput){0}); set(&out,DX_SHEET_ROWS-1,16383,text("")); CHECK(manual_cells_count(out)==DX_MAX_EDIT_CELLS);
-    for (size_t i=0;i<DX_MAX_EDIT_CELLS;i++) if (i!=3) CHECK(!strcmp(manual_value_view(manual_cells_at(out,i,0)).raw,"X"));
+    for (size_t i=0;i<DX_MAX_EDIT_CELLS;i++) if (i!=3 && i!=1) CHECK(!strcmp(manual_value_view(manual_cells_at(out,i,0)).raw,"X"));
     manual_cells_free(&out); free(rows);
     out=empty(); char *large=malloc(DX_CELL_BYTES+1); CHECK(large); memset(large,'x',DX_CELL_BYTES); large[DX_CELL_BYTES]=0;
     set(&out,0,0,text(large)); free(large); ManualCells *prior=out;
     CHECK(manual_cells_edit(out,0,1,text("x"),0,SIZE_MAX,&out)==MANUAL_CELLS_LIMIT && out==prior);
+    present=value(text("Z")); single[0]=present; input=range((ManualRangeView){1,1,1,single});
+    CHECK(manual_cells_paste(out,0,1,input,0,SIZE_MAX,&out)==MANUAL_CELLS_LIMIT && out==prior);
+    CHECK(manual_cells_paste(out,0,0,input,0,SIZE_MAX,&out)==MANUAL_CELLS_READY && manual_cells_count(out)==1 && !strcmp(manual_value_view(manual_cells_at(out,0,0)).raw,"Z"));
+    manual_range_free(&input); manual_value_free(&present);
     set(&out,0,1,text("")); set(&out,0,2,(ManualValueInput){.present=true}); CHECK(manual_cells_count(out)==3);
     manual_cells_free(&out);
 }
-int main(void) { current_snapshot_import(); presence_and_after(); budgets_and_aliases(); invalid_inputs(); limits(); printf("PASS: %u unpublished typed sparse cell checks\n",checks); return 0; }
+int main(void) { current_snapshot_import(); presence_and_after(); budgets_and_aliases(); invalid_inputs(); private_range_after(); private_authored_equality(); private_range_bounds(); limits(); printf("PASS: %u unpublished typed sparse cell checks\n",checks); return 0; }

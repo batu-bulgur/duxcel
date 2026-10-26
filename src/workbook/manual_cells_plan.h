@@ -25,6 +25,15 @@ ManualCellsStatus manual_cells_import(const CellSnapshot *source,size_t retained
    Failure/NOOP preserves every owner/output. Disposal reads no borrowed input. */
 ManualCellsStatus manual_cells_edit_measure(const ManualCells *source,uint64_t row,size_t column,ManualValueInput value,ManualCellsInfo *info);
 ManualCellsStatus manual_cells_edit(const ManualCells *source,uint64_t row,size_t column,ManualValueInput value,size_t retained,size_t reserved,ManualCells **out);
+/* Private DXMR values only: every coordinate replaces the destination rectangle,
+   including missing holes which remove entries. Outside cells remain exact.
+   Explicit offsets are checked before walking values; projection is a sorted
+   O(source count + bounded rectangle area) merge, no dense worksheet allocation.
+   coexisting includes source + decoded range + complete new candidate. A prior
+   output distinct from source and retained are additionally admitted by plan.
+   Policy/object/source protection and all live adoption remain external. */
+ManualCellsStatus manual_cells_paste_measure(const ManualCells *source,uint64_t row,size_t column,const ManualRange *range,ManualCellsInfo *info);
+ManualCellsStatus manual_cells_paste(const ManualCells *source,uint64_t row,size_t column,const ManualRange *range,size_t retained,size_t reserved,ManualCells **out);
 size_t manual_cells_owned(const ManualCells *cells);
 size_t manual_cells_count(const ManualCells *cells);
 const ManualValue *manual_cells_at(const ManualCells *cells,uint64_t row,size_t column);

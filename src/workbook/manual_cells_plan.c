@@ -80,6 +80,63 @@ ManualCellsStatus manual_cells_edit(const ManualCells *source,uint64_t row,size_
     }
     manual_cells_free(out); *out=next; return MANUAL_CELLS_READY;
 }
+typedef struct {
+    const ManualCells *source;
+    ManualRangeView range;
+    uint64_t row;
+    size_t column,old,next;
+} Paste;
+static bool inside(const Entry *e,const Paste *p) {
+    return e->row>=p->row && e->row-p->row<p->range.rows && e->column>=p->column && e->column-p->column<p->range.columns;
+}
+static bool paste_next(Paste *p,Entry *entry) {
+    while (p->old<p->source->count && inside(p->source->entries+p->old,p)) p->old++;
+    while (p->next<p->range.count && !p->range.values[p->next]) p->next++;
+    bool old=p->old<p->source->count,new=p->next<p->range.count;
+    if (!old && !new) return false;
+    uint64_t row=new ? p->row+p->next/p->range.columns : 0;
+    size_t column=new ? p->column+p->next%p->range.columns : 0;
+    const Entry *before=old ? p->source->entries+p->old : NULL;
+    if (old && (!new || before->row<row || (before->row==row && before->column<column))) {
+        *entry=*before; p->old++;
+    } else {
+        *entry=(Entry){row,column,(ManualValue *)p->range.values[p->next++]};
+    }
+    return true;
+}
+static ManualCellsStatus paste_projection(const ManualCells *source,uint64_t row,size_t column,const ManualRange *range,ManualCellsInfo *info) {
+    if (!source || !range || !info || row>=DX_SHEET_ROWS || column>=16384) return MANUAL_CELLS_INVALID;
+    ManualRangeView view=manual_range_view(range);
+    if (view.rows>DX_SHEET_ROWS-row || view.columns>16384-column) return MANUAL_CELLS_LIMIT;
+    ManualCellsInfo next={0,0,sizeof(ManualCells),0}; Paste p={source,view,row,column,0,0}; Entry entry; bool equal=true;
+    while (paste_next(&p,&entry)) {
+        ManualValueView value=manual_value_view(entry.value);
+        if (next.count>=DX_MAX_EDIT_CELLS || !add(&next.raw_bytes,value.raw_bytes) || next.raw_bytes>DX_CELL_BYTES ||
+            !add(&next.owned,sizeof(Entry)) || !add(&next.owned,value.owned)) return MANUAL_CELLS_LIMIT;
+        if (equal && (next.count>=source->count || entry.row!=source->entries[next.count].row || entry.column!=source->entries[next.count].column ||
+            !manual_value_equal(entry.value,source->entries[next.count].value))) equal=false;
+        next.count++;
+    }
+    if (equal && next.count==source->count) return MANUAL_CELLS_NOOP;
+    next.coexisting=next.owned;
+    if (!add(&next.coexisting,source->owned) || !add(&next.coexisting,manual_range_owned(range))) return MANUAL_CELLS_LIMIT;
+    *info=next; return MANUAL_CELLS_READY;
+}
+ManualCellsStatus manual_cells_paste_measure(const ManualCells *source,uint64_t row,size_t column,const ManualRange *range,ManualCellsInfo *info) {
+    return paste_projection(source,row,column,range,info);
+}
+ManualCellsStatus manual_cells_paste(const ManualCells *source,uint64_t row,size_t column,const ManualRange *range,size_t retained,size_t reserved,ManualCells **out) {
+    if (!out) return MANUAL_CELLS_INVALID;
+    ManualCellsInfo info; ManualCellsStatus status=paste_projection(source,row,column,range,&info); if (status!=MANUAL_CELLS_READY) return status;
+    if (!admit(info.coexisting,*out==source ? 0 : manual_cells_owned(*out),retained,reserved)) return MANUAL_CELLS_LIMIT;
+    ManualCells *next=allocate(info); Paste p={source,manual_range_view(range),row,column,0,0}; Entry entry; size_t at=0;
+    while (paste_next(&p,&entry)) {
+        next->entries[at]=(Entry){entry.row,entry.column,NULL};
+        ManualValueStatus result=manual_value_clone(entry.value,SIZE_MAX,&next->entries[at++].value);
+        if (result!=MANUAL_VALUE_OK) { manual_cells_free(&next); return value_status(result); }
+    }
+    manual_cells_free(out); *out=next; return MANUAL_CELLS_READY;
+}
 size_t manual_cells_owned(const ManualCells *cells) { return cells ? cells->owned : 0; }
 size_t manual_cells_count(const ManualCells *cells) { return cells ? cells->count : 0; }
 const ManualValue *manual_cells_at(const ManualCells *cells,uint64_t row,size_t column) {
