@@ -64,6 +64,9 @@ int main(void) {
     GridFindCell large_cells[]={{2,0,true,true,large,GRID_FIND_TEXT_BYTES},{3,0,true,true,"x",1}};
     Inventory large_inventory={large_cells,1,SIZE_MAX,0}; GridFindInventory large_owner=owner(&large_inventory);
     CHECK(grid_manual_find(&large_owner,0,0,pattern,GRID_FIND_QUERY_BYTES,GRID_FIND_NEXT,GRID_FIND_CONTAINS,&out)==GRID_FIND_FOUND && out.row==2 && out.matches==1);
+    pattern[GRID_FIND_QUERY_BYTES-1]='c'; GridFindResult previous_result=out; large_inventory.reads=0;
+    CHECK(grid_manual_find(&large_owner,0,0,pattern,GRID_FIND_QUERY_BYTES,GRID_FIND_NEXT,GRID_FIND_CONTAINS,&out)==GRID_FIND_NOT_FOUND);
+    CHECK(!memcmp(&out,&previous_result,sizeof(out)) && large_inventory.reads==1);
     large_inventory.count=2; large_owner=owner(&large_inventory); refusal(large_owner,"b",1,GRID_FIND_LIMIT);
     free(pattern); free(large);
     printf("PASS: %u bounded manual Find checks\n",checks); return 0;
