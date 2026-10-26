@@ -107,8 +107,8 @@ done:
     *equal=same; return CORE_PAYLOAD_READY;
 }
 
-/* Internal borrowed-transaction comparison. The archive scope discards its
-   entire unpublished read connection if comparison or DETACH fails. */
+/* Internal borrowed-transaction comparison. The archive scope owns attachment
+   cleanup by ending and closing its unpublished read transaction/connection. */
 WorkbookCorePayloadResult workbook_core_payload_equal_transaction(duckdb_connection connection,
     const WorkbookCorePayload *right,WorkbookCoreCompareControl control,bool *equal,char **error) {
     const WorkbookCorePayloadInfo *info=workbook_core_payload_info(right);
@@ -116,20 +116,17 @@ WorkbookCorePayloadResult workbook_core_payload_equal_transaction(duckdb_connect
     Compare compare={.control=control,.phase=CORE_COMPARE_VERIFY};
     WorkbookCorePayloadResult status=verify(right,&compare,error);
     if (status!=CORE_PAYLOAD_READY) return status;
-    duckdb_result result={0}; bool attached=false,same=false;
+    duckdb_result result={0}; bool same=false;
     char *quoted=dx_quote(workbook_core_payload_path(right),'\'');
     char *sql=dx_printf("ATTACH %s AS dx_other (READ_ONLY)",quoted); free(quoted);
     bool ok=query(connection,sql,&compare,&result,error); free(sql); duckdb_destroy_result(&result);
     if (!ok) return compare.stopped ? CORE_PAYLOAD_CANCELLED : CORE_PAYLOAD_FAILED;
-    attached=true; compare.phase=CORE_COMPARE_ROWS;
+    compare.phase=CORE_COMPARE_ROWS;
     ok=compare_tables(connection,&compare,true,&same,error);
-    /* Cleanup is unconditional and deliberately ignores cancellation. No SQL
-       query invokes source definitions; only admitted metadata tables are read. */
-    if (attached) {
-        bool detached=duckdb_query(connection,"DETACH dx_other",&result)==DuckDBSuccess;
-        if (!detached && ok) fail(error,duckdb_result_error(&result));
-        ok &= detached; duckdb_destroy_result(&result);
-    }
+    /* DuckDB cannot DETACH after reading an attached database inside the active
+       transaction. Keep this read-only attachment pinned until archive_read
+       ends/closes its owned transaction. Never COMMIT/ROLLBACK a borrowed one.
+       Failure/cancellation poisons that entire unpublished archive admission. */
     if (compare.stopped) return CORE_PAYLOAD_CANCELLED;
     if (!ok) return CORE_PAYLOAD_FAILED;
     compare.phase=CORE_COMPARE_RECHECK; compare.table=0;

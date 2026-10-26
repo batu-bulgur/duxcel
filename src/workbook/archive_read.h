@@ -27,8 +27,10 @@ typedef struct {
    sealed integrity and complete current metadata equality are proved; document,
    revision or hash descriptors alone never authorize. No Saved inference,
    historical command intent, external data, execution or Undo proof is implied.
-   Comparison uses only admitted tables and a temporary read-only attachment;
-   failed/cancelled SQL or cleanup discards the whole unpublished read connection.
+   Comparison uses only admitted tables and one read-only attachment pinned
+   until the archive owner ends/closes its transaction. The helper never ends
+   a borrowed transaction. Failed/cancelled SQL poisons the whole unpublished
+   read; retry requires a NEW whole archive_read, never this connection.
    Budget/input rejection performs no comparison. Target is borrowed until the
    callback returns; foreign/equal-but-different owners cannot obtain it. */
 bool workbook_archive_scope_associate(WorkbookArchiveReadScope *scope,duckdb_connection connection,

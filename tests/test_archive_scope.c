@@ -33,10 +33,10 @@ static bool admit(void *context,WorkbookArchiveReadScope *scope,duckdb_connectio
     CHECK(!workbook_archive_scope_target(scope,c,book,NULL));
     CHECK(workbook_archive_scope_recheck(scope,c,book,versions,error));
     CHECK(workbook_archive_scope_associate(scope,c,book,versions,leaf,DX_ARCHIVE_SCOPE_COMPARE_BYTES,error));
-    /* The read-only temporary attachment is gone, while the actual current
-       transaction still reads the same admitted body. */
+    /* The read-only attachment stays pinned until the ARCHIVE OWNER ends and
+       closes this transaction. The callback must not detach/commit/rollback. */
     duckdb_result r={0}; CHECK(duckdb_query(c,"SELECT count(*) FROM duckdb_databases() WHERE database_name='dx_other'",&r)==DuckDBSuccess);
-    CHECK(duckdb_value_uint64(&r,0,0)==0); duckdb_destroy_result(&r);
+    CHECK(duckdb_value_uint64(&r,0,0)==1); duckdb_destroy_result(&r);
     sql(c,"SELECT * FROM _duxcel_workspace.workbook_identity");
     p->in_scope=false; return !p->reject;
 }

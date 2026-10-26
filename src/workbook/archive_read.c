@@ -115,6 +115,10 @@ WorkbookArchiveReadResult workbook_archive_read(const char *path,const char *par
         scope.active=false;
         if (!admitted || scope.failed) { if (!error || !*error) fail(error,"Archive component admission failed."); goto done; }
     }
+    /* This owner, not a component/helper, ends the read transaction. Any
+       comparison attachment stayed pinned through the callback. Closing the
+       connection/database releases it on all success/failure/cancel paths. */
+    if (!query(c,"ROLLBACK",&r,error)) goto done; duckdb_destroy_result(&r);
     close_database(&db,&c);
     SourceFileIdentity after={0};
     if (source_file_identity(target,&after,detail)!=SOURCE_DIGEST_OK || !source_file_identity_same(&candidate->identity,&after)) { fail(error,"The native archive changed during admission."); goto done; }
