@@ -60,6 +60,7 @@ Use [browser persistence](design/BROWSER_PERSISTENCE.md) and [source-format iden
 
 - [x] Create the platform-specific inventory, source ambiguities, code-derived differences and editable behavior/design cards. This is a documentation deliverable, not implemented Excel behavior.
 - [ ] **C01 — Grid data boundaries:** Define and implement Cmd+Arrow / Shift+Cmd+Arrow target/anchor/extent behavior for manual occupied/empty islands, source/Table/Pivot and uncached rows. Navigation must not dirty data or enter undo history. Prove pure C and integrated native input separately. Compare NULL/empty/formula-empty occupancy against Excel Mac.
+- [x] **C01a — Manual data boundaries:** Cmd/Ctrl+Arrow follows stored-cell runs/islands and fixed physical edges on source-free/object-free manual sheets; Shift preserves the anchor. Checked far-column growth preserves selection on allocation failure; navigation preserves data, formats, dirty/history/query state. Analytical and whole-axis routes remain separate.
 - [ ] **C02 — Commands and bindings:** Separate Find/Replace/Go To, filter, Focus, refresh and diagnostics; decide Cmd+F, Cmd+Shift+F, F5 and F12 conflicts. Implement visible menu/ribbon alternatives and popup/editor focus priority. Until new bindings are accepted, the guide describes current controls.
 - [ ] **C03/C04 — Editing and clipboard:** Accept F2, commit/cancel, Enter/Tab reverse directions, within-selection navigation, clear/delete, paste/move and undo across manual/read-only/object contexts. Link typed/source-overlay/formula dependencies to separate slices; TSV paste does not establish Paste Special.
 - [ ] **C05 — Document safety:** Reproduce closing-related data loss with the actual binary/platform/close path. Verify native guards, Save/Save As/Close/Quit and the first recovery slice including untitled workbooks. Define saved/current/recoverable revisions and IO failure/cancellation behavior. Browser Open/Save retains its existing persistence gates.
@@ -2855,3 +2856,12 @@ TEST widget stages/1194 checks in16.405s (`20261026T032622-feature-51803`).
 Runner/catalog61 contracts pass4.341s. The fixture verifies closed-window state;
 all App fixtures retain their real shutdown guard. This is a component
 prerequisite, not editable typed cells or an App integration claim.
+
+C01a complete on combined main: `2e281841`/`3fa2d567` integrate the bounded
+manual occupancy controller, checked Grid capacity and dispatch-scoped App
+borrow. `data-boundary-app` passes three modules in optimized/ASan/UBSan and31
+actual App stages/44 assertions, including far physical edges, Shift reversal,
+active-editor guards, unchanged data/history/jobs and genuine Save/Open, in52.181s
+(`20261026T033200-feature-52653`). Runner/catalog61 contracts pass4.807s; the
+production Grid object has no allocator-fault symbol. General C01 analytical/
+uncached navigation and physical-device/browser acceptance remain separate.
