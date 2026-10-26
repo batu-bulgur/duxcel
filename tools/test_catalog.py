@@ -22,7 +22,7 @@ WIDGET_GUI = frozenset({"value-type"})
 
 STANDALONE_GUI = {
     "manual-find": ("build/tests/test_manual_find-gui", "PASS: native manual Find workflow",
-                    r"^PASS: native manual Find workflow \(33 stages, [1-9]\d* checks\)$", 33),
+                    r"^PASS: native manual Find workflow \(36 stages, [1-9]\d* checks\)$", 36),
     "go-to": ("build/tests/test_go_to-gui", "PASS: native same-sheet Go To workflow",
               r"^PASS: native same-sheet Go To workflow \(30 stages, [1-9]\d* checks\)$", 30),
     "data-boundary": ("build/tests/test_data_boundary-gui", "PASS: native manual data-boundary workflow",

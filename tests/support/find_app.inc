@@ -63,11 +63,14 @@ static void find_test_frame(AppSession *session) {
     case 25: FIND_CHECK(a->grid.row==10 && !a->grid.col && strstr(a->find.message,"1 match") && find_unchanged(a)); find_key(KEY_ESCAPE,0); break;
     case 26: FIND_CHECK(a->modal==MODAL_NONE); find_access(KEY_D); break;
     case 27: FIND_CHECK(a->modal==MODAL_GO_TO && !strcmp(a->input.text,"A11")); input_set(&a->input,"B10"); find_key(KEY_ENTER,0); break;
-    case 28: FIND_CHECK(a->modal==MODAL_NONE && a->grid.row==9 && a->grid.col==1 && find_unchanged(a)); a->chrome_focus=2; input_set(&a->input,"Prior draft"); begin_find(a); break;
-    case 29: FIND_CHECK(a->modal==MODAL_NONE && !strcmp(a->input.text,"Prior draft")); a->chrome_focus=0; find_key(KEY_F2,0); break;
-    case 30: FIND_CHECK(a->modal==MODAL_CELL); input_set(&a->input,"Editor draft"); find_access(KEY_C); break;
-    case 31: FIND_CHECK(a->modal==MODAL_CELL && !strcmp(a->input.text,"Editor draft") && find_unchanged(a)); find_key(KEY_ESCAPE,0); break;
-    case 32: FIND_CHECK(a->modal==MODAL_NONE && find_unchanged(a)); find_result=1; printf("PASS: native manual Find workflow (33 stages, %u checks)\n",find_checks); break;
+    case 28: FIND_CHECK(a->modal==MODAL_NONE && a->grid.row==9 && a->grid.col==1 && find_unchanged(a)); ui_set_scale(&a->ui,1); SetWindowSize(1280,820); a->sidebar=true; a->workbook_collapsed=false; break;
+    case 29: FIND_CHECK(a->sidebar && !a->workbook_collapsed && a->workspace.left.width>0 && !a->workspace.left_overlay); find_key(KEY_F6,DX_MOD_SHIFT); break;
+    case 30: FIND_CHECK(a->chrome_focus==2 && !a->ribbon_focus && !a->pivot_focus && !action_enabled(a,ACTION_FIND)); input_set(&a->input,"Prior draft"); run_action(a,ACTION_FIND); break;
+    case 31: FIND_CHECK(a->modal==MODAL_NONE && a->chrome_focus==2 && !strcmp(a->input.text,"Prior draft") && find_unchanged(a)); find_key(KEY_F6,0); break;
+    case 32: FIND_CHECK(!a->chrome_focus && !a->ribbon_focus && !a->pivot_focus); find_key(KEY_F2,0); break;
+    case 33: FIND_CHECK(a->modal==MODAL_CELL); input_set(&a->input,"Editor draft"); find_access(KEY_C); break;
+    case 34: FIND_CHECK(a->modal==MODAL_CELL && !strcmp(a->input.text,"Editor draft") && find_unchanged(a)); find_key(KEY_ESCAPE,0); break;
+    case 35: FIND_CHECK(a->modal==MODAL_NONE && find_unchanged(a)); find_result=1; printf("PASS: native manual Find workflow (36 stages, %u checks)\n",find_checks); break;
     }
     find_stage++;
 }
