@@ -1,5 +1,6 @@
 #include "archive_read.h"
 #include "save_native.h"
+#include "core_compare_internal.h"
 #include "../platform/platform.h"
 #include "../platform/directory.h"
 #include <stdlib.h>
@@ -10,6 +11,47 @@ static bool fail(char **error,const char *message) { if (error) { free(*error); 
 static bool stopped(Read *r,WorkbookArchiveReadPhase phase,size_t root,uint64_t bytes,char **error) {
     if (!r->stopped && r->control.cancelled) r->stopped=r->control.cancelled(r->control.context,phase,root,bytes);
     if (r->stopped) fail(error,"Native archive admission was cancelled."); return r->stopped;
+}
+struct WorkbookArchiveReadScope {
+    Read *read; duckdb_connection connection; const Workbook *book;
+    const WorkbookVersionCoreSet *versions; const WorkbookCorePayload *target;
+    bool active,failed;
+};
+static bool scoped(const WorkbookArchiveReadScope *s,duckdb_connection c,const Workbook *book,const WorkbookVersionCoreSet *versions) {
+    return s && s->active && !s->failed && c && s->connection==c && s->book==book && s->versions==versions;
+}
+static bool scope_cancel(void *context,WorkbookCoreComparePhase phase,size_t table) {
+    (void)phase; WorkbookArchiveReadScope *s=context;
+    return stopped(s->read,ARCHIVE_READ_ADMIT,table,0,NULL);
+}
+static bool scope_hash_cancel(void *context,uint64_t bytes) {
+    WorkbookArchiveReadScope *s=context; return stopped(s->read,ARCHIVE_READ_VERIFY,0,bytes,NULL);
+}
+const WorkbookCorePayload *workbook_archive_scope_target(const WorkbookArchiveReadScope *s,duckdb_connection c,const Workbook *book,const WorkbookVersionCoreSet *versions) {
+    return scoped(s,c,book,versions) ? s->target : NULL;
+}
+bool workbook_archive_scope_recheck(WorkbookArchiveReadScope *s,duckdb_connection c,const Workbook *book,const WorkbookVersionCoreSet *versions,char **error) {
+    if (!scoped(s,c,book,versions) || !s->target) return fail(error,"An active exact archive association is required.");
+    if (workbook_core_payload_verify(s->target,scope_hash_cancel,s,error)!=CORE_PAYLOAD_READY) { s->failed=true; return false; }
+    return true;
+}
+bool workbook_archive_scope_associate(WorkbookArchiveReadScope *s,duckdb_connection c,const Workbook *book,
+    const WorkbookVersionCoreSet *versions,const WorkbookCorePayload *leaf,size_t reserved,char **error) {
+    if (!scoped(s,c,book,versions) || !leaf || reserved<DX_ARCHIVE_SCOPE_COMPARE_BYTES)
+        return fail(error,"Archive association requires active exact owners and the comparison grant.");
+    const WorkbookVersionIndex *index=workbook_version_core_set_index(versions); bool member=false;
+    for (size_t i=0;index && i<index->root_count;i++) if (workbook_version_core_set_leaf(versions,i)==leaf) { member=true; break; }
+    if (!member || (s->target && s->target!=leaf)) return fail(error,"Choose one actual retained leaf from this archive.");
+    const WorkbookCorePayloadInfo *info=workbook_core_payload_info(leaf);
+    if (!info || info->document.high!=book->id.high || info->document.low!=book->id.low) return fail(error,"The archive leaf belongs to another document.");
+    if (s->target) return workbook_archive_scope_recheck(s,c,book,versions,error);
+    bool equal=false;
+    WorkbookCorePayloadResult result=workbook_core_payload_equal_transaction(c,leaf,(WorkbookCoreCompareControl){scope_cancel,s},&equal,error);
+    if (result!=CORE_PAYLOAD_READY || !equal) {
+        s->failed=true;
+        return result==CORE_PAYLOAD_READY ? fail(error,"The selected retained leaf does not match the actual current archive body.") : false;
+    }
+    s->target=leaf; return true;
 }
 static bool restore_cancel(void *context,WorkbookVersionRestorePhase phase,size_t root,uint64_t bytes) {
     static const WorkbookArchiveReadPhase phases[]={ARCHIVE_READ_INDEX,ARCHIVE_READ_COPY,ARCHIVE_READ_VERIFY,ARCHIVE_READ_ADMIT,ARCHIVE_READ_RECHECK};
@@ -65,6 +107,13 @@ WorkbookArchiveReadResult workbook_archive_read(const char *path,const char *par
         if (restored!=VERSION_RESTORE_READY) goto done;
         const WorkbookVersionIndex *index=workbook_version_core_set_index(candidate->versions);
         if (index->document_high!=candidate->book->id.high || index->document_low!=candidate->book->id.low) { fail(error,"The version index belongs to another authored head."); goto done; }
+    }
+    if (control.admit) {
+        WorkbookArchiveReadScope scope={.read=&read,.connection=c,.book=candidate->book,.versions=candidate->versions,.active=true};
+        bool admitted=control.admit(control.context,&scope,c,candidate->book,candidate->versions,error);
+        if (admitted && scope.target) admitted=workbook_archive_scope_recheck(&scope,c,candidate->book,candidate->versions,error);
+        scope.active=false;
+        if (!admitted || scope.failed) { if (!error || !*error) fail(error,"Archive component admission failed."); goto done; }
     }
     close_database(&db,&c);
     SourceFileIdentity after={0};

@@ -1189,6 +1189,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_sourceview build/tests/test_sourceview
 PARALLEL_NATIVE_GOALS += build/tests/test_source_details_csv-gui build/tests/test_source_details_parquet-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview build/tests/test_browse_preview-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview_component build/tests/test_browse_preview_component-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_archive_scope build/tests/test_archive_scope-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -1837,7 +1838,7 @@ build/tests/test_version_lifetime-debug: $(VERSION_LIFETIME_SAN_OBJECTS) | build
 	$(call link_binary,-O1 -g $(SANFLAGS) $(VERSION_LIFETIME_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(VERSION_LIFETIME_OBJECTS:.o=.d) $(VERSION_LIFETIME_SAN_OBJECTS:.o=.d)
 
-ARCHIVE_WRITE_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c src/workbook/archive_read.c src/workbook/archive_write.c tests/test_archive_write.c
+ARCHIVE_WRITE_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/core_compare.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c src/workbook/archive_read.c src/workbook/archive_write.c tests/test_archive_write.c
 ARCHIVE_WRITE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(ARCHIVE_WRITE_SOURCES))))
 ARCHIVE_WRITE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(ARCHIVE_WRITE_SOURCES))))
 build/tests/test_archive_write: $(ARCHIVE_WRITE_OBJECTS) | build/tests
@@ -1846,7 +1847,7 @@ build/tests/test_archive_write-debug: $(ARCHIVE_WRITE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(ARCHIVE_WRITE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(ARCHIVE_WRITE_OBJECTS:.o=.d) $(ARCHIVE_WRITE_SAN_OBJECTS:.o=.d)
 
-ARCHIVE_READ_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c src/workbook/archive_read.c tests/test_archive_read.c
+ARCHIVE_READ_SOURCES = $(CORE) src/platform/directory.c src/platform/file_lease.c src/workbook/core_payload.c src/workbook/core_compare.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/version_read.c src/workbook/version_restore.c src/workbook/archive_read.c tests/test_archive_read.c
 ARCHIVE_READ_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(ARCHIVE_READ_SOURCES))))
 ARCHIVE_READ_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(ARCHIVE_READ_SOURCES))))
 build/tests/test_archive_read: $(ARCHIVE_READ_OBJECTS) | build/tests
@@ -2793,3 +2794,12 @@ build/tests/test_browse_preview_component: $(BROWSE_PREVIEW_COMPONENT_OBJECTS) |
 build/tests/test_browse_preview_component-debug: $(BROWSE_PREVIEW_COMPONENT_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(BROWSE_PREVIEW_COMPONENT_OBJECTS:.o=.d) $(BROWSE_PREVIEW_COMPONENT_SAN_OBJECTS:.o=.d)
+
+ARCHIVE_SCOPE_SRC = $(filter-out tests/test_version_save.c,$(VERSION_SAVE_SOURCES)) tests/test_archive_scope.c
+ARCHIVE_SCOPE_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(ARCHIVE_SCOPE_SRC))))
+ARCHIVE_SCOPE_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(ARCHIVE_SCOPE_SRC))))
+build/tests/test_archive_scope: $(ARCHIVE_SCOPE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $(ARCHIVE_SCOPE_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_archive_scope-debug: $(ARCHIVE_SCOPE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(ARCHIVE_SCOPE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(ARCHIVE_SCOPE_OBJECTS:.o=.d) $(ARCHIVE_SCOPE_SAN_OBJECTS:.o=.d)

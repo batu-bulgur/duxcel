@@ -95,7 +95,7 @@ static WorkbookSaveResult execute(WorkbookNativeIO *c,JobKind kind,const Workboo
             .core={publish_update,c},.inspect={inspect_cancel,c},.stage={stage_cancel,c},.prepare={prepare_cancel,c},.expected_target=c->expects_target ? &c->expected_target : NULL,.expected_index=c->expects_target ? workbook_version_core_set_index(c->base) : NULL,.protected_document=c->export_requested ? snapshot->origin.document : (WorkbookId){0}}};
         return c->label ? workbook_version_tag_save(request,(WorkbookVersionText){c->label,c->label_bytes},controls,&c->saved,error) : c->export_requested ? workbook_version_export_save(request,controls,&c->saved,error) : workbook_version_save(request,controls,&c->saved,error);
     }
-    WorkbookArchiveReadResult read=workbook_archive_read(path,c->parent,c->reserved,(WorkbookArchiveReadControl){load_cancel,c},&c->loaded,error);
+    WorkbookArchiveReadResult read=workbook_archive_read(path,c->parent,c->reserved,(WorkbookArchiveReadControl){.cancelled=load_cancel,.context=c},&c->loaded,error);
     if (read!=ARCHIVE_READ_READY) return read==ARCHIVE_READ_CANCELLED ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;
     *loaded=workbook_archive_take_book(c->loaded); return WORKBOOK_SAVE_COMPLETE;
 }

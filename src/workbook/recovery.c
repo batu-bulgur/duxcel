@@ -148,7 +148,7 @@ WorkbookRecoveryResult workbook_recovery_prepare(const char *root,const char *ge
     if (!dx_make_directories(c->version_parent)) { fail(error,"Cannot create private staging for recovery versions."); goto done; }
     WorkbookArchiveCandidate *archive=NULL;
     if (workbook_archive_read(c->checkpoint,c->version_parent,UINT64_C(8)*1024*1024*1024,
-        (WorkbookArchiveReadControl){archive_cancel,&r},&archive,error)!=ARCHIVE_READ_READY) goto done;
+        (WorkbookArchiveReadControl){.cancelled=archive_cancel,.context=&r},&archive,error)!=ARCHIVE_READ_READY) goto done;
     c->book=workbook_archive_take_book(archive); c->versions=workbook_archive_take_versions(archive);
     workbook_archive_candidate_free(archive);
     SourceFileIdentity after={0};

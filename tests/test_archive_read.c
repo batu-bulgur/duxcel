@@ -82,7 +82,7 @@ int main(void) {
     CHECK(children(parent)==baseline);
     Stop stops[]={{ARCHIVE_READ_HEADER,0,0},{ARCHIVE_READ_HEAD,0,0},{ARCHIVE_READ_INDEX,0,0},{ARCHIVE_READ_COPY,1,0},{ARCHIVE_READ_VERIFY,0,0},{ARCHIVE_READ_ADMIT,1,0},{ARCHIVE_READ_RECHECK,1,0}};
     for (size_t i=0;i<sizeof(stops)/sizeof(*stops);i++) {
-        CHECK(workbook_archive_read(path,parent,total,(WorkbookArchiveReadControl){cancel,stops+i},&out,&error)==ARCHIVE_READ_CANCELLED && !out && stops[i].calls);
+        CHECK(workbook_archive_read(path,parent,total,(WorkbookArchiveReadControl){.cancelled=cancel,.context=stops+i},&out,&error)==ARCHIVE_READ_CANCELLED && !out && stops[i].calls);
         clear(&error); CHECK(children(parent)==baseline); unchanged(path,before);
     }
     /* Ordinary entry points still reject unsupported v16; this slice only

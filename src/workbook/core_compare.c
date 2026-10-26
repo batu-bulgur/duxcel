@@ -1,4 +1,4 @@
-#include "core_compare.h"
+#include "core_compare_internal.h"
 #include "workbook_codec.h"
 #include "../platform/platform.h"
 #include <duckdb.h>
@@ -36,6 +36,39 @@ done:
     if (statement) duckdb_destroy_prepare(&statement);
     return ok;
 }
+/* Both native entry points compare the same admitted current codec rows. */
+static bool compare_tables(duckdb_connection connection,Compare *compare,bool container,bool *equal,char **error) {
+    duckdb_result result={0}; bool same=true;
+    /* Native optional origin metadata is outside the required shared codec
+       inventory. Missing and empty both mean no origin; admitted rows must
+       still participate in complete-core semantic reuse. */
+    if (!query(connection,"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog=current_database() AND table_schema='_duxcel_workspace' AND table_name='export_origin'),EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog='dx_other' AND table_schema='_duxcel_workspace' AND table_name='export_origin')",compare,&result,error)) goto done;
+    bool left_origin=duckdb_value_boolean(&result,0,0),right_origin=duckdb_value_boolean(&result,1,0);
+    duckdb_destroy_result(&result);
+    if (left_origin || right_origin) {
+        const char *origin_sql=left_origin && right_origin ?
+        "SELECT NOT EXISTS ((SELECT * FROM _duxcel_workspace.export_origin EXCEPT ALL SELECT * FROM dx_other._duxcel_workspace.export_origin) UNION ALL (SELECT * FROM dx_other._duxcel_workspace.export_origin EXCEPT ALL SELECT * FROM _duxcel_workspace.export_origin))" :
+        left_origin ? "SELECT NOT EXISTS(SELECT 1 FROM _duxcel_workspace.export_origin)" : "SELECT NOT EXISTS(SELECT 1 FROM dx_other._duxcel_workspace.export_origin)";
+        if (!query(connection,origin_sql,compare,&result,error)) goto done;
+        same &= duckdb_value_boolean(&result,0,0); duckdb_destroy_result(&result);
+    }
+    size_t count=workbook_codec_table_count(15);
+    for (size_t i=0;i<count;i++) {
+        compare->table=i; const WorkbookCodecTable *table=workbook_codec_table_at(15,i);
+        /* The outer current native container advertises 16 in its head meta;
+           its embedded current core is 15. Normalize only that framing field,
+           never authored rows, identities, command clocks or presentation. */
+        const char *left_columns=container && !strcmp(table->table,"meta") ? "15 AS version,active_sheet,user_scale" : table->columns;
+        char *sql=dx_printf("SELECT NOT EXISTS ((SELECT %s FROM _duxcel_workspace.%s EXCEPT ALL SELECT %s FROM dx_other._duxcel_workspace.%s) UNION ALL (SELECT %s FROM dx_other._duxcel_workspace.%s EXCEPT ALL SELECT %s FROM _duxcel_workspace.%s))",left_columns,table->table,table->columns,table->table,table->columns,table->table,left_columns,table->table);
+        bool ok=query(connection,sql,compare,&result,error); free(sql);
+        if (ok && (duckdb_row_count(&result)!=1 || duckdb_column_count(&result)!=1 || duckdb_value_is_null(&result,0,0))) ok=fail(error,"Invalid core comparison result.");
+        if (ok) same &= duckdb_value_boolean(&result,0,0);
+        duckdb_destroy_result(&result); if (!ok) goto done;
+    }
+    duckdb_destroy_result(&result); *equal=same; return true;
+done:
+    duckdb_destroy_result(&result); return false;
+}
 WorkbookCorePayloadResult workbook_core_payload_equal(const WorkbookCorePayload *left,const WorkbookCorePayload *right,
     WorkbookCoreCompareControl control,bool *equal,char **error) {
     const WorkbookCorePayloadInfo *a=workbook_core_payload_info(left),*b=workbook_core_payload_info(right);
@@ -59,28 +92,7 @@ WorkbookCorePayloadResult workbook_core_payload_equal(const WorkbookCorePayload 
         char *quoted=dx_quote(workbook_core_payload_path(right),'\'');
         char *sql=dx_printf("ATTACH %s AS dx_other (READ_ONLY)",quoted); free(quoted);
         bool ok=query(connection,sql,&compare,&result,error); free(sql); duckdb_destroy_result(&result); if (!ok) goto done;
-        /* Native optional origin metadata is outside the required shared codec
-           inventory. Missing and empty both mean no origin; admitted rows must
-           still participate in complete-core semantic reuse. */
-        if (!query(connection,"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog=current_database() AND table_schema='_duxcel_workspace' AND table_name='export_origin'),EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog='dx_other' AND table_schema='_duxcel_workspace' AND table_name='export_origin')",&compare,&result,error)) goto done;
-        bool left_origin=duckdb_value_boolean(&result,0,0),right_origin=duckdb_value_boolean(&result,1,0);
-        duckdb_destroy_result(&result);
-        if (left_origin || right_origin) {
-            const char *origin_sql=left_origin && right_origin ?
-                "SELECT NOT EXISTS ((SELECT * FROM _duxcel_workspace.export_origin EXCEPT ALL SELECT * FROM dx_other._duxcel_workspace.export_origin) UNION ALL (SELECT * FROM dx_other._duxcel_workspace.export_origin EXCEPT ALL SELECT * FROM _duxcel_workspace.export_origin))" :
-                left_origin ? "SELECT NOT EXISTS(SELECT 1 FROM _duxcel_workspace.export_origin)" : "SELECT NOT EXISTS(SELECT 1 FROM dx_other._duxcel_workspace.export_origin)";
-            if (!query(connection,origin_sql,&compare,&result,error)) goto done;
-            same &= duckdb_value_boolean(&result,0,0); duckdb_destroy_result(&result);
-        }
-        size_t count=workbook_codec_table_count(15);
-        for (size_t i=0;i<count;i++) {
-            compare.table=i; const WorkbookCodecTable *table=workbook_codec_table_at(15,i);
-            sql=dx_printf("SELECT NOT EXISTS ((SELECT %s FROM _duxcel_workspace.%s EXCEPT ALL SELECT %s FROM dx_other._duxcel_workspace.%s) UNION ALL (SELECT %s FROM dx_other._duxcel_workspace.%s EXCEPT ALL SELECT %s FROM _duxcel_workspace.%s))",table->columns,table->table,table->columns,table->table,table->columns,table->table,table->columns,table->table);
-            ok=query(connection,sql,&compare,&result,error); free(sql);
-            if (ok && (duckdb_row_count(&result)!=1 || duckdb_column_count(&result)!=1 || duckdb_value_is_null(&result,0,0))) ok=fail(error,"Invalid core comparison result.");
-            if (ok) same &= duckdb_value_boolean(&result,0,0);
-            duckdb_destroy_result(&result); if (!ok) goto done;
-        }
+        if (!compare_tables(connection,&compare,false,&same,error)) goto done;
     }
     status=CORE_PAYLOAD_READY;
 done:
@@ -91,6 +103,36 @@ done:
     if (status!=CORE_PAYLOAD_READY) return status;
     compare.phase=CORE_COMPARE_RECHECK; compare.table=0;
     status=verify(left,&compare,error); if (status!=CORE_PAYLOAD_READY) return status;
+    status=verify(right,&compare,error); if (status!=CORE_PAYLOAD_READY) return status;
+    *equal=same; return CORE_PAYLOAD_READY;
+}
+
+/* Internal borrowed-transaction comparison. The archive scope discards its
+   entire unpublished read connection if comparison or DETACH fails. */
+WorkbookCorePayloadResult workbook_core_payload_equal_transaction(duckdb_connection connection,
+    const WorkbookCorePayload *right,WorkbookCoreCompareControl control,bool *equal,char **error) {
+    const WorkbookCorePayloadInfo *info=workbook_core_payload_info(right);
+    if (!connection || !info || info->encoding!=15 || !equal) { fail(error,"Choose an admitted current transaction and sealed leaf."); return CORE_PAYLOAD_FAILED; }
+    Compare compare={.control=control,.phase=CORE_COMPARE_VERIFY};
+    WorkbookCorePayloadResult status=verify(right,&compare,error);
+    if (status!=CORE_PAYLOAD_READY) return status;
+    duckdb_result result={0}; bool attached=false,same=false;
+    char *quoted=dx_quote(workbook_core_payload_path(right),'\'');
+    char *sql=dx_printf("ATTACH %s AS dx_other (READ_ONLY)",quoted); free(quoted);
+    bool ok=query(connection,sql,&compare,&result,error); free(sql); duckdb_destroy_result(&result);
+    if (!ok) return compare.stopped ? CORE_PAYLOAD_CANCELLED : CORE_PAYLOAD_FAILED;
+    attached=true; compare.phase=CORE_COMPARE_ROWS;
+    ok=compare_tables(connection,&compare,true,&same,error);
+    /* Cleanup is unconditional and deliberately ignores cancellation. No SQL
+       query invokes source definitions; only admitted metadata tables are read. */
+    if (attached) {
+        bool detached=duckdb_query(connection,"DETACH dx_other",&result)==DuckDBSuccess;
+        if (!detached && ok) fail(error,duckdb_result_error(&result));
+        ok &= detached; duckdb_destroy_result(&result);
+    }
+    if (compare.stopped) return CORE_PAYLOAD_CANCELLED;
+    if (!ok) return CORE_PAYLOAD_FAILED;
+    compare.phase=CORE_COMPARE_RECHECK; compare.table=0;
     status=verify(right,&compare,error); if (status!=CORE_PAYLOAD_READY) return status;
     *equal=same; return CORE_PAYLOAD_READY;
 }
