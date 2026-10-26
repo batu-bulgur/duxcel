@@ -2728,6 +2728,20 @@ async function manualFindAccess(){
  check(closed.modal==='0'&&closed.active===baseline.active&&sameModel(closed)&&starts().length===jobs,'Closing Find changed authored values/history/source or submitted a query');
  return{baseline,away,opened:opened.state,absent,matched,whole:whole.state,previous,closed,scope:'Trusted View ZC navigation to the shared C manual-only Find dialog, absent and exact authored-text queries, wrapped target, Whole cell/Previous and Close without edits or Worker work. Native fixture separately covers multi-match direction, limits, stale owners and narrow150%.'};
 }
+async function manualBoundaryAccess(){
+ const baseline=await platformSnapshot(),jobs=starts().length,cases=[];
+ check(baseline.active==='0,0'&&baseline.manual_cells==='1'&&baseline.object_count==='0'&&baseline.modal==='0','Manual boundary access requires the actual sole A1 sentinel');
+ const sameModel=state=>['sheet','manual_cells','selection_history','dirty','request','source_revision','schema','page','spare'].every(field=>state[field]===baseline[field]);
+ async function move(name,virtual,target){
+  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));
+  try{await key(name,name,virtual,'',2);}finally{await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));}
+  const state=await platformSnapshot();check(state.active===target&&state.anchor===target&&state.extent===target&&sameModel(state)&&starts().length===jobs,'Manual Control+'+name+' lost its finite target or changed model/history/Worker work');cases.push({name,state});return state;
+ }
+ const edge=await move('ArrowRight',39,'0,16383'),repeated=await move('ArrowRight',39,'0,16383');
+ check(['active','anchor','extent','top','horizontal','fraction'].every(field=>edge[field]===repeated[field]),'Repeated manual edge input changed settled selection/view');
+ await move('ArrowLeft',37,'0,0');await move('ArrowDown',40,'1099511627775,0');const restored=await move('ArrowUp',38,'0,0');
+ return{baseline,cases,restored,scope:'Trusted Control+Arrow single-cell navigation over the complete manual inventory: physical column/row edges, repeated-edge no-op and return to the actual occupied A1 sentinel without model/history/query changes. No Shift/statistics setup, analytical owners, Meta/physical keyboard or allocation-failure acceptance.'};
+}
 async function accessKeys(){
  const before=await platformSnapshot(),jobs=starts().length;
  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));
@@ -2736,7 +2750,7 @@ async function accessKeys(){
  await key('7','Digit7',55,'7');await key('Enter','Enter',13);await key('ArrowUp','ArrowUp',38);
  const seeded=await platformSnapshot();
  check(Number(seeded.sheet_count)===Number(before.sheet_count)+1&&Number(seeded.manual_cells)===1&&seeded.dirty==='1','Shift F11 and real manual entry did not prepare a dirty sentinel sheet');
- const goTo=await manualGoToAccess(),find=await manualFindAccess();
+ const boundary=await manualBoundaryAccess(),goTo=await manualGoToAccess(),find=await manualFindAccess();
  const boldBatch=await fastKeys([['Alt','AltLeft',18],['h','KeyH',72],['1','Digit1',49]]);await pause(180);
  const bold=await platformSnapshot();
  check(Number(bold.active_format_flags)===(Number(seeded.active_format_flags)^1)&&Number(bold.keytips)===0&&bold.modal==='0','Same-frame Alt H 1 did not execute exactly one Bold action');
@@ -2809,7 +2823,7 @@ async function accessKeys(){
  await key('ArrowRight','ArrowRight',39);await key('Enter','Enter',13);const closed=await platformSnapshot();
  check(closed.modal==='0'&&closed.dirty==='0'&&closed.manual_cells==='0'&&closed.sheet_count==='1','Discard Close did not retain a live blank browser surface');
  check(starts().length===jobs,'Access keys or document close added unexpected database jobs');
- const result={before,seeded,goTo,find,boldBatch,bold,copyBatch,copied,menu,filePicks,filePickRestored,protectedCell,fileNavigation,reverseTab,shortFile,headingFile,homeFile,scrolledFile,thumbPick,thumbRestored,closeFocus,spaceClose,reopenedFile,helpBlocked,tinyFile,outside,closePrompt,cancelled,closed,
+ const result={before,seeded,boundary,goTo,find,boldBatch,bold,copyBatch,copied,menu,filePicks,filePickRestored,protectedCell,fileNavigation,reverseTab,shortFile,headingFile,homeFile,scrolledFile,thumbPick,thumbRestored,closeFocus,spaceClose,reopenedFile,helpBlocked,tinyFile,outside,closePrompt,cancelled,closed,
   scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine, disabled-skipping/wrapping navigation, short-window keyboard/wheel scrolling, Space activation, frozen File background/heading/disabled Save/scrolled thumb picks with reporting-bar relocation and cancel retention, normal held outside click and cancel/discard document lifecycle. This does not accept completed between-frame pointer capture, browser clipboard delivery, Worker queries or report upload.'};
  await fs.writeFile(path.join(output,'access-keys.json'),JSON.stringify(result,null,2));
  return result;
