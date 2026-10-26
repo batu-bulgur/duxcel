@@ -1,0 +1,11 @@
+# Pure manual Find navigation
+
+`grid_manual_find` accepts a complete bounded sparse inventory through a synchronous read-only accessor. Entries must be physically valid, unique and ordered by row and column, including explicit missing/nonsearchable entries. The caller pins the actual owner and every borrowed span for the whole call. The controller retains no pointers and has no CellStore layout, selection, query, history or document authority.
+
+Search uses nonempty literal, case-sensitive valid UTF-8. Whole-cell and contains modes inspect explicit authored searchable spans, including exact numeric raw text when the adapter supplies it. There is no formatting, numeric normalization, case folding or Unicode normalization. SQL NULL and sparse missing entries carry no text. Present empty TEXT remains a separate searchable observation, although a nonempty query cannot match it. Invalid UTF-8 and embedded NUL are rejected through the existing allocation-free manual-value validator.
+
+Next/Previous skip the active coordinate and wrap deterministically in row-major order. A sole match at the active coordinate returns that coordinate with `wrapped=true`. The result includes the complete matching-entry count. Every entry is validated before the result is published, so a later invalid, unavailable or over-budget entry cannot turn an earlier match into partial success. Not-found and all refusal outcomes preserve the old output.
+
+The explicit limits are 20,000 inventory entries, 4 MiB aggregate authored searchable bytes and a 4,096-byte query. A bounded 8 KiB prefix table gives linear-time contains matching without heap allocation; no per-value truncation or dense worksheet walk occurs. Tests cover the full entry count, late final-owner refusal, full aggregate-byte boundary, maximum repeated-prefix query, exact numeric spelling, UTF-8, NULL/missing/empty, ordering and both wrapping directions.
+
+The registered two-module `manual-find` plan passed release and ASan/UBSan in 3.646 seconds (`20261026T040446-feature-61205`); fifteen catalogue contracts also passed. This is a pure navigation prerequisite. No App Find dialog, shortcut reassignment, analytical/uncached search, Replace operation, browser interaction or product completion is claimed.

@@ -998,3 +998,7 @@ FEATURES["go-to"] = Feature(("go_to", "go_to_layout"), "",
 FEATURES["go-to-app"] = Feature(("go_to", "go_to_layout", "grid_data_boundary"), "go-to",
     ("python3 tools/test_web_app.py --review --access-only", "python3 tools/test.py full --config both"),
     ("src/app/go_to.inc", "tests/support/go_to_app.inc", "tests/test_go_to_gui.c", "web/canvas_input.mjs", "web/tests/canvas_input.test.mjs"), node_tests=("web/tests/canvas_input.test.mjs",))
+
+FEATURES["manual-find"] = Feature(("manual_find", "manual_value"), "",
+    ("python3 tools/test.py full --config both",),
+    ("src/grid/manual_find.c", "src/grid/manual_find.h", "tests/test_manual_find.c"))

@@ -1198,6 +1198,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type
 PARALLEL_NATIVE_GOALS += build/tests/test_data_boundary build/tests/test_data_boundary-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_grid_data_boundary build/tests/test_grid_data_boundary-debug build/tests/test_data_boundary-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_go_to-gui build/tests/test_go_to build/tests/test_go_to-debug build/tests/test_go_to_layout build/tests/test_go_to_layout-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_manual_find build/tests/test_manual_find-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2911,3 +2912,12 @@ GO_TO_APP_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/rele
 build/tests/test_go_to-gui: tests/test_go_to_gui.c $(GO_TO_APP_LINK) | build/tests
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_go_to_gui.c $(GO_TO_APP_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(GO_TO_APP_OBJECT:.o=.d)
+
+MANUAL_FIND_SRC = src/common.c src/workbook/manual_value.c src/grid/manual_find.c tests/test_manual_find.c
+MANUAL_FIND_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(MANUAL_FIND_SRC))))
+MANUAL_FIND_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(MANUAL_FIND_SRC))))
+build/tests/test_manual_find: $(MANUAL_FIND_OBJECTS) | build/tests
+	$(call link_binary,$^,)
+build/tests/test_manual_find-debug: $(MANUAL_FIND_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(SANFLAGS))
+-include $(MANUAL_FIND_OBJECTS:.o=.d) $(MANUAL_FIND_SAN_OBJECTS:.o=.d)
