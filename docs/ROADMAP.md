@@ -881,6 +881,7 @@ source/binary receipts are under ignored build/tests/results/.
 | W26a.3 · P1 · Complete | Exact range wire and explicit TSV projection; W26a.2. | Preserve every coordinate/presence/type privately and explicitly project lossy public TSV with shared escaping; reject borrowed text/output/written alias before any write. Store/platform adoption stays separate. |
 | W26a.4 · P1 · Complete | Unpublished typed sparse candidates; W26a.3 wire primitives. | Build exact typed after-states from real snapshots and rectangular clipboard input under coexistence budgets; no live/history/core publication. |
 | W26a.5 · P1 · In progress | Single typed CellStore owner and command/journal/core/render closure; W26a.1–4. | Replace text authority with one owned value, preserve snapshot allocator capacity, then close typed edit/clipboard/Undo/journal/current native and shared-reader behavior as one integration group. Private store checks are prerequisites, not user-visible typed editing. |
+| W26a.5a · P1 · Complete | Explicit type chooser component; W26a.1. | Metadata-only Text/SQL NULL/integer/DECIMAL/Clear choices, invalid-type refusal, Apply/Cancel and bounded 100/150% pointer/keyboard UI. Three modules pass both modes;24 real widget stages pass. No live editor/raw-value adoption. |
 | W26b · P1 · Queued | Basic parsed positional formulas and dependency runtime; W26a/W21. Integrates C08. | An explicit small operator/function set recalculates typed manual/analytical references, detects cycles and displays typed ref/type/calc errors. Valid changed numbers recalculate; saved stale output retains its provenance. WM04; formula part of A06/A31. |
 | W27 · P1 · Queued | Explicit manual-range analytical input; W26a. | Bind a finite typed range to a relation and pivot; one edit updates consumers at one revision; schema changes invalidate explicitly. WM03; remaining A06. |
 | W28 · P1 · Queued | Code/display names and object-local positional references; W26b/W21. | `sheet_code.object_code.A1` resolves offscreen; display rename is cosmetic, code rename updates parsed bindings atomically. No category/GETPIVOTDATA lookup. WM07–WM08; naming part of A29. |
@@ -2838,3 +2839,19 @@ The three feature lanes continue independently: typed store/editor/current-core
 closure; preview/explicit type controls and manual boundary navigation; combined
 actual-state history and explicit native component registry prerequisites. Normal
 feature acceptance resumes with focused gates, without a hands-on approval pause.
+
+Milestone publication complete: `689edfa0` is on origin/main.
+[CI40263231437](https://github.com/batu-bulgur/duxcel/actions/runs/40263231437)
+passes all three jobs. Live Pages serves that commit; the served UI Wasm hash
+matches its manifest and actual HTTPS import/sort/filter acceptance passes.
+The normal signed milestone bundle is `build/Duxcel.app`; generated delivery
+evidence is `build/tests/results/milestone3-delivery.json`.
+
+W26a.5a complete on combined main: `028ab587`/`9995a560` integrate the real
+metadata controller/layout/widget; `06d12bba` fixes fixture input dispatch after
+frame reset; `7d4b8fbb` preserves distinct widget versus App lifecycle acceptance.
+`value-type-view` passes three modules in optimized/ASan/UBSan and24 actual hidden
+TEST widget stages/1194 checks in16.405s (`20261026T032622-feature-51803`).
+Runner/catalog61 contracts pass4.341s. The fixture verifies closed-window state;
+all App fixtures retain their real shutdown guard. This is a component
+prerequisite, not editable typed cells or an App integration claim.
