@@ -2,6 +2,7 @@
 #include "workbook/analysis_asset.h"
 #include "workbook/browse_preview_admission.h"
 #include "workbook/browse_preview_codec.h"
+#include "workbook/browse_preview_workbook.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -251,6 +252,57 @@ static void association(void) {
     CHECK(browse_preview_admit(pending,live,SIZE_MAX,&report)==SOURCE_DEPENDENCY_INVALID && !memcmp(&report,&saved,sizeof(report))); bad[24]=old;
     browse_preview_free(unbound); browse_preview_free(pending); browse_preview_free(complete); finish(&f);
 }
+static void workbook_association(void) {
+    Fixture f; start(&f); BrowsePreviewTarget target; BrowsePreview *primary=NULL,*table_preview=NULL;
+    BrowsePreviewInfo info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&primary)==BROWSE_PREVIEW_OK);
+    f.table=(SheetObject){.id=7,.kind=OBJECT_TABLE,.revision=9,.rows=5,.columns=3,.source=analysis_copy(&f.definition)};
+    f.high_water=10; f.context.owner=7; f.context.table=&f.table; f.context.definition=&f.table.source;
+    f.context.query_epoch=f.context.source_epoch=&f.table.revision; f.proof.object=7; f.proof.definition=&f.table.source;
+    info=measured(&f,&target,NULL); CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&table_preview)==BROWSE_PREVIEW_OK);
+    Workbook book={.id=f.document,.sheet_high_water=9,.command_revision=500,.count=2,.active=1,.user_scale=1,.edit_session_id=999};
+    book.sheets=dx_alloc(2*sizeof(Worksheet));
+    book.sheets[0]=(Worksheet){.id=7,.name=dx_strdup("Connected"),.analysis=analysis_copy(&f.definition),.edit_session_id=888,.view={.canvas_zoom=1}};
+    book.sheets[1]=(Worksheet){.id=8,.name=dx_strdup("Other"),.edit_session_id=777,.view={.canvas_zoom=1}};
+    Worksheet *sheet=book.sheets; sheet->objects.items=dx_alloc(2*sizeof(SheetObject)); sheet->objects.count=2; sheet->objects.next_id=10;
+    sheet->objects.items[0]=(SheetObject){.id=7,.kind=OBJECT_TABLE,.name=dx_strdup("Connected Table"),.row=330,.col=16,.rows=5,.columns=3,.revision=12345,.source=analysis_copy(&f.table.source)};
+    sheet->objects.items[1]=(SheetObject){.id=9,.kind=OBJECT_PIVOT,.name=dx_strdup("Derived"),.row=350,.col=16,.rows=14,.columns=6,.source_id=7,.revision=54321};
+    CHECK(workbook_identity_valid(&book));
+    const BrowsePreview *assets[]={primary,table_preview};
+    BrowsePreviewWorkbookAdmission report={0};
+    for (size_t i=0;i<2;i++) {
+        size_t reserved=0; CHECK(browse_preview_workbook_measure(assets[i],&book,sizeof(book),&reserved)==BROWSE_PREVIEW_OK);
+        CHECK(browse_preview_workbook_admit(assets[i],&book,sizeof(book),reserved,&report)==SOURCE_DEPENDENCY_EXACT && report.classification==BROWSE_PREVIEW_CAPTURED_ONLY);
+        BrowsePreviewWorkbookAdmission saved=report;
+        CHECK(browse_preview_workbook_admit(assets[i],&book,sizeof(book),reserved-1,&report)==SOURCE_DEPENDENCY_LIMIT && !memcmp(&report,&saved,sizeof(report)));
+    }
+    Worksheet swap=book.sheets[0]; book.sheets[0]=book.sheets[1]; book.sheets[1]=swap; sheet=book.sheets+1;
+    CHECK(browse_preview_workbook_admit(table_preview,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_EXACT && report.classification==BROWSE_PREVIEW_CAPTURED_ONLY);
+    /* Fresh load/runtime clocks do not become durable source freshness proof. */
+    book.edit_session_id=1; sheet->edit_session_id=2; sheet->objects.items[0].revision=1; book.command_revision=UINT64_MAX;
+    CHECK(browse_preview_workbook_admit(table_preview,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_EXACT && report.classification==BROWSE_PREVIEW_CAPTURED_ONLY);
+    char *path=sheet->objects.items[0].source.path; sheet->objects.items[0].source.path=dx_strdup("/changed.csv");
+    CHECK(browse_preview_workbook_admit(table_preview,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT && report.classification==BROWSE_PREVIEW_NOT_ASSOCIATED);
+    free(sheet->objects.items[0].source.path); sheet->objects.items[0].source.path=path;
+    sheet->objects.items[0].kind=OBJECT_PIVOT;
+    CHECK(browse_preview_workbook_admit(table_preview,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT && report.classification==BROWSE_PREVIEW_NOT_ASSOCIATED); sheet->objects.items[0].kind=OBJECT_TABLE;
+    uint64_t id=sheet->objects.items[0].id; sheet->objects.items[0].id=6;
+    CHECK(browse_preview_workbook_admit(table_preview,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_UNAVAILABLE && report.classification==BROWSE_PREVIEW_NOT_ASSOCIATED); sheet->objects.items[0].id=id;
+    sheet->id=9;
+    CHECK(browse_preview_workbook_admit(primary,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_UNAVAILABLE); sheet->id=7;
+    book.id.low++;
+    CHECK(browse_preview_workbook_admit(primary,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_CONFLICT); book.id=f.document;
+    BrowsePreviewWorkbookAdmission saved=report; book.sheets[0].id=7;
+    CHECK(browse_preview_workbook_admit(primary,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_INVALID && !memcmp(&report,&saved,sizeof(report))); book.sheets[0].id=8;
+    sheet->objects.items[1].id=7;
+    CHECK(browse_preview_workbook_admit(primary,&book,0,SIZE_MAX,&report)==SOURCE_DEPENDENCY_INVALID && !memcmp(&report,&saved,sizeof(report))); sheet->objects.items[1].id=9;
+    CHECK(browse_preview_workbook_admit(primary,&book,SIZE_MAX,SIZE_MAX,&report)==SOURCE_DEPENDENCY_LIMIT && !memcmp(&report,&saved,sizeof(report)));
+    for (size_t i=0;i<2;i++) {
+        Worksheet *current=book.sheets+i; free(current->name); analysis_free(&current->analysis);
+        for (size_t j=0;j<current->objects.count;j++) { free(current->objects.items[j].name); analysis_free(&current->objects.items[j].source); }
+        free(current->objects.items);
+    }
+    free(book.sheets); browse_preview_free(primary); browse_preview_free(table_preview); finish(&f);
+}
 static void maximum(void) {
     Fixture f; start(&f); page_free(&f.page);
     f.page=(Page){.column_count=256,.row_count=256,.offset=UINT64_MAX-256,.total=UINT64_MAX,.columns=dx_alloc(256*sizeof(Column)),.cells=dx_alloc(65536*sizeof(Cell))};
@@ -263,4 +315,4 @@ static void maximum(void) {
     BrowsePreview *copy=wire_copy(preview); browse_preview_free(copy);
     browse_preview_free(preview); finish(&f);
 }
-int main(void) { ownership(); stale(); profiles(); association(); table_owner(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
+int main(void) { ownership(); stale(); profiles(); association(); table_owner(); workbook_association(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
