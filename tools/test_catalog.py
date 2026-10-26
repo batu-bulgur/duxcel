@@ -20,6 +20,8 @@ class Feature:
 WIDGET_GUI = frozenset({"value-type"})
 
 STANDALONE_GUI = {
+    "go-to": ("build/tests/test_go_to-gui", "PASS: native same-sheet Go To workflow",
+              r"^PASS: native same-sheet Go To workflow \(27 stages, [1-9]\d* checks\)$", 27),
     "data-boundary": ("build/tests/test_data_boundary-gui", "PASS: native manual data-boundary workflow",
                     r"^PASS: native manual data-boundary workflow \(33 stages, [1-9]\d* checks\)$", 33),
     "value-type": ("build/tests/test_value_type-gui", "PASS: native explicit value-type workflow",
@@ -991,3 +993,7 @@ FEATURES["data-boundary-grid"] = Feature(("data_boundary", "grid_data_boundary",
 FEATURES["go-to"] = Feature(("go_to", "go_to_layout"), "",
     ("python3 tools/test.py full --config both",),
     ("src/grid/go_to.c", "src/grid/go_to.h", "src/ui/go_to_layout.c", "src/ui/go_to_layout.h", "tests/test_go_to.c", "tests/test_go_to_layout.c"))
+
+FEATURES["go-to-app"] = Feature(("go_to", "go_to_layout", "grid_data_boundary"), "go-to",
+    ("python3 tools/test_web_app.py --review --review-controls-only --source tests/fixtures/transactions.csv", "python3 tools/test.py full --config both"),
+    ("src/app/go_to.inc", "tests/support/go_to_app.inc", "tests/test_go_to_gui.c", "web/canvas_input.mjs", "web/tests/canvas_input.test.mjs"))

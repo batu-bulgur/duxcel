@@ -81,6 +81,8 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include "../ui/guideview.h"
 #include "../ui/sortview.h"
 #include "../ui/brand.h"
+#include "../grid/go_to.h"
+#include "../ui/go_to_layout.h"
 #include <inttypes.h>
 #include <limits.h>
 #include <math.h>
@@ -90,7 +92,7 @@ EM_JS(void, app_browser_release_file, (const char *path), {
 #include <ctype.h>
 #include <assert.h>
 
-typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE,MODAL_SOURCE_DETAILS } Modal;
+typedef enum { MODAL_NONE, MODAL_OPEN, MODAL_SAVE, MODAL_RELINK, MODAL_FILTER, MODAL_GROUP, MODAL_SQL, MODAL_SETTINGS, MODAL_CELL, MODAL_CONTEXT, MODAL_ERROR, MODAL_PIVOT_FIELD, MODAL_OBJECT, MODAL_INSPECT, MODAL_SORT,MODAL_RIBBON,MODAL_SHEET,MODAL_RENAME,MODAL_UNHIDE,MODAL_FIELD_NAV,MODAL_UNSAVED,MODAL_STATISTICS,MODAL_WIDTH,MODAL_CHART_SIZE,MODAL_OBJECT_NAME,MODAL_TABLE_RELATION,MODAL_MOVE_RANGE,MODAL_SOURCE_QUERY,MODAL_COMMANDS,MODAL_ASSIGN_FIELD,MODAL_REPRESENTATION,MODAL_DENSITY,MODAL_GUIDE,MODAL_FORMAT,MODAL_CHART_MEASURE,MODAL_MARKS,MODAL_STEP,MODAL_INTERFACE_SCALE,MODAL_VIEW,MODAL_REPLACE_RANGE,MODAL_RECOVERY,MODAL_VERSIONS,MODAL_OBJECT_SOURCE,MODAL_SOURCE_DETAILS,MODAL_GO_TO } Modal;
 typedef enum { COLUMN_WIDTH,COLUMN_FIT,COLUMN_LEFT,COLUMN_RIGHT,COLUMN_DELETE,COLUMN_EDIT,COLUMN_CLEAR,COLUMN_FILTER,COLUMN_ASC,COLUMN_DESC,COLUMN_INSPECT,COLUMN_SORT,ROW_ABOVE,ROW_BELOW,ROW_DELETE,RANGE_MOVE } ColumnAction;
 typedef enum { SHEET_ACTION_NONE,SHEET_ACTION_DUPLICATE,SHEET_ACTION_UP,SHEET_ACTION_DOWN,SHEET_ACTION_HIDE,SHEET_ACTION_SHOW,SHEET_ACTION_DELETE } SheetAction;
 typedef enum { DOCUMENT_NONE,DOCUMENT_QUIT,DOCUMENT_OPEN,DOCUMENT_CLOSE,DOCUMENT_NEW,DOCUMENT_RECOVER } DocumentAction;
@@ -457,6 +459,11 @@ typedef struct {
     TextLines source_details_lines;
     size_t source_details_scroll;
     double source_details_wheel;
+    struct {
+        const Worksheet *sheet; const SheetCell *cells;
+        WorkbookId document; uint64_t document_session,sheet_session,sheet_id,revision,cell_revision,format_revision,width_revision,request;
+        size_t count,capacity; int focus; char message[112];
+    } go_to;
     UIScrollbar source_details_bar;
     uint64_t source_details_key;
     TextLines query_errors;
@@ -954,6 +961,7 @@ static bool manual_cell(App *a) {
     return !(a->grid.row<source_rows(a) && a->grid.col<a->page.column_count) && objects_hit(&active_sheet(a)->objects,a->grid.row,a->grid.col)<0;
 }
 #include "grid_boundary.inc"
+#include "go_to.inc"
 static void set_grid_navigation(App *a) {
     a->grid.navigation=(GridRegion){0}; ObjectStore *store=&active_sheet(a)->objects;
     int hit=objects_hit(store,a->grid.row,a->grid.col); if (hit<0) return;
@@ -6915,6 +6923,7 @@ static void draw_modal(App *a) {
     if (a->modal==MODAL_RECOVERY) { recovery_draw(a); return; }
     if (a->modal==MODAL_VERSIONS) { versions_draw(a); return; }
 #endif
+    if (a->modal==MODAL_GO_TO) { draw_go_to(a); return; }
     if (a->modal==MODAL_VIEW) { draw_view_menu(a); return; }
     if (a->modal==MODAL_DENSITY) { draw_density_menu(a); return; }
     if (a->modal==MODAL_INTERFACE_SCALE) { draw_scale_menu(a); return; }
@@ -8258,7 +8267,7 @@ static void shortcuts(App *a) {
 #ifndef DUXCEL_BROWSER_HOST
         version_edit=a->modal==MODAL_VERSIONS && !a->version_view.focus;
 #endif
-        bool editing=version_edit || (a->modal==MODAL_ASSIGN_FIELD && a->pivot_search_focus) || (a->modal==MODAL_SOURCE_QUERY && !a->query_focus) || (a->modal==MODAL_SORT && a->sort_editor.focus==0) || (a->modal==MODAL_OBJECT_NAME && !a->object_name_focus) || (a->modal==MODAL_MOVE_RANGE && !a->range_move_focus) || (a->modal==MODAL_CHART_SIZE && a->chart_size_focus<2) || a->modal==MODAL_CELL || (a->modal==MODAL_WIDTH && !a->width_focus) || a->modal==MODAL_RENAME || (a->modal==MODAL_FILTER && !a->filter_condition_menu && (a->filter_focus==3 || a->filter_focus==7 || a->filter_focus==8)) || a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK;
+        bool editing=(a->modal==MODAL_GO_TO && !a->go_to.focus) || version_edit || (a->modal==MODAL_ASSIGN_FIELD && a->pivot_search_focus) || (a->modal==MODAL_SOURCE_QUERY && !a->query_focus) || (a->modal==MODAL_SORT && a->sort_editor.focus==0) || (a->modal==MODAL_OBJECT_NAME && !a->object_name_focus) || (a->modal==MODAL_MOVE_RANGE && !a->range_move_focus) || (a->modal==MODAL_CHART_SIZE && a->chart_size_focus<2) || a->modal==MODAL_CELL || (a->modal==MODAL_WIDTH && !a->width_focus) || a->modal==MODAL_RENAME || (a->modal==MODAL_FILTER && !a->filter_condition_menu && (a->filter_focus==3 || a->filter_focus==7 || a->filter_focus==8)) || a->modal==MODAL_OPEN || a->modal==MODAL_SAVE || a->modal==MODAL_RELINK;
         if (a->modal==MODAL_FILTER && (a->filter_focus==4 || a->filter_focus==5) && command==DX_COMMAND_SELECT_ALL) { a->values_all=true; clear_value_choices(a); }
         TextInput *field=a->modal==MODAL_FILTER && a->filter_focus==7 ? &a->filter_term : a->modal==MODAL_FILTER && a->filter_focus==8 ? &a->filter_end : a->modal==MODAL_ASSIGN_FIELD ? &a->pivot_search : a->modal==MODAL_SORT ? &a->sort_editor.search : a->modal==MODAL_CHART_SIZE && !a->chart_size_focus ? &a->chart_columns : &a->input;
         if (editing && command==DX_COMMAND_SELECT_ALL) field->select_all=true;
@@ -8273,6 +8282,7 @@ static void shortcuts(App *a) {
         if (a->modal==MODAL_SQL && command==DX_COMMAND_COPY) copy_text(a,a->sql_text,NULL);
         return;
     }
+    if (command==DX_COMMAND_NONE && ui_pressed(KEY_G) && ui_key_shortcut(KEY_G) && !ui_key_shift(KEY_G) && !ui_key_alt(KEY_G)) { begin_go_to(a); return; }
     if (command==DX_COMMAND_NONE) command=fallback_global_command(a);
     if (ui_pressed(KEY_F5)) {
 #ifndef DUXCEL_BROWSER_HOST
@@ -9234,6 +9244,11 @@ static void draw_app(App *a) {
     for (size_t i=0;i<sizeof(parts)/sizeof(*parts);i++) { parts[i]->x*=s; parts[i]->y*=s; parts[i]->width*=s; parts[i]->height*=s; }
     a->cell_context=strip;
     if (strip.valid) {
+    if (a->modal==MODAL_NONE && app_go_to_ready(a) && CheckCollisionPointRec(ui_mouse_position(),strip.address)) {
+        u->cursor=MOUSE_CURSOR_POINTING_HAND; a->ribbon_hover="Go to cell… (⌘/Ctrl+G)"; a->ribbon_hover_rect=strip.address;
+    }
+    if (ui_tool_button(u,strip.address,"",false,a->modal==MODAL_NONE && app_go_to_ready(a))) begin_go_to(a);
+    REVIEW_AUTHOR_ITEM(a,"readout","go_to","grid.go_to","button","Go to cell",strip.address,strip.address,app_go_to_ready(a),false,false,NULL);
     ui_label(u,cell_name,strip.address_text,12,UI_TEXT,false,UI_REGULAR);
     ui_carbon(u,CARBON_CHEVRON_DOWN,strip.chevron,UI_MUTED);
     DrawLineV((Vector2){strip.address.x+strip.address.width-s,strip.address.y},(Vector2){strip.address.x+strip.address.width-s,strip.address.y+strip.address.height},UI_BORDER);
@@ -15869,6 +15884,9 @@ static void source_details_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_DATA_BOUNDARY
 static void data_boundary_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_GO_TO
+static void go_to_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
 static void source_results_test_frame(AppSession *session);
 #endif
@@ -16831,6 +16849,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_DATA_BOUNDARY
     data_boundary_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_GO_TO
+    go_to_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
     source_results_test_frame(session);
 #endif
@@ -17329,4 +17350,7 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_DATA_BOUNDARY
 #include "../../tests/support/data_boundary_app.inc"
+#endif
+#ifdef DUXCEL_FEATURE_GO_TO
+#include "../../tests/support/go_to_app.inc"
 #endif

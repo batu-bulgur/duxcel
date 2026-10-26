@@ -81,3 +81,21 @@ test('independent canvases use their own document focus and lifecycle',()=>{
     const a=setup(),b=setup();const disposeA=installCanvasInput(a.canvas),disposeB=installCanvasInput(b.canvas);
     disposeA();assert.equal(a.dispatch('End').defaultPrevented,false);assert.equal(b.dispatch('End').defaultPrevented,true);disposeB();
 });
+
+test('primary G belongs to the C Go To handler while GLFW still receives it',()=>{
+    const {canvas,dispatch}=setup();installCanvasInput(canvas);let delivered=0;
+    canvas.addEventListener('keydown',()=>delivered++);
+    for(const modifiers of [{ctrlKey:true},{metaKey:true},{ctrlKey:true,metaKey:true}])for(const key of ['g','G']){
+        const event=dispatch(key,{...modifiers,repeat:true});assert.equal(event.defaultPrevented,true);assert.equal(event.preventions,1);
+    }
+    assert.equal(delivered,6);assert.equal(dispatch('g',{ctrlKey:true,defaultPrevented:true}).preventions,0);
+});
+
+test('Go To default ownership does not escape canvas focus or claim other G chords',()=>{
+    const {canvas,document,dispatch}=setup();installCanvasInput(canvas);
+    for(const fields of [{ctrlKey:true,shiftKey:true},{metaKey:true,altKey:true},{ctrlKey:true,altKey:true},{ctrlKey:true,isComposing:true},{metaKey:true,keyCode:229},{}])assert.equal(dispatch('g',fields).defaultPrevented,false);
+    const input={tagName:'INPUT'};
+    assert.equal(dispatch('g',{ctrlKey:true,target:input}).defaultPrevented,false);
+    document.activeElement=input;assert.equal(dispatch('g',{ctrlKey:true}).defaultPrevented,false);
+    document.activeElement=canvas;assert.equal(dispatch('F5',{ctrlKey:true}).defaultPrevented,false);assert.equal(dispatch('F12').defaultPrevented,false);
+});

@@ -3,8 +3,8 @@
 const navigationKeys=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','PageUp','PageDown']);
 const installations=new WeakMap();
 
-/** Unmodified/Shift navigation and the ribbon's bare Alt key are claimed.
- * Modified printable input still reaches composition/browser handling.
+/** Unmodified/Shift navigation, bare Alt keytips and primary-G Go To are
+ * claimed. Other modified printable input retains browser handling.
  * Repeated installation shares
  * one listener and disposer. Disposing either
  * handle removes that installation; disposal is idempotent, and reinstalling
@@ -17,6 +17,9 @@ export function installCanvasInput(canvas){
         // Alt opens C keytips. Letting the browser also activate its menu can
         // redispatch the following ribbon letter through Cocoa menu routing.
         if(event.key==='Alt'&&!event.ctrlKey&&!event.metaKey){if(!event.defaultPrevented)event.preventDefault();return;}
+        // C owns Go To; suppress browser Find Next only on the focused canvas.
+        // Still deliver the original event to GLFW, including repeat/modifiers.
+        if((event.key==='g'||event.key==='G')&&(event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey){if(!event.defaultPrevented)event.preventDefault();return;}
         if(event.ctrlKey||event.altKey||event.metaKey)return;
         if(navigationKeys.has(event.key)&&!event.defaultPrevented)event.preventDefault();
     };

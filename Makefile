@@ -37,6 +37,7 @@ CORE += src/workbook/primary_source_draft.c src/workbook/primary_source_publish.
 
 NATIVE_PERSISTENCE = src/app/versionpreview.c src/workbook/version_preview.c src/app/versionstate.c src/data/worker_archive.c src/workbook/version_save.c src/workbook/archive_write.c src/workbook/archive_read.c src/workbook/version_restore.c src/workbook/version_read.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/core_compare.c src/workbook/core_payload.c src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
 SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/versionview.c src/ui/versionpreviewview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c $(GRID_NAVIGATION_SRC) src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
+SRC += src/grid/go_to.c src/ui/go_to_layout.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m src/platform/macos_about.m
 LDLIBS += -framework AppKit -framework UniformTypeIdentifiers
@@ -1196,7 +1197,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_publication build/tests/
 PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type-debug build/tests/test_value_type_layout build/tests/test_value_type_layout-debug build/tests/test_value_type-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_data_boundary build/tests/test_data_boundary-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_grid_data_boundary build/tests/test_grid_data_boundary-debug build/tests/test_data_boundary-gui
-PARALLEL_NATIVE_GOALS += build/tests/test_go_to build/tests/test_go_to-debug build/tests/test_go_to_layout build/tests/test_go_to_layout-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_go_to-gui build/tests/test_go_to build/tests/test_go_to-debug build/tests/test_go_to_layout build/tests/test_go_to_layout-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2902,3 +2903,11 @@ build/tests/test_go_to_layout: $(GO_TO_LAYOUT_OBJECTS) | build/tests
 build/tests/test_go_to_layout-debug: $(GO_TO_LAYOUT_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
 -include $(GO_TO_LAYOUT_OBJECTS:.o=.d) $(GO_TO_LAYOUT_SAN_OBJECTS:.o=.d)
+
+GO_TO_APP_OBJECT = build/obj/features/go-to/app.o
+$(GO_TO_APP_OBJECT): src/app/app.c src/app/go_to.inc tests/support/go_to_app.inc build/obj/release/app/src/app/app.o
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_GO_TO)
+GO_TO_APP_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(GO_TO_APP_OBJECT)
+build/tests/test_go_to-gui: tests/test_go_to_gui.c $(GO_TO_APP_LINK) | build/tests
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_go_to_gui.c $(GO_TO_APP_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(GO_TO_APP_OBJECT:.o=.d)
