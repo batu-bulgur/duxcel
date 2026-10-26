@@ -9,7 +9,7 @@
 #define SD_HIDDEN SD_FILE ".source-details-offline"
 static unsigned source_details_stage,source_details_wait,source_details_checks;
 static int source_details_result;
-static bool source_details_hidden;
+static bool source_details_hidden,source_details_primary_count,source_details_table_count;
 static uint64_t source_details_revision,source_details_file_hash;
 static size_t source_details_undo,source_details_redo;
 static char *source_details_clipboard;
@@ -23,6 +23,10 @@ static uint64_t source_details_hash(void) {
 }
 static void source_details_test_frame(AppSession *session) {
     App *a=&session->app; Worksheet *sheet=active_sheet(a); SourceProvenanceView view;
+    if (a->modal==MODAL_SOURCE_DETAILS && a->count_request_id && a->count_request_id==a->request_id && a->pending_kind==JOB_COUNT) {
+        if (source_details_stage==10 && sheet && sheet->objects.count && a->pending_object_id==sheet->objects.items[0].id) source_details_table_count=true;
+        if (source_details_stage==22 && !a->pending_object_id) source_details_primary_count=true;
+    }
     if (source_details_result || !sheet || a->busy || a->io_busy || ++source_details_wait<24) return;
     source_details_wait=0;
     switch (source_details_stage) {
@@ -68,9 +72,16 @@ static void source_details_test_frame(AppSession *session) {
         SD_CHECK(a->modal==MODAL_SOURCE_QUERY); ui_note_key_press(KEY_ESCAPE,0); break;
     case 9:
         SD_CHECK(a->modal==MODAL_NONE && a->book.command_revision==source_details_revision);
-        grid_select_cell(&a->grid,330,16,false); SD_CHECK(import_table(a,"build/tests/generated/design-definition.csv")); break;
+        grid_select_cell(&a->grid,330,16,false); SD_CHECK(import_table(a,"build/tests/generated/design-definition.csv"));
+        /* Submit the actual Table viewport job before opening the passive
+           modal; the later real count must schedule while it remains open. */
+        a->pivot_changed=0; schedule_pivot(a);
+        SD_CHECK(a->busy && a->pending_kind==JOB_PIVOT && a->pending_object_id==sheet->objects.items[0].id);
+        begin_source_details(a); SD_CHECK(a->modal==MODAL_SOURCE_DETAILS); break;
     case 10:
         if (!object_ready(a,0)) return;
+        SD_CHECK(source_details_table_count && a->modal==MODAL_SOURCE_DETAILS && source_details_view(a,&view) && view.state==SOURCE_VIEW_READY);
+        source_details_free(a); a->modal=MODAL_NONE;
         a->selected_object=0; create_pivot(a); SD_CHECK(sheet->objects.count==2); break;
     case 11:
         SD_CHECK(a->selected_object==1 && source_details_view(a,&view));
@@ -122,7 +133,7 @@ static void source_details_test_frame(AppSession *session) {
     }
     case 22:
         if (a->page.count_pending || a->count_request_id) return;
-        SD_CHECK(a->modal==MODAL_SOURCE_DETAILS && source_details_view(a,&view) && view.state==SOURCE_VIEW_READY);
+        SD_CHECK(source_details_primary_count && a->modal==MODAL_SOURCE_DETAILS && source_details_view(a,&view) && view.state==SOURCE_VIEW_READY);
         SD_CHECK(strstr(a->source_details_text,a->analysis.query) && strstr(a->source_details_text,"replaced owner"));
         ui_note_key_press(KEY_END,0); break;
     case 23:

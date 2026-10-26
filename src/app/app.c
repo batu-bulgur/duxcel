@@ -1917,7 +1917,7 @@ static void schedule_count(App *a) {
 #endif
     if (a->step_preview.active) return;
     Page *target=a->waiting_count_page ? &a->spare : &a->page;
-    if (!target->count_pending || (a->page_stale && !a->waiting_count_page) || a->known_total>=0 || a->count_paused || a->count_deferred || a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed ||
+    if (!target->count_pending || (a->page_stale && !a->waiting_count_page) || a->known_total>=0 || a->count_paused || a->count_deferred || a->busy || a->io_busy || a->values_loading || (a->modal!=MODAL_NONE && a->modal!=MODAL_SOURCE_DETAILS) || a->fetch_failed ||
         (a->count_request_id && a->count_request_id==a->request_id)) return;
     QueryJob *j=dx_alloc(sizeof(*j)); j->kind=JOB_COUNT; j->id=++a->request_id; j->analysis=analysis_copy(&a->analysis);
     j->expected_source_stamp=target->records.stamp;
@@ -1963,7 +1963,7 @@ static void schedule_table_count(App *a) {
     if (app_primary_source_pending(a)) return;
 #endif
     if (a->step_preview.active) return;
-    if (a->busy || a->io_busy || a->values_loading || a->modal!=MODAL_NONE || a->fetch_failed || a->grid.dragging || a->grid.moving || a->grid.scrollbar ||
+    if (a->busy || a->io_busy || a->values_loading || (a->modal!=MODAL_NONE && a->modal!=MODAL_SOURCE_DETAILS) || a->fetch_failed || a->grid.dragging || a->grid.moving || a->grid.scrollbar ||
         (a->count_request_id && a->count_request_id==a->request_id)) return;
     ObjectStore *store=&active_sheet(a)->objects;
     for (size_t i=0;i<store->count;i++) {
