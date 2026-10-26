@@ -3,6 +3,7 @@
 #include "workbook/browse_preview_admission.h"
 #include "workbook/browse_preview_codec.h"
 #include "workbook/browse_preview_workbook.h"
+#include "workbook/browse_preview_internal.h" /* Owned reference-overflow fault injection only. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -322,6 +323,31 @@ static void workbook_association(void) {
     }
     free(book.sheets); browse_preview_free(primary); browse_preview_free(table_preview); finish(&f);
 }
+typedef struct { BrowsePreview *owned; const Cell *cells; unsigned loops; bool failed; } RefThread;
+static void *reference_thread(void *context) {
+    RefThread *thread=context;
+    for (unsigned i=0;i<1000;i++) {
+        BrowsePreview *ref=browse_preview_retain(thread->owned);
+        if (!ref) { thread->failed=true; break; }
+        if (browse_preview_page(ref)->cells!=thread->cells) thread->failed=true;
+        thread->loops++; browse_preview_free(ref);
+    }
+    browse_preview_free(thread->owned); thread->owned=NULL; return NULL;
+}
+static void references(void) {
+    Fixture f; start(&f); BrowsePreviewTarget target; BrowsePreview *preview=NULL; BrowsePreviewInfo info=measured(&f,&target,NULL);
+    CHECK(browse_preview_capture(&f.context,&target,info.coexistence,&preview)==BROWSE_PREVIEW_OK);
+    const Page *page=browse_preview_page(preview); BrowsePreview *held=browse_preview_retain(preview); CHECK(held==preview);
+    browse_preview_free(preview); preview=NULL; CHECK(!strcmp(browse_preview_page(held)->cells[3].text,"9007199254740993.012345678901234567"));
+    dx_lock(&held->ownership); held->references=SIZE_MAX; dx_unlock(&held->ownership);
+    CHECK(!browse_preview_retain(held) && browse_preview_page(held)==page);
+    dx_lock(&held->ownership); CHECK(held->references==SIZE_MAX); held->references=1; dx_unlock(&held->ownership);
+    RefThread jobs[2]={0}; DxThread threads[2];
+    for (size_t i=0;i<2;i++) { jobs[i]=(RefThread){.owned=browse_preview_retain(held),.cells=page->cells}; CHECK(jobs[i].owned && dx_thread_start(threads+i,reference_thread,jobs+i)); }
+    browse_preview_free(held); held=NULL;
+    for (size_t i=0;i<2;i++) { dx_thread_join(threads[i]); CHECK(jobs[i].loops==1000 && !jobs[i].failed && !jobs[i].owned); }
+    CHECK(!browse_preview_retain(NULL)); finish(&f);
+}
 static void maximum(void) {
     Fixture f; start(&f); page_free(&f.page);
     f.page=(Page){.column_count=256,.row_count=256,.offset=UINT64_MAX-256,.total=UINT64_MAX,.columns=dx_alloc(256*sizeof(Column)),.cells=dx_alloc(65536*sizeof(Cell))};
@@ -334,4 +360,4 @@ static void maximum(void) {
     BrowsePreview *copy=wire_copy(preview); browse_preview_free(copy);
     browse_preview_free(preview); finish(&f);
 }
-int main(void) { ownership(); stale(); profiles(); association(); table_owner(); workbook_association(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }
+int main(void) { ownership(); stale(); profiles(); association(); table_owner(); workbook_association(); references(); maximum(); wire_corruption(); printf("PASS: %u bounded browse preview ownership and association checks\n",checks); return 0; }

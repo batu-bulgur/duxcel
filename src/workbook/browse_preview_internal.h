@@ -2,7 +2,9 @@
 #define DX_BROWSE_PREVIEW_INTERNAL_H
 #include "browse_preview.h"
 #include "analysis_asset.h"
-struct BrowsePreview { BrowsePreviewInfo info; Page page; void *definition,*sources; };
+#include "../platform/platform.h"
+struct BrowsePreview { BrowsePreviewInfo info; Page page; void *definition,*sources; size_t references; DxMutex ownership; };
+void browse_preview_owned_init(BrowsePreview *preview);
 typedef struct {
     DefinitionAssetInfo definition;
     SourceVersionsAssetInfo sources;

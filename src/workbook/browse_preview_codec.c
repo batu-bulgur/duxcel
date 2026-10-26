@@ -183,7 +183,7 @@ BrowsePreviewStatus browse_preview_decode(const void *data,size_t bytes,size_t r
     status=browse_preview_metadata_decode(&borrowed,&metadata,metadata.owned+metadata.validation_scratch,&definition,&sources);
     if (status!=BROWSE_PREVIEW_OK) return status;
     analysis_asset_free(&definition); source_versions_asset_free(&sources);
-    BrowsePreview *next=dx_alloc(sizeof(*next)); status=parse(data,bytes,next,&info);
+    BrowsePreview *next=dx_alloc(sizeof(*next)); browse_preview_owned_init(next); status=parse(data,bytes,next,&info);
     if (status!=BROWSE_PREVIEW_OK) { browse_preview_free(next); return status; }
     next->definition=dx_alloc(next->info.definition_bytes); memcpy(next->definition,borrowed.definition,next->info.definition_bytes);
     next->sources=dx_alloc(next->info.source_bytes); memcpy(next->sources,borrowed.sources,next->info.source_bytes);

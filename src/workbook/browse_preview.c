@@ -145,7 +145,19 @@ BrowsePreviewStatus browse_preview_measure(const BrowsePreviewContext *c,const B
     if (!out) return BROWSE_PREVIEW_INVALID;
     BrowsePreviewInfo info={0}; BrowsePreviewStatus status=measure(c,target,prior,&info); if (status==BROWSE_PREVIEW_OK) *out=info; return status;
 }
-void browse_preview_free(BrowsePreview *preview) { if (preview) { page_free(&preview->page); free(preview->definition); free(preview->sources); free(preview); } }
+void browse_preview_owned_init(BrowsePreview *preview) { preview->references=1; dx_mutex_init(&preview->ownership); }
+BrowsePreview *browse_preview_retain(const BrowsePreview *borrowed) {
+    if (!borrowed) return NULL;
+    BrowsePreview *preview=(BrowsePreview *)borrowed;
+    dx_lock(&preview->ownership); bool valid=preview->references && preview->references<SIZE_MAX;
+    if (valid) preview->references++; dx_unlock(&preview->ownership); return valid ? preview : NULL;
+}
+void browse_preview_free(BrowsePreview *preview) {
+    if (!preview) return;
+    dx_lock(&preview->ownership); bool last=--preview->references==0; dx_unlock(&preview->ownership);
+    if (!last) return;
+    page_free(&preview->page); free(preview->definition); free(preview->sources); dx_mutex_destroy(&preview->ownership); free(preview);
+}
 BrowsePreviewInfo browse_preview_info(const BrowsePreview *preview) { return preview ? preview->info : (BrowsePreviewInfo){0}; }
 const Page *browse_preview_page(const BrowsePreview *preview) { return preview ? &preview->page : NULL; }
 const void *browse_preview_definition(const BrowsePreview *preview,size_t *bytes) { if (bytes) *bytes=preview ? preview->info.definition_bytes : 0; return preview ? preview->definition : NULL; }
@@ -154,7 +166,7 @@ BrowsePreviewStatus browse_preview_capture(const BrowsePreviewContext *c,const B
     if (!out) return BROWSE_PREVIEW_INVALID;
     BrowsePreviewInfo info={0}; BrowsePreviewStatus status=measure(c,target,*out,&info); if (status!=BROWSE_PREVIEW_OK) return status;
     if (reserved<info.coexistence) return BROWSE_PREVIEW_LIMIT;
-    BrowsePreview *next=dx_alloc(sizeof(*next)); next->info=info; next->definition=dx_alloc(info.definition_bytes);
+    BrowsePreview *next=dx_alloc(sizeof(*next)); browse_preview_owned_init(next); next->info=info; next->definition=dx_alloc(info.definition_bytes);
     size_t written=0; AnalysisAssetStatus encoded=analysis_asset_encode(target->sheet,c->owner,c->definition,target->object_high_water,info.validation_scratch,next->definition,info.definition_bytes,&written);
     if (encoded!=ANALYSIS_ASSET_OK || written!=info.definition_bytes) { browse_preview_free(next); return encoded==ANALYSIS_ASSET_LIMIT ? BROWSE_PREVIEW_LIMIT : BROWSE_PREVIEW_INVALID; }
     bool selected[DX_SOURCE_VERSIONS]={0};

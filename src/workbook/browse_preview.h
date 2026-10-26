@@ -56,6 +56,12 @@ BrowsePreviewStatus browse_preview_measure(const BrowsePreviewContext *context,c
     const BrowsePreview *prior,BrowsePreviewInfo *out);
 BrowsePreviewStatus browse_preview_capture(const BrowsePreviewContext *context,const BrowsePreviewTarget *target,
     size_t reserved,BrowsePreview **out);
+/* Immutable payload sharing, never a data/source owner clone. A successful
+   retain requires one free. Keep an owning reference alive during retain and
+   all borrowed reads. Mutex-protected scalar lifetime is portable C99; the
+   final free releases C memory on that caller's thread. No IO/model mutation.
+   NULL/overflow leaves existing owners unchanged. */
+BrowsePreview *browse_preview_retain(const BrowsePreview *preview);
 void browse_preview_free(BrowsePreview *preview);
 BrowsePreviewInfo browse_preview_info(const BrowsePreview *preview);
 /* Borrowed immutable views, valid only while preview remains owned. The Page
