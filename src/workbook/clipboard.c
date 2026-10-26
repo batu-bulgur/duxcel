@@ -77,10 +77,25 @@ static void text_encode(ClipboardTextView view,char *out) {
     }
     *out=0;
 }
+static bool text_overlap(const void *a,size_t an,const void *b,size_t bn) {
+    if (!an || !bn) return false;
+    uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;
+    return x<=y ? y-x<an : x-y<bn;
+}
 bool clipboard_tsv_encode_view(ClipboardTextView view,char *arena,size_t capacity,size_t *written,char **error) {
     if (!arena || !written) return failed(error,"Choose a complete clipboard output arena.");
+    if (text_overlap(arena,capacity,written,sizeof(*written))) return failed(error,"Clipboard output and length storage must be independent.");
     size_t bytes=0; if (!clipboard_tsv_measure_view(view,&bytes,error)) return false;
     if (capacity<=bytes) return failed(error,"The clipboard output arena is too small.");
+    /* Reader/context traversal metadata remains immutable by caller contract.
+       Check ALL returned spans before text_encode writes even the first field. */
+    size_t count=view.rows*view.columns;
+    for (size_t i=0;i<count;i++) {
+        const char *text=view.read(view.context,i); if (!text) continue;
+        size_t span=strlen(text)+1;
+        if (text_overlap(arena,capacity,text,span) || text_overlap(written,sizeof(*written),text,span))
+            return failed(error,"Clipboard output must not overlap borrowed text.");
+    }
     text_encode(view,arena); *written=bytes; return true;
 }
 static const char *clipboard_text(const void *context,size_t index) { return ((const CellClipboard *)context)->values[index]; }

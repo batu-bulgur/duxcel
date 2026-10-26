@@ -14,8 +14,14 @@ bool clipboard_set(CellClipboard *copy,size_t row,size_t column,const char *valu
 /* Immutable borrowed row-major text projection. NULL is an empty public field;
    present empty strings are quoted. Reader is pure/nonreentrant and returns
    stable NUL-terminated text through complete measure/encode. No type inference.
-   bytes excludes the final NUL; encode capacity includes it. Disjoint output
-   admission precedes writing, and failures preserve bytes/arena/written. */
+   bytes excludes the final NUL; encode capacity includes it. Encode rejects
+   overlap between the COMPLETE supplied arena and any returned text span
+   (including its NUL), or written storage; written must not overlap text either.
+   All overlap checks precede writes, including when a later field aliases.
+   Reader/context and its traversal metadata, measure output and owned error
+   storage must independently remain disjoint from writable output and stable
+   through the call (opaque context extent cannot be inferred here).
+   Failures preserve bytes/arena/written; only an independent error may change. */
 typedef const char *(*ClipboardTextReader)(const void *context,size_t index);
 typedef struct { size_t rows,columns; ClipboardTextReader read; const void *context; } ClipboardTextView;
 bool clipboard_tsv_measure_view(ClipboardTextView view,size_t *bytes,char **error);

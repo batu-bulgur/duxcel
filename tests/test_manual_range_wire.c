@@ -164,7 +164,27 @@ static void byte_caps_and_arenas(void) {
     CHECK(manual_range_tsv_measure(view,NULL)==MANUAL_RANGE_INVALID && manual_range_tsv(view,0,NULL)==MANUAL_RANGE_INVALID);
     manual_value_free(&word);
 }
+static const char *borrowed_text(const void *context,size_t index) { return ((const char *const *)context)[index]; }
+static void borrowed_alias_guards(void) {
+    union { size_t aligned; unsigned char bytes[96]; } storage;
+    unsigned char before[96]; const char *values[2]; char *error=NULL; size_t written=719;
+    memset(storage.bytes,0xa5,sizeof(storage.bytes)); strcpy((char *)storage.bytes+16,"Borrowed");
+    memcpy(before,storage.bytes,sizeof(before)); values[0]=(const char *)storage.bytes+16;
+    CHECK(!clipboard_tsv_encode_view((ClipboardTextView){1,1,borrowed_text,values},(char *)storage.bytes,sizeof(storage.bytes),&written,&error) && error && written==719 && !memcmp(before,storage.bytes,sizeof(before))); free(error); error=NULL;
+    values[0]="Safe first field"; values[1]=(const char *)storage.bytes+16;
+    CHECK(!clipboard_tsv_encode_view((ClipboardTextView){1,2,borrowed_text,values},(char *)storage.bytes,sizeof(storage.bytes),&written,NULL) && written==719 && !memcmp(before,storage.bytes,sizeof(before)));
+    /* A source NUL alone overlaps the output; the nonempty byte is outside it. */
+    memset(storage.bytes,0xa5,sizeof(storage.bytes)); strcpy((char *)storage.bytes,"X"); values[0]=(const char *)storage.bytes; memcpy(before,storage.bytes,sizeof(before));
+    CHECK(!clipboard_tsv_encode_view((ClipboardTextView){1,1,borrowed_text,values},(char *)storage.bytes+1,8,&written,NULL) && written==719 && !memcmp(before,storage.bytes,sizeof(before)));
+    CHECK(clipboard_tsv_encode_view((ClipboardTextView){1,1,borrowed_text,values},(char *)storage.bytes+2,8,&written,NULL) && written==1 && !strcmp((char *)storage.bytes,"X") && !strcmp((char *)storage.bytes+2,"X") && storage.bytes[4]==0xa5);
+    memset(storage.bytes,0xa5,sizeof(storage.bytes)); values[0]="Independent"; memcpy(before,storage.bytes,sizeof(before));
+    CHECK(!clipboard_tsv_encode_view((ClipboardTextView){1,1,borrowed_text,values},(char *)storage.bytes,sizeof(storage.bytes),(size_t *)storage.bytes,NULL) && !memcmp(before,storage.bytes,sizeof(before)));
+    union { size_t aligned; unsigned char bytes[32]; } text; memset(text.bytes,0xa5,sizeof(text.bytes)); strcpy((char *)text.bytes,"Text"); unsigned char old_text[32]; memcpy(old_text,text.bytes,sizeof(old_text)); values[0]=(const char *)text.bytes;
+    CHECK(!clipboard_tsv_encode_view((ClipboardTextView){1,1,borrowed_text,values},(char *)storage.bytes,sizeof(storage.bytes),(size_t *)text.bytes,NULL) && !memcmp(old_text,text.bytes,sizeof(old_text)) && !memcmp(before,storage.bytes,sizeof(before)));
+    values[0]="OK"; written=719;
+    CHECK(clipboard_tsv_encode_view((ClipboardTextView){1,1,borrowed_text,values},(char *)storage.bytes,sizeof(storage.bytes),&written,NULL) && written==2 && !strcmp((char *)storage.bytes,"OK") && storage.bytes[3]==0xa5);
+}
 int main(void) {
-    presence_roundtrip(); malformed(); shape_and_maximum(); budgets_and_lifetimes(); public_projection(); external_shape_contract(); byte_caps_and_arenas();
+    borrowed_alias_guards(); presence_roundtrip(); malformed(); shape_and_maximum(); budgets_and_lifetimes(); public_projection(); external_shape_contract(); byte_caps_and_arenas();
     printf("PASS: %u typed manual range and clipboard checks\n",checks); return 0;
 }
