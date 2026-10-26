@@ -1192,6 +1192,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview_component build/tests/t
 PARALLEL_NATIVE_GOALS += build/tests/test_archive_scope build/tests/test_archive_scope-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_state build/tests/test_history_cells_state-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_publication build/tests/test_history_cells_publication-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2823,3 +2824,12 @@ build/tests/test_history_cells_publication: $(HISTORY_CELLS_PUBLICATION_OBJECTS)
 build/tests/test_history_cells_publication-debug: $(HISTORY_CELLS_PUBLICATION_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(HISTORY_CELLS_PUBLICATION_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(HISTORY_CELLS_PUBLICATION_OBJECTS:.o=.d) $(HISTORY_CELLS_PUBLICATION_SAN_OBJECTS:.o=.d)
+
+VALUE_TYPE_SRC = src/common.c src/workbook/manual_value.c src/ui/value_type.c tests/test_value_type.c
+VALUE_TYPE_OBJECTS = $(addprefix build/obj/release/source-scope/,$(addsuffix .o,$(basename $(VALUE_TYPE_SRC))))
+VALUE_TYPE_SAN_OBJECTS = $(addprefix build/obj/sanitize/source-scope/,$(addsuffix .o,$(basename $(VALUE_TYPE_SRC))))
+build/tests/test_value_type: $(VALUE_TYPE_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_value_type-debug: $(VALUE_TYPE_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(VALUE_TYPE_OBJECTS:.o=.d) $(VALUE_TYPE_SAN_OBJECTS:.o=.d)

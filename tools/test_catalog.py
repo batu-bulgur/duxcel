@@ -960,3 +960,7 @@ def plan(name):
 
 
 FEATURE_FIXTURES = {"source-opens": (("tools/create_workbook.py", "--source-opens-only"), "PASS: source open fixtures:", "build/tests/generated/source-open.parquet"), "source-origins": (("tools/create_workbook.py", "--source-origins-only"), "PASS: source origin fixture:", "build/tests/generated/source-origins.dxls"), "transactions": (("tools/create_workbook.py",), "PASS: Python transaction fixture,", "build/tests/generated/design-definition.dxls"), "transactions-large": (("tools/create_workbook.py", "--large"), "PASS: Python transaction fixture,", "build/tests/generated/design-large.dxls"), "source-connections": (("tools/create_workbook.py", "--source-connections-only"), "PASS: source connection fixtures:", "build/tests/generated/source-connection-a.duckdb"), "journal-paste": (("tools/create_workbook.py", "--journal-paste-only"), "PASS: journal paste fixture:", "build/tests/generated/journal-paste.tsv")}
+
+FEATURES["value-type"] = Feature(("value_type", "manual_value"), "",
+    ("python3 tools/test.py full --config both",),
+    ("src/ui/value_type.h", "src/ui/value_type.c", "tests/test_value_type.c"))
