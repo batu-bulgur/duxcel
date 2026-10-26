@@ -995,5 +995,5 @@ FEATURES["go-to"] = Feature(("go_to", "go_to_layout"), "",
     ("src/grid/go_to.c", "src/grid/go_to.h", "src/ui/go_to_layout.c", "src/ui/go_to_layout.h", "tests/test_go_to.c", "tests/test_go_to_layout.c"))
 
 FEATURES["go-to-app"] = Feature(("go_to", "go_to_layout", "grid_data_boundary"), "go-to",
-    ("python3 tools/test_web_app.py --review --review-controls-only --source tests/fixtures/transactions.csv", "python3 tools/test.py full --config both"),
+    ("python3 tools/test_web_app.py --review --access-only", "python3 tools/test.py full --config both"),
     ("src/app/go_to.inc", "tests/support/go_to_app.inc", "tests/test_go_to_gui.c", "web/canvas_input.mjs", "web/tests/canvas_input.test.mjs"))
