@@ -6,6 +6,8 @@ struct WorkbookVersionCommittedPublication { const WorkbookVersionReceipt *recei
 struct WorkbookVersionReceipt {
     WorkbookVersionPlan plan; WorkbookVersionTagPlan tag; WorkbookArchiveReceipt *archive;
     WorkbookCorePayload *capture; WorkbookVersionCoreSet *publication_base;
+    const Workbook *snapshot;
+    duckdb_connection active_connection; const WorkbookVersionCoreSet *active_after;
     WorkbookVersionPublication prepared; WorkbookVersionCommittedPublication committed;
     WorkbookVersionPublicationIntent intent;
     uint64_t revision; bool reused,tagged,compared;
@@ -24,6 +26,9 @@ static size_t root_at(const WorkbookVersionIndex *index,WorkbookVersionKey key) 
 WorkbookVersionPublicationIntent workbook_version_publication_intent(const WorkbookVersionPublication *p) { return p && p->receipt ? p->receipt->intent : VERSION_PUBLICATION_INVALID; }
 const WorkbookVersionPlan *workbook_version_publication_plan(const WorkbookVersionPublication *p) { return p && p->receipt ? &p->receipt->plan : NULL; }
 const WorkbookVersionCoreSet *workbook_version_publication_base(const WorkbookVersionPublication *p) { return p && p->receipt ? p->receipt->publication_base : NULL; }
+const Workbook *workbook_version_publication_snapshot(const WorkbookVersionPublication *p,duckdb_connection c,const WorkbookVersionCoreSet *after) {
+    return p && p->receipt && c && after && p->receipt->active_connection==c && p->receipt->active_after==after ? p->receipt->snapshot : NULL;
+}
 const WorkbookCorePayload *workbook_version_publication_capture(const WorkbookVersionPublication *p) { return p && p->receipt ? p->receipt->capture : NULL; }
 const WorkbookCorePayload *workbook_version_publication_selected(const WorkbookVersionPublication *p) {
     if (!p || !p->receipt || !p->receipt->capture) return NULL;
@@ -48,7 +53,11 @@ typedef struct { WorkbookVersionSaveControl control; WorkbookVersionReceipt *rec
 static bool publication_prepare(void *context,duckdb_connection c,const WorkbookVersionCoreSet *after,char **error) {
     PublicationBridge *bridge=context;
     if (bridge->control.archive.prepared && !bridge->control.archive.prepared(bridge->control.archive.prepared_context,c,after,error)) return false;
-    if (bridge->control.publication.prepare) { bridge->exposed=true; return bridge->control.publication.prepare(bridge->control.publication.context,&bridge->receipt->prepared,c,after,error); }
+    if (bridge->control.publication.prepare) {
+        bridge->exposed=true; bridge->receipt->active_connection=c; bridge->receipt->active_after=after;
+        bool ready=bridge->control.publication.prepare(bridge->control.publication.context,&bridge->receipt->prepared,c,after,error);
+        bridge->receipt->active_connection=NULL; bridge->receipt->active_after=NULL; return ready;
+    }
     return true;
 }
 static WorkbookSaveResult save(WorkbookVersionSaveRequest request,const WorkbookVersionText *label,WorkbookVersionPublicationIntent intent,WorkbookVersionSaveControl control,
@@ -72,7 +81,7 @@ static WorkbookSaveResult save(WorkbookVersionSaveRequest request,const Workbook
         WorkbookVersionStatus status=workbook_version_tag_label_check(base,*label);
         if (status) { fail(error,workbook_version_message(status)); return WORKBOOK_SAVE_FAILED; }
     }
-    WorkbookVersionReceipt *receipt=dx_alloc(sizeof(*receipt)); receipt->tagged=label!=NULL; receipt->intent=intent; WorkbookCorePayload *capture=NULL;
+    WorkbookVersionReceipt *receipt=dx_alloc(sizeof(*receipt)); receipt->tagged=label!=NULL; receipt->intent=intent; receipt->snapshot=head; WorkbookCorePayload *capture=NULL;
     PublicationBridge bridge={.control=control,.receipt=receipt};
     WorkbookVersionRoot candidate={0}; WorkbookVersionRoot *roots=NULL; const WorkbookCorePayload **leaves=NULL; WorkbookVersionTag *tags=NULL;
     WorkbookSaveResult result=WORKBOOK_SAVE_FAILED;
@@ -136,9 +145,9 @@ static WorkbookSaveResult save(WorkbookVersionSaveRequest request,const Workbook
     result=workbook_archive_write(head,&next,leaves,next.root_count,request.path,request.parent,request.reserved_bytes,archive,&receipt->archive,error);
 done:
     free(roots); free(leaves); free(tags);
-    if (result==WORKBOOK_SAVE_COMPLETE) { if (receipt->capture) receipt->committed.receipt=receipt; *out=receipt; return result; }
+    if (result==WORKBOOK_SAVE_COMPLETE) { receipt->snapshot=NULL; if (receipt->capture) receipt->committed.receipt=receipt; *out=receipt; return result; }
     if (bridge.exposed) control.publication.cancel(control.publication.context,&receipt->prepared);
-    workbook_version_receipt_free(receipt); return result;
+    receipt->snapshot=NULL; workbook_version_receipt_free(receipt); return result;
 }
 
 WorkbookSaveResult workbook_version_save(WorkbookVersionSaveRequest request,WorkbookVersionSaveControl control,WorkbookVersionReceipt **out,char **error) {

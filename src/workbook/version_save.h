@@ -65,6 +65,12 @@ WorkbookSaveResult workbook_version_export_save(WorkbookVersionSaveRequest reque
 WorkbookVersionPublicationIntent workbook_version_publication_intent(const WorkbookVersionPublication *publication);
 const WorkbookVersionPlan *workbook_version_publication_plan(const WorkbookVersionPublication *publication);
 const WorkbookVersionCoreSet *workbook_version_publication_base(const WorkbookVersionPublication *publication);
+/* SAME immutable model used by actual capture. Borrowed only inside the
+   active prepare callback only, with BOTH actual callback owners matching.
+   Wrong connection/after owner/inactive phase returns NULL. This avoids
+   a second decode/capture for model-bound auxiliary association. */
+const Workbook *workbook_version_publication_snapshot(const WorkbookVersionPublication *publication,
+    duckdb_connection connection,const WorkbookVersionCoreSet *after);
 const WorkbookCorePayload *workbook_version_publication_capture(const WorkbookVersionPublication *publication);
 const WorkbookCorePayload *workbook_version_publication_selected(const WorkbookVersionPublication *publication);
 uint64_t workbook_version_publication_revision(const WorkbookVersionPublication *publication);

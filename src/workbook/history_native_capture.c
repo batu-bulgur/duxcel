@@ -104,7 +104,7 @@ void workbook_history_native_free(WorkbookHistoryNativeCapture **owned) {
 }
 
 struct WorkbookHistoryAfterSave {
-    const WorkbookHistoryNativeCapture *source;
+    const void *borrowed_source;
     WorkbookHistoryProfile *profile;
     WorkbookVersionCoreSet *roots;
     WorkbookHistoryCapturedPosition captured;
@@ -135,7 +135,16 @@ static uint64_t cursor_lineage(const WorkbookHistoryPath *path) {
     for (size_t i=1;i<path->segment_count;i++) if (path->cursor>path->segments[i].from) lineage=path->segments[i].lineage;
     return lineage;
 }
-WorkbookHistoryNativeStatus workbook_history_after_save_prepare(const WorkbookHistoryNativeCapture *source,
+typedef struct {
+    const WorkbookHistoryProfile *profile;
+    const WorkbookVersionCoreSet *roots;
+    const WorkbookCorePayload *head;
+    WorkbookHistoryCapturedPosition captured;
+    uint64_t physical_bytes;
+    const void *borrowed;
+    const WorkbookVersionPublication *publication;
+} AfterSource;
+static WorkbookHistoryNativeStatus after_save_prepare(const AfterSource *source,
     const WorkbookVersionCoreSet *prepared_after,const WorkbookVersionPlan *save,WorkbookHistoryProfileCaps profile_caps,
     WorkbookHistoryNativeCaps native_caps,WorkbookHistoryAfterSaveControl control,WorkbookHistoryAfterSave **out,char **error) {
     if (!source || !prepared_after || !save || !out || *out || save->purpose!=VERSION_USER_SAVE) return HISTORY_NATIVE_INVALID;
@@ -155,13 +164,20 @@ WorkbookHistoryNativeStatus workbook_history_after_save_prepare(const WorkbookHi
     uint64_t physical=head->bytes;
     for (size_t i=0;i<after->root_count;i++) { if (after->roots[i].bytes>UINT64_MAX-physical) return HISTORY_NATIVE_LIMIT; physical+=after->roots[i].bytes; }
     if (source->physical_bytes>UINT64_MAX-physical || physical+source->physical_bytes>native_caps.physical_bytes) return HISTORY_NATIVE_LIMIT;
-    WorkbookHistoryNativeStatus checked=workbook_history_native_check(source,control.verify,error); if (checked) return checked;
+    WorkbookHistoryNativeStatus checked=workbook_history_native_check_parts(source->profile,source->roots,source->head,source->captured,control.verify,error); if (checked) return checked;
     Check proof={.control=control.verify};
     for (size_t i=0;i<after->root_count;i++) { proof.root=i; checked=verify(workbook_version_core_set_leaf(prepared_after,i),&proof,error); if (checked) return checked; }
     if (!same) {
-        bool equal=false; WorkbookCorePayloadResult compared=workbook_core_payload_equal(source->head,leaf,control.compare,&equal,error);
-        if (compared!=CORE_PAYLOAD_READY) return compared==CORE_PAYLOAD_CANCELLED ? HISTORY_NATIVE_CANCELLED : compared==CORE_PAYLOAD_UNSUPPORTED ? HISTORY_NATIVE_UNSUPPORTED : HISTORY_NATIVE_FAILED;
-        if (!equal) return HISTORY_NATIVE_ASSOCIATION;
+        if (source->publication) {
+            /* Consume the actual controller's completed comparison witness,
+               bound to its actual selected body, never a caller boolean. */
+            const WorkbookCorePayloadInfo *witness=workbook_core_payload_info(workbook_version_publication_selected(source->publication));
+            if (!workbook_version_publication_compared(source->publication) || !witness || witness->bytes!=chosen->bytes || witness->encoding!=chosen->encoding || memcmp(witness->sha256,chosen->sha256,32)) return HISTORY_NATIVE_ASSOCIATION;
+        } else {
+            bool equal=false; WorkbookCorePayloadResult compared=workbook_core_payload_equal(source->head,leaf,control.compare,&equal,error);
+            if (compared!=CORE_PAYLOAD_READY) return compared==CORE_PAYLOAD_CANCELLED ? HISTORY_NATIVE_CANCELLED : compared==CORE_PAYLOAD_UNSUPPORTED ? HISTORY_NATIVE_UNSUPPORTED : HISTORY_NATIVE_FAILED;
+            if (!equal) return HISTORY_NATIVE_ASSOCIATION;
+        }
     }
     WorkbookHistoryAnchor *anchors=anchor_capacity ? dx_alloc(anchor_capacity*sizeof(*anchors)) : NULL;
     WorkbookHistoryProfileRecord *records=count ? dx_alloc(count*sizeof(*records)) : NULL; size_t *map=count ? dx_alloc(count*sizeof(*map)) : NULL;
@@ -187,7 +203,7 @@ WorkbookHistoryNativeStatus workbook_history_after_save_prepare(const WorkbookHi
         view.anchors=&public; view.current=(WorkbookHistoryProfilePath){path,map,count}; view.saved=view.current; view.records=records; view.count=count;
         for (size_t i=0;i<count;i++) { records[i]=old->records[old->current.records[i]]; map[i]=i; }
     }
-    WorkbookHistoryAfterSave *plan=dx_alloc(sizeof(*plan)); plan->source=source; plan->captured=source->captured; plan->save=*save; plan->selected=selected; plan->semantic_reuse=!same;
+    WorkbookHistoryAfterSave *plan=dx_alloc(sizeof(*plan)); plan->borrowed_source=source->borrowed; plan->captured=source->captured; plan->save=*save; plan->selected=selected; plan->semantic_reuse=!same;
     plan->roots=workbook_version_core_set_retain(prepared_after); if (!plan->roots) { free(plan); status=HISTORY_NATIVE_LIMIT; goto done; }
     profile_caps.staging_bytes-=fixed;
     WorkbookHistoryProfileStatus admitted=workbook_history_profile_prepare(view,profile_caps,&plan->profile);
@@ -197,6 +213,30 @@ WorkbookHistoryNativeStatus workbook_history_after_save_prepare(const WorkbookHi
     *out=plan; status=HISTORY_NATIVE_READY;
 done:
     free(anchors); free(records); free(map); return status;
+}
+WorkbookHistoryNativeStatus workbook_history_after_save_prepare(const WorkbookHistoryNativeCapture *source,
+    const WorkbookVersionCoreSet *prepared_after,const WorkbookVersionPlan *save,WorkbookHistoryProfileCaps profile_caps,
+    WorkbookHistoryNativeCaps native_caps,WorkbookHistoryAfterSaveControl control,WorkbookHistoryAfterSave **out,char **error) {
+    if (!source) return HISTORY_NATIVE_INVALID;
+    AfterSource borrowed={source->profile,source->roots,source->head,source->captured,source->physical_bytes,source,NULL};
+    return after_save_prepare(&borrowed,prepared_after,save,profile_caps,native_caps,control,out,error);
+}
+WorkbookHistoryNativeStatus workbook_history_after_save_prepare_publication(const WorkbookHistoryProfile *before,
+    const WorkbookVersionPublication *publication,duckdb_connection connection,const WorkbookVersionCoreSet *prepared_after,
+    WorkbookHistoryProfileCaps profile_caps,WorkbookHistoryNativeCaps native_caps,
+    WorkbookHistoryAfterSaveControl control,WorkbookHistoryAfterSave **out,char **error) {
+    if (!before || !publication || workbook_version_publication_intent(publication)!=VERSION_PUBLICATION_USER_SAVE) return HISTORY_NATIVE_INVALID;
+    if (!workbook_version_publication_snapshot(publication,connection,prepared_after)) return HISTORY_NATIVE_ASSOCIATION;
+    const WorkbookVersionPlan *save=workbook_version_publication_plan(publication);
+    const WorkbookVersionCoreSet *base=workbook_version_publication_base(publication);
+    const WorkbookCorePayload *head=workbook_version_publication_capture(publication);
+    if (!save || !base || !head) return HISTORY_NATIVE_INVALID;
+    WorkbookHistoryCapturedPosition captured={save->owner,workbook_version_publication_revision(publication)};
+    WorkbookHistoryNativeMeasure measure;
+    WorkbookHistoryNativeStatus checked=workbook_history_native_measure(before,base,head,captured,(WorkbookHistoryNativeCaps){UINT64_MAX,SIZE_MAX},NULL,&measure);
+    if (checked) return checked;
+    AfterSource borrowed={before,base,head,captured,measure.physical_bytes,publication,publication};
+    return after_save_prepare(&borrowed,prepared_after,save,profile_caps,native_caps,control,out,error);
 }
 const WorkbookHistoryProfile *workbook_history_after_save_profile(const WorkbookHistoryAfterSave *p) { return p ? p->profile : NULL; }
 const WorkbookVersionCoreSet *workbook_history_after_save_roots(const WorkbookHistoryAfterSave *p) { return p ? p->roots : NULL; }

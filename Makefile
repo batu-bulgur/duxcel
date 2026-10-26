@@ -2743,7 +2743,7 @@ build/tests/test_history_after_save-debug: $(HISTORY_AFTER_SAVE_SAN_OBJECTS) | b
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(HISTORY_AFTER_SAVE_OBJECTS:.o=.d) $(HISTORY_AFTER_SAVE_SAN_OBJECTS:.o=.d)
 
-VERSION_PUBLICATION_SRC = $(filter-out tests/test_version_save.c,$(VERSION_SAVE_SOURCES)) tests/test_version_publication.c
+VERSION_PUBLICATION_SRC = $(filter-out tests/test_history_after_save.c,$(HISTORY_AFTER_SAVE_SRC)) tests/test_version_publication.c
 VERSION_PUBLICATION_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(VERSION_PUBLICATION_SRC))))
 VERSION_PUBLICATION_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(VERSION_PUBLICATION_SRC))))
 build/tests/test_version_publication: $(VERSION_PUBLICATION_OBJECTS) | build/tests

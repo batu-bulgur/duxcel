@@ -2,6 +2,7 @@
 #define DUXCEL_HISTORY_AFTER_SAVE_H
 #include "history_native_capture.h"
 #include "core_compare.h"
+#include "version_save.h"
 typedef struct WorkbookHistoryAfterSave WorkbookHistoryAfterSave;
 typedef struct { WorkbookHistoryNativeControl verify; WorkbookCoreCompareControl compare; } WorkbookHistoryAfterSaveControl;
 /* Independent CURRENT after-USER_SAVE preparation. The source capsule is a true
@@ -33,6 +34,15 @@ typedef struct { WorkbookHistoryNativeControl verify; WorkbookCoreCompareControl
    proof. Stale UI adoption must never relabel a committed Save as file failure. */
 WorkbookHistoryNativeStatus workbook_history_after_save_prepare(const WorkbookHistoryNativeCapture *source,
     const WorkbookVersionCoreSet *prepared_after,const WorkbookVersionPlan *save,
+    WorkbookHistoryProfileCaps profile_caps,WorkbookHistoryNativeCaps native_caps,
+    WorkbookHistoryAfterSaveControl control,WorkbookHistoryAfterSave **out,char **error);
+/* Actual User Save adapter: borrow the ONE controller-created capture and its
+   internally verified selected-root witness. No capsule capture/recapture is
+   performed. before stays owned by the caller; publication stays owned by its
+   real controller/returned receipt until this plan is cancelled/consumed. Only
+   USER_SAVE is accepted; Tag/checkpoint/export retain distinct authority. */
+WorkbookHistoryNativeStatus workbook_history_after_save_prepare_publication(const WorkbookHistoryProfile *before,
+    const WorkbookVersionPublication *publication,duckdb_connection connection,const WorkbookVersionCoreSet *prepared_after,
     WorkbookHistoryProfileCaps profile_caps,WorkbookHistoryNativeCaps native_caps,
     WorkbookHistoryAfterSaveControl control,WorkbookHistoryAfterSave **out,char **error);
 const WorkbookHistoryProfile *workbook_history_after_save_profile(const WorkbookHistoryAfterSave *plan);
