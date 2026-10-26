@@ -17,11 +17,17 @@ typedef struct {
     const WorkbookVersionIndex *expected_index;
     /* Historical exports must never replace any artifact of their live origin. */
     WorkbookId protected_document;
+    /* Borrow the actual root-readback owner on the SAME transaction before
+       PUBLISH/COMMIT. This is root preparation, not User Save authorization.
+       No connection/transaction takeover, source queries or model mutation.
+       Failure requires the outer writer to roll back; default NULL is inactive. */
+    bool (*prepared)(void *context,duckdb_connection connection,const WorkbookVersionCoreSet *roots,char **error);
+    void *prepared_context;
 } WorkbookArchiveWriteControl;
 /* Native v16 transactional writer. Borrow immutable authored head/index/leaves
    and an existing staging parent. reserved_bytes bounds each admitted core set
    (existing target/new prepared receipt), not total disk/RSS. Validates an
-   existing v1-v16 target including retained closure before replacement, retains
+   existing current v16 target including retained closure before replacement, retains
    unrelated tables and protects external/borrowed leaf aliases. Corrupt targets
    reject. Failure/cancel rolls back existing data/removes a new target, leaving
    out unchanged. Every owned receipt/root is prepared before cancellable

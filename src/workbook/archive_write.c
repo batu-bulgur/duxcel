@@ -89,6 +89,8 @@ static WorkbookSaveResult stage(WorkbookArchiveSaveContext *context,duckdb_conne
     if (staged!=VERSION_STAGE_READY) return staged==VERSION_STAGE_CANCELLED ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;
     if (!exec(c,"UPDATE _duxcel_workspace.meta SET version=16",error)) return WORKBOOK_SAVE_FAILED;
     WorkbookVersionRestoreResult prepared=workbook_version_core_set_read(c,context->parent,context->reserved,context->control.prepare,&context->receipt->versions,error);
+    if (prepared==VERSION_RESTORE_READY && context->control.prepared &&
+        !context->control.prepared(context->control.prepared_context,c,context->receipt->versions,error)) return WORKBOOK_SAVE_FAILED;
     return prepared==VERSION_RESTORE_READY ? WORKBOOK_SAVE_COMPLETE : prepared==VERSION_RESTORE_CANCELLED ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;
 }
 WorkbookSaveResult workbook_archive_write(const Workbook *head,const WorkbookVersionIndex *index,

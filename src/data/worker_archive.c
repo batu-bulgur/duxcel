@@ -93,7 +93,7 @@ static WorkbookSaveResult execute(WorkbookNativeIO *c,JobKind kind,const Workboo
         WorkbookVersionSaveRequest request={.head=snapshot,.base=c->base,.owner=c->owner,.purpose=c->purpose,.path=path,.parent=c->parent,.reserved_bytes=c->reserved};
         WorkbookVersionSaveControl controls={.capture=capture,.compare={compare_cancel,c},.archive={
             .core={publish_update,c},.inspect={inspect_cancel,c},.stage={stage_cancel,c},.prepare={prepare_cancel,c},.expected_target=c->expects_target ? &c->expected_target : NULL,.expected_index=c->expects_target ? workbook_version_core_set_index(c->base) : NULL,.protected_document=c->export_requested ? snapshot->origin.document : (WorkbookId){0}}};
-        return c->label ? workbook_version_tag_save(request,(WorkbookVersionText){c->label,c->label_bytes},controls,&c->saved,error) : workbook_version_save(request,controls,&c->saved,error);
+        return c->label ? workbook_version_tag_save(request,(WorkbookVersionText){c->label,c->label_bytes},controls,&c->saved,error) : c->export_requested ? workbook_version_export_save(request,controls,&c->saved,error) : workbook_version_save(request,controls,&c->saved,error);
     }
     WorkbookArchiveReadResult read=workbook_archive_read(path,c->parent,c->reserved,(WorkbookArchiveReadControl){load_cancel,c},&c->loaded,error);
     if (read!=ARCHIVE_READ_READY) return read==ARCHIVE_READ_CANCELLED ? WORKBOOK_SAVE_CANCELLED : WORKBOOK_SAVE_FAILED;

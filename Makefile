@@ -1184,6 +1184,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_native_capture build/tests/tes
 PARALLEL_NATIVE_GOALS += build/tests/test_history_profile_codec build/tests/test_history_profile_codec-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_component build/tests/test_history_component-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_history_after_save build/tests/test_history_after_save-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_version_publication build/tests/test_version_publication-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2741,3 +2742,12 @@ build/tests/test_history_after_save: $(HISTORY_AFTER_SAVE_OBJECTS) | build/tests
 build/tests/test_history_after_save-debug: $(HISTORY_AFTER_SAVE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(HISTORY_AFTER_SAVE_OBJECTS:.o=.d) $(HISTORY_AFTER_SAVE_SAN_OBJECTS:.o=.d)
+
+VERSION_PUBLICATION_SRC = $(filter-out tests/test_version_save.c,$(VERSION_SAVE_SOURCES)) tests/test_version_publication.c
+VERSION_PUBLICATION_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(VERSION_PUBLICATION_SRC))))
+VERSION_PUBLICATION_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(VERSION_PUBLICATION_SRC))))
+build/tests/test_version_publication: $(VERSION_PUBLICATION_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm)
+build/tests/test_version_publication-debug: $(VERSION_PUBLICATION_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(VERSION_PUBLICATION_OBJECTS:.o=.d) $(VERSION_PUBLICATION_SAN_OBJECTS:.o=.d)
