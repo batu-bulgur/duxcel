@@ -32,4 +32,22 @@ WorkbookHistoryCellsStateStatus workbook_history_cells_state_measure(const Workb
 WorkbookHistoryCellsStateStatus workbook_history_cells_state_check(const WorkbookHistoryProfile *profile,
     const Workbook *actual,WorkbookHistoryCellStateEntry *scratch,size_t reserved,
     WorkbookHistoryCellsStateReport *out);
+typedef struct {
+    WorkbookHistoryCellsStateReport current,saved;
+    uint64_t shared_position;
+    size_t coordinate_checks; /* Includes repeated coordinates; not a unique count. */
+} WorkbookHistoryCellsSavedReport;
+/* Additionally prove both complete selected family1 intervals and full sparse
+   cell equality at their shared durable fork, including cells never mentioned by
+   a delta. Actual Saved body must be independently associated with the public
+   Saved root by the native owner; Saved's start is its explicit anchor position,
+   not an inferred hash or path cursor. Both models remain immutable. Non-cell
+   authored graphs, other public checkpoints and physical association remain
+   outside this projection proof. Scratch is the sum of both path entry bounds;
+   output/input preservation and admission rules match the current-only API. */
+WorkbookHistoryCellsStateStatus workbook_history_cells_saved_measure(const WorkbookHistoryProfile *profile,
+    const Workbook *current,const Workbook *saved,size_t *bytes);
+WorkbookHistoryCellsStateStatus workbook_history_cells_saved_check(const WorkbookHistoryProfile *profile,
+    const Workbook *current,const Workbook *saved,WorkbookHistoryCellStateEntry *scratch,size_t reserved,
+    WorkbookHistoryCellsSavedReport *out);
 #endif
