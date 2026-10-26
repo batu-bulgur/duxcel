@@ -210,6 +210,8 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12b.2a · P1 · Complete | Structural event-path and anchor/window join; W12b.1. | Prove ordered lineage ancestry, exact retained transitions, cursor/Redo bounds and monotonic operation IDs. Ancestor prefixes remain on-path; abandoned suffixes stay checkpoints. A forked Saved endpoint cannot silently produce a successful empty window. Payload/file admission remains separate. |
 | W12b.2b · P1 · Complete | Independent Saved/current-branch protection; W12b.2a. | Protect the Saved path's three-state window and a newer unsaved branch, including shared-prefix/fork bounds, without dropping older tags or counting abandoned suffixes as current Redo. Fail atomically on either missing interval. |
 | W12b.2c · P1 · In progress | Closed durable metadata/profile admission; W12b.2b, W12c. | Bind exact typed reversible payload closure, path/anchor metadata and budgets before selecting a file profile. Admit only the current file profile; unsupported/corrupt history cannot replace the live document. |
+| W12b.2c.1 · P1 · Complete | Bounded combined profile owner; W12b.2b and existing event families. | Own exact path/anchor/index metadata and unique immutable transition bytes; reject missing/extra/foreign closure before replacing the previous candidate. No retained writer activation. |
+| W12b.2c.2 · P1 · Complete | Closed current DXHP profile wire; W12b.2c.1. | Canonical framing, exact event grammar and aggregate parser/coexistence admission preserve old output on corrupt or unsupported input. Native root and actual-state proof remain independent. |
 | W12c · P1 · In progress | Persist supported reversible payload families; W12b.2a. | Capture exact before/after cells, formats, analysis, objects, columns and sheet lifecycle payloads, including deleted sheets and stable identities. No raw process structs or session-order identities in the file contract. |
 | W12c.1 · P1 · Complete | Sparse-cell reversible events and admission; W12b.2a. | Capture exact before/after bytes, clears, target identity and operation ID before mutation/ring eviction. Queue pressure or invalid ownership rejects without changing cells/history; no-op creates no event. |
 | W12c.1a · P1 · Complete | Shared exact sparse-cell payload ownership; W12b.2a. | Validate target/text/clear/no-op and capture exact before/after spans into caller-owned bounded storage before mutation. Existing native recovery reservation uses the same shared controller without another allocation or wire migration. |
@@ -324,6 +326,12 @@ Implement one existing manual-cell edit through each boundary before expanding t
 | W12c.5.8 · P1 · Complete | Read-only typed sheet slot/batch/applicability prerequisites; W12c.5.7. | Bind only supplied current frame/path slots, cap aggregate ownership before decode, preserve prior output on late failure and expose pending/unbound observations without activation. Full file profile/publication remains W12b.2c/W12d. |
 | W12c.5.9 · P1 · Complete | Native source CREATE publication; W12c.5.6–W12c.5.8 and source draft/origin admission. | Resolve actual Database/CSV/Parquet/demo probe, own the full initial view and original topology packet, then publish one genuine CREATE. Cancel/stale/pressure preserve the prior sheet; keyboard replay preserves authored widths/navigation and monotonic identities. |
 | W12d · P1 · In progress | Ordered Save/checkpoint/Open history publication; W12b.2c, W12c. | Captured R owns its full retained interval and root closure; R+1 remains dirty/recoverable. Save preserves valid Redo; failure/cancel preserves the prior artifact/history and reports limits before any protected interval is lost. |
+| W12d.1 · P1 · Complete | Actual frozen-head/native-root association; W12b.2c.1–2. | Verify original leased core bytes/revision against real retained owners, including first unsaved state and rollback lifetimes. |
+| W12d.2 · P1 · Complete | Unpublished SQL history component; W12d.1. | Stage/read exact sealed head and DXHP chunks in the caller's transaction; reject corruption/ownership failure atomically without committing or enabling the registry. |
+| W12d.3 · P1 · Complete | Prepared after-Save ownership; W12d.1–2. | Preserve retained paths, tags and Redo while binding the selected real after-root; cancellation leaves the source candidate unchanged. |
+| W12d.4 · P1 · Complete | Genuine Save publication callback owners; W12d.3. | Mint prepared/committed witnesses in the real capture/compare/archive flow, bind exact active callback owners and distinguish User Save from export/Tag/checkpoint. No retained-history activation. |
+| W12d.5 · P1 · In progress | Scoped archive target association; W12d.4. | Prove the actual loaded transaction against an actual retained core leaf, with explicit comparison admission and callback lifetime. Preview reader/registry integration remains separate. |
+| W12d.6 · P1 · In progress | Actual retained-event applicability; W12b.2c and W12d.1. | Begin with bounded family1 Undo/Redo against the real current Workbook, reject unsupported families, then extend through all required producers/checkpoints before advertising cross-session replay. |
 | W12e · P1 · Queued | Bounded cross-session history replay; W12d. | Reopen and Undo/Redo through the retained chronological interval under request/owner/revision fences. Preserve monotonic identity allocation and live display defaults; only an accepted changed edit abandons Redo. |
 | W12f · P1 · Queued | Reachability-based history/root pruning; W12d–W12e. | Protect named checkpoints, retained events, current Undo/Redo, recovery frontiers and active readers. Prune only proved unreachable assets through atomic publication; no silent truncation to meet a byte limit. |
 | W12g · P1 · Queued | Retained-range presentation and milestone gate; W12e–W12f. | Show actual retained Undo coverage and limits. V8→V9→V10 plus unsaved suffix survives reopen, older tags remain openable, and failure/branch/pruning checks pass at the explicit major milestone. |
@@ -2733,3 +2741,13 @@ stages10.636s and template6 stages7.686s all pass (`20261026T005856-feature-3738
 immutable; refusal/no-op preserve owned plans and Redo. Retained App activation
 and the separate typed-cell group remain open. No broad suite or human review
 is claimed for this post-delivery feature group.
+
+Combined main history foundation (`7add8f0b`–`be60c32a`) passes the four scoped
+optimized/sanitizer plans after linear integration: capture22.083s, component
+13.638s, after-Save14.749s and publication67.771s (`20261026T010344-feature-40637`,
+`010406-feature-43859`, `010420-feature-44287`, `010435-feature-44855`). The last
+plan includes actual Save/Tag/Worker checks; fourteen catalog contracts pass.
+Pure typed prerequisites pass range/scalar/value/existing-TSV8.233s and sparse
+candidates3.908s (`010213-feature-39892`, `010222-feature-40234`). W12b.2c.1–2
+and W12d.1–4 are components, not persisted Undo/Open activation. Actual-state
+applicability and registry publication remain mandatory.
