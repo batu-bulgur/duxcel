@@ -2705,6 +2705,29 @@ async function manualGoToAccess(){
  check(restored.modal==='0'&&restored.active===baseline.active&&restored.anchor===baseline.anchor&&restored.extent===baseline.extent&&sameModel(restored)&&starts().length===jobs,'Go To return changed data/history/source or submitted a query');
  return{baseline,opened:opened.state,invalid,applied,cancelled,restored,scope:'Trusted Control/Meta-G delivery to the shared C manual-only same-sheet dialog, malformed draft retention, finite far Apply and Escape/return without data/history/query changes. Native fixture separately covers address-strip click, stale owner and narrow150%.'};
 }
+async function manualFindAccess(){
+ const baseline=await platformSnapshot(),jobs=starts().length;
+ check(baseline.active==='0,0'&&baseline.manual_cells==='1'&&baseline.object_count==='0','Find access fixture requires the actual manual A1 sentinel');
+ const sameModel=state=>['sheet','manual_cells','selection_history','dirty','request','source_revision','schema','page','spare'].every(field=>state[field]===baseline[field]);
+ await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Control','ControlLeft',17));
+ try{await key('g','KeyG',71,'',2);}finally{await send('Input.dispatchKeyEvent',cdpKeyEvent('keyUp','Control','ControlLeft',17));}
+ authorState(await platformSnapshot(),'go_to');await authorDraft('B9');await key('Enter','Enter',13);
+ const away=await platformSnapshot();check(away.active==='8,1'&&away.modal==='0'&&sameModel(away),'Actual Go To did not prepare the finite Find starting point');
+ await key('Alt','AltLeft',18);await key('w','KeyW',87);await key('z','KeyZ',90);await key('c','KeyC',67);
+ const opened=authorState(await platformSnapshot(),'manual_find');
+ check(opened.rows.map(row=>row.key).join(',')==='query,whole_cell,previous,next,close','View Navigate lost its actual Find controls');
+ const draft=await authorDraft('8');await authorActivate('manual_find','next');const absent=await platformSnapshot();
+ check(absent.author_kind==='manual_find'&&absent.active===away.active&&absent.search_revision===draft.search_revision&&sameModel(absent),'Not-found Find changed selection/model or rewrote the query');
+ await authorDraft('7');await authorActivate('manual_find','next');const matched=await platformSnapshot();
+ check(matched.author_kind==='manual_find'&&matched.active===baseline.active&&matched.anchor===baseline.anchor&&matched.extent===baseline.extent&&sameModel(matched),'Real literal Find did not wrap from B9 to the actual authored A1 sentinel');
+ await authorActivate('manual_find','whole_cell');const whole=authorState(await platformSnapshot(),'manual_find');
+ check(whole.rows.find(row=>row.key==='whole_cell')?.checked,'Actual Whole cell control did not retain its explicit match mode');
+ await authorActivate('manual_find','previous');const previous=await platformSnapshot();
+ check(previous.active===baseline.active&&sameModel(previous),'Previous on the sole whole-cell match changed the model or target');
+ await authorActivate('manual_find','close');const closed=await platformSnapshot();
+ check(closed.modal==='0'&&closed.active===baseline.active&&sameModel(closed)&&starts().length===jobs,'Closing Find changed authored values/history/source or submitted a query');
+ return{baseline,away,opened:opened.state,absent,matched,whole:whole.state,previous,closed,scope:'Trusted View ZC navigation to the shared C manual-only Find dialog, absent and exact authored-text queries, wrapped target, Whole cell/Previous and Close without edits or Worker work. Native fixture separately covers multi-match direction, limits, stale owners and narrow150%.'};
+}
 async function accessKeys(){
  const before=await platformSnapshot(),jobs=starts().length;
  await send('Input.dispatchKeyEvent',cdpKeyEvent('keyDown','Shift','ShiftLeft',16));
@@ -2713,7 +2736,7 @@ async function accessKeys(){
  await key('7','Digit7',55,'7');await key('Enter','Enter',13);await key('ArrowUp','ArrowUp',38);
  const seeded=await platformSnapshot();
  check(Number(seeded.sheet_count)===Number(before.sheet_count)+1&&Number(seeded.manual_cells)===1&&seeded.dirty==='1','Shift F11 and real manual entry did not prepare a dirty sentinel sheet');
- const goTo=await manualGoToAccess();
+ const goTo=await manualGoToAccess(),find=await manualFindAccess();
  const boldBatch=await fastKeys([['Alt','AltLeft',18],['h','KeyH',72],['1','Digit1',49]]);await pause(180);
  const bold=await platformSnapshot();
  check(Number(bold.active_format_flags)===(Number(seeded.active_format_flags)^1)&&Number(bold.keytips)===0&&bold.modal==='0','Same-frame Alt H 1 did not execute exactly one Bold action');
@@ -2786,7 +2809,7 @@ async function accessKeys(){
  await key('ArrowRight','ArrowRight',39);await key('Enter','Enter',13);const closed=await platformSnapshot();
  check(closed.modal==='0'&&closed.dirty==='0'&&closed.manual_cells==='0'&&closed.sheet_count==='1','Discard Close did not retain a live blank browser surface');
  check(starts().length===jobs,'Access keys or document close added unexpected database jobs');
- const result={before,seeded,goTo,boldBatch,bold,copyBatch,copied,menu,filePicks,filePickRestored,protectedCell,fileNavigation,reverseTab,shortFile,headingFile,homeFile,scrolledFile,thumbPick,thumbRestored,closeFocus,spaceClose,reopenedFile,helpBlocked,tinyFile,outside,closePrompt,cancelled,closed,
+ const result={before,seeded,goTo,find,boldBatch,bold,copyBatch,copied,menu,filePicks,filePickRestored,protectedCell,fileNavigation,reverseTab,shortFile,headingFile,homeFile,scrolledFile,thumbPick,thumbRestored,closeFocus,spaceClose,reopenedFile,helpBlocked,tinyFile,outside,closePrompt,cancelled,closed,
   scope:'Trusted CDP sequences, actual C formatting/Copy dispatch, File-menu edit quarantine, disabled-skipping/wrapping navigation, short-window keyboard/wheel scrolling, Space activation, frozen File background/heading/disabled Save/scrolled thumb picks with reporting-bar relocation and cancel retention, normal held outside click and cancel/discard document lifecycle. This does not accept completed between-frame pointer capture, browser clipboard delivery, Worker queries or report upload.'};
  await fs.writeFile(path.join(output,'access-keys.json'),JSON.stringify(result,null,2));
  return result;
