@@ -1190,6 +1190,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_source_details_csv-gui build/tests/tes
 PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview build/tests/test_browse_preview-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_browse_preview_component build/tests/test_browse_preview_component-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_archive_scope build/tests/test_archive_scope-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_state build/tests/test_history_cells_state-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2803,3 +2804,12 @@ build/tests/test_archive_scope: $(ARCHIVE_SCOPE_OBJECTS) | build/tests
 build/tests/test_archive_scope-debug: $(ARCHIVE_SCOPE_SAN_OBJECTS) | build/tests
 	$(call link_binary,-O1 -g $(SANFLAGS) $(ARCHIVE_SCOPE_SAN_OBJECTS),$(DUCKDB_LIBS) $(THREAD_LIBS) -lm $(SANFLAGS))
 -include $(ARCHIVE_SCOPE_OBJECTS:.o=.d) $(ARCHIVE_SCOPE_SAN_OBJECTS:.o=.d)
+
+HISTORY_CELLS_STATE_SRC = $(filter-out tests/test_history_profile.c,$(HISTORY_PROFILE_SRC)) src/workbook/history_cells_state.c tests/test_history_cells_state.c
+HISTORY_CELLS_STATE_OBJECTS = $(addprefix build/obj/release/cell-command/,$(addsuffix .o,$(basename $(HISTORY_CELLS_STATE_SRC))))
+HISTORY_CELLS_STATE_SAN_OBJECTS = $(addprefix build/obj/sanitize/cell-command/,$(addsuffix .o,$(basename $(HISTORY_CELLS_STATE_SRC))))
+build/tests/test_history_cells_state: $(HISTORY_CELLS_STATE_OBJECTS) build/web-tests/platform-model.o | build/tests
+	$(call link_binary,$(CFLAGS) $(HISTORY_CELLS_STATE_OBJECTS) build/web-tests/platform-model.o,$(THREAD_LIBS) -lm)
+build/tests/test_history_cells_state-debug: $(HISTORY_CELLS_STATE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $(HISTORY_CELLS_STATE_SAN_OBJECTS) build/web-tests/platform-model-sanitize.o,$(THREAD_LIBS) -lm $(SANFLAGS))
+-include $(HISTORY_CELLS_STATE_OBJECTS:.o=.d) $(HISTORY_CELLS_STATE_SAN_OBJECTS:.o=.d)
