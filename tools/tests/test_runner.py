@@ -515,6 +515,7 @@ class RunnerTests(unittest.TestCase):
                        for module in runner.ENGINE_MODULES]
             expected=[[runner.sys.executable, "tools/create_workbook.py", "--journal-paste-only"],
                       [runner.sys.executable, "tools/create_workbook.py", "--source-connections-only"],
+                      [runner.sys.executable, "tools/create_workbook.py", "--source-opens-only"],
                       [runner.sys.executable, "tools/create_workbook.py", "--source-origins-only"],
                       [runner.sys.executable, "tools/create_workbook.py"],
                       [runner.sys.executable, "tools/create_workbook.py", "--large"]]
