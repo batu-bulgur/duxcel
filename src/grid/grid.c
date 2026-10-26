@@ -92,14 +92,32 @@ bool grid_project_widths(Grid *g,const float *widths,size_t count) {
     }
     return true;
 }
-void grid_ensure_columns(Grid *g,size_t count) {
-    count=MIN(count,16384); if (g->width_count>=count) return;
+#ifdef DUXCEL_GRID_TESTING
+static unsigned column_failure;
+void grid_test_fail_column_allocation(unsigned ordinal) { column_failure=ordinal; }
+#endif
+static void *column_allocate(size_t bytes) {
+#ifdef DUXCEL_GRID_TESTING
+    if (column_failure && !--column_failure) return NULL;
+#endif
+    return malloc(bytes);
+}
+bool grid_try_ensure_columns(Grid *g,size_t count) {
+    if (!g || count>16384 || g->width_count>16384 || (g->width_count && (!g->widths || !g->offsets || !g->column_names))) return false;
+    if (g->width_count>=count) return true;
     size_t old=g->width_count,next=MIN(16384,old+((count-old+51)/52)*52);
-    g->widths=dx_realloc(g->widths,next*sizeof(float)); g->offsets=dx_realloc(g->offsets,(next+1)*sizeof(float));
-    g->column_names=dx_realloc(g->column_names,next*sizeof(char *));
-    if (!old) g->offsets[0]=0;
-    for (size_t c=old;c<next;c++) { g->column_names[c]=NULL; g->widths[c]=96; g->offsets[c+1]=g->offsets[c]+96; }
-    g->width_count=next;
+    float *widths=column_allocate(next*sizeof(*widths)),*offsets=column_allocate((next+1)*sizeof(*offsets));
+    char **names=column_allocate(next*sizeof(*names));
+    if (!widths || !offsets || !names) { free(widths); free(offsets); free(names); return false; }
+    offsets[0]=0;
+    if (old) { memcpy(widths,g->widths,old*sizeof(*widths)); memcpy(offsets,g->offsets,(old+1)*sizeof(*offsets)); memcpy(names,g->column_names,old*sizeof(*names)); }
+    for (size_t c=old;c<next;c++) { names[c]=NULL; widths[c]=96; offsets[c+1]=offsets[c]+96; }
+    free(g->widths); free(g->offsets); free(g->column_names);
+    g->widths=widths; g->offsets=offsets; g->column_names=names; g->width_count=next; return true;
+}
+void grid_ensure_columns(Grid *g,size_t count) {
+    /* Preserve the established fatal allocation policy for existing callers. */
+    if (!grid_try_ensure_columns(g,MIN(count,16384))) { fputs("Unable to grow grid column capacity.\n",stderr); abort(); }
 }
 static void extend_columns(Grid *g) { grid_ensure_columns(g,g->width_count+52); }
 void grid_schema(Grid *g,const Page *p,bool reset) {
@@ -303,6 +321,19 @@ static void navigate(Grid *g,const Page *p,const GridInput *in,float scale) {
     uint64_t row=extending ? g->end_row : g->row; size_t col=extending ? g->end_col : g->col;
     GridRegion region=g->navigation;
     bool contextual=region.active && region.r0<=region.r1 && region.r1<DX_SHEET_ROWS && region.c0<=region.c1 && region.c1<g->width_count;
+    if (in->shortcut && !in->alt && g->manual_occupancy_active && g->selection==SELECT_CELLS &&
+        (key==KEY_UP || key==KEY_DOWN || key==KEY_LEFT || key==KEY_RIGHT)) {
+        GridBoundaryDirection direction=key==KEY_UP ? GRID_BOUNDARY_UP : key==KEY_DOWN ? GRID_BOUNDARY_DOWN : key==KEY_LEFT ? GRID_BOUNDARY_LEFT : GRID_BOUNDARY_RIGHT;
+        GridBoundarySelection before={g->row,g->anchor_row,g->end_row,g->col,g->anchor_col,g->end_col},next;
+        GridBoundaryStatus status=grid_data_boundary(&before,&g->manual_occupancy,direction,in->shift,&next);
+        if (status==GRID_BOUNDARY_APPLIED) {
+            size_t required=MAX(next.column,MAX(next.anchor_column,next.end_column))+1;
+            if (!grid_try_ensure_columns(g,required)) return;
+            g->row=next.row; g->anchor_row=next.anchor_row; g->end_row=next.end_row;
+            g->col=next.column; g->anchor_col=next.anchor_column; g->end_col=next.end_column;
+        } else if (status!=GRID_BOUNDARY_NOOP) return;
+        reveal_cell_at(g,data,scale,in->shift ? g->end_row : g->row,in->shift ? g->end_col : g->col); return;
+    }
     switch (key) {
     case KEY_UP: case KEY_DOWN:
         if (in->alt && key==KEY_DOWN && g->col<data->column_count) { if (!g->lock_structure) g->filter_requested=true; return; }

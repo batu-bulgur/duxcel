@@ -25,6 +25,7 @@ THREAD_LIBS =
 endif
 CPPFLAGS += -Isrc $(DUCKDB_CFLAGS) $(RAYLIB_CFLAGS)
 LDLIBS = $(RAYLIB_LIBS) $(DUCKDB_LIBS) $(THREAD_LIBS) -lm
+GRID_NAVIGATION_SRC = src/grid/grid.c src/grid/data_boundary.c
 CORE = src/workbook/workbook_width_command.c src/common.c src/platform/platform.c src/transforms/distinct.c src/transforms/analysis.c src/transforms/record_sql.c src/transforms/number.c src/transforms/pivot.c src/transforms/chart_other.c src/transforms/marks.c src/data/database.c src/data/page.c src/data/source_digest.c src/workbook/clipboard.c src/workbook/cells_tsv_scan.c src/workbook/cells.c src/workbook/format.c src/workbook/source_scope.c src/workbook/source_versions_codec.c src/workbook/objects.c src/workbook/workbook.c src/workbook/column_widths.c src/workbook/column_width_history.c src/workbook/column_width_command.c src/workbook/cell_command.c src/workbook/format_command.c src/workbook/source_format_command.c src/workbook/analysis_command.c src/workbook/object_source_plan.c src/workbook/table_command.c src/workbook/object_fence.c src/workbook/object_name_command.c src/workbook/object_presentation_command.c src/workbook/object_layout_command.c src/workbook/object_pivot_command.c src/workbook/object_binding_command.c src/workbook/object_delete_command.c src/workbook/object_create_command.c src/workbook/object_import_draft.c src/workbook/object_move_command.c src/workbook/cell_delta.c src/workbook/cell_delta_codec.c src/workbook/format_delta_codec.c src/workbook/format_dependencies.c src/workbook/save_fence.c src/workbook/history.c src/workbook/lifecycle.c src/workbook/sheet_lifecycle.c src/workbook/history_sheet_lifecycle.c src/workbook/sheet_lifecycle_command.c src/workbook/identity.c src/workbook/workbook_codec.c src/workbook/schema.c src/workbook/version_index.c src/workbook/history_anchors.c src/workbook/history_window.c src/workbook/history_path.c src/workbook/history_stream.c src/workbook/history_format.c src/workbook/analysis_asset.c src/workbook/definition_wire.c src/workbook/pivot_asset.c src/workbook/marks_asset.c src/workbook/objects_asset.c src/workbook/definition_dependencies.c src/workbook/definition_state.c src/workbook/definition_event.c src/workbook/history_definition.c src/workbook/definition_baseline.c src/workbook/definition_origin.c src/workbook/version_tag.c src/workbook/version_chunks.c src/workbook/version_codec.c src/data/worker.c src/workbook/cell_range_plan.c src/workbook/range_event.c src/workbook/history_range.c src/workbook/range_command.c src/workbook/cell_paste_plan.c
 CORE += src/workbook/mixed_range_plan.c
 # Current topology owners are shared model code; native App activation stays session-only.
@@ -35,7 +36,7 @@ CORE += src/workbook/source_range_plan.c
 CORE += src/workbook/primary_source_draft.c src/workbook/primary_source_publish.c src/workbook/sheet_source_view.c src/workbook/primary_source_topology.c src/workbook/primary_source_pending.c
 
 NATIVE_PERSISTENCE = src/app/versionpreview.c src/workbook/version_preview.c src/app/versionstate.c src/data/worker_archive.c src/workbook/version_save.c src/workbook/archive_write.c src/workbook/archive_read.c src/workbook/version_restore.c src/workbook/version_read.c src/workbook/version_sql.c src/workbook/version_stage.c src/workbook/core_compare.c src/workbook/core_payload.c src/platform/directory.c src/platform/file_lease.c src/workbook/journal.c src/workbook/journal_queue.c src/workbook/journal_session.c src/workbook/recovery.c src/workbook/recovery_catalog.c src/workbook/recovery_worker.c
-SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/versionview.c src/ui/versionpreviewview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c src/grid/grid.c src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
+SRC = $(CORE) $(NATIVE_PERSISTENCE) src/ui/cellreadout.c src/ui/choiceview.c src/ui/popup.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/marksview.c src/ui/workspace.c src/ui/inspector.c src/ui/statsview.c src/ui/guideview.c src/ui/recoveryview.c src/ui/versionview.c src/ui/versionpreviewview.c src/ui/stepview.c src/ui/preview.c src/ui/chartview.c src/ui/chartencoding.c src/ui/textview.c src/ui/sortview.c src/ui/brand.c src/platform/icon.c $(GRID_NAVIGATION_SRC) src/grid/selection_ladder.c src/app/step_preview.c src/app/selection.c src/app/build_info.c src/app/app.c src/main.c
 ifeq ($(shell uname -s),Darwin)
 SRC += src/platform/macos.m src/platform/macos_about.m
 LDLIBS += -framework AppKit -framework UniformTypeIdentifiers
@@ -623,10 +624,10 @@ build/tests/test_chartencoding: $(ENCODING_SRC) $(HEADERS) | build/tests
 build/tests/test_chartencoding-debug: $(ENCODING_SRC) $(HEADERS) | build/tests
 	$(CC) -Isrc -Isrc/ui $(DUCKDB_CFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(ENCODING_SRC) -o $@ -lm $(SANFLAGS)
 GRID_PAGE_SRC = src/transforms/analysis.c src/transforms/record_sql.c src/transforms/pivot.c src/transforms/chart_other.c src/data/page.c src/data/source_digest.c
-build/tests/test_grid: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS) | build/tests
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
-build/tests/test_grid-debug: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c $(HEADERS) | build/tests
-	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c src/grid/grid.c tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
+build/tests/test_grid: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c $(GRID_NAVIGATION_SRC) tests/test_grid.c $(HEADERS) | build/tests
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(WARN) src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c $(GRID_NAVIGATION_SRC) tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm
+build/tests/test_grid-debug: src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c $(GRID_NAVIGATION_SRC) tests/test_grid.c $(HEADERS) | build/tests
+	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/ribbon.c src/ui/ribbon_spec.c src/ui/keytips.c src/ui/flyout.c src/ui/statusview.c src/ui/dockview.c src/ui/workspace.c src/ui/chartview.c src/ui/textview.c $(GRID_NAVIGATION_SRC) tests/test_grid.c -o $@ $(RAYLIB_LIBS) -lm $(SANFLAGS)
 SOURCE_SCOPE_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/data/source_digest.c src/workbook/source_scope.c tests/test_source_scope.c
 OBJECT_TEST_SRC = src/common.c src/transforms/analysis.c src/transforms/number.c src/transforms/pivot.c src/transforms/marks.c src/workbook/cells_tsv_scan.c src/workbook/cells.c src/workbook/objects.c tests/test_objects.c
 build/tests/test_objects: $(OBJECT_TEST_SRC) $(HEADERS) | build/tests
@@ -838,7 +839,7 @@ build/tests/test_shadowview-debug: $(SHADOWVIEW_SRC) tests/fixtures/rendering/sh
 	$(CC) $(CPPFLAGS) -O1 -g $(WARN) $(SANFLAGS) $(SHADOWVIEW_SRC) -o $@ -lm $(SANFLAGS)
 INSPECTOR_SRC = src/ui/inspector.c tests/test_inspector.c
 STEPVIEW_SRC = src/common.c src/platform/platform.c src/transforms/number.c src/transforms/analysis.c src/ui/stepview.c tests/test_stepview.c
-PREVIEW_SRC = $(CORE) src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/preview.c src/ui/stepview.c src/grid/grid.c src/app/step_preview.c tests/test_preview.c
+PREVIEW_SRC = $(CORE) src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/preview.c src/ui/stepview.c $(GRID_NAVIGATION_SRC) src/app/step_preview.c tests/test_preview.c
 STATSVIEW_SRC = src/common.c src/transforms/number.c src/workbook/format.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/statsview.c tests/test_statsview.c
 GUIDEVIEW_SRC = src/common.c src/transforms/number.c src/workbook/format.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c src/ui/textview.c src/ui/guideview.c tests/test_guideview.c
 FONTMETRICS_SRC = src/ui/fontmetrics.c tests/test_fontmetrics.c
@@ -1194,6 +1195,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_state build/tests/test_h
 PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_publication build/tests/test_history_cells_publication-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type-debug build/tests/test_value_type_layout build/tests/test_value_type_layout-debug build/tests/test_value_type-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_data_boundary build/tests/test_data_boundary-debug
+PARALLEL_NATIVE_GOALS += build/tests/test_grid_data_boundary build/tests/test_grid_data_boundary-debug build/tests/test_data_boundary-gui
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2857,3 +2859,24 @@ build/tests/test_data_boundary: src/grid/data_boundary.c tests/test_data_boundar
 	$(call link_binary,$(CPPFLAGS) $(WARN) $(CFLAGS) src/grid/data_boundary.c tests/test_data_boundary.c,)
 build/tests/test_data_boundary-debug: src/grid/data_boundary.c tests/test_data_boundary.c src/grid/data_boundary.h src/common.h | build/tests
 	$(call link_binary,$(CPPFLAGS) $(WARN) -O1 -g $(SANFLAGS) src/grid/data_boundary.c tests/test_data_boundary.c,$(SANFLAGS))
+
+GRID_DATA_BOUNDARY_SRC = src/common.c $(GRID_PAGE_SRC) src/workbook/format.c src/transforms/number.c src/ui/motion.c src/ui/fontmetrics.c src/ui/paintlayer.c src/ui/paintlayer_backend.c src/ui/ui.c $(GRID_NAVIGATION_SRC) tests/test_grid_data_boundary.c
+GRID_DATA_BOUNDARY_OBJECTS = $(addprefix build/obj/features/grid-data-boundary/release/,$(addsuffix .o,$(basename $(GRID_DATA_BOUNDARY_SRC))))
+GRID_DATA_BOUNDARY_SAN_OBJECTS = $(addprefix build/obj/features/grid-data-boundary/sanitize/,$(addsuffix .o,$(basename $(GRID_DATA_BOUNDARY_SRC))))
+build/obj/features/grid-data-boundary/release/%.o: %.c
+	$(call compile_object,$(CPPFLAGS) $(WARN) $(CFLAGS) -DDUXCEL_GRID_TESTING)
+build/obj/features/grid-data-boundary/sanitize/%.o: %.c
+	$(call compile_object,$(CPPFLAGS) $(WARN) -O1 -g $(SANFLAGS) -DDUXCEL_GRID_TESTING)
+build/tests/test_grid_data_boundary: $(GRID_DATA_BOUNDARY_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(RAYLIB_LIBS) -lm)
+build/tests/test_grid_data_boundary-debug: $(GRID_DATA_BOUNDARY_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(RAYLIB_LIBS) -lm $(SANFLAGS))
+-include $(GRID_DATA_BOUNDARY_OBJECTS:.o=.d) $(GRID_DATA_BOUNDARY_SAN_OBJECTS:.o=.d)
+
+DATA_BOUNDARY_APP_OBJECT = build/obj/features/data-boundary/app.o
+$(DATA_BOUNDARY_APP_OBJECT): src/app/app.c src/app/grid_boundary.inc tests/support/data_boundary_app.inc build/obj/release/app/src/app/app.o
+	$(call compile_object,$(APP_RELEASE_FLAGS) -DDUXCEL_FEATURE_DATA_BOUNDARY)
+DATA_BOUNDARY_APP_LINK = $(filter-out build/obj/release/app/src/app/app.o build/obj/release/app/src/main.o,$(APP_RELEASE_OBJECTS)) $(DATA_BOUNDARY_APP_OBJECT)
+build/tests/test_data_boundary-gui: tests/test_data_boundary_gui.c $(DATA_BOUNDARY_APP_LINK) | build/tests
+	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_data_boundary_gui.c $(DATA_BOUNDARY_APP_LINK),$(LDFLAGS) $(LDLIBS))
+-include $(DATA_BOUNDARY_APP_OBJECT:.o=.d)

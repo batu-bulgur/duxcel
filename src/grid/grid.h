@@ -2,6 +2,7 @@
 #define DUXCEL_GRID_H
 #include "../data/database.h"
 #include "../ui/ui.h"
+#include "data_boundary.h"
 typedef enum { SELECT_CELLS, SELECT_ROWS, SELECT_COLUMNS, SELECT_ALL } SelectionMode;
 /* Scalar-only navigation bookmark: never copies a Grid's owned column arrays,
    borrowed formats, or in-progress pointer state. Zoom remains sheet-owned. */
@@ -42,6 +43,9 @@ typedef struct {
     size_t used_columns;
     SelectionMode selection;
     GridRegion navigation;
+    /* Borrowed only during one synchronous input dispatch; the adapter clears
+       it before arbitrary App commands/replies. No source/viewport inference. */
+    GridBoundaryOccupancy manual_occupancy; bool manual_occupancy_active;
     const FormatStore *formats; /* Borrowed for this frame; no ownership. */
     uint64_t format_row;
     size_t format_col;
@@ -90,7 +94,13 @@ void grid_destroy(Grid *g);
 GridLocation grid_location(const Grid *g);
 bool grid_restore_location(Grid *g,const GridLocation *location);
 void grid_schema(Grid *g, const Page *p, bool reset);
+/* Transactional capacity only: existing widths/names stay exact, new tail is
+   default/unnamed, with no authored width revision. Failure changes nothing. */
+bool grid_try_ensure_columns(Grid *g,size_t count);
 void grid_ensure_columns(Grid *g, size_t count);
+#ifdef DUXCEL_GRID_TESTING
+void grid_test_fail_column_allocation(unsigned ordinal);
+#endif
 void grid_set_width(Grid *g, size_t col, float width);
 /* Project committed physical widths, independent of source names/schema. The
    omitted virtual tail is96. Validate before changing any cache or geometry;

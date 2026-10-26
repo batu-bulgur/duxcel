@@ -953,6 +953,7 @@ static bool manual_cell(App *a) {
     if (a->analysis.kind!=SOURCE_NONE && !a->page.column_count && !a->fetch_failed) return false;
     return !(a->grid.row<source_rows(a) && a->grid.col<a->page.column_count) && objects_hit(&active_sheet(a)->objects,a->grid.row,a->grid.col)<0;
 }
+#include "grid_boundary.inc"
 static void set_grid_navigation(App *a) {
     a->grid.navigation=(GridRegion){0}; ObjectStore *store=&active_sheet(a)->objects;
     int hit=objects_hit(store,a->grid.row,a->grid.col); if (hit<0) return;
@@ -987,8 +988,9 @@ static void replay_canvas_keys(App *a,bool enabled) {
 #else
         input.key_shortcut=(event.modifiers&DX_MOD_CONTROL)!=0;
 #endif
+        AppGridBoundary boundary; app_grid_boundary_begin(a,&boundary);
         grid_handle_input(&a->grid,&a->ui,&a->page,&input);
-        keyboard_object(a);
+        app_grid_boundary_end(a); keyboard_object(a);
     }
 }
 static bool object_count_active(const App *a) {
@@ -9377,8 +9379,9 @@ static void draw_app(App *a) {
 #endif
     set_grid_navigation(a);
     bool canvas_input=!pivot_active && !zooming && !a->left_drawer && a->modal==MODAL_NONE && !a->chrome_focus && !a->ribbon_focus && !a->pivot_focus && !a->consume_grid_input && !a->split_side && !a->split_pipeline;
+    AppGridBoundary boundary; if (canvas_input) app_grid_boundary_begin(a,&boundary); else app_grid_boundary_end(a);
     grid_update(&a->grid,u,&a->page,gr,canvas_input);
-    replay_canvas_keys(a,canvas_input);
+    app_grid_boundary_end(a); replay_canvas_keys(a,canvas_input);
     if (!pivot_active) remember_source_location(a);
     if (a->grid.resizing<0) {
         if (ui_pressed(KEY_ESCAPE)) project_sheet_widths(a);
@@ -15863,6 +15866,9 @@ static void object_move_command_test_frame(AppSession *session);
 #ifdef DUXCEL_FEATURE_SOURCE_DETAILS
 static void source_details_test_frame(AppSession *session);
 #endif
+#ifdef DUXCEL_FEATURE_DATA_BOUNDARY
+static void data_boundary_test_frame(AppSession *session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
 static void source_results_test_frame(AppSession *session);
 #endif
@@ -16822,6 +16828,9 @@ bool app_frame(AppSession *session) {
 #ifdef DUXCEL_FEATURE_SOURCE_DETAILS
     source_details_test_frame(session);
 #endif
+#ifdef DUXCEL_FEATURE_DATA_BOUNDARY
+    data_boundary_test_frame(session);
+#endif
 #ifdef DUXCEL_FEATURE_SOURCE_RESULTS
     source_results_test_frame(session);
 #endif
@@ -17316,4 +17325,8 @@ int app_run(const AppOptions *options) {
 
 #ifdef DUXCEL_FEATURE_SOURCE_DETAILS
 #include "../../tests/support/source_details_app.inc"
+#endif
+
+#ifdef DUXCEL_FEATURE_DATA_BOUNDARY
+#include "../../tests/support/data_boundary_app.inc"
 #endif

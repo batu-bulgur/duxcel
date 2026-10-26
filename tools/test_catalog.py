@@ -20,6 +20,8 @@ class Feature:
 WIDGET_GUI = frozenset({"value-type"})
 
 STANDALONE_GUI = {
+    "data-boundary": ("build/tests/test_data_boundary-gui", "PASS: native manual data-boundary workflow",
+                    r"^PASS: native manual data-boundary workflow \(31 stages, [1-9]\d* checks\)$", 31),
     "value-type": ("build/tests/test_value_type-gui", "PASS: native explicit value-type workflow",
                     r"^PASS: native explicit value-type workflow \(24 stages, [1-9]\d* checks\)$", 24),
     "source-details-csv": ("build/tests/test_source_details_csv-gui", "PASS: native source provenance workflow",
@@ -974,6 +976,14 @@ FEATURES["value-type-view"] = Feature(("value_type", "manual_value", "value_type
     ("python3 tools/test.py full --config both",),
     ("src/ui/value_type_view.h", "src/ui/value_type_layout.c", "src/ui/value_type_view.c", "tests/test_value_type_layout.c", "tests/test_value_type_gui.c"))
 
-FEATURES["data-boundary"] = Feature(("data_boundary",), "",
+FEATURES["data-boundary"] = Feature(("data_boundary", "grid_data_boundary"), "",
     ("python3 tools/test.py full --config both",),
     ("src/grid/data_boundary.c", "src/grid/data_boundary.h", "tests/test_data_boundary.c"))
+
+FEATURES["data-boundary-app"] = Feature(("data_boundary", "grid_data_boundary", "grid"), "data-boundary",
+    ("python3 tools/test.py full --config both",),
+    ("src/app/grid_boundary.inc", "src/grid/grid.c", "src/grid/grid.h", "tests/support/data_boundary_app.inc", "tests/test_data_boundary_gui.c"))
+
+FEATURES["data-boundary-grid"] = Feature(("data_boundary", "grid_data_boundary", "grid"), "",
+    ("python3 tools/test.py feature --feature data-boundary-app",),
+    ("src/grid/grid.c", "src/grid/grid.h", "tests/test_grid_data_boundary.c"))
