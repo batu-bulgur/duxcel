@@ -987,3 +987,7 @@ FEATURES["data-boundary-app"] = Feature(("data_boundary", "grid_data_boundary", 
 FEATURES["data-boundary-grid"] = Feature(("data_boundary", "grid_data_boundary", "grid"), "",
     ("python3 tools/test.py feature --feature data-boundary-app",),
     ("src/grid/grid.c", "src/grid/grid.h", "tests/test_grid_data_boundary.c"))
+
+FEATURES["go-to"] = Feature(("go_to", "go_to_layout"), "",
+    ("python3 tools/test.py full --config both",),
+    ("src/grid/go_to.c", "src/grid/go_to.h", "src/ui/go_to_layout.c", "src/ui/go_to_layout.h", "tests/test_go_to.c", "tests/test_go_to_layout.c"))

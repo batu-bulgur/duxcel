@@ -1196,6 +1196,7 @@ PARALLEL_NATIVE_GOALS += build/tests/test_history_cells_publication build/tests/
 PARALLEL_NATIVE_GOALS += build/tests/test_value_type build/tests/test_value_type-debug build/tests/test_value_type_layout build/tests/test_value_type_layout-debug build/tests/test_value_type-gui
 PARALLEL_NATIVE_GOALS += build/tests/test_data_boundary build/tests/test_data_boundary-debug
 PARALLEL_NATIVE_GOALS += build/tests/test_grid_data_boundary build/tests/test_grid_data_boundary-debug build/tests/test_data_boundary-gui
+PARALLEL_NATIVE_GOALS += build/tests/test_go_to build/tests/test_go_to-debug build/tests/test_go_to_layout build/tests/test_go_to_layout-debug
 ifneq ($(strip $(filter-out $(PARALLEL_NATIVE_GOALS) build/obj/%,$(MAKECMDGOALS))),)
 .NOTPARALLEL:
 endif
@@ -2880,3 +2881,24 @@ DATA_BOUNDARY_APP_LINK = $(filter-out build/obj/release/app/src/app/app.o build/
 build/tests/test_data_boundary-gui: tests/test_data_boundary_gui.c $(DATA_BOUNDARY_APP_LINK) | build/tests
 	$(call link_binary,$(APP_RELEASE_FLAGS) tests/test_data_boundary_gui.c $(DATA_BOUNDARY_APP_LINK),$(LDFLAGS) $(LDLIBS))
 -include $(DATA_BOUNDARY_APP_OBJECT:.o=.d)
+
+GO_TO_SRC = $(filter-out tests/test_grid_data_boundary.c,$(GRID_DATA_BOUNDARY_SRC)) src/grid/go_to.c tests/test_go_to.c
+GO_TO_OBJECTS = $(addprefix build/obj/features/go-to/release/,$(addsuffix .o,$(basename $(GO_TO_SRC))))
+GO_TO_SAN_OBJECTS = $(addprefix build/obj/features/go-to/sanitize/,$(addsuffix .o,$(basename $(GO_TO_SRC))))
+build/obj/features/go-to/release/%.o: %.c
+	$(call compile_object,$(CPPFLAGS) $(WARN) $(CFLAGS) -DDUXCEL_GRID_TESTING)
+build/obj/features/go-to/sanitize/%.o: %.c
+	$(call compile_object,$(CPPFLAGS) $(WARN) -O1 -g $(SANFLAGS) -DDUXCEL_GRID_TESTING)
+build/tests/test_go_to: $(GO_TO_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,$(RAYLIB_LIBS) -lm)
+build/tests/test_go_to-debug: $(GO_TO_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,$(RAYLIB_LIBS) -lm $(SANFLAGS))
+-include $(GO_TO_OBJECTS:.o=.d) $(GO_TO_SAN_OBJECTS:.o=.d)
+GO_TO_LAYOUT_SRC = src/ui/go_to_layout.c tests/test_go_to_layout.c
+GO_TO_LAYOUT_OBJECTS = $(addprefix build/obj/release/app/,$(addsuffix .o,$(basename $(GO_TO_LAYOUT_SRC))))
+GO_TO_LAYOUT_SAN_OBJECTS = $(addprefix build/obj/sanitize/app/,$(addsuffix .o,$(basename $(GO_TO_LAYOUT_SRC))))
+build/tests/test_go_to_layout: $(GO_TO_LAYOUT_OBJECTS) | build/tests
+	$(call link_binary,$(CFLAGS) $^,-lm)
+build/tests/test_go_to_layout-debug: $(GO_TO_LAYOUT_SAN_OBJECTS) | build/tests
+	$(call link_binary,-O1 -g $(SANFLAGS) $^,-lm $(SANFLAGS))
+-include $(GO_TO_LAYOUT_OBJECTS:.o=.d) $(GO_TO_LAYOUT_SAN_OBJECTS:.o=.d)
