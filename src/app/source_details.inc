@@ -1,5 +1,9 @@
 /* Selected source presentation only. No stored connection mode or row owner. */
 static bool source_details_view(App *a,SourceProvenanceView *out) {
+#ifdef DUXCEL_BROWSER_HOST
+    /* Browser uploaded virtual locators need a separate provenance surface. */
+    (void)a; (void)out; return false;
+#else
     Worksheet *sheet=active_sheet(a); if (!sheet) return false;
     const SheetObject *table=objects_source(&sheet->objects,selected_object(a));
     const Analysis *source=table ? &table->source : &a->analysis;
@@ -11,11 +15,12 @@ static bool source_details_view(App *a,SourceProvenanceView *out) {
         if (associated && view->failed) state=SOURCE_VIEW_UNAVAILABLE;
         else if (associated && !pending && object_ready(a,index)) state=SOURCE_VIEW_READY;
     } else {
-        bool pending=!a->object_import.active && a->busy && (a->pending_kind==JOB_PAGE || (a->pending_kind==JOB_COUNT && !a->pending_object_id));
+        bool pending=!a->object_import.active && !app_primary_source_pending(a) && a->busy && (a->pending_kind==JOB_PAGE || (a->pending_kind==JOB_COUNT && !a->pending_object_id));
         if (a->fetch_failed) state=SOURCE_VIEW_UNAVAILABLE;
         else if (!pending && !a->page_stale && a->page.column_count && !a->page.count_pending) state=SOURCE_VIEW_READY;
     }
     return ui_source_provenance(source,state,out);
+#endif
 }
 static void source_details_free(App *a) {
     free(a->source_details_text); a->source_details_text=NULL;
